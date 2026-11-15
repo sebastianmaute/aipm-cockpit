@@ -33,7 +33,9 @@ Fragen, die nur Ihre Organisation beantworten kann.
   wurde, nennt die Person als abwesend „(vacation, sick or training)“, ohne den Typ zu nennen, und kann den Chat
   (seine Insight-Zeilen und sein Werkzeug `get_app_state`), die Bearbeitung einer Zeile und beide
   Insight-Empfehlungen erreichen (E63, *getestet (Unit)*; E1, *im Code gelesen*). Bei aktivem Personenschutz
-  sendet ihn keiner dieser Pfade (E67, *getestet (Unit)*); keiner tut es, solange `timelog` abgeschaltet oder
+  fügt ihn keiner dieser Pfade einer Anfrage hinzu, aber der Chat sendet die früheren Nachrichten eines Gesprächs
+  unverändert erneut, auch eine Antwort eines Werkzeugs von vor dem Einschalten des Schutzes (E67,
+  *getestet (Unit)*; das erneute Senden *im Code gelesen*); keiner tut es, solange `timelog` abgeschaltet oder
   Timelog im Projekt ausgeblendet ist, und ein Typ, den eine nutzende Person schreibt, etwa „krank“, wird so
   gesendet, wie er dasteht (E64, *im Code gelesen*).
 - **Diktat:** Audio geht nicht an Anthropic, sondern an den Sprachdienst, den die nutzende Person einrichtet,

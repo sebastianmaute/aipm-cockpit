@@ -25,7 +25,8 @@ app does nothing to make a request give the same answer twice (§812; E27, *not 
   stakeholders' influence and interest; insights from Timelog name one person with findings about their logged
   working time and, while people protection is off, go to the chat, the row edit and the insight
   recommendations ([AI paths and people data](appendix.md#ai-paths-and-people-data); E1, *read in code*);
-  while it is on, to none of them (E67, *tested (unit)*).
+  while it is on, to none of them, except that the chat sends the earlier messages of a conversation again as
+  they were (E67, *tested (unit)*; the resending *read in code*).
 - **Where a person approves:** each allocation and RACI change is shown with its current and proposed value
   and can be deselected (E56, *read in code*). The chat holds changes on a *review card* for the user in set
   cases, such as a deletion or more than one write, and every change while a file is attached, except the work

@@ -28,7 +28,9 @@ ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
   enthält Einfluss und Interesse der Stakeholder; Insights aus Timelog nennen eine Person mit Befunden zu ihrer
   erfassten Arbeitszeit und gehen bei ausgeschaltetem Personenschutz an den Chat, die Bearbeitung einer Zeile und
   die Insight-Empfehlungen ([KI-Pfade und Personendaten](appendix.md#ki-pfade-und-personendaten); E1,
-  *im Code gelesen*); bei aktivem Personenschutz an keinen davon (E67, *getestet (Unit)*).
+  *im Code gelesen*); bei aktivem Personenschutz an keinen davon,
+  außer dass der Chat die früheren Nachrichten eines Gesprächs unverändert erneut sendet (E67, *getestet (Unit)*;
+  das erneute Senden *im Code gelesen*).
 - **Wo eine Person freigibt:** Jede Änderung der Ressourcenplanung und des RACI-Vorschlags wird mit ihrem
   bisherigen und dem vorgeschlagenen Wert gezeigt und lässt sich abwählen (E56, *im Code gelesen*). Der Chat
   hält Änderungen in festgelegten Fällen für die nutzende Person auf einer *Prüfkarte* fest, etwa bei einer

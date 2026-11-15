@@ -64,6 +64,8 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
 3. **§487, §793:** the Windows installer is unsigned, and the uninstaller would stay unsigned with signing on
    (E51, *tested (unit)*).
 4. **§800:** the policy allows whole host families by wildcard (E34, *read in code*).
+5. **§562:** every server route's request limit, the relay's and dictation's included, is keyed on a header the
+   caller can set and counted per server process, so it can be avoided (E54, *read in code*).
 
 ## What to check or ask for before saying yes
 
