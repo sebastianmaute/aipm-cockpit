@@ -52,7 +52,7 @@ export function aiProtectedTextKey(row: AiDataPath): TranslationKey {
 
 export const AI_DATA_PATHS: readonly AiDataPath[] = [
   { id: "chat", level: "interactive", labelKey: "aiDataChatLabel", dataKey: "aiDataChat", whenProtected: "redacted", protectedKey: "aiProtectedChat" },
-  { id: "inline-edit", level: "interactive", labelKey: "aiDataInlineEditLabel", dataKey: "aiDataInlineEdit", whenProtected: "redacted" },
+  { id: "inline-edit", level: "interactive", labelKey: "aiDataInlineEditLabel", dataKey: "aiDataInlineEdit", whenProtected: "redacted", protectedKey: "aiProtectedInlineEdit" },
   { id: "committee-report", level: "interactive", labelKey: "aiDataCommitteeReportLabel", dataKey: "aiDataCommitteeReport", whenProtected: "redacted" },
   { id: "digest-narrative", level: "interactive", labelKey: "aiDataDigestNarrativeLabel", dataKey: "aiDataDigestNarrative", whenProtected: "redacted" },
   { id: "forecast-import", level: "interactive", labelKey: "aiDataForecastImportLabel", dataKey: "aiDataForecastImport", whenProtected: "redacted" },

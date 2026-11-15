@@ -156,6 +156,27 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|3e517407a4da|redacted|aiProtectedInsightRecommendation|a1f791791528",
     "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted|aiProtectedRedacted|755d95d88527",
   ],
+  // v7: the chat and inline-edit protected texts say an insight about one person is not sent (`insightReachesAi`,
+  // in code since v6); inline edit got its own `protectedKey`, `aiProtectedInlineEdit`, so this is a bump.
+  7: [
+    "chat|interactive|aiDataChatLabel|aiDataChat|877edc85d82b|redacted|aiProtectedChat|4fad6aaf2297",
+    "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|5f4bd300b6f6|redacted|aiProtectedInlineEdit|e1ebddccde79",
+    "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|dab0929eea32|redacted|aiProtectedRedacted|755d95d88527",
+    "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793|redacted|aiProtectedRedacted|755d95d88527",
+    "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport|77d3b27235a2|redacted|aiProtectedRedacted|755d95d88527",
+    "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation|7433c859ec84|redacted|aiProtectedInsightRecommendation|a1f791791528",
+    "action-analysis|interactive|aiDataActionAnalysisLabel|aiDataActionAnalysis|37a0083b91fb|redacted|aiProtectedRedacted|755d95d88527",
+    "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|353f4c07ced6|hidden|aiProtectedAllocPlan|6c3ea3b2cddb",
+    "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest|c8bdc16faa5f|hidden|aiProtectedHidden|bb828968bb82",
+    "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup|b0832e394653|redacted|aiProtectedRedacted|755d95d88527",
+    "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|315ad3046125|redacted|aiProtectedRedacted|755d95d88527",
+    "weight-suggestion|interactive|aiDataWeightSuggestionLabel|aiDataWeightSuggestion|f01d808dbb51|redacted|aiProtectedRedacted|755d95d88527",
+    "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal|155bba30c3ac|redacted|aiProtectedProjectProposal|4a15ce1fd465",
+    "dictation|interactive|aiDataDictationLabel|aiDataDictation|11af271ca960|off|aiProtectedOff|64eeff2a6195",
+    "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob|e83fee7d86c3|redacted|aiProtectedRedacted|755d95d88527",
+    "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|3e517407a4da|redacted|aiProtectedInsightRecommendation|a1f791791528",
+    "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted|aiProtectedRedacted|755d95d88527",
+  ],
 };
 
 // Which disclosure rows each activation site (src/test/ai-activation-sites.ts) leads to. A new site
@@ -259,6 +280,19 @@ describe("AI_DATA_PATHS", () => {
     expect(moved).toEqual(AI_DATA_PATHS.filter((r) => aiProtectedTextKey(r) === key).map((r) => r.id));
     expect(moved).toContain(row.id);
   });
+
+  // Every path that sends the open-insight lines leaves out an insight about one person under protection
+  // (`insightReachesAi`); the protected text the user accepts must say so, in both languages. The list is by hand:
+  // a new path that sends insight lines (a caller of `buildInsightsPromptBlock` or `insightReachesAi`) joins it.
+  it.each(["chat", "inline-edit", "insight-recommendation", "insight-recommendation-auto"])(
+    "%s: the protected text says an insight about one person is not sent",
+    (id) => {
+      const row = AI_DATA_PATHS.find((r) => r.id === id)!;
+      const key = aiProtectedTextKey(row);
+      expect(t("en-US", key)).toMatch(/insights? about one person/i);
+      expect(de[key]).toMatch(/Insights? über eine einzelne Person/i);
+    },
+  );
 
   it("a version-1 table (consented before people protection) is no longer the current one", () => {
     expect(AI_DISCLOSURE_VERSION).toBeGreaterThan(1);
