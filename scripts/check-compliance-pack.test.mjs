@@ -46,8 +46,11 @@ const append = (rel, text) => {
 describe("check-compliance-pack.mjs, run against a scratch copy", () => {
   beforeEach(freshCopy);
   afterAll(() => {
-    unlinkSync(scratchModules);
-    rmSync(scratch, { recursive: true, force: true });
+    try {
+      unlinkSync(scratchModules);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
   });
 
   it("exits 0 on a clean copy", () => {

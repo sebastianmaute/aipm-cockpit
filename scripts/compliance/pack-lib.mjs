@@ -371,7 +371,7 @@ const STATUTE_AFTER = new RegExp(
 );
 
 /** The [start, end) source offsets of everything in `src` that Markdown renders as code: inline code spans and
- *  indented code blocks (fenced code is also skipped line by line, `fencedFlags`). Read with micromark, a
+ *  indented and fenced code blocks. Read with micromark, a
  *  CommonMark parser, plus its GFM table extension because the pack's tables are GFM tables: hand-written pairing got
  *  hard wraps, block quotes, lists, indented code and HTML blocks wrong in turn, and either error direction is a
  *  defect here — a span missed reports a number that is code, a span invented swallows a real citation. */
@@ -408,7 +408,8 @@ function lineStartOffsets(src) {
  *  @returns {{ n: number, line: number }[]} in document order, 1-based lines. */
 export function proseGapCitations(src) {
   const { lines, blocks } = scanBlocks(src);
-  const fenced = fencedFlags(lines);
+  // Fenced code comes from `codeRanges` alone, not also from `fencedFlags`: the line-based check reads a backtick
+  // line whose info string holds a backtick as a fence, which CommonMark does not, and would skip real prose.
   const inBlock = (i) => blocks.some((b) => i > b.begin && i < b.end);
   const cite = /(?<![§\p{L}\p{N}])§(\d{3,})(?!\d)(?:[a-z](?!\p{L}))?/gu;
   const statuteBefore = STATUTE_BEFORE;
@@ -417,7 +418,7 @@ export function proseGapCitations(src) {
   const code = codeRanges(src);
   const starts = lineStartOffsets(src);
   lines.forEach((line, i) => {
-    if (fenced[i] || inBlock(i)) return;
+    if (inBlock(i)) return;
     for (const m of line.matchAll(cite)) {
       const at = starts[i] + m.index;
       if (code.some(([s, e]) => at >= s && at < e)) continue;

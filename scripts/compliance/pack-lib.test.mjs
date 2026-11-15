@@ -297,6 +297,14 @@ describe("proseGapCitations", () => {
     ]);
   });
 
+  // CommonMark opens no fence on a backtick line whose info string holds a backtick, so what follows is prose.
+  it("does not take a backtick line with a backtick in its info string for a fence", () => {
+    expect(proseGapCitations("``` a`b\n§810\n§811")).toEqual([
+      { n: 810, line: 2 },
+      { n: 811, line: 3 },
+    ]);
+  });
+
   // A quoted test title or code name can carry a register number ("… (§797)") without citing that gap; only prose
   // outside inline code cites one.
   it("skips a § number inside an inline code span, and still finds one beside it", () => {
