@@ -26,6 +26,7 @@ import { request as httpsRequest } from "node:https";
 import type { RequestOptions } from "node:http";
 import { refuseIfDisabled } from "../_shared/integration-switch";
 import { rateLimit } from "../jira/_rate-limit";
+import { AI_RELAY_MAX_REQUESTS_ENV, readRequestLimit } from "../_shared/request-limit-config";
 import { readAiGatewayConfig, type AiGatewayConfig } from "../../ai-gateway-config";
 import { readAiKeyRestriction, type AiKeyRestriction } from "../../ai-key-restriction-config";
 import {
@@ -48,9 +49,9 @@ export const RELAY_MAX_BODY_BYTES = 32 * 1024 * 1024;
 // Idle timeout on the upstream socket (node's `timeout` option): a streamed answer
 // that keeps sending is never cut off, a silent one is after 15 minutes.
 export const RELAY_TIMEOUT_MS = 15 * 60 * 1000;
-// §806: relayed calls one caller may send per minute (`rateLimit`, scope "ai"). Above the other
-// routes' 60, because one chat turn that uses tools is several calls, and an office behind one
-// address shares the count.
+// §806: relayed calls one caller may send per minute (`rateLimit`, scope "ai"), unless the operator sets
+// `AIPM_AI_RELAY_MAX_REQUESTS` (`readRequestLimit`). Above the other routes' 60, because one chat turn
+// that uses tools is several calls, and an office behind one address shares the count.
 export const RELAY_MAX_REQUESTS = 120;
 
 // The gateway codes come from the client's own module, so the two sides cannot drift; the
@@ -324,7 +325,7 @@ export async function relay(
   // §806: after the origin and key checks, so a refused call never uses up a caller's count (a web page can make
   // a visitor's browser send cross-site calls, but not with a key header), and before the key check, which is
   // itself an upstream call.
-  const limited = rateLimit(request, "ai", RELAY_MAX_REQUESTS);
+  const limited = rateLimit(request, "ai", readRequestLimit(env, AI_RELAY_MAX_REQUESTS_ENV, RELAY_MAX_REQUESTS));
   if (limited) {
     // The relay's own code, so the browser names this server, not Anthropic's limit or the gateway's.
     const overLimit = fail(429, AI_RELAY_RATE_LIMITED);

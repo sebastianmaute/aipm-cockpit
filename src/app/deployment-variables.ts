@@ -29,6 +29,8 @@ export const DEPLOYMENT_VARIABLES: readonly DeploymentVariable[] = [
     effectKey: "deployVarDisabledIntegrations",
     values: INTEGRATION_IDS,
   },
+  { name: "AIPM_AI_RELAY_MAX_REQUESTS", aliases: [], subsystem: "server", effectKey: "deployVarAiRelayMaxRequests" },
+  { name: "AIPM_STT_MAX_REQUESTS", aliases: [], subsystem: "server", effectKey: "deployVarSttMaxRequests" },
   { name: "AIPM_AI_CHAT_RETENTION_DAYS", aliases: [], subsystem: "server", effectKey: "deployVarAiChatRetentionDays" },
   { name: "AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY", aliases: [], subsystem: "server", effectKey: "deployVarAiChatRecoveryPublicKey" },
   { name: "AIPM_CHAT_SWEEP_TURSO_URL", aliases: [], subsystem: "server", effectKey: "deployVarChatSweepTursoUrl" },

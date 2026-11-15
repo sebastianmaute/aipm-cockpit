@@ -221,6 +221,35 @@ describe("relay — refusals before any upstream call", () => {
     expect(other.status).toBe(200);
   });
 
+  // The operator setting replaces the default for the relay only.
+  it("AIPM_AI_RELAY_MAX_REQUESTS sets the relay's per-caller limit", async () => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    const env = { ...GATEWAY_ENV, AIPM_AI_RELAY_MAX_REQUESTS: "3" };
+    const ip = "203.0.113.84";
+    for (let i = 0; i < 3; i++) {
+      expect((await relay(getModels({ "x-forwarded-for": ip }), "models", env, send)).status).toBe(200);
+    }
+    const refused = await relay(getModels({ "x-forwarded-for": ip }), "models", env, send);
+    expect(refused.status).toBe(429);
+    expect(await refused.json()).toEqual({ error: "ai-relay-rate-limited" });
+    expect(calls).toHaveLength(3);
+  });
+
+  it("an invalid AIPM_AI_RELAY_MAX_REQUESTS keeps the default limit", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const { send } = fakeSend(respondWith(200, ANTHROPIC_OK));
+      const env = { ...GATEWAY_ENV, AIPM_AI_RELAY_MAX_REQUESTS: "0" };
+      const ip = "203.0.113.85";
+      for (let i = 0; i < RELAY_MAX_REQUESTS; i++) {
+        expect((await relay(getModels({ "x-forwarded-for": ip }), "models", env, send)).status).toBe(200);
+      }
+      expect((await relay(getModels({ "x-forwarded-for": ip }), "models", env, send)).status).toBe(429);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   // A web page can make a visitor's browser send cross-site calls (without a key: a key header needs a CORS
   // preflight, which the relay never grants). Refused calls must not use up that visitor's count.
   it("refused cross-site and key-less calls do not count against the caller's limit", async () => {

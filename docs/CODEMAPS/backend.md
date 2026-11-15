@@ -26,8 +26,8 @@ Persistence is entirely client-side (see `data.md`).
 
 ### Shared guard core — `api/_shared/proxy-ssrf.ts`
 
-`isPrivateHost` (fail-closed: RFC1918, loopback, 169.254/16 metadata, IPv6 ULA/link-local, NAT64,
-mapped-IPv4) + `mappedIpv4ToDotted` + `isAllowedHostSuffix(host, apex)` (leading-dot suffix match, so
+`isPrivateHost` (fail-closed: RFC1918, loopback, 0.0.0.0/8, 100.64/10 shared address space, 169.254/16
+metadata, IPv6 ULA/link-local, NAT64, mapped-IPv4) + `mappedIpv4ToDotted` + `isAllowedHostSuffix(host, apex)` (leading-dot suffix match, so
 `evil-atlassian.net` cannot pass). Imported by the jira, timelog and stt helpers; **provider-specific
 normalize/auth/URL stays per-route by design** — do not parameterize divergent security guards into
 one factory.

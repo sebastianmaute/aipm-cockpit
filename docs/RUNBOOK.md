@@ -739,8 +739,11 @@ What to know when running it:
   reloaded. Announce the change and ask users to reload every open tab.
 - **Rate limiting belongs to the gateway.** The relay limits each caller to 120 requests
   a minute (`RELAY_MAX_REQUESTS`), and dictation to 60, as a guard against a runaway
-  client, not as a quota: the count is per server process and keyed by the forwarding
-  header, which a caller sets (§562). When it answers, users see "This app's server is
+  client, not as a quota. Set `AIPM_AI_RELAY_MAX_REQUESTS` or `AIPM_STT_MAX_REQUESTS`
+  (a whole number from 1 to 100000) to change either number, for example when many
+  users reach the server through one address; an invalid value keeps the default and
+  is logged once, naming the setting. Restart the server to apply a change. In both
+  cases the count is per server process and keyed by the forwarding header, which a caller sets (§562). When it answers, users see "This app's server is
   limiting AI requests from your connection right now". Set a real limit in the
   gateway's settings. When the gateway itself answers
   429, users see "Your organisation's AI gateway is limiting requests right now";
