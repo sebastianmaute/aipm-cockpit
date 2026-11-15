@@ -15,12 +15,12 @@ The prose describes the code at commit 57335a5ba. The figures were measured on 2
 project at commit e63693393 and not measured again. Between the two, apart from the briefs' own tooling, the key
 check's pass expiry and its description changed, which alters no measured request or cost, and the app changed in
 five ways the figures predate: while people protection is on, no insight about one person is added to a request
-to the AI (E67), the activity entry of an applied work breakdown names the tasks it created (E68), Plan with AI shows what
-its request left out (E60), the relay and the dictation route refuse more calls and limit each caller (E69,
-E70), which can refuse a call but changes none that passes, and the AI disclosure changed, so each user accepts
-it again. The first two change what a request carries: under people protection no insight about one person is
-added to a request (E67), and the activity text the chat can search names up to 20 of the created tasks
-(E68). Open gaps are cited by their number in the project's register of open follow-ups
+to the AI (E67), the activity entry of an applied work breakdown names the tasks it created (E68), Plan with AI
+shows what its request left out (E60), the relay and the dictation route refuse more calls and limit each
+caller (E69, E70), which can refuse a call but changes none that passes, and the AI disclosure changed, so each
+user accepts it again. The first two change what a request carries; for the second, the activity text the chat
+can search names up to 20 of the created tasks (E68). Open gaps are cited by their number in the project's
+register of open follow-ups
 (`docs/open-followups.md`), for example §802; the table under "Open gaps" lists every one the briefs cite.
 
 ## Evidence labels
