@@ -234,9 +234,11 @@ aufgeführt. [geprüft je Punkt unten]
   `src/app/chat-proposal.ts`, `stagesWhenUntrusted` in `src/app/chat-send-record.ts`] **Ausnahme:** Eine
   einzelne Änderung außerhalb dieser Fälle wird sofort ausgeführt, ohne Karte (§794). Sie wird als
   Änderung der KI protokolliert, und die meisten solchen Änderungen lassen sich rückgängig machen, aber
-  keine Person hat sie vorher freigegeben. [geprüft: `shouldStage` in `src/app/chat-proposal.ts`, `src/app/activity-log.ts`; Register §794] Fremder Text, den der Chat
-  über seine Werkzeuge liest, etwa aus Jira synchronisierte Inhalte, löst das Zurückhalten nicht aus
-  (§797). [geprüft: `untrusted` in `SendRecord`, `src/app/chat-send-record.ts`; Register §797] Eine Statusanfrage, die der Chat vorbereitet, öffnet sich als
+  keine Person hat sie vorher freigegeben. [geprüft: `shouldStage` in `src/app/chat-proposal.ts`, `src/app/activity-log.ts`; Register §794] Hat der Chat eine aus Jira
+  synchronisierte Aufgabe gelesen, wartet auch jede spätere Änderung der Unterhaltung auf der Karte; Text
+  von außen ohne Kennzeichnung seiner Herkunft, etwa aus einer importierten Datei angelegte Einträge, löst
+  das Zurückhalten nicht aus. [geprüft: `resultCarriesExternalText` und `openSendRecord` in
+  `src/app/chat-send-record.ts`] Eine Statusanfrage, die der Chat vorbereitet, öffnet sich als
   E-Mail-Entwurf im eigenen Mailprogramm des Nutzers, der sie selbst sendet. [geprüft: `send_inquiry` in
   `src/app/chat-tool-defs.ts`, `sendInquiry` in `src/app/use-chat-dispatcher.ts`]
 - **Bearbeitung einer Zeile mit „Claude fragen“.** Zeigt die Änderungen und führt sie erst aus, wenn der

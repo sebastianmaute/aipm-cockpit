@@ -73,7 +73,6 @@ and the pack's check fails when a listed entry is closed or missing. [verified:
 | §794 | A single AI chat write applies without the review card |
 | §795 | Background AI runs are consented once, not approved run by run |
 | §796 | Tasks created by Plan with AI's work breakdown cannot be undone |
-| §797 | External text that the chat's tools read does not trigger the review hold |
 | §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |
 | §800 | The Content Security Policy allows whole host families by wildcard |
@@ -100,9 +99,6 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
   advance. Nobody approves each run.
 - **§796** — After a person applies an AI work breakdown, undo reverts the changes to existing tasks but
   not the tasks it created. Those must be deleted by hand.
-- **§797** — The chat holds its proposed changes for review when a file is attached, but not when it has
-  read outside text through its tools (for example content synced from Jira), although such text could
-  carry instructions too.
 - **§798** — Most AI requests wait until the user cancels or the connection fails, and a request refused
   because the service is busy is not tried again. Users see a failure or a long wait.
 - **§799** — The activity log shows that the AI changed something and what changed, but not which chat

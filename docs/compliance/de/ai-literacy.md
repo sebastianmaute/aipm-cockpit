@@ -59,8 +59,12 @@ Kennen Sie die Ausnahmen:
   Sache ändern oder Arbeit auf einen Tag legen will, an dem jemand abwesend ist, und immer dann, wenn eine
   Datei an die Unterhaltung angehängt ist. [geprüft: `shouldStage` in `src/app/chat-proposal.ts`; Register
   §794]
-- **Von außen gelesener Text.** Hat der Chat Text von außerhalb der App gelesen, zum Beispiel aus Jira
-  synchronisierte Inhalte, fragt er allein aus diesem Grund nicht vorher. [geprüft: `untrusted` in `SendRecord`, `src/app/chat-send-record.ts`; Register §797]
+- **Von außen gelesener Text.** Hat der Chat in einer Unterhaltung eine aus Jira synchronisierte Aufgabe
+  gelesen, wartet danach jede Änderung, die er vorschlägt, auf der Prüfkarte, wie bei einer angehängten
+  Datei. Text von außen, der keine Kennzeichnung seiner Herkunft trägt, löst das Zurückhalten nicht aus:
+  Einträge, die aus einer importierten Datei oder E-Mail angelegt wurden, aus Outlook übernommene
+  Abwesenheitsnotizen und was die App selbst in die Anweisung schreibt. [geprüft:
+  `resultCarriesExternalText` und `openSendRecord` in `src/app/chat-send-record.ts`]
 - **Läufe im Hintergrund.** Die oben genannten Hintergrundfunktionen senden bei jedem Lauf Daten, ohne
   jedes Mal zu fragen. Ihre Ergebnisse sind nur Ratschläge: Eine Empfehlung ändert nichts, bis eine Person
   sie bestätigt. [geprüft: `src/app/use-insight-recommendations.ts`, `src/app/scheduled-job-run.ts`;
@@ -121,8 +125,9 @@ Kollegin oder ein Kollege sie vorschlüge? [Aussage des Maintainers]
   Antwort. [geprüft: keine Einstellung `temperature` in `src/app`; der Rest: Aussage des Maintainers]
 - **In Text versteckte Anweisungen.** Eine Datei, eine E-Mail oder synchronisierter Text kann
   Anweisungen enthalten, die sich an die KI richten. Deshalb fragt der Chat vor jeder Änderung, solange
-  eine Datei angehängt ist; bei Text, den er über seine Werkzeuge von außen liest, tut er das nicht.
-  [geprüft: `stagesWhenUntrusted` in `src/app/chat-send-record.ts`; Register §797]
+  eine Datei angehängt ist und sobald er eine aus Jira synchronisierte Aufgabe gelesen hat; bei Text von
+  außen ohne eine solche Kennzeichnung, etwa aus einer importierten Datei angelegten Einträgen, tut er das
+  nicht. [geprüft: `stagesWhenUntrusted` und `resultCarriesExternalText` in `src/app/chat-send-record.ts`]
 - **Lange Wartezeiten und Fehler.** Die meisten KI-Anfragen haben in der App kein Zeitlimit, und eine
   Anfrage, die abgelehnt wird, weil der Dienst ausgelastet ist, wird nicht erneut versucht. Brechen Sie ab
   und versuchen Sie es später noch einmal. [Aussage des Maintainers; Register §798]

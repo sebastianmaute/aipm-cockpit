@@ -213,6 +213,11 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The chat holds its changes for review after it reads a task synced from Jira.** Text synced from Jira can
+  carry instructions aimed at the AI, like an attached file. Once the chat has read such a task in a
+  conversation, every change it proposes after that waits on the review card, as it already did while a file
+  was attached. Text from outside that carries no mark of its origin, such as rows created from an imported
+  file, does not start the hold.
 - **Dictation refuses two more internal address ranges.** An address in `0.0.0.0/8`
   (which reaches the server itself on common systems) or in the shared address space `100.64.0.0/10` (used by
   carrier-grade NAT and by overlay networks for internal hosts) is now refused like a private address, whether it
