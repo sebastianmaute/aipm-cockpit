@@ -63,8 +63,9 @@ function auditEntry(e: ActivityEntry): ActivityAuditEntry {
     kind: e.kind,
     args: [...e.args],
     ...(e.actor !== undefined ? { actor: e.actor } : {}),
-    // `allDetail`: people read this file, so a work-breakdown entry names every task it created, as the Activity
-    // panel does; stored values stay raw (no `display`, §476), and the capped form is the model's alone.
+    // `allDetail`: the download is a machine-stable record that people also read, so a work-breakdown entry names
+    // every task it created, as the Activity panel does, while stored values stay raw (no `display`, §476); the
+    // capped form is the model's alone.
     message: activityMessage("en-US", e.kind, e.args, { allDetail: true }),
     ...(e.changes !== undefined ? { changes: e.changes.map((c) => ({ ...c })) } : {}),
   };

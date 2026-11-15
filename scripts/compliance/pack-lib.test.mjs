@@ -337,6 +337,7 @@ describe("proseGapCitations", () => {
     ["a table row", "| a ` b |"],
     ["prose closed by a thematic break", "a `b\n---"],
     ["prose closed by an HTML comment line", "a `b\n<!-- c -->"],
+    ["a heading with a setext underline", "a `b\n==="],
   ])("a stray backtick in %s does not hide the next line's citation", (_label, before) => {
     const src = `${before}\nprose §810 and \`x\``;
     expect(proseGapCitations(src)).toEqual([{ n: 810, line: before.split("\n").length + 1 }]);

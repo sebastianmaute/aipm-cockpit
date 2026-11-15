@@ -210,7 +210,7 @@ export function readArrangement(key: string, projectId: string): ArrangementRead
  * review caught it: it was
  * copied verbatim into a review brief, so a
  * reviewer spent effort on a caller that was never there. Nothing gates this —
- * `docs:symbols:check` reads only AGENTS.md and `docs/AGENTS/*.md`, so an
+ * `docs:symbols:check` reads only AGENTS.md, `docs/AGENTS/*.md` and the AI briefs, so an
  * invented identifier in a source comment is ungated forever. `npm run
  * src:symbols:check` is the report that catches it (exit 0 — read the output).
  * ★ "Public" was wrong too: `loadLayout`'s own file records that it has no

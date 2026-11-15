@@ -16,13 +16,14 @@ Der Text beschreibt den Code im Commit 57335a5ba. Die Zahlen wurden am 2026-11-1
 e63693393 gemessen und nicht erneut gemessen. Zwischen beiden änderten sich, abgesehen von den Werkzeugen der
 Kurzinformationen selbst, die Gültigkeitsdauer einer bestandenen Schlüsselprüfung und deren Beschreibung, was keine
 gemessene Anfrage und keine Kosten verändert, und die App änderte sich auf fünf Arten, die die Zahlen nicht
-abbilden: Insights über eine einzelne Person erreichen die KI bei aktivem Personenschutz nicht mehr (E67), der
+abbilden: Bei aktivem Personenschutz wird keiner Anfrage an die KI mehr ein Insight über eine einzelne Person
+hinzugefügt (E67), der
 Eintrag im Aktivitätsprotokoll zu einem übernommenen Projektstrukturplan nennt die angelegten Aufgaben (E68),
 „Mit KI planen“ zeigt, was seine Anfrage weggelassen hat (E60), das Relay und die Diktat-Route lehnen mehr Aufrufe
 ab und begrenzen jeden Aufrufer (E69, E70), was einen Aufruf ablehnen kann, aber keinen verändert, der durchgeht,
 und die KI-Offenlegung hat sich geändert, sodass jede nutzende Person ihr erneut zustimmt. Die ersten beiden
-ändern, was eine Anfrage enthält: Bei aktivem Personenschutz enthält eine Anfrage keinen Insight über eine
-einzelne Person mehr (E67), und der Aktivitätstext, den der Chat durchsuchen kann, nennt bis zu 20 der angelegten
+ändern, was eine Anfrage enthält: Bei aktivem Personenschutz wird einer Anfrage kein Insight über eine einzelne
+Person mehr hinzugefügt (E67), und der Aktivitätstext, den der Chat durchsuchen kann, nennt bis zu 20 der angelegten
 Aufgaben (E68). Offene Lücken werden mit ihrer Nummer im Register offener Punkte des Projekts
 (`docs/open-followups.md`, englisch) zitiert, zum Beispiel §802; die Tabelle unter „Offene Lücken“ führt jede auf, die
 die Kurzinformationen zitieren.
