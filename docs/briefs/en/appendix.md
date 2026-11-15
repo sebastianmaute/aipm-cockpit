@@ -241,13 +241,13 @@ Every AI feature of the app, with the text the app itself shows before a user ac
 | Host | Directive | Condition |
 |---|---|---|
 | https://api.anthropic.com | Connections (connect-src) | Only when all three hold: the deployment sends AI requests directly to Anthropic (no AI gateway), it does not restrict AI to its organisation's keys, and the AI integration is not switched off |
-| https://*.turso.io | Connections (connect-src) | Always allowed |
+| https://*.turso.io | Connections (connect-src) | Always allowed, unless AIPM_CSP_TURSO_HOSTS is set: then the hosts it names take the place of this one |
 | https://graph.microsoft.com | Connections (connect-src) | Always allowed |
-| https://*.sharepoint.com | Connections (connect-src) | Always allowed |
-| https://*.files.1drv.com | Connections (connect-src) | Always allowed |
+| https://*.sharepoint.com | Connections (connect-src) | Always allowed, unless AIPM_CSP_SHAREPOINT_HOSTS is set: then the hosts it names take the place of this one |
+| https://*.files.1drv.com | Connections (connect-src) | Always allowed, unless AIPM_CSP_SHAREPOINT_HOSTS is set: then the hosts it names take the place of this one |
 | https://login.microsoftonline.com | Connections (connect-src) | Always allowed |
-| http://localhost:* | Connections (connect-src) | Always allowed |
-| http://127.0.0.1:* | Connections (connect-src) | Always allowed |
+| http://localhost:* | Connections (connect-src) | Always allowed, unless AIPM_CSP_TURSO_HOSTS is set: then the hosts it names take the place of this one |
+| http://127.0.0.1:* | Connections (connect-src) | Always allowed, unless AIPM_CSP_TURSO_HOSTS is set: then the hosts it names take the place of this one |
 | https://login.microsoftonline.com | Embedded frames (frame-src) | Always allowed |
 <!-- PACK:browser-hosts:END -->
 
@@ -263,6 +263,8 @@ Every AI feature of the app, with the text the app itself shows before a user ac
 | AIPM_DISABLED_INTEGRATIONS | - | Server | jira, confluence, timelog, ecb, stt, ai, ai-people | Comma-separated integrations this deployment switches off: the server refuses their requests and the app hides them, and the value ai-people forces people protection on in every project. |
 | AIPM_AI_RELAY_MAX_REQUESTS | - | Server | - | AI calls the app's server relays for one caller per minute (a whole number from 1 to 100000; 120 when unset); an invalid value keeps 120. The count is per server process and keyed by the forwarding header, which a caller sets, so it guards against a runaway client and is not a quota. |
 | AIPM_STT_MAX_REQUESTS | - | Server | - | Dictation requests the app's server forwards for one caller per minute (a whole number from 1 to 100000; 60 when unset); an invalid value keeps 60. Counted the same way as the AI relay's limit. |
+| AIPM_CSP_TURSO_HOSTS | - | Server | - | The exact Turso database hosts (each ending in .turso.io) and local libSQL servers (localhost:PORT or 127.0.0.1:PORT; IPv6 loopback cannot be named) the browser may connect to, comma-separated. They replace the *.turso.io and loopback wildcards in the page's Content Security Policy, so every database a user configures, and the deployment's default database (NEXT_PUBLIC_TURSO_DATABASE_URL) if it has one, must be listed or the browser blocks it. Unset keeps the wildcards; an invalid value keeps them too and is logged once on the server. |
+| AIPM_CSP_SHAREPOINT_HOSTS | - | Server | - | The exact SharePoint and OneDrive file hosts (each ending in .sharepoint.com or .files.1drv.com) the browser may download files from, comma-separated. They replace the *.sharepoint.com and *.files.1drv.com wildcards in the page's Content Security Policy, so every SharePoint site host users store projects on must be listed. OneDrive for Business hosts (<tenant>-my.sharepoint.com) cannot hold projects and need not be listed, and .files.1drv.com hosts are accepted but not needed for SharePoint sites. Unset keeps the wildcards; an invalid value keeps them too and is logged once on the server. |
 | AIPM_AI_CHAT_RETENTION_DAYS | - | Server | - | Days a saved AI chat is kept before it is deleted for age, by the browser and by the server's daily deletion where that is configured (1 to 3650, 30 when unset); an invalid value pauses deletion for age until it is fixed. |
 | AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY | - | Server | - | Operator's RSA public key (base64, at least 3072 bits) that saved AI chats are also encrypted to for recovery; while it is unset or unusable, no chat is saved. |
 | AIPM_CHAT_SWEEP_TURSO_URL | - | Server | - | Turso database address the server's daily deletion of expired AI chats connects to; when unset, the app's public Turso address is used instead, and a remote address without a sweep token means the daily deletion does not run. |
@@ -286,7 +288,6 @@ take to close it.
 | §796 | Tasks created by Optimize work breakdown with AI cannot be undone |
 | §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |
-| §800 | The Content Security Policy allows whole host families by wildcard |
 | §801 | Text the AI writes carries no machine-readable marking |
 | §802 | The AI gateway route has never been run against a real gateway |
 | §804 | Plan with AI always sends internal hourly rates; there is no option to leave them out |

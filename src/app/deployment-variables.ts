@@ -31,6 +31,8 @@ export const DEPLOYMENT_VARIABLES: readonly DeploymentVariable[] = [
   },
   { name: "AIPM_AI_RELAY_MAX_REQUESTS", aliases: [], subsystem: "server", effectKey: "deployVarAiRelayMaxRequests" },
   { name: "AIPM_STT_MAX_REQUESTS", aliases: [], subsystem: "server", effectKey: "deployVarSttMaxRequests" },
+  { name: "AIPM_CSP_TURSO_HOSTS", aliases: [], subsystem: "server", effectKey: "deployVarCspTursoHosts" },
+  { name: "AIPM_CSP_SHAREPOINT_HOSTS", aliases: [], subsystem: "server", effectKey: "deployVarCspSharepointHosts" },
   { name: "AIPM_AI_CHAT_RETENTION_DAYS", aliases: [], subsystem: "server", effectKey: "deployVarAiChatRetentionDays" },
   { name: "AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY", aliases: [], subsystem: "server", effectKey: "deployVarAiChatRecoveryPublicKey" },
   { name: "AIPM_CHAT_SWEEP_TURSO_URL", aliases: [], subsystem: "server", effectKey: "deployVarChatSweepTursoUrl" },

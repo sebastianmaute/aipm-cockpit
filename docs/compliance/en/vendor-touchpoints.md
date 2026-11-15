@@ -101,18 +101,19 @@ app to contact. It is read from the same constants the server uses to build the 
 | Host | Directive | Condition |
 |---|---|---|
 | https://api.anthropic.com | Connections (connect-src) | Only when all three hold: the deployment sends AI requests directly to Anthropic (no AI gateway), it does not restrict AI to its organisation's keys, and the AI integration is not switched off |
-| https://*.turso.io | Connections (connect-src) | Always allowed |
+| https://*.turso.io | Connections (connect-src) | Always allowed, unless AIPM_CSP_TURSO_HOSTS is set: then the hosts it names take the place of this one |
 | https://graph.microsoft.com | Connections (connect-src) | Always allowed |
-| https://*.sharepoint.com | Connections (connect-src) | Always allowed |
-| https://*.files.1drv.com | Connections (connect-src) | Always allowed |
+| https://*.sharepoint.com | Connections (connect-src) | Always allowed, unless AIPM_CSP_SHAREPOINT_HOSTS is set: then the hosts it names take the place of this one |
+| https://*.files.1drv.com | Connections (connect-src) | Always allowed, unless AIPM_CSP_SHAREPOINT_HOSTS is set: then the hosts it names take the place of this one |
 | https://login.microsoftonline.com | Connections (connect-src) | Always allowed |
-| http://localhost:* | Connections (connect-src) | Always allowed |
-| http://127.0.0.1:* | Connections (connect-src) | Always allowed |
+| http://localhost:* | Connections (connect-src) | Always allowed, unless AIPM_CSP_TURSO_HOSTS is set: then the hosts it names take the place of this one |
+| http://127.0.0.1:* | Connections (connect-src) | Always allowed, unless AIPM_CSP_TURSO_HOSTS is set: then the hosts it names take the place of this one |
 | https://login.microsoftonline.com | Embedded frames (frame-src) | Always allowed |
 <!-- PACK:browser-hosts:END -->
 
-The wildcard entries allow any Turso database and any SharePoint or OneDrive file host, not only yours
-(§800). [verified: `src/proxy.ts`; the register entry §800 in `docs/open-followups.md`]
+The wildcard entries allow any Turso database and any SharePoint or OneDrive file host, not only yours,
+unless the deployment names its own hosts with `AIPM_CSP_TURSO_HOSTS` or `AIPM_CSP_SHAREPOINT_HOSTS`; each
+setting then replaces its own family's wildcards with exactly the hosts it names. [verified: `src/proxy.ts`, `src/app/csp-host-settings.ts`, `src/proxy.test.ts`]
 
 ## Destinations of the server and the desktop app
 

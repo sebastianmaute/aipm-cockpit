@@ -87,7 +87,6 @@ Registers.
 | §796 | Tasks created by Optimize work breakdown with AI cannot be undone |
 | §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |
-| §800 | The Content Security Policy allows whole host families by wildcard |
 | §801 | Text the AI writes carries no machine-readable marking |
 | §802 | The AI gateway route has never been run against a real gateway |
 | §804 | Plan with AI always sends internal hourly rates; there is no option to leave them out |
@@ -125,8 +124,6 @@ wo die Einzelheiten stehen. [geprüft: die Registereinträge in `docs/open-follo
 - **§799** — Das Aktivitätsprotokoll zeigt, dass die KI etwas geändert hat und was sich geändert hat,
   aber nicht, welche Chat-Nachricht dies verlangt hat. Wer prüft, kann eine KI-Änderung anhand des
   Protokolls nicht bis zu ihrer Anfrage zurückverfolgen.
-- **§800** — Die Sicherheitsrichtlinie des Browsers erlaubt jede Turso-Datenbank, jeden SharePoint- oder
-  OneDrive-Dateihost und jeden lokalen Port, nicht nur die, die Ihre Bereitstellung nutzt.
 - **§801** — Text, den die KI in Aufgaben, Dokumente und Exporte schreibt, trägt keine maschinenlesbare
   Markierung. Einmal kopiert oder exportiert, lässt er sich von Text, den eine Person geschrieben hat,
   nicht mehr unterscheiden.

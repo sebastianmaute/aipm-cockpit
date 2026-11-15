@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { parseAiGatewayConfig } from "./app/ai-gateway-config";
 import { parseAiKeyRestriction } from "./app/ai-key-restriction-config";
 import { DISABLED_INTEGRATIONS_ENV, parseDisabledIntegrations } from "./app/integration-switches";
+import { readCspHostSettings, type CspHostGroup } from "./app/csp-host-settings";
 
 // Per-request nonce-based Content-Security-Policy.
 //
@@ -77,6 +78,11 @@ import { DISABLED_INTEGRATIONS_ENV, parseDisabledIntegrations } from "./app/inte
 //                    a pre-authenticated URL on one of these hosts (no Graph
 //                    token is sent to it). Blocked without them in a real
 //                    browser; unit tests never apply the CSP.
+//                    §800: AIPM_CSP_TURSO_HOSTS replaces *.turso.io and the two
+//                    loopback wildcards (group "turso"), AIPM_CSP_SHAREPOINT_HOSTS
+//                    the SharePoint and OneDrive ones (group "sharepoint"), with
+//                    exactly the hosts they name (`csp-host-settings.ts`). Unset
+//                    or invalid, the wildcards stay. Read per request.
 //   frame-src        login.microsoftonline.com — MSAL acquireTokenSilent
 //                    renews tokens in a hidden iframe pointed at the login
 //                    host. (Sign-in/out + interactive consent use popups,
@@ -91,18 +97,21 @@ export type CspHostCondition = "always" | "ai-direct";
 export interface CspHost {
   source: string;
   when: CspHostCondition;
+  /** §800: the wildcard family this source belongs to; a deployment that names its hosts for the group gets those
+   *  hosts in place of every source of the group. */
+  group?: CspHostGroup;
 }
 
 /** connect-src sources after 'self', in header order. */
 export const CSP_CONNECT_HOSTS: readonly CspHost[] = [
   { source: "https://api.anthropic.com", when: "ai-direct" },
-  { source: "https://*.turso.io", when: "always" },
+  { source: "https://*.turso.io", when: "always", group: "turso" },
   { source: "https://graph.microsoft.com", when: "always" },
-  { source: "https://*.sharepoint.com", when: "always" },
-  { source: "https://*.files.1drv.com", when: "always" },
+  { source: "https://*.sharepoint.com", when: "always", group: "sharepoint" },
+  { source: "https://*.files.1drv.com", when: "always", group: "sharepoint" },
   { source: "https://login.microsoftonline.com", when: "always" },
-  { source: "http://localhost:*", when: "always" },
-  { source: "http://127.0.0.1:*", when: "always" },
+  { source: "http://localhost:*", when: "always", group: "turso" },
+  { source: "http://127.0.0.1:*", when: "always", group: "turso" },
 ];
 
 /** frame-src sources, in header order. */
@@ -110,14 +119,28 @@ export const CSP_FRAME_HOSTS: readonly CspHost[] = [
   { source: "https://login.microsoftonline.com", when: "always" },
 ];
 
-function hostSources(hosts: readonly CspHost[], allowAnthropic: boolean): string {
-  return hosts
-    .filter((h) => h.when === "always" || allowAnthropic)
-    .map((h) => h.source)
-    .join(" ");
+type NamedHosts = Readonly<Record<CspHostGroup, readonly string[] | null>>;
+const NO_NAMED_HOSTS: NamedHosts = { turso: null, sharepoint: null };
+
+/** The sources, in header order. A group the deployment names hosts for is replaced by those hosts, placed where
+ *  the group's first source stood; every other source of that group is left out. */
+function hostSources(hosts: readonly CspHost[], allowAnthropic: boolean, named: NamedHosts = NO_NAMED_HOSTS): string {
+  const out: string[] = [];
+  const placed = new Set<CspHostGroup>();
+  for (const h of hosts) {
+    if (h.when !== "always" && !allowAnthropic) continue;
+    const list = h.group === undefined ? null : named[h.group];
+    if (h.group === undefined || list === null) {
+      out.push(h.source);
+    } else if (!placed.has(h.group)) {
+      placed.add(h.group);
+      out.push(...list);
+    }
+  }
+  return out.join(" ");
 }
 
-function buildCsp(nonce: string, allowAnthropic: boolean): string {
+function buildCsp(nonce: string, allowAnthropic: boolean, named: NamedHosts): string {
   const scriptExtras = IS_DEV ? " 'unsafe-eval'" : "";
   // Dev: omit the nonce from style-src-elem so 'unsafe-inline' actually works.
   // When a nonce is present the browser ignores 'unsafe-inline' (CSP Level 2),
@@ -149,7 +172,7 @@ function buildCsp(nonce: string, allowAnthropic: boolean): string {
     // can only ever decode an image.
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    `connect-src 'self' ${hostSources(CSP_CONNECT_HOSTS, allowAnthropic)}`,
+    `connect-src 'self' ${hostSources(CSP_CONNECT_HOSTS, allowAnthropic, named)}`,
     `frame-src ${hostSources(CSP_FRAME_HOSTS, allowAnthropic)}`,
     "frame-ancestors 'none'",
     "object-src 'none'",
@@ -164,7 +187,7 @@ export function proxy(request: NextRequest): NextResponse {
     parseAiGatewayConfig(process.env).kind === "direct" &&
     parseAiKeyRestriction(process.env).kind === "none" &&
     !parseDisabledIntegrations(process.env[DISABLED_INTEGRATIONS_ENV]).includes("ai");
-  const csp = buildCsp(nonce, allowAnthropic);
+  const csp = buildCsp(nonce, allowAnthropic, readCspHostSettings(process.env));
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);

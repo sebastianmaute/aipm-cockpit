@@ -1037,7 +1037,7 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§797](#797-external-text-that-the-chats-tools-read-does-not-trigger-the-review-hold--closed-2026-11-15) | External text that the chat's tools read does not trigger the review hold | — | — | **CLOSED** 2026-11-15 |
 | [§798](#798-most-ai-requests-have-no-client-time-limit-and-none-is-retried-on-a-rate-limit-or-overload) | Most AI requests have no client time limit, and none is retried on a rate limit or overload | — | — | open |
 | [§799](#799-an-activity-entry-written-by-the-ai-does-not-link-to-the-chat-message-that-caused-it) | An activity entry written by the AI does not link to the chat message that caused it | — | — | open |
-| [§800](#800-the-content-security-policy-allows-whole-host-families-by-wildcard) | The Content Security Policy allows whole host families by wildcard | — | — | open |
+| [§800](#800-the-content-security-policy-allows-whole-host-families-by-wildcard--closed-2026-11-15) | The Content Security Policy allows whole host families by wildcard | — | — | **CLOSED** 2026-11-15 |
 | [§801](#801-text-the-ai-writes-carries-no-machine-readable-marking) | Text the AI writes carries no machine-readable marking | — | — | open |
 | [§802](#802-the-ai-gateway-route-has-never-been-run-against-a-real-gateway) | The AI gateway route has never been run against a real gateway | — | — | open |
 | [§803](#803-dictations-private-address-check-does-not-resolve-host-names--closed-2026-11-14) | Dictation's private-address check does not resolve host names | — | — | **CLOSED** 2026-11-14 |
@@ -46372,11 +46372,11 @@ Size M.
 
 **Source:** compliance pack gap check, 2026-11-13.
 
-## 800. The Content Security Policy allows whole host families by wildcard
+## 800. The Content Security Policy allows whole host families by wildcard — CLOSED 2026-11-15
 
-**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -cE 'source: "https?://[^"]*\*' src/proxy.ts` prints 5 (Turso, SharePoint, OneDrive files, and any port on localhost and 127.0.0.1).
+**Status:** CLOSED 2026-11-15 on `fix/800-csp-host-settings` (owner decision: optional narrowing). A deployment may name its hosts: `AIPM_CSP_TURSO_HOSTS` (Turso database hosts under `.turso.io`, sent as https, and `localhost:PORT` / `127.0.0.1:PORT`, sent as http) replaces `https://*.turso.io` and the two loopback wildcards, and `AIPM_CSP_SHAREPOINT_HOSTS` (hosts under `.sharepoint.com` or `.files.1drv.com`) replaces those two wildcards, each in place in `connect-src` (`readCspHostSettings` in `src/app/csp-host-settings.ts`, `hostSources` in `src/proxy.ts`). Unset, the wildcards stay; a value with any entry that is not such a host keeps them too and is logged once per process, naming the setting only. Both settings are in the deployment-variables registry, and the compliance pack's browser-hosts table says which rows they replace. Residual: a deployment that sets neither keeps the wildcards. Verified with `npx vitest run src/proxy.test.ts src/app/csp-host-settings.test.ts src/app/compliance src/app/deployment-variables src/app/i18n`: 11 files, 161 passed; the header tests cover unset, each setting, both, and an invalid value. Mutant 1/1 killed: `hostSources` emitting the wildcard instead of the named hosts failed the three narrowing tests.
 
-**Work item:** #975
+**Earlier:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -cE 'source: "https?://[^"]*\*' src/proxy.ts` prints 5 (Turso, SharePoint, OneDrive files, and any port on localhost and 127.0.0.1).
 
 The browser may connect to any subdomain of the Turso, SharePoint and OneDrive file hosts, and to any local port, whatever this deployment actually uses. The wildcards exist because the database and site names are each user's own. The policy therefore bounds the page to those providers, not to the one database or site configured.
 

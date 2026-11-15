@@ -30,8 +30,9 @@ der App.
   Browser durchsetzt, außer beim Diktat mit der eingebauten Spracherkennung des Browsers, die in manchen
   Browsern Audio an den Browserhersteller sendet (E1, *im Code gelesen*); api.anthropic.com steht nur auf dem
   direkten Weg bei eingeschalteter KI darin (E53, *getestet (Unit)*). Turso-, SharePoint- und
-  OneDrive-Hosts sind per Platzhalter erlaubt, ebenso jeder lokale Port
-  ([Browser-Hosts](appendix.md#browser-hosts); §800; E34, *im Code gelesen*).
+  OneDrive-Hosts sind per Platzhalter erlaubt, ebenso jeder lokale Port, solange die Bereitstellung ihre eigenen
+  Hosts nicht nennt (`AIPM_CSP_TURSO_HOSTS`, `AIPM_CSP_SHAREPOINT_HOSTS`)
+  ([Browser-Hosts](appendix.md#browser-hosts); E34, *im Code gelesen*).
 - **Vom Server:** Das Relay leitet vier Anthropic-Header weiter, dazu das Gateway-Token, wenn eines gesetzt
   ist, und keine Cookies, und protokolliert weder Schlüssel noch Token, Inhalt oder URL (E6,
   *getestet (Unit)*); die übrigen [Server-Ziele](appendix.md#server-ziele) sind aufgeführt. Updates kommen aus den
@@ -72,7 +73,9 @@ der App.
 2. **§794:** Eine einzelne Änderung im Chat wird ohne Prüfkarte angewendet (E47, *getestet (Unit)*).
 3. **§487, §793:** Die Windows-Installationsdatei ist unsigniert, und das Deinstallationsprogramm bliebe auch mit
    eingeschalteter Signierung unsigniert (E51, *getestet (Unit)*).
-4. **§800:** Die Policy erlaubt ganze Host-Familien per Platzhalter (E34, *im Code gelesen*).
+4. **Platzhalter-Hosts als Voreinstellung:** Solange die Bereitstellung `AIPM_CSP_TURSO_HOSTS` und
+   `AIPM_CSP_SHAREPOINT_HOSTS` nicht setzt, erlaubt die Policy ganze Host-Familien per Platzhalter (E34,
+   *im Code gelesen*).
 5. **§562:** Die Begrenzung der Anfragen der sechs begrenzten Routen, auch die des Relays und des Diktats, zählt nach
    einem Header, den der Aufrufer selbst setzen kann, und je Serverprozess, lässt sich also umgehen (E54,
    *im Code gelesen*).

@@ -271,6 +271,91 @@ describe("proxy CSP — host constants", () => {
   });
 });
 
+// §800: a deployment may name its own Turso and SharePoint hosts, and the policy then lists exactly those in place of
+// the wildcards. Unset, the wildcards stay; an invalid value keeps them too. Tested on the built header.
+describe("proxy CSP — named hosts replace the wildcards (§800)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+  const connectSources = () => directive(cspFor(), "connect-src").split(" ").slice(1);
+
+  it("unset: the five wildcards are in connect-src", () => {
+    expect(connectSources()).toEqual(expect.arrayContaining([
+      "https://*.turso.io", "https://*.sharepoint.com", "https://*.files.1drv.com", "http://localhost:*", "http://127.0.0.1:*",
+    ]));
+  });
+
+  it("AIPM_CSP_TURSO_HOSTS replaces the Turso and loopback wildcards with the named hosts, in place", () => {
+    vi.stubEnv("AIPM_CSP_TURSO_HOSTS", "mydb-myorg.aws-eu-west-1.turso.io, localhost:8080");
+    expect(connectSources()).toEqual([
+      "'self'",
+      "https://api.anthropic.com",
+      "https://mydb-myorg.aws-eu-west-1.turso.io",
+      "http://localhost:8080",
+      "https://graph.microsoft.com",
+      "https://*.sharepoint.com",
+      "https://*.files.1drv.com",
+      "https://login.microsoftonline.com",
+    ]);
+  });
+
+  it("AIPM_CSP_SHAREPOINT_HOSTS replaces the SharePoint and OneDrive wildcards, leaving the Turso ones", () => {
+    vi.stubEnv("AIPM_CSP_SHAREPOINT_HOSTS", "contoso.sharepoint.com,contoso-my.sharepoint.com");
+    expect(connectSources()).toEqual([
+      "'self'",
+      "https://api.anthropic.com",
+      "https://*.turso.io",
+      "https://graph.microsoft.com",
+      "https://contoso.sharepoint.com",
+      "https://contoso-my.sharepoint.com",
+      "https://login.microsoftonline.com",
+      "http://localhost:*",
+      "http://127.0.0.1:*",
+    ]);
+  });
+
+  // The same replacement when the browser may not call Anthropic (AI switched off): the named hosts still take the
+  // Turso group's place, and nothing else moves.
+  it("with AI switched off, AIPM_CSP_TURSO_HOSTS still replaces the group in place", () => {
+    vi.stubEnv("AIPM_DISABLED_INTEGRATIONS", "ai");
+    vi.stubEnv("AIPM_CSP_TURSO_HOSTS", "a-org.turso.io");
+    expect(connectSources()).toEqual([
+      "'self'",
+      "https://a-org.turso.io",
+      "https://graph.microsoft.com",
+      "https://*.sharepoint.com",
+      "https://*.files.1drv.com",
+      "https://login.microsoftonline.com",
+    ]);
+  });
+
+  // A local server on IPv6 loopback cannot be named: CSP has no host syntax for an IPv6 literal (see the parser).
+  it("an IPv6 loopback entry is invalid, so the wildcards stay", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubEnv("AIPM_CSP_TURSO_HOSTS", "[::1]:8080");
+    expect(connectSources()).toContain("https://*.turso.io");
+  });
+
+  it("both set: no wildcard is left in connect-src, and frame-src is unchanged", () => {
+    vi.stubEnv("AIPM_CSP_TURSO_HOSTS", "a-org.turso.io");
+    vi.stubEnv("AIPM_CSP_SHAREPOINT_HOSTS", "contoso.sharepoint.com");
+    const csp = cspFor();
+    expect(directive(csp, "connect-src")).not.toContain("*");
+    expect(directive(csp, "frame-src")).toBe("frame-src https://login.microsoftonline.com");
+  });
+
+  it("an invalid value keeps the wildcards and changes nothing else in the header", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const before = cspFor().replace(/nonce-[^']+/g, "nonce-N");
+    vi.stubEnv("AIPM_CSP_TURSO_HOSTS", "mydb.turso.io; script-src *");
+    vi.stubEnv("AIPM_CSP_SHAREPOINT_HOSTS", "*.sharepoint.com");
+    const after = cspFor().replace(/nonce-[^']+/g, "nonce-N");
+    expect(after).toBe(before);
+    expect(after).not.toContain("script-src *");
+  });
+});
+
 describe("proxy matcher — API routes stay outside the proxy", () => {
   // A matched request has its body buffered by Next up to its proxyClientMaxBodySize setting (10 MB by
   // default), which would cut off the AI relay's larger bodies before its own 32 MB cap applies.

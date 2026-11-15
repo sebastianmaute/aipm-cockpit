@@ -10,6 +10,7 @@ import { DEPLOYMENT_VARIABLES } from "../deployment-variables";
 import { t, type Lang, type TranslationKey } from "../i18n";
 import { OUTBOUND_DESTINATIONS, type DestinationOperator } from "../outbound-destinations";
 import { CSP_CONNECT_HOSTS, CSP_FRAME_HOSTS, type CspHostCondition } from "../../proxy";
+import type { CspHostGroup } from "../csp-host-settings";
 
 export type PackLang = "en" | "de";
 
@@ -38,6 +39,12 @@ const OPERATOR_KEY: Readonly<Record<DestinationOperator, TranslationKey>> = {
 const CONDITION_KEY: Readonly<Record<CspHostCondition, TranslationKey>> = {
   always: "compliancePackCondAlways",
   "ai-direct": "compliancePackCondAiDirect",
+};
+
+/** §800: a source a deployment can replace by naming its own hosts; its condition says so. */
+const GROUP_CONDITION_KEY: Readonly<Record<CspHostGroup, TranslationKey>> = {
+  turso: "compliancePackCondUnlessTursoHosts",
+  sharepoint: "compliancePackCondUnlessSharepointHosts",
 };
 
 /** One cell: newlines flattened, every `\` and then every `|` escaped, trimmed. */
@@ -96,7 +103,11 @@ export function renderPackBlocks(lang: PackLang, registerSrc: string, citedGaps:
   });
 
   const hostRows = [
-    ...CSP_CONNECT_HOSTS.map((h) => [h.source, tr("compliancePackDirConnect"), tr(CONDITION_KEY[h.when])]),
+    ...CSP_CONNECT_HOSTS.map((h) => [
+      h.source,
+      tr("compliancePackDirConnect"),
+      tr(h.group === undefined ? CONDITION_KEY[h.when] : GROUP_CONDITION_KEY[h.group]),
+    ]),
     ...CSP_FRAME_HOSTS.map((h) => [h.source, tr("compliancePackDirFrame"), tr(CONDITION_KEY[h.when])]),
   ];
 

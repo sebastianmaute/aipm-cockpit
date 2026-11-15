@@ -143,7 +143,8 @@ origins (`api.anthropic.com` only while AI is on and not routed through a gatewa
 `login.microsoftonline.com`, the SharePoint download hosts `*.sharepoint.com` and
 `*.files.1drv.com` — the backend's load fetches the file bytes from the pre-authenticated
 `@microsoft.graph.downloadUrl` — plus `http://localhost:*` and `http://127.0.0.1:*`
-for a local/self-hosted Turso); `worker-src 'self'` is set for the installable
+for a local/self-hosted Turso; set `AIPM_CSP_TURSO_HOSTS` and `AIPM_CSP_SHAREPOINT_HOSTS` to list your own
+hosts instead of these wildcards, see [docs/security.md](security.md)); `worker-src 'self'` is set for the installable
 PWA's service worker (0.106.0+). The recent feature batch (timezones, guided
 tour, steering committee, Kanban, scheduled jobs, Confluence import) added
 **no new outbound host**: committee Outlook push uses the already-allowlisted

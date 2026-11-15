@@ -110,18 +110,21 @@ aufbaut. [geprüft: `src/proxy.ts`] So lesen Sie sie:
 | Host | Direktive | Bedingung |
 |---|---|---|
 | https://api.anthropic.com | Verbindungen (connect-src) | Nur wenn alle drei Bedingungen zutreffen: Die Bereitstellung sendet KI-Anfragen direkt an Anthropic (kein KI-Gateway), sie beschränkt KI nicht auf die Schlüssel ihrer Organisation, und die KI-Integration ist nicht abgeschaltet |
-| https://*.turso.io | Verbindungen (connect-src) | Immer erlaubt |
+| https://*.turso.io | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_TURSO_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an die Stelle dieses Hosts |
 | https://graph.microsoft.com | Verbindungen (connect-src) | Immer erlaubt |
-| https://*.sharepoint.com | Verbindungen (connect-src) | Immer erlaubt |
-| https://*.files.1drv.com | Verbindungen (connect-src) | Immer erlaubt |
+| https://*.sharepoint.com | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_SHAREPOINT_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an die Stelle dieses Hosts |
+| https://*.files.1drv.com | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_SHAREPOINT_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an die Stelle dieses Hosts |
 | https://login.microsoftonline.com | Verbindungen (connect-src) | Immer erlaubt |
-| http://localhost:* | Verbindungen (connect-src) | Immer erlaubt |
-| http://127.0.0.1:* | Verbindungen (connect-src) | Immer erlaubt |
+| http://localhost:* | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_TURSO_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an die Stelle dieses Hosts |
+| http://127.0.0.1:* | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_TURSO_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an die Stelle dieses Hosts |
 | https://login.microsoftonline.com | Eingebettete Frames (frame-src) | Immer erlaubt |
 <!-- PACK:browser-hosts:END -->
 
 Die Platzhaltereinträge erlauben jede Turso-Datenbank und jeden SharePoint- oder OneDrive-Dateihost, nicht
-nur Ihre (§800). [geprüft: `src/proxy.ts`; der Registereintrag §800 in `docs/open-followups.md`]
+nur Ihre, es sei denn, die Bereitstellung nennt ihre eigenen Hosts mit `AIPM_CSP_TURSO_HOSTS` oder
+`AIPM_CSP_SHAREPOINT_HOSTS`; jede Einstellung ersetzt dann die Platzhalter ihrer eigenen Host-Familie durch
+genau die Hosts, die sie nennt. [geprüft: `src/proxy.ts`,
+`src/app/csp-host-settings.ts`, `src/proxy.test.ts`]
 
 ## Ziele des Servers und der Desktop-App
 
