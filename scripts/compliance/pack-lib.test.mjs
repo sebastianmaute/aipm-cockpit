@@ -312,6 +312,39 @@ describe("proseGapCitations", () => {
     ]);
   });
 
+  // The files are hard-wrapped, so a quoted title can break across lines; a span is paired within its paragraph.
+  it("pairs a code span across a line wrap, so neither the title's number nor the prose after it is misread", () => {
+    const src = [
+      "the test `a long title (§797)", // 1
+      "wrapped here` names §810 and `x`", // 2
+      "", // 3
+      "a new paragraph `opens` here and §562 is prose", // 4
+    ].join("\n");
+    expect(proseGapCitations(src)).toEqual([
+      { n: 810, line: 2 },
+      { n: 562, line: 4 },
+    ]);
+  });
+
+  it("does not open a span at a backslash-escaped backtick", () => {
+    expect(proseGapCitations("escaped \\` then §810 and `x`")).toEqual([{ n: 810, line: 1 }]);
+  });
+
+  // A table row is its own block in Markdown, so an unbalanced backtick in one row never swallows the next row.
+  it("keeps each table row and list item apart", () => {
+    const src = [
+      "| a ` stray | §810 |", // 1
+      "| `x` | §562 |", // 2
+      "- an item with a stray `", // 3
+      "- §804 in the next item", // 4
+    ].join("\n");
+    expect(proseGapCitations(src)).toEqual([
+      { n: 810, line: 1 },
+      { n: 562, line: 2 },
+      { n: 804, line: 4 },
+    ]);
+  });
+
   it.each([
     "the co-determination right (§87(1) No. 6)",
     "§ 87 Abs. 1 Nr. 6 BetrVG",

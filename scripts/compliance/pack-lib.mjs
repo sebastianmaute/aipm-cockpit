@@ -368,18 +368,59 @@ const STATUTE_AFTER = new RegExp(
   "u",
 );
 
-/** The [start, end) ranges of a line's inline code spans, as CommonMark reads them: a run of N backticks opens
- *  a span that the next run of exactly N closes; a run with no closing run is literal text. */
-function codeSpanRanges(line) {
-  const runs = [...line.matchAll(/`+/g)].map((m) => ({ at: m.index, len: m[0].length }));
+/** The [start, end) ranges of the inline code spans in one Markdown block's text (its lines joined by "\n"): a run
+ *  of N backticks opens a span that the next run of exactly N closes, so a span can cross a hard wrap; a run with no
+ *  closing run is literal text. A backtick right after an odd number of backslashes is escaped and cannot open a
+ *  span (the rest of its run still can); inside a span a backslash escapes nothing, so any run of N closes it. */
+function codeSpanRanges(text) {
+  const runs = [...text.matchAll(/`+/g)].map((m) => {
+    const slashes = /\\*$/.exec(text.slice(0, m.index))[0].length;
+    return { at: m.index, len: m[0].length, escaped: slashes % 2 === 1 };
+  });
   const ranges = [];
   for (let i = 0; i < runs.length; i++) {
-    const close = runs.findIndex((r, j) => j > i && r.len === runs[i].len);
+    const open = runs[i].escaped ? { at: runs[i].at + 1, len: runs[i].len - 1 } : runs[i];
+    if (open.len === 0) continue;
+    const close = runs.findIndex((r, j) => j > i && r.len === open.len);
     if (close === -1) continue;
-    ranges.push([runs[i].at, runs[close].at + runs[close].len]);
+    ranges.push([open.at, runs[close].at + runs[close].len]);
     i = close;
   }
   return ranges;
+}
+
+/** Where a new Markdown block starts even without a blank line before it: a table row, a list item, a heading or a
+ *  block quote line. Code spans never cross into such a line. */
+const BLOCK_START = /^\s*(?:\||[-*+]\s|\d+[.)]\s|#|>)/;
+
+/** Per line, the line's code-span ranges as [start, end) offsets into that line, paired across the lines of its
+ *  block (`codeSpanRanges`). `skip(i)` marks lines that are not prose: they end a block and get no ranges. */
+function lineCodeSpans(lines, skip) {
+  const perLine = lines.map(() => []);
+  let block = [];
+  const flush = () => {
+    if (block.length === 0) return;
+    const starts = [];
+    let off = 0;
+    for (const i of block) {
+      starts.push(off);
+      off += lines[i].length + 1;
+    }
+    for (const [s, e] of codeSpanRanges(block.map((i) => lines[i]).join("\n"))) {
+      block.forEach((i, k) => {
+        const from = Math.max(s, starts[k]) - starts[k];
+        const to = Math.min(e, starts[k] + lines[i].length) - starts[k];
+        if (from < to) perLine[i].push([from, to]);
+      });
+    }
+    block = [];
+  };
+  lines.forEach((line, i) => {
+    if (skip(i) || line.trim() === "" || BLOCK_START.test(line)) flush();
+    if (!skip(i) && line.trim() !== "") block.push(i);
+  });
+  flush();
+  return perLine;
 }
 
 /** Register citations in a pack file's prose. The rule: `§` directly followed
@@ -390,7 +431,10 @@ function codeSpanRanges(line) {
  *  (`BetrVG §90`, `§401 SGB`, `§611a BGB`; a single lowercase letter right after
  *  the number belongs to the section). Generated block bodies, fenced code and
  *  inline code spans are not prose and are skipped too: a quoted test title can
- *  carry a register number without citing that gap.
+ *  carry a register number without citing that gap. A span is paired within its
+ *  Markdown block, so it can cross a hard wrap but never a blank line, a table
+ *  row, a list item, a heading or a quote line (`lineCodeSpans`), and an escaped
+ *  backtick opens none.
  *  A register citation is recognised ONLY as `§NNN` (no space, NNN at least 400): a German-style
  *  `§ NNN` or a lower number is never checked against the register.
  *  @returns {{ n: number, line: number }[]} in document order, 1-based lines. */
@@ -402,9 +446,11 @@ export function proseGapCitations(src) {
   const statuteBefore = STATUTE_BEFORE;
   const statuteAfter = STATUTE_AFTER;
   const out = [];
+  const skip = (i) => fenced[i] || inBlock(i);
+  const spansByLine = lineCodeSpans(lines, skip);
   lines.forEach((line, i) => {
-    if (fenced[i] || inBlock(i)) return;
-    const spans = codeSpanRanges(line);
+    if (skip(i)) return;
+    const spans = spansByLine[i];
     for (const m of line.matchAll(cite)) {
       if (spans.some(([s, e]) => m.index >= s && m.index < e)) continue;
       const n = Number(m[1]);
