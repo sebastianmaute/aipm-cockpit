@@ -248,13 +248,13 @@ akzeptiert (E1).
 | Host | Direktive | Bedingung |
 |---|---|---|
 | https://api.anthropic.com | Verbindungen (connect-src) | Nur wenn alle drei Bedingungen zutreffen: Die Bereitstellung sendet KI-Anfragen direkt an Anthropic (kein KI-Gateway), sie beschränkt KI nicht auf die Schlüssel ihrer Organisation, und die KI-Integration ist nicht abgeschaltet |
-| https://*.turso.io | Verbindungen (connect-src) | Immer erlaubt |
+| https://*.turso.io | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_TURSO_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an seine Stelle |
 | https://graph.microsoft.com | Verbindungen (connect-src) | Immer erlaubt |
-| https://*.sharepoint.com | Verbindungen (connect-src) | Immer erlaubt |
-| https://*.files.1drv.com | Verbindungen (connect-src) | Immer erlaubt |
+| https://*.sharepoint.com | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_SHAREPOINT_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an seine Stelle |
+| https://*.files.1drv.com | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_SHAREPOINT_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an seine Stelle |
 | https://login.microsoftonline.com | Verbindungen (connect-src) | Immer erlaubt |
-| http://localhost:* | Verbindungen (connect-src) | Immer erlaubt |
-| http://127.0.0.1:* | Verbindungen (connect-src) | Immer erlaubt |
+| http://localhost:* | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_TURSO_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an seine Stelle |
+| http://127.0.0.1:* | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_TURSO_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an seine Stelle |
 | https://login.microsoftonline.com | Eingebettete Frames (frame-src) | Immer erlaubt |
 <!-- PACK:browser-hosts:END -->
 
@@ -270,6 +270,8 @@ akzeptiert (E1).
 | AIPM_DISABLED_INTEGRATIONS | - | Server | jira, confluence, timelog, ecb, stt, ai, ai-people | Kommagetrennte Integrationen, die diese Installation abschaltet: Der Server lehnt ihre Anfragen ab und die App blendet sie aus; der Wert ai-people erzwingt in jedem Projekt den Schutz von Personendaten. |
 | AIPM_AI_RELAY_MAX_REQUESTS | - | Server | - | KI-Aufrufe, die der Server der App für einen Aufrufer pro Minute weiterleitet (ganze Zahl von 1 bis 100000; 120, wenn nicht gesetzt); ein ungültiger Wert behält 120. Gezählt wird je Serverprozess und nach dem Weiterleitungs-Header, den ein Aufrufer selbst setzt; die Grenze schützt also vor einem außer Kontrolle geratenen Client und ist kein Kontingent. |
 | AIPM_STT_MAX_REQUESTS | - | Server | - | Diktier-Anfragen, die der Server der App für einen Aufrufer pro Minute weiterleitet (ganze Zahl von 1 bis 100000; 60, wenn nicht gesetzt); ein ungültiger Wert behält 60. Gezählt wie die Grenze des KI-Relays. |
+| AIPM_CSP_TURSO_HOSTS | - | Server | - | Die genauen Turso-Datenbank-Hosts (jeweils auf .turso.io endend) und lokalen libSQL-Server (localhost:PORT oder 127.0.0.1:PORT), mit denen sich der Browser verbinden darf, durch Kommas getrennt. Sie ersetzen die Platzhalter *.turso.io und die Loopback-Platzhalter in der Content Security Policy der Seite; jede Datenbank, die ein Nutzer einrichtet, muss daher aufgeführt sein, sonst blockiert der Browser sie. Nicht gesetzt bleiben die Platzhalter; ein ungültiger Wert behält sie ebenfalls und wird einmal auf dem Server protokolliert. |
+| AIPM_CSP_SHAREPOINT_HOSTS | - | Server | - | Die genauen SharePoint- und OneDrive-Datei-Hosts (jeweils auf .sharepoint.com oder .files.1drv.com endend), von denen der Browser Dateien laden darf, durch Kommas getrennt. Sie ersetzen die Platzhalter *.sharepoint.com und *.files.1drv.com in der Content Security Policy der Seite; jede Website und jeder Host für persönliche Dateien, auf dem ein Nutzer Projekte speichert, muss daher aufgeführt sein. Nicht gesetzt bleiben die Platzhalter; ein ungültiger Wert behält sie ebenfalls und wird einmal auf dem Server protokolliert. |
 | AIPM_AI_CHAT_RETENTION_DAYS | - | Server | - | Tage, die ein gespeicherter KI-Chat aufbewahrt wird, bevor er nach Alter gelöscht wird, durch den Browser und durch das tägliche Löschen des Servers, wo es eingerichtet ist (1 bis 3650, ohne Angabe 30); ein ungültiger Wert pausiert das Löschen nach Alter, bis er korrigiert ist. |
 | AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY | - | Server | - | RSA-Public-Key des Administrators (Base64, mindestens 3072 Bit), für den gespeicherte KI-Chats zusätzlich zur Wiederherstellung verschlüsselt werden; solange er fehlt oder unbrauchbar ist, wird kein Chat gespeichert. |
 | AIPM_CHAT_SWEEP_TURSO_URL | - | Server | - | Turso-Datenbankadresse, mit der sich das tägliche Löschen abgelaufener KI-Chats auf dem Server verbindet; ohne Angabe gilt stattdessen die öffentliche Turso-Adresse der App, und eine entfernte Adresse ohne Sweep-Token bedeutet, dass das tägliche Löschen nicht läuft. |
@@ -294,7 +296,6 @@ Register übernommen und stehen daher auf Englisch.
 | §796 | Tasks created by Optimize work breakdown with AI cannot be undone |
 | §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |
-| §800 | The Content Security Policy allows whole host families by wildcard |
 | §801 | Text the AI writes carries no machine-readable marking |
 | §802 | The AI gateway route has never been run against a real gateway |
 | §804 | Plan with AI always sends internal hourly rates; there is no option to leave them out |

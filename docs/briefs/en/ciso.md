@@ -26,8 +26,9 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
   browser enforces, except dictation with the browser's own speech recognition, which in some browsers sends
   audio to the browser maker (E1, *read in code*); api.anthropic.com is in it only on the direct route with AI
   on (E53, *tested (unit)*).
-  Turso, SharePoint and OneDrive hosts are allowed by wildcard, and so is any local port
-  ([browser hosts](appendix.md#browser-hosts); §800; E34, *read in code*).
+  Turso, SharePoint and OneDrive hosts are allowed by wildcard, and so is any local port, unless the deployment
+  names its own hosts (`AIPM_CSP_TURSO_HOSTS`, `AIPM_CSP_SHAREPOINT_HOSTS`)
+  ([browser hosts](appendix.md#browser-hosts); E34, *read in code*).
 - **From the server:** the relay forwards four Anthropic headers, plus the gateway token when one is set, and
   no cookies, and logs no key, token, body or URL (E6, *tested (unit)*); the other
   [server destinations](appendix.md#server-destinations) are listed. Updates come from the project's GitHub
@@ -66,7 +67,8 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
 2. **§794:** a single chat write applies without the review card (E47, *tested (unit)*).
 3. **§487, §793:** the Windows installer is unsigned, and the uninstaller would stay unsigned with signing on
    (E51, *tested (unit)*).
-4. **§800:** the policy allows whole host families by wildcard (E34, *read in code*).
+4. **Wildcard hosts by default:** unless the deployment sets `AIPM_CSP_TURSO_HOSTS` and `AIPM_CSP_SHAREPOINT_HOSTS`,
+   the policy allows whole host families by wildcard (E34, *read in code*).
 5. **§562:** the request limit of the six limited routes, the relay's and dictation's included, is keyed on a header the
    caller can set and counted per server process, so it can be avoided (E54, *read in code*).
 

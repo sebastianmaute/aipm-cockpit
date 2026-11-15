@@ -12,6 +12,11 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **A deployment can name the exact Turso and SharePoint hosts its browsers may reach.** `AIPM_CSP_TURSO_HOSTS`
+  and `AIPM_CSP_SHAREPOINT_HOSTS` take comma-separated hosts; the page's security policy then lists exactly those
+  instead of the `*.turso.io`, loopback, `*.sharepoint.com` and `*.files.1drv.com` wildcards. Every database and
+  site a user configures must be listed. Unset, or with an invalid value (logged once on the server), the
+  wildcards stay.
 - **The operator can change the AI relay's and dictation's request limits.** `AIPM_AI_RELAY_MAX_REQUESTS` (120
   when unset) and `AIPM_STT_MAX_REQUESTS` (60) take a whole number from 1 to 100000 requests per caller per minute;
   an invalid value keeps the default and is logged once on the server (`docs/RUNBOOK.md`).
