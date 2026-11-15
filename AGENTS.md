@@ -57,7 +57,7 @@ live in [`docs/open-followups.md`](docs/open-followups.md), not here.
 any `docs/AGENTS/*.md` or in an AI brief (`docs/briefs/`) exists nowhere in `src`/`scripts`/`e2e`/`desktop/src`/`desktop/scripts`. That is all it does: it proves a NAME
 is real, never that a CLAIM about it is true. "`sanitizeX` guards this path" passes the gate whether
 or not that path calls it. ★★★ NARROWER STILL — **it only checks MIXED-CASE names, so every
-backticked `SCREAMING_CASE` constant in AGENTS.md and every file in `docs/AGENTS/` is completely ungated.** The scan requires
+backticked `SCREAMING_CASE` constant in AGENTS.md, every file in `docs/AGENTS/` and the AI briefs is completely ungated.** The scan requires
 both a lowercase and an upper/underscore character (`check-agents-symbols.mjs`, the "mixed case only"
 guard), so `HELP_ENTRIES`, `TABLE_NAMES`, `CONFIG_KEYS`, `A11Y_VIEWS` and every peer are skipped
 outright — a deleted one goes on being documented as current forever. Verified 2026-08-05 by probe,

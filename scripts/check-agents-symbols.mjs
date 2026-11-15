@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// scripts/check-agents-symbols.mjs — fail when AGENTS.md names a code symbol
-// that does not exist.
+// scripts/check-agents-symbols.mjs — fail when AGENTS.md, a docs/AGENTS file or
+// an AI brief (`GATED_DOC_DIRS`) names a code symbol that does not exist.
 //
 // WHY: nothing gates AGENTS.md, and a false symbol name there does not stay in
 // the doc. `migrateTaskStatus` (a function that never existed) was read by three
