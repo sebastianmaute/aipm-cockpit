@@ -5,6 +5,8 @@
 //                               the two loopback wildcards.
 //   AIPM_CSP_SHAREPOINT_HOSTS   SharePoint and OneDrive file hosts (`*.sharepoint.com`, `*.files.1drv.com`, each named
 //                               exactly); replaces those two wildcards.
+// A local server on IPv6 loopback (`[::1]`, which `turso-config.ts` accepts) cannot be named: CSP's host-source
+// grammar has no form for an IPv6 literal, so no source would match it; such a server must listen on 127.0.0.1.
 // Both are comma-separated. Read per request. Unset keeps the wildcards. A value with any entry that is not such a
 // host keeps the wildcards too, so a typo cannot cut the browser off from storage, and is logged on the server once
 // per process, naming the setting only, never its value.

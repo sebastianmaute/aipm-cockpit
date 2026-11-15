@@ -315,6 +315,28 @@ describe("proxy CSP — named hosts replace the wildcards (§800)", () => {
     ]);
   });
 
+  // The same replacement when the browser may not call Anthropic (AI switched off): the named hosts still take the
+  // Turso group's place, and nothing else moves.
+  it("with AI switched off, AIPM_CSP_TURSO_HOSTS still replaces the group in place", () => {
+    vi.stubEnv("AIPM_DISABLED_INTEGRATIONS", "ai");
+    vi.stubEnv("AIPM_CSP_TURSO_HOSTS", "a-org.turso.io");
+    expect(connectSources()).toEqual([
+      "'self'",
+      "https://a-org.turso.io",
+      "https://graph.microsoft.com",
+      "https://*.sharepoint.com",
+      "https://*.files.1drv.com",
+      "https://login.microsoftonline.com",
+    ]);
+  });
+
+  // A local server on IPv6 loopback cannot be named: CSP has no host syntax for an IPv6 literal (see the parser).
+  it("an IPv6 loopback entry is invalid, so the wildcards stay", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubEnv("AIPM_CSP_TURSO_HOSTS", "[::1]:8080");
+    expect(connectSources()).toContain("https://*.turso.io");
+  });
+
   it("both set: no wildcard is left in connect-src, and frame-src is unchanged", () => {
     vi.stubEnv("AIPM_CSP_TURSO_HOSTS", "a-org.turso.io");
     vi.stubEnv("AIPM_CSP_SHAREPOINT_HOSTS", "contoso.sharepoint.com");
