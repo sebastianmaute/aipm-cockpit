@@ -78,7 +78,7 @@ Schalter und die Beobachtung der Ausgaben: Nichts in der App hält interaktive K
 - Legen Sie den Weg fest und halten Sie fest, welche [Betriebsschalter](appendix.md#betriebsschalter) Sie
   setzen. Sobald das Relay genutzt wird, stellen Sie den Server der App hinter Ihre eigene Zugangskontrolle: Die
   App authentifiziert ihre Aufrufer nicht (E13, *im Code gelesen*). Die Herkunftsprüfung des Relays und seine
-  Grenze von 120 Aufrufen je Minute und Aufrufer halten ein einfaches Skript auf, aber keinen entschlossenen
+  Grenze je Aufrufer (120 Aufrufe je Minute, sofern Sie keine andere setzen) halten ein einfaches Skript auf, aber keinen entschlossenen
   Aufrufer, denn beide beruhen auf Headern, die der Aufrufer selbst setzen kann (§562; E54, *im Code gelesen*;
   E69, *getestet (Unit)*).
 - Bevor Sie sich auf ein Gateway verlassen, verlangen Sie einen Lauf des Live-Nachweises über ein Test-Gateway

@@ -65,9 +65,9 @@ to watch spend: nothing in the app stops interactive AI at a spend limit (E38, *
 
 - Choose the route and write down the [deployment switches](appendix.md#deployment-switches) you set. Whenever
   the relay is used, put the app's server behind your own access control: the app does not authenticate callers
-  (E13, *read in code*). The relay's origin check and its limit of 120 calls a minute per caller stop a plain
-  script, not a determined caller, because both rest on headers a caller can set (§562; E54, *read in code*;
-  E69, *tested (unit)*).
+  (E13, *read in code*). The relay's origin check and its per-caller limit (120 calls a minute unless you set
+  another) stop a plain script, not a determined caller, because both rest on headers a caller can set (§562;
+  E54, *read in code*; E69, *tested (unit)*).
 - Before relying on a gateway, ask for one run of the live proof through a test gateway of yours (§802; E12,
   *not proven*).
 - Ask Anthropic, for your organisation's account: what it retains of a request and for how long, whether it
