@@ -60,6 +60,7 @@ describe("isPrivateHost", () => {
     ["IPv4-compatible hex private (canonicalized)", "::a00:1"],
     ["IPv4-compatible hex shared address space", "::6440:1"],
     ["bracketed IPv4-compatible metadata", "[::a9fe:a9fe]"],
+    ["IPv4-compatible undecodable -> fail closed", "::zz:1"],
   ])("flags %s as private", (_label, host) => {
     expect(isPrivateHost(host)).toBe(true);
   });

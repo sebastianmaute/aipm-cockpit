@@ -216,7 +216,8 @@ longer carries its own changelog comment.
 - **Dictation refuses two more internal address ranges.** An address in `0.0.0.0/8`
   (which reaches the server itself on common systems) or in the shared address space `100.64.0.0/10` (used by
   carrier-grade NAT and by overlay networks for internal hosts) is now refused like a private address, whether it
-  is typed as such or a host name resolves to it. The Jira and Timelog routes share the check.
+  is typed as such, written in an IPv4-mapped or IPv4-compatible IPv6 form, or a host name resolves to it. The
+  Jira and Timelog routes share the check.
 - **The AI relay and dictation limit each caller, and dictation checks where a host name points.** The AI relay
   answers at most 120 requests a minute from one caller and dictation 60; over the limit, the AI features say that
   this app's server is limiting requests, not that Anthropic is (dictation shows its usual transcription error). The relay also refuses a call that carries no

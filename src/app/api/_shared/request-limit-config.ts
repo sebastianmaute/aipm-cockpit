@@ -23,7 +23,8 @@ export function parseRequestLimit(raw: string | undefined, fallback: number): { 
   return { max, invalid: false };
 }
 
-/** Settings already reported by this server process: each is logged once, not on every request. */
+/** Settings already reported by this server process: each is logged once, not on every request. Mutable module
+ *  state on purpose: "once per process" needs memory that outlives a call. */
 const reported = new Set<string>();
 
 /** `parseRequestLimit` for the named setting; an invalid one tells the operator once per process. */

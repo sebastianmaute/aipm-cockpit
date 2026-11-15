@@ -1,4 +1,4 @@
-// In-memory sliding-window rate limiter for the /api/* proxy routes (Jira,
+// In-memory fixed-window rate limiter for the /api/* proxy routes (Jira,
 // Confluence, Timelog, ECB, the AI relay and dictation). Suitable for single-process deployments (local dev, single-instance
 // server). For multi-instance deployments, replace the Map with a shared
 // store (Redis).
