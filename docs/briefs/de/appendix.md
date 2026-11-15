@@ -21,7 +21,9 @@ Eintrag im Aktivitätsprotokoll zu einem übernommenen Projektstrukturplan nennt
 „Mit KI planen“ zeigt, was seine Anfrage weggelassen hat (E60), das Relay und die Diktat-Route lehnen mehr Aufrufe
 ab und begrenzen jeden Aufrufer (E69, E70), was einen Aufruf ablehnen kann, aber keinen verändert, der durchgeht,
 und die KI-Offenlegung hat sich geändert, sodass jede nutzende Person ihr erneut zustimmt. Die ersten beiden
-können ändern, was eine Anfrage sendet. Offene Lücken werden mit ihrer Nummer im Register offener Punkte des Projekts
+ändern, was eine Anfrage enthält: Bei aktivem Personenschutz enthält eine Anfrage keinen Insight über eine
+einzelne Person mehr (E67), und der Aktivitätstext, den der Chat durchsuchen kann, nennt bis zu 20 der angelegten
+Aufgaben (E68). Offene Lücken werden mit ihrer Nummer im Register offener Punkte des Projekts
 (`docs/open-followups.md`, englisch) zitiert, zum Beispiel §802; die Tabelle unter „Offene Lücken“ führt jede auf, die
 die Kurzinformationen zitieren.
 

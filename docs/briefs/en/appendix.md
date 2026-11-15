@@ -18,7 +18,9 @@ five ways the figures predate: insights about one person no longer reach the AI 
 (E67), the activity entry of an applied work breakdown names the tasks it created (E68), Plan with AI shows what
 its request left out (E60), the relay and the dictation route refuse more calls and limit each caller (E69,
 E70), which can refuse a call but changes none that passes, and the AI disclosure changed, so each user accepts
-it again. The first two can change what a request sends. Open gaps are cited by their number in the project's register of open follow-ups
+it again. The first two change what a request carries: under people protection a request no longer holds an
+insight about one person (E67), and the activity text the chat can search names up to 20 of the created tasks
+(E68). Open gaps are cited by their number in the project's register of open follow-ups
 (`docs/open-followups.md`), for example §802; the table under "Open gaps" lists every one the briefs cite.
 
 ## Evidence labels
