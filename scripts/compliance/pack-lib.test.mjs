@@ -358,6 +358,58 @@ describe("proseGapCitations", () => {
     ]);
   });
 
+  // CommonMark carries a span across the lines of one block quote paragraph, and across a lazy continuation line.
+  it("pairs a code span across the lines of a block quote", () => {
+    const src = [
+      "> a quoted title `(§797)", // 1
+      "> wrapped` and §810 `x`", // 2
+      "lazy continuation `(§798)", // 3
+      "here` and §562", // 4
+      "", // 5
+      "> a new quote ` stray", // 6
+      "", // 7
+      "§804 after the blank", // 8
+    ].join("\n");
+    expect(proseGapCitations(src)).toEqual([
+      { n: 810, line: 2 },
+      { n: 562, line: 4 },
+      { n: 804, line: 8 },
+    ]);
+  });
+
+  // An indented code block (four spaces after a blank line, outside a list) is code: no citation in it, and its
+  // backticks pair with nothing outside it.
+  it("skips an indented code block, but not an indented list continuation", () => {
+    const src = [
+      "prose", // 1
+      "", // 2
+      "    code with §797 and a stray `", // 3
+      "prose §810 and `x`", // 4
+      "", // 5
+      "- an item", // 6
+      "", // 7
+      "    its continuation cites §562", // 8
+    ].join("\n");
+    expect(proseGapCitations(src)).toEqual([
+      { n: 810, line: 4 },
+      { n: 562, line: 8 },
+    ]);
+  });
+
+  // CommonMark parses no code spans inside an HTML block, which runs to the next blank line.
+  it("pairs no backticks inside an HTML block", () => {
+    const src = [
+      "<details><summary>a ` stray</summary>", // 1
+      "§810 inside `the` HTML block", // 2
+      "", // 3
+      "prose §562 and `x`", // 4
+    ].join("\n");
+    expect(proseGapCitations(src)).toEqual([
+      { n: 810, line: 2 },
+      { n: 562, line: 4 },
+    ]);
+  });
+
   it.each([
     "the co-determination right (§87(1) No. 6)",
     "§ 87 Abs. 1 Nr. 6 BetrVG",
