@@ -1,8 +1,14 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   BLOCK_NAMES,
+  BRIEF_FILES,
   claimViolations,
+  evidenceViolations,
+  figuresViolations,
   gapViolations,
+  linkViolations,
   PACK_FILES,
   parityViolations,
   parseBlocks,
@@ -17,9 +23,9 @@ const B = (name) => `<!-- PACK:${name}:BEGIN -->`;
 const E = (name) => `<!-- PACK:${name}:END -->`;
 
 describe("constants", () => {
-  it("lists nine files and six block names", () => {
+  it("lists nine files and eight block names", () => {
     expect(PACK_FILES).toHaveLength(9);
-    expect(BLOCK_NAMES).toHaveLength(6);
+    expect(BLOCK_NAMES).toHaveLength(8);
   });
 });
 
@@ -434,5 +440,275 @@ describe("reviewLineViolations", () => {
   it("reads a CRLF README", () => {
     const crlf = en("1.0.0", "2026-11-12").replace(/\n/g, "\r\n");
     expect(reviewLineViolations(crlf, de("1.0.0", "2026-11-12"), "1.20.1")).toEqual([]);
+  });
+});
+
+describe("AI briefs", () => {
+  const figures = () => JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "docs", "briefs", "figures.json"), "utf8"));
+
+  it("figuresViolations accepts the committed figures.json", () => {
+    expect(figuresViolations(figures())).toEqual([]);
+  });
+
+  it("figuresViolations rejects mixed commits", () => {
+    const a = "a".repeat(40);
+    const b = "b".repeat(40);
+    expect(figuresViolations({ ...figures(), commit: `${a} ${b}` })).toHaveLength(1);
+    expect(figuresViolations({ ...figures(), commit: [a, b] })).toHaveLength(1);
+    expect(figuresViolations({ ...figures(), commit: "abc123" })).toHaveLength(1);
+    const f = figures();
+    f.paths[0].commit = b;
+    expect(figuresViolations(f)).toEqual(['figures.paths[0]: key "commit" is not allowed']);
+  });
+
+  it("figuresViolations rejects a key outside the allowlist", () => {
+    expect(figuresViolations({ ...figures(), note: "x" })).toEqual(['figures: key "note" is not allowed']);
+    const f = figures();
+    f.behaviour.extra = 1;
+    f.rates["claude-sonnet-5"].discount = 1;
+    f.relayKeyCheck.runs[0].secret = "x";
+    expect(figuresViolations(f)).toHaveLength(3);
+    expect(figuresViolations({ ...figures(), schema: 2 })).toHaveLength(1);
+  });
+
+  it("figuresViolations checks free keys against a pattern", () => {
+    const f = figures();
+    f.behaviour.inferenceGeo["not ok!"] = 1;
+    f.rates["a b"] = { input: 1, output: 1, cacheWrite: 1, cacheRead: 1 };
+    expect(figuresViolations(f)).toHaveLength(2);
+  });
+
+  const appendix = ["| Id | Claim | Label | Source |", "|---|---|", "| E1 | one | l | s |", "| E2 | two | l | s |"].join("\n");
+
+  it("evidenceViolations reports a missing id and a language mismatch", () => {
+    const ok = { "en/ceo.md": "See E1 and E2.", "de/ceo.md": "Siehe E2 und E1." };
+    expect(evidenceViolations(ok, appendix)).toEqual([]);
+    const missing = { "en/ceo.md": "See E3.", "de/ceo.md": "Siehe E3." };
+    expect(evidenceViolations(missing, appendix)).toHaveLength(2);
+    const mismatch = { "en/cio.md": "See E1.", "de/cio.md": "Siehe E1 und E2." };
+    expect(evidenceViolations(mismatch, appendix)).toEqual(["cio.md: evidence ids differ (en [E1]; de [E1, E2])"]);
+  });
+
+  it("evidenceViolations does not read E-numbers inside words or generated blocks", () => {
+    const pages = { "en/x.md": ["RE12 and E9X", B("figures"), "E77", E("figures")].join("\n"), "de/x.md": "" };
+    expect(evidenceViolations(pages, appendix)).toEqual([]);
+  });
+
+  it("claimViolations flags each brief deny phrase in en and de", () => {
+    const en = [
+      "It is GDPR-compliant.", "It is AI-Act-compliant.", "The service is EU-hosted.", "Data never leaves the EU.",
+      "A sovereign setup.", "A human is always in the loop.", "It is fully auditable.", "Access is instantly revoked.",
+      "Per-feature cost control exists.", "The savings are measured.", "It is secure.", "The gateway is proven.",
+      "Anthropic guarantees deletion.",
+    ];
+    for (const line of en) expect(claimViolations(line, "en"), line).not.toHaveLength(0);
+    const de = [
+      "Das ist DSGVO-konform.", "Das ist KI-VO-konform.", "Das System ist in der EU gehostet.", "Das verlässt nie die EU.",
+      "Eine souveräne Lösung.", "Es ist immer ein Mensch beteiligt.", "Es ist vollständig nachvollziehbar.",
+      "Es ist vollständig auditierbar.", "Zugriff wird sofort widerrufen.", "Kostenkontrolle je Funktion ist da.",
+      "Die Einsparungen sind gemessen.", "Das System ist sicher.", "Das Gateway ist belegt.", "Anthropic garantiert die Löschung.",
+    ];
+    for (const line of de) expect(claimViolations(line, "de"), line).not.toHaveLength(0);
+  });
+
+  it("brief deny phrases leave honest negations and neutral wording alone", () => {
+    expect(claimViolations("We make no claim that this is GDPR \"compliant\".", "en")).toEqual([]);
+    expect(claimViolations("Savings are not measured; see the open gap.", "en")).toEqual([]);
+    expect(claimViolations("Access can be revoked, but not instantly.", "en")).toEqual([]);
+    expect(claimViolations("Die Einsparung ist nicht gemessen.", "de")).toEqual([]);
+    expect(claimViolations("Der Zugriff lässt sich widerrufen, nicht sofort.", "de")).toEqual([]);
+  });
+
+  it("brief gap citations must be open and listed", () => {
+    const register = ["## 811. Open", "## 812. Done — CLOSED 2026-11-06"].join("\n");
+    expect(proseGapViolations("Gap §811.", [811], register)).toEqual([]);
+    expect(proseGapViolations("Gap §811.", [], register)).toHaveLength(1);
+    expect(proseGapViolations("Gap §812.", [812], register)).toHaveLength(1);
+  });
+
+  it("the brief file list is exactly BRIEF_FILES", () => {
+    const expected = ["ceo", "cio", "ciso", "caio", "coo", "dpo", "pm", "appendix"].map((n) => `${n}.md`);
+    expect([...BRIEF_FILES]).toEqual(expected);
+    for (const lang of ["en", "de"]) {
+      const dir = join(import.meta.dirname, "..", "..", "docs", "briefs", lang);
+      expect(readdirSync(dir).filter((n) => n.endsWith(".md")).sort()).toEqual([...expected].sort());
+    }
+  });
+});
+
+describe("AI briefs, fix round 1", () => {
+  const figures = () => JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "docs", "briefs", "figures.json"), "utf8"));
+  const mutate = (fn) => {
+    const f = figures();
+    fn(f);
+    return figuresViolations(f);
+  };
+
+  it("figuresViolations rejects every wrong shape", () => {
+    const cases = {
+      "paths as an object": (f) => { f.paths = { a: 1 }; },
+      "a path that is a string": (f) => { f.paths[0] = "x"; },
+      "behaviour as an array": (f) => { f.behaviour = []; },
+      "inferenceGeo value an object": (f) => { f.behaviour.inferenceGeo.global = { apiKey: "k" }; },
+      "requests value a string": (f) => { f.behaviour.requests.off = "47"; },
+      "documentedExceptionHitsOn value NaN": (f) => { f.behaviour.documentedExceptionHitsOn["project-proposal"] = NaN; },
+      "hiddenWhenProtected an object": (f) => { f.hiddenWhenProtected = {}; },
+      "hiddenWhenProtected holds an object": (f) => { f.hiddenWhenProtected = [{ id: "x" }]; },
+      "hiddenWhenProtected holds a bad id": (f) => { f.hiddenWhenProtected = ["not ok!"]; },
+      "fetchedAt an object": (f) => { f.rates.fetchedAt = { a: 1 }; },
+      "fetchedAt not a date": (f) => { f.rates.fetchedAt = "yesterday"; },
+      "runDate not a date": (f) => { f.runDate = "14.11.2026"; },
+      "a rate that is a string": (f) => { f.rates["claude-sonnet-5"] = "cheap"; },
+      "a rate field that is a string": (f) => { f.rates["claude-sonnet-5"].input = "2"; },
+      "rates as an array": (f) => { f.rates = []; },
+      "relayKeyCheck as an array": (f) => { f.relayKeyCheck = []; },
+      "relayKeyCheck.runs as an object": (f) => { f.relayKeyCheck.runs = {}; },
+      "a run that is a string": (f) => { f.relayKeyCheck.runs = ["text"]; },
+      "a run with a string coldExtraMs": (f) => { f.relayKeyCheck.runs[0].coldExtraMs = "724"; },
+      "warmExtraMs a string": (f) => { f.relayKeyCheck.warmExtraMs = "x"; },
+      "a path number as a string": (f) => { f.paths[0].calls = "6"; },
+      "a path number Infinity": (f) => { f.paths[0].usdPerCall = Infinity; },
+      "a path id that is a number": (f) => { f.paths[0].id = 3; },
+      "a behaviour number as a string": (f) => { f.behaviour.emailHitsOn = "0"; },
+    };
+    for (const [name, fn] of Object.entries(cases)) expect(mutate(fn), name).not.toHaveLength(0);
+  });
+
+  it("figuresViolations accepts a null warmExtraMs", () => {
+    expect(mutate((f) => { f.relayKeyCheck.warmExtraMs = null; })).toEqual([]);
+  });
+
+  it("claimViolations flags the human-in-the-loop paraphrases", () => {
+    for (const l of ["A person is always a human in the loop.", "There is always a human in the loop.", "Always a human in the loop."]) {
+      expect(claimViolations(l, "en"), l).not.toHaveLength(0);
+    }
+    for (const l of ["Der Mensch ist immer beteiligt.", "Ein Mensch ist immer beteiligt.", "Es ist immer eine Person dabei, ein Mensch bleibt immer eingebunden."]) {
+      expect(claimViolations(l, "de"), l).not.toHaveLength(0);
+    }
+  });
+
+  const appendixOf = (ids, extra = "") =>
+    ["| Id | Claim | Label | Source |", "|---|---|", ...ids.map((n) => `| E${n} | row |`), extra].join("\n");
+
+  it("evidenceViolations counts appendix rows only outside generated blocks and fences", () => {
+    const hidden = [appendixOf([1]), B("figures"), "| E2 | generated |", E("figures"), "```", "| E3 | fenced |", "```"].join("\n");
+    const pages = { "en/a.md": "E2", "de/a.md": "E2" };
+    expect(evidenceViolations(pages, hidden)).toHaveLength(2);
+    expect(evidenceViolations({ "en/a.md": "E3", "de/a.md": "E3" }, hidden)).toHaveLength(2);
+    expect(evidenceViolations({ "en/a.md": "E1", "de/a.md": "E1" }, hidden)).toEqual([]);
+  });
+
+  it("evidenceViolations requires equal EN and DE appendix row ids and checks DE pages against the DE appendix", () => {
+    const pages = { "en/a.md": "E1", "de/a.md": "E1" };
+    expect(evidenceViolations(pages, appendixOf([1, 2]), appendixOf([1, 2]))).toEqual([]);
+    const unequal = evidenceViolations(pages, appendixOf([1, 2]), appendixOf([1]));
+    expect(unequal).toEqual(["appendix: evidence row ids differ (en [E1, E2]; de [E1])"]);
+    expect(evidenceViolations(pages, appendixOf([1]), appendixOf([2]))).toHaveLength(2);
+  });
+
+  it("linkViolations reports every unlinked page", () => {
+    const files = ["ceo.md", "appendix.md"];
+    const all = "[a](en/ceo.md) [b](en/appendix.md) [c](de/ceo.md) [d](de/appendix.md)";
+    expect(linkViolations(all, files)).toEqual([]);
+    expect(linkViolations(all.replace("[d](de/appendix.md)", ""), files)).toEqual(["README.md: no link to de/appendix.md"]);
+    expect(linkViolations("", files)).toHaveLength(4);
+  });
+
+  it("the committed briefs README links to all sixteen pages and holds no deny-listed claim in either language", () => {
+    const readme = readFileSync(join(import.meta.dirname, "..", "..", "docs", "briefs", "README.md"), "utf8");
+    expect(linkViolations(readme, BRIEF_FILES)).toEqual([]);
+    expect(claimViolations(readme, "en")).toEqual([]);
+    expect(claimViolations(readme, "de")).toEqual([]);
+  });
+});
+
+describe("AI briefs, tooling review", () => {
+  const figures = () => JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "docs", "briefs", "figures.json"), "utf8"));
+  const mutate = (fn) => {
+    const f = figures();
+    fn(f);
+    return figuresViolations(f);
+  };
+
+  it("I1: the German deny list catches compounds ending in a denied stem", () => {
+    for (const l of ["Datensouveränität ist gegeben.", "Digitale Souveränität.", "Eine datensouveräne Lösung."]) {
+      expect(claimViolations(l, "de"), l).not.toHaveLength(0);
+    }
+  });
+
+  it("I2: a protection state outside off/on/relay is rejected", () => {
+    expect(mutate((f) => { f.paths[0].protection = "ON"; })).not.toHaveLength(0);
+    expect(mutate((f) => { f.paths[0].protection = "maybe"; })).not.toHaveLength(0);
+  });
+
+  it("I3: usdPerCall must follow from the tokens at the listed rates, and the model must have rates", () => {
+    expect(mutate((f) => { f.paths[0].usdPerCall = f.paths[0].usdPerCall + 0.01; })).not.toHaveLength(0);
+    expect(mutate((f) => { f.model = "claude-unknown-9"; })).not.toHaveLength(0);
+    expect(mutate((f) => { delete f.rates["claude-sonnet-5"]; })).not.toHaveLength(0);
+    expect(mutate((f) => { f.paths[0].usdPerCall = f.paths[0].usdPerCall + 0.00004; })).toEqual([]);
+  });
+
+  it("M4: more paraphrases of the denied claims are caught", () => {
+    for (const l of ["It's secure.", "The savings have been measured.", "Humans always stay in the loop.", "Savings were measured."]) {
+      expect(claimViolations(l, "en"), l).not.toHaveLength(0);
+    }
+    for (const l of [
+      "Die Einsparungen wurden gemessen.", "Die Zeitersparnis wurde belegt.", "Anthropics Bedingungen garantieren die Löschung.",
+      "Ein Mensch ist stets beteiligt.", "Der Mensch bleibt stets eingebunden.",
+    ]) {
+      expect(claimViolations(l, "de"), l).not.toHaveLength(0);
+    }
+  });
+
+  it("M5: counts, duplicates and ids are checked for plausibility", () => {
+    expect(mutate((f) => { f.paths[0].calls = -1; })).not.toHaveLength(0);
+    expect(mutate((f) => { f.paths[0].protectionUnverifiedCalls = f.paths[0].calls + 1; })).not.toHaveLength(0);
+    expect(mutate((f) => { f.paths.push({ ...f.paths[0] }); })).not.toHaveLength(0);
+    expect(mutate((f) => { f.hiddenWhenProtected = ["chat"]; })).not.toHaveLength(0);
+    expect(mutate((f) => { f.paths[0].id = "not ok!"; })).not.toHaveLength(0);
+  });
+
+  const table = (ids) => ["| Id | Claim | Label | Source |", "|---|---|---|---|", ...ids.map((n) => `| E${n} | c | l | s |`)].join("\n");
+
+  it("M9: ids cited in the appendix's own prose must be rows, and only the Id table's rows count", () => {
+    const pages = { "en/a.md": "E1", "de/a.md": "E1" };
+    expect(evidenceViolations(pages, `Intro cites E1.\n\n${table([1])}`, `Intro zitiert E1.\n\n${table([1])}`)).toEqual([]);
+    const bad = evidenceViolations(pages, `Intro cites E9.\n\n${table([1])}`, `Intro.\n\n${table([1])}`);
+    expect(bad).toEqual(["en/appendix.md: cites E9, which is not a row of the appendix evidence table"]);
+    const other = `| Name | x |\n|---|---|\n| E2 | other table |\n\n${table([1])}`;
+    expect(evidenceViolations({ "en/a.md": "E2", "de/a.md": "E2" }, other, other)).toHaveLength(2);
+  });
+});
+
+describe("AI briefs, last open paths", () => {
+  const figures = () => JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "docs", "briefs", "figures.json"), "utf8"));
+  const table = (ids) => ["| Id | Claim | Label | Source |", "|---|---|---|---|", ...ids.map((n) => `| E${n} | c | l | s |`)].join("\n");
+
+  it("N1: a table row id on a brief page is a citation, not a definition", () => {
+    const pages = { "en/ceo.md": "| E99 | x |", "de/ceo.md": "| E99 | x |" };
+    expect(evidenceViolations(pages, table([1]), table([1]))).toEqual([
+      "en/ceo.md: cites E99, which is not a row of the appendix evidence table",
+      "de/ceo.md: cites E99, which is not a row of the appendix evidence table",
+    ]);
+    expect(evidenceViolations({ "en/ceo.md": "| E1 | x |", "de/ceo.md": "| E1 | x |" }, table([1]), table([1]))).toEqual([]);
+  });
+
+  it("N1: the appendix's own row id cells still define rows rather than cite them", () => {
+    expect(evidenceViolations({}, table([1, 2]), table([1, 2]))).toEqual([]);
+  });
+
+  it("N4: only it's / that's / is / are forms flag 'secure'", () => {
+    expect(claimViolations("It's secure.", "en")).not.toHaveLength(0);
+    expect(claimViolations("That's secure.", "en")).not.toHaveLength(0);
+    expect(claimViolations("The service is secure.", "en")).not.toHaveLength(0);
+    expect(claimViolations("Let's secure the key.", "en")).toEqual([]);
+    expect(claimViolations("The team's secure channel is separate.", "en")).toEqual([]);
+  });
+
+  it("N5: every path needs at least one call", () => {
+    const f = figures();
+    f.paths[0].calls = 0;
+    f.paths[0].protectionUnverifiedCalls = 0;
+    expect(figuresViolations(f)).toEqual(["figures.paths[0].calls: must be at least 1"]);
   });
 });

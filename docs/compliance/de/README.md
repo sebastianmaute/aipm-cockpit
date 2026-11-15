@@ -65,6 +65,8 @@ Nicht behandelt werden:
 | [Musterhinweise](model-notices.md) | Vorlagen zur Information von Beschäftigten und externen Stakeholdern | DSB |
 | [KI-Kompetenz](ai-literacy.md) | Material in einfacher Sprache für die Menschen, die die App nutzen | Alle, die die KI nutzen |
 
+Einseitige KI-Kurzinformationen je Rolle, die auf diese Dokumente verweisen, stehen in [docs/briefs](../../briefs/README.md).
+
 ## Offene Lücken
 
 Dies sind bekannte Lücken, die noch offen sind. Jede ist ein Eintrag im öffentlichen Register offener
@@ -82,7 +84,7 @@ Registers.
 | §793 | The installer's uninstaller is not code-signed |
 | §794 | A single AI chat write applies without the review card |
 | §795 | Background AI runs are consented once, not approved run by run |
-| §796 | Tasks created by Plan with AI's work breakdown cannot be undone |
+| §796 | Tasks created by Optimize work breakdown with AI cannot be undone |
 | §797 | External text that the chat's tools read does not trigger the review hold |
 | §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |
@@ -91,6 +93,10 @@ Registers.
 | §802 | The AI gateway route has never been run against a real gateway |
 | §804 | Plan with AI always sends internal hourly rates; there is no option to leave them out |
 | §810 | Hiding a project's Resources function keeps neither the chat's people tools nor the absence list from the AI |
+| §811 | The time the AI features save is not measured |
+| §812 | Whether Optimize work breakdown with AI repeats is not measured |
+| §813 | Erasure and retention of saved chats are proven live only for the statements the erasure spec covers |
+| §814 | Several AI paths have no recorded cost or observed behaviour from a measured run |
 <!-- PACK:open-gaps:END -->
 
 Was jede Lücke für Sie bedeutet. Jeder Satz gibt seinen Registereintrag in `docs/open-followups.md` wieder,

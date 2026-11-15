@@ -7,6 +7,9 @@ import { OUTBOUND_DESTINATIONS } from "../outbound-destinations";
 import { BLOCK_NAMES } from "../../../scripts/compliance/pack-lib.mjs";
 import { PEOPLE_PATH_EXCLUDED_IDS, gapTitle, renderPackBlocks, type PackLang } from "./pack-blocks";
 
+/** The blocks the pack renders; `figures` and `team-month` belong to the AI briefs (brief-blocks.ts). */
+const PACK_BLOCK_NAMES = (BLOCK_NAMES as readonly string[]).filter((n) => n !== "figures" && n !== "team-month");
+
 const REGISTER = [
   "# Register",
   "",
@@ -48,10 +51,10 @@ describe("pack-blocks", () => {
   it("both languages render the same block names and row counts", () => {
     const en = renderPackBlocks("en", REGISTER, CITED);
     const de = renderPackBlocks("de", REGISTER, CITED);
-    expect(Object.keys(en)).toEqual([...BLOCK_NAMES]);
-    expect(Object.keys(de)).toEqual([...BLOCK_NAMES]);
-    for (const name of BLOCK_NAMES) expect(rows(de[name]).length).toBe(rows(en[name]).length);
-    for (const name of BLOCK_NAMES.filter((n: string) => n !== "open-gaps")) expect(de[name]).not.toBe(en[name]);
+    expect(Object.keys(en)).toEqual([...PACK_BLOCK_NAMES]);
+    expect(Object.keys(de)).toEqual([...PACK_BLOCK_NAMES]);
+    for (const name of PACK_BLOCK_NAMES) expect(rows(de[name]).length).toBe(rows(en[name]).length);
+    for (const name of PACK_BLOCK_NAMES.filter((n) => n !== "open-gaps")) expect(de[name]).not.toBe(en[name]);
   });
 
   it("an interactive row shows the interactive consent text and a background row the background one", () => {
