@@ -51,7 +51,8 @@ const HEADING_RE = /^(#{1,6})\s+\S/;
 const splitLines = (src) => src.split(/\r?\n/);
 
 /** One check run reads the same files many times, and the register alone takes about a second to parse, so
- *  `fencedFlags` keeps its answer per source text. Callers never modify the returned array. */
+ *  `fencedFlags` keeps its answer per source text, dropping the least recently used one when full. Callers never
+ *  modify the returned array. */
 const fencedCache = new Map();
 const FENCED_CACHE_MAX = 64;
 
@@ -61,13 +62,19 @@ const FENCED_CACHE_MAX = 64;
 function fencedFlags(lines) {
   const src = lines.join("\n");
   const cached = fencedCache.get(src);
-  if (cached) return cached;
+  if (cached) {
+    fencedCache.delete(src);
+    fencedCache.set(src, cached);
+    return cached;
+  }
   const flags = lines.map(() => false);
-  for (const [kind, token] of markdownEvents(src)) {
+  // The lines were split on CRLF or LF, so a lone CR is inside a line; micromark would count it as a line ending and
+  // shift every later line number. A space keeps its line and, for fence detection, reads the same.
+  for (const [kind, token] of markdownEvents(src.replace(/\r/g, " "))) {
     if (kind !== "enter" || token.type !== "codeFenced") continue;
     for (let l = token.start.line; l <= token.end.line; l++) flags[l - 1] = true;
   }
-  if (fencedCache.size >= FENCED_CACHE_MAX) fencedCache.clear();
+  if (fencedCache.size >= FENCED_CACHE_MAX) fencedCache.delete(fencedCache.keys().next().value);
   fencedCache.set(src, flags);
   return flags;
 }

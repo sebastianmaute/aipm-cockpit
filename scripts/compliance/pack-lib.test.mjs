@@ -878,4 +878,23 @@ describe("fenced code, as CommonMark parses it, in the line-based checks", () =>
     const rowAfter = [notAFence, "| Id | Claim | Label | Source |", "|---|---|", "| E9 | row |"].join("\n");
     expect(evidenceViolations({ "en/a.md": "E9", "de/a.md": "E9" }, rowAfter)).toEqual([]);
   });
+
+  it("parseBlocks ignores a marker inside a fence in a block quote", () => {
+    expect(parseBlocks(["> ```", `> ${B("ai-paths")}`, "> ```"].join("\n")).errors).toEqual([]);
+  });
+
+  // The callers split lines on CRLF or LF only, so a lone CR stays inside a line; the parser must count lines the
+  // same way, or every flag after it lands one line late.
+  it("structureOf keeps fence lines aligned after a lone CR", () => {
+    expect(structureOf("a\rb\n```\nx\n```\n## H").headings).toEqual(["##"]);
+  });
+
+  it("gives the same answer when a source is read again, and keeps two sources apart", () => {
+    const fenced = ["```", "## no", "```", "## yes"].join("\n");
+    const open = ["## no fence", "## yes"].join("\n");
+    for (let k = 0; k < 2; k++) {
+      expect(structureOf(fenced).headings).toEqual(["##"]);
+      expect(structureOf(open).headings).toEqual(["##", "##"]);
+    }
+  });
 });
