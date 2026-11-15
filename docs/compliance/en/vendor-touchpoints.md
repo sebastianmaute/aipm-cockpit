@@ -112,8 +112,8 @@ app to contact. It is read from the same constants the server uses to build the 
 <!-- PACK:browser-hosts:END -->
 
 The wildcard entries allow any Turso database and any SharePoint or OneDrive file host, not only yours,
-unless the deployment names its own hosts with `AIPM_CSP_TURSO_HOSTS` and `AIPM_CSP_SHAREPOINT_HOSTS`; then
-the policy lists exactly those. [verified: `src/proxy.ts`, `src/app/csp-host-settings.ts`, `src/proxy.test.ts`]
+unless the deployment names its own hosts with `AIPM_CSP_TURSO_HOSTS` or `AIPM_CSP_SHAREPOINT_HOSTS`; each
+setting then replaces its own family's wildcards with exactly the hosts it names. [verified: `src/proxy.ts`, `src/app/csp-host-settings.ts`, `src/proxy.test.ts`]
 
 ## Destinations of the server and the desktop app
 

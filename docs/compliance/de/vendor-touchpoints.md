@@ -121,8 +121,9 @@ aufbaut. [geprüft: `src/proxy.ts`] So lesen Sie sie:
 <!-- PACK:browser-hosts:END -->
 
 Die Platzhaltereinträge erlauben jede Turso-Datenbank und jeden SharePoint- oder OneDrive-Dateihost, nicht
-nur Ihre, es sei denn, die Bereitstellung nennt ihre eigenen Hosts mit `AIPM_CSP_TURSO_HOSTS` und
-`AIPM_CSP_SHAREPOINT_HOSTS`; dann führt die Richtlinie genau diese auf. [geprüft: `src/proxy.ts`,
+nur Ihre, es sei denn, die Bereitstellung nennt ihre eigenen Hosts mit `AIPM_CSP_TURSO_HOSTS` oder
+`AIPM_CSP_SHAREPOINT_HOSTS`; jede Einstellung ersetzt dann die Platzhalter ihrer eigenen Host-Familie durch
+genau die Hosts, die sie nennt. [geprüft: `src/proxy.ts`,
 `src/app/csp-host-settings.ts`, `src/proxy.test.ts`]
 
 ## Ziele des Servers und der Desktop-App
