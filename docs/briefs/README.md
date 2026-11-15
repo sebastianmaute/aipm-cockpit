@@ -42,10 +42,12 @@ Every factual sentence in a brief carries an evidence id (E1, E2, …) and a lab
 Jeder Tatsachensatz einer Kurzinformation trägt eine Beleg-Nummer (E1, E2, …) und eine Belegart: *gemessen*, *getestet (Unit)*, *getestet (Live-Datenbank)*, *im Code gelesen*, *geschätzt* oder *nicht belegt*. Der Anhang sagt, was jede Belegart bedeutet und woher jede Nummer stammt. Der Text beschreibt den Code im Commit f34d66937; die Zahlen wurden am 2026-11-14 mit claude-sonnet-5 im Commit e63693393 gemessen.
 
 The appendix tables are generated from the code (`npm run compliance:generate`); `docs/briefs/figures.json` holds the measured run behind the figures.
-The gate is `npm run compliance:check`, the same one that covers `docs/compliance/`.
+The gates are `npm run compliance:check`, the same one that covers `docs/compliance/`, and
+`npm run docs:symbols:check`, which fails when a brief names a code symbol that does not exist.
 
 Die Tabellen des Anhangs werden aus dem Code erzeugt (`npm run compliance:generate`); `docs/briefs/figures.json` enthält den gemessenen Lauf hinter den Zahlen.
-Das Gate ist `npm run compliance:check`, dasselbe, das `docs/compliance/` abdeckt.
+Die Gates sind `npm run compliance:check`, dasselbe, das `docs/compliance/` abdeckt, und
+`npm run docs:symbols:check`, das fehlschlägt, wenn eine Kurzinformation ein Code-Symbol nennt, das es nicht gibt.
 
 The gate keeps a list of claims the briefs must never make, in both languages. A page may still name or negate such a claim, but only inside quotation marks or inline code; the same words in plain prose fail the gate.
 

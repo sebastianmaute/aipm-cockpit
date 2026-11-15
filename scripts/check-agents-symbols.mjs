@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// scripts/check-agents-symbols.mjs — fail when AGENTS.md names a code symbol
-// that does not exist.
+// scripts/check-agents-symbols.mjs — fail when AGENTS.md, a docs/AGENTS file or
+// an AI brief (`GATED_DOC_DIRS`) names a code symbol that does not exist.
 //
 // WHY: nothing gates AGENTS.md, and a false symbol name there does not stay in
 // the doc. `migrateTaskStatus` (a function that never existed) was read by three
@@ -47,34 +47,27 @@
 // absent EVERYWHERE, not that every claim is true. Grep before trusting a bullet.
 
 import fs from "node:fs";
-import path from "node:path";
 
 import {
   ABSENCE_MARKERS,
   ALLOWLIST,
+  GATED_DOC_DIRS,
   PROXIMITY,
   collectIdentifiers,
+  gatedDocs,
+  gatedDocsEmptyDirs,
   isGatedSymbolName,
   markedNear,
 } from "./agents-symbols-lib.mjs";
 
-// ★★ AGENTS.md plus every file split out of it. The subsystem reference moved to
-// docs/AGENTS/ on 2026-08-04 so it would stop costing ~59k tokens on every
-// session; scanning only AGENTS.md afterwards would have silently dropped 73% of
-// the prose this gate exists to police. The directory is globbed rather than
-// listed so a NEW subsystem file is covered the moment it is written — an
-// explicit list is a thing you forget to extend.
-const DOC_DIR = "docs/AGENTS";
-const DOCS = [
-  "AGENTS.md",
-  ...(fs.existsSync(DOC_DIR)
-    ? fs
-        .readdirSync(DOC_DIR)
-        .filter((f) => f.endsWith(".md"))
-        .sort()
-        .map((f) => path.join(DOC_DIR, f))
-    : []),
-];
+// ★★ AGENTS.md plus every file split out of it, and the AI briefs (`GATED_DOC_DIRS`
+// in agents-symbols-lib.mjs). The subsystem reference moved to docs/AGENTS/ on
+// 2026-08-04 so it would stop costing ~59k tokens on every session; scanning only
+// AGENTS.md afterwards would have silently dropped 73% of the prose this gate
+// exists to police. The directories are globbed rather than listed so a NEW file
+// is covered the moment it is written — an explicit list is a thing you forget to
+// extend.
+const DOCS = gatedDocs();
 // ★★ `desktop/` is walked as its two TRACKED source roots, not as `desktop`.
 // The whole directory also holds `desktop/release/` (electron-builder output,
 // gitignored, present only after a local `desktop:package`), whose unpacked
@@ -94,13 +87,15 @@ function main() {
     }
   }
   // ★★ Same principle as the identifier floor below: a gate that scans nothing
-  // passes everything. If the split files vanish (moved, renamed, folder gone)
-  // this must FAIL rather than quietly go back to checking AGENTS.md alone —
-  // that would leave ~73% of the prose unscanned while still printing a pass.
-  if (DOCS.length < 2) {
+  // passes everything. If a gated folder vanishes or empties (moved, renamed,
+  // folder gone) this must FAIL rather than quietly stop scanning it — losing
+  // docs/AGENTS alone would leave ~73% of the prose unscanned while still
+  // printing a pass.
+  const empty = gatedDocsEmptyDirs();
+  if (empty.length > 0) {
     console.error(
-      `no ${DOC_DIR}/*.md found — the subsystem reference would go unscanned. ` +
-        `Refusing to report a pass.`,
+      `no *.md found in ${empty.join(", ")} (gated: ${GATED_DOC_DIRS.join(", ")}) — ` +
+        `that prose would go unscanned. Refusing to report a pass.`,
     );
     process.exit(2);
   }

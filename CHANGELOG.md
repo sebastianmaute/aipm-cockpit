@@ -221,6 +221,10 @@ longer carries its own changelog comment.
   was attached. Text from outside that carries no mark of its origin, such as rows created from an imported
   file, the app's own summaries or earlier chats, does not start the hold. A sync's entries in the activity
   history count as outside text too.
+- **The activity-log download lists every task a work breakdown created.** The internal activity-log download in
+  Settings named only the first 20 tasks of a large work-breakdown apply, then "and N more"; it now names all of
+  them, as the Activity panel does. The AI's copy of the log, read when the chat searches the history, still names
+  20.
 - **Dictation refuses two more internal address ranges.** An address in `0.0.0.0/8`
   (which reaches the server itself on common systems) or in the shared address space `100.64.0.0/10` (used by
   carrier-grade NAT and by overlay networks for internal hosts) is now refused like a private address, whether it

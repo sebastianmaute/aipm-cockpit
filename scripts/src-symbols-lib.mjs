@@ -1,7 +1,7 @@
 // The SOURCE-comment symbol report's shared layer.
 //
-// ★★★ WHY THIS EXISTS AT ALL. `check-agents-symbols.mjs` gates `AGENTS.md` and
-// `docs/AGENTS/*.md` and NOTHING ELSE, so a backticked identifier that never
+// ★★★ WHY THIS EXISTS AT ALL. `check-agents-symbols.mjs` gates `AGENTS.md`,
+// `docs/AGENTS/*.md` and the AI briefs (`GATED_DOC_DIRS`) and NOTHING ELSE, so a backticked identifier that never
 // existed, sitting in a docstring in `src/`, is completely ungated — forever.
 // That is not hypothetical: `requireRowAndToken` shipped into a reproduce command
 // in `chat-proposal-apply.ts` on 2026-09-04. It named a function that has never

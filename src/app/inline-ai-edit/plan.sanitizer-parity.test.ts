@@ -87,7 +87,7 @@ import type { Workspace } from "../workspace";
 //      ★★ THAT FILE DID NOT EXIST WHEN THIS COMMENT WAS FIRST WRITTEN, and the
 //      comment said so — correctly at the time, and falsely one commit later.
 //      A filename in a test comment is ungated either way (`docs:symbols:check`
-//      reads only AGENTS.md + `docs/AGENTS/*.md`), so re-check it, do not trust it.
+//      reads only AGENTS.md, `docs/AGENTS/*.md` and the AI briefs), so re-check it, do not trust it.
 //  (2) `previewOf` overrides exactly ONE key per probe, so a JOINT guard
 //      (`!firstName && !lastName`) is never exercised jointly — every group
 //      member's sibling stays populated, so `requiredNonEmptyGroups` never

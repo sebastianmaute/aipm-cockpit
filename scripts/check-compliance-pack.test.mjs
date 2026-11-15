@@ -2,13 +2,18 @@
 // call in the script fails here rather than staying green. It covers the injections listed below (each was
 // proven by deleting the script line that catches it); it does not claim to cover every line of the script.
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 const ROOT = join(import.meta.dirname, "..");
 const scratch = mkdtempSync(join(tmpdir(), "compliance-gate-"));
+// The pack library imports a Markdown parser (micromark), so the copied scripts must resolve the repo's packages.
+// A junction on Windows, a directory symlink elsewhere; `afterAll` unlinks it before the recursive delete, so the
+// cleanup can never walk into the real node_modules.
+const scratchModules = join(scratch, "node_modules");
+symlinkSync(join(ROOT, "node_modules"), scratchModules, process.platform === "win32" ? "junction" : "dir");
 
 function freshCopy() {
   rmSync(join(scratch, "docs"), { recursive: true, force: true });
@@ -40,7 +45,13 @@ const append = (rel, text) => {
 
 describe("check-compliance-pack.mjs, run against a scratch copy", () => {
   beforeEach(freshCopy);
-  afterAll(() => rmSync(scratch, { recursive: true, force: true }));
+  afterAll(() => {
+    try {
+      unlinkSync(scratchModules);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
 
   it("exits 0 on a clean copy", () => {
     const r = run();

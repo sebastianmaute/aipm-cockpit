@@ -828,7 +828,7 @@ npm run compliance:check    # compliance pack GATE over docs/compliance/{en,de}/
                             # `scripts/compliance/pack-lib.mjs`, tested by `pack-lib.test.mjs`.
 npm run src:symbols:check   # REPORT, not a gate — backticked names cited in `src/` COMMENTS that resolve
                             # nowhere in the CODE. ★★★ IT COVERS THE HALF `docs:symbols:check` CANNOT SEE:
-                            # that gate reads AGENTS.md + `docs/AGENTS/*.md` and NOTHING else, so an
+                            # that gate reads AGENTS.md, `docs/AGENTS/*.md` and the AI briefs and NOTHING else, so an
                             # invented identifier inside a source docstring is ungated forever. Live
                             # instance: a reproduce command naming a function that never existed, which
                             # STILL RETURNED THE RIGHT ANSWER because a substring matched the real call —

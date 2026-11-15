@@ -5,7 +5,7 @@ import {
   buildActivityAudit,
   type ActivityAuditSource,
 } from "./activity-audit";
-import type { ActivityEntry } from "./activity-log";
+import { wbsPlanActivityArgs, type ActivityEntry } from "./activity-log";
 import { activityMessage } from "./activity-message";
 
 // open-followups §510 — the internal activity-log download. Owner ruling 2026-10-04: include the
@@ -49,6 +49,17 @@ describe("buildActivityAudit", () => {
       message: activityMessage("en-US", "task.updated", [7, "Kickoff"]),
       changes: [{ field: "status", from: "To Do", to: "Done" }],
     }]);
+  });
+
+  // The download is read by people, like the Activity panel, so a work-breakdown entry names every task it created;
+  // only the model's copy of the log is cut to 20 and "and N more".
+  it("names every task a work-breakdown apply created, past the 20 the model sees", () => {
+    const many = Array.from({ length: 25 }, (_, i) => ({ id: 100 + i, taskName: `Piece ${i}` }));
+    const wbs = entry({ kind: "ai.wbsPlan", args: wbsPlanActivityArgs(25, many), actor: "ai", changes: undefined });
+    const [project] = buildActivityAudit("current", [source({ log: [wbs] })], NOW, "1.15.0").projects;
+    const { message } = project.entries[0];
+    for (let i = 0; i < 25; i++) expect(message).toContain(`#${100 + i} Piece ${i}`);
+    expect(message.endsWith("#124 Piece 24")).toBe(true);
   });
 
   it("keeps an absent actor absent — an entry from before actors were recorded has an unknown one", () => {

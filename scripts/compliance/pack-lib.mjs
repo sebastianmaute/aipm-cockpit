@@ -3,6 +3,8 @@
  *  reader. Same split as `followup-index-lib.mjs` and its CLI. */
 import { ENTRY_RE } from "../followup-claims-lib.mjs";
 import { headingState, stateIsClosed } from "../followup-index-lib.mjs";
+import { parse, postprocess, preprocess } from "micromark";
+import { gfmTable } from "micromark-extension-gfm-table";
 
 export const PACK_FILES = Object.freeze([
   "README.md",
@@ -368,28 +370,58 @@ const STATUTE_AFTER = new RegExp(
   "u",
 );
 
+/** The [start, end) source offsets of everything in `src` that Markdown renders as code: inline code spans and
+ *  indented and fenced code blocks. Read with micromark, a
+ *  CommonMark parser, plus its GFM table extension because the pack's tables are GFM tables: hand-written pairing got
+ *  hard wraps, block quotes, lists, indented code and HTML blocks wrong in turn, and either error direction is a
+ *  defect here — a span missed reports a number that is code, a span invented swallows a real citation. */
+function codeRanges(src) {
+  const events = postprocess(parse({ extensions: [gfmTable()] }).document().write(preprocess()(src, undefined, true)));
+  const ranges = [];
+  for (const [kind, token] of events) {
+    if (kind === "enter" && (token.type === "codeText" || token.type === "codeIndented" || token.type === "codeFenced")) {
+      ranges.push([token.start.offset, token.end.offset]);
+    }
+  }
+  return ranges;
+}
+
+/** The source offset at which each line of `src` starts, for lines split as `splitLines` splits them. */
+function lineStartOffsets(src) {
+  const starts = [0];
+  for (const m of src.matchAll(/\r?\n/g)) starts.push(m.index + m[0].length);
+  return starts;
+}
+
 /** Register citations in a pack file's prose. The rule: `§` directly followed
  *  (no space) by a number of three or more digits, at least 400. Statute
  *  sections are never register citations and are skipped: `§§`, `§ 87` (space),
  *  any number below 400, a number followed by `(` or by `Abs.`/`Nr.`/`No.`/`S.`/
  *  `Satz`, and a number preceded or followed by one of `STATUTE_ABBREVIATIONS`
  *  (`BetrVG §90`, `§401 SGB`, `§611a BGB`; a single lowercase letter right after
- *  the number belongs to the section). Generated block bodies and fenced code
- *  are not prose and are skipped too.
+ *  the number belongs to the section). Generated block bodies and everything
+ *  Markdown renders as code (`codeRanges`: inline code spans, indented and fenced
+ *  code, as CommonMark parses them) are not prose and are skipped too: a quoted
+ *  test title can carry a register number without citing that gap.
  *  A register citation is recognised ONLY as `§NNN` (no space, NNN at least 400): a German-style
  *  `§ NNN` or a lower number is never checked against the register.
  *  @returns {{ n: number, line: number }[]} in document order, 1-based lines. */
 export function proseGapCitations(src) {
   const { lines, blocks } = scanBlocks(src);
-  const fenced = fencedFlags(lines);
+  // Fenced code comes from `codeRanges` alone, not also from `fencedFlags`: the line-based check reads a backtick
+  // line whose info string holds a backtick as a fence, which CommonMark does not, and would skip real prose.
   const inBlock = (i) => blocks.some((b) => i > b.begin && i < b.end);
   const cite = /(?<![§\p{L}\p{N}])§(\d{3,})(?!\d)(?:[a-z](?!\p{L}))?/gu;
   const statuteBefore = STATUTE_BEFORE;
   const statuteAfter = STATUTE_AFTER;
   const out = [];
+  const code = codeRanges(src);
+  const starts = lineStartOffsets(src);
   lines.forEach((line, i) => {
-    if (fenced[i] || inBlock(i)) return;
+    if (inBlock(i)) return;
     for (const m of line.matchAll(cite)) {
+      const at = starts[i] + m.index;
+      if (code.some(([s, e]) => at >= s && at < e)) continue;
       const n = Number(m[1]);
       if (n < 400) continue;
       if (statuteBefore.test(line.slice(0, m.index))) continue;
