@@ -639,8 +639,9 @@ verdicts are cached per server process, and a cached pass is not checked again f
 15 minutes, unless the cache evicts it or the restriction settings change first; a key that is revoked is
 refused by Anthropic itself.
 
-The relay is not reserved for the app's own pages: it answers any same-origin request,
-and any client outside a browser, that sends a key. With the restriction on, every such
+The relay is not reserved for the app's own pages: it refuses a call that carries neither
+a `Sec-Fetch-Site` nor an `Origin` header, but a client outside a browser can send either,
+so it answers anyone who reaches the server and sends a key. With the restriction on, every such
 key is still checked, so only keys of the organisation (and of a listed workspace, when
 a list is set) get through. The relay adds no access the key does not already have.
 
@@ -736,22 +737,29 @@ What to know when running it:
   switch, see [Switching integrations off](#switching-integrations-off-for-a-deployment-run-time-optional)),
   such a tab goes on sending directly to Anthropic, under its old consent, until it is
   reloaded. Announce the change and ask users to reload every open tab.
-- **Rate limiting belongs to the gateway.** The relay has no per-IP limit of its own;
-  set one in the gateway's settings if you want one. When the gateway itself answers
+- **Rate limiting belongs to the gateway.** The relay limits each caller to 120 requests
+  a minute (`RELAY_MAX_REQUESTS`), and dictation to 60, as a guard against a runaway
+  client, not as a quota: the count is per server process and keyed by the forwarding
+  header, which a caller sets (§562). When it answers, users see "This app's server is
+  limiting AI requests from your connection right now". Set a real limit in the
+  gateway's settings. When the gateway itself answers
   429, users see "Your organisation's AI gateway is limiting requests right now";
   Anthropic's own rate limit, which the relay passes through unchanged, keeps its
   usual message. The gateway's own request logging (prompts and answers) is also
   configured there — the relay logs nothing.
-- **Residual: anyone who can reach the app server can use the gateway with their own
-  Anthropic key.** The relay accepts same-origin browser calls only, which stops
-  another web page from using it through a visitor's browser, but a script that
-  sends no browser headers is not a browser and is not stopped. It still has to
+- **Required: put the app server behind your own access control.** The app does not
+  authenticate callers, so anyone who can reach the server can use the gateway with
+  their own Anthropic key. The relay accepts same-origin browser calls only, which stops
+  another web page from using it through a visitor's browser, and refuses a call with
+  neither a `Sec-Fetch-Site` nor an `Origin` header, which stops a plain script; a
+  script that sends one of those headers is not stopped. It still has to
   bring a working Anthropic key, which is billed to that key and always forwarded, so
   it cannot trigger a stored provider key; the exposure is the gateway's capacity.
   The organisation's money is at risk only through the token itself, on a gateway in
-  the same Cloudflare account that holds stored keys (step 3). Network access to the
-  app is the control here: restrict who can reach the app server, for example by
-  keeping it on the organisation's network or behind its sign-in proxy.
+    same Cloudflare account that holds stored keys (step 3). Network access to the
+  app is the control here, and a gateway deployment must have it: restrict who can
+  reach the app server, for example by keeping it on the organisation's network or
+  behind its sign-in proxy.
 - **Gateway errors** appear in the chat and the other AI features that report a failure as "Your
   organisation's AI gateway refused this app (check the gateway token)" (the gateway
   answered 401/403) or "… could not be reached or returned an error" (the gateway was

@@ -5,7 +5,7 @@
 // `postAiMessages`, so a code renamed on one side and not the other fails here.
 import { Readable } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { relay, type RelaySend, type UpstreamResponse } from "./_relay";
+import { relay, RELAY_MAX_REQUESTS, type RelaySend, type UpstreamResponse } from "./_relay";
 import { AiDeploymentError, AiGatewayError, postAiMessages } from "../../ai-transport";
 import { AiKeyCheckUnavailableError, AiKeyRefusedError } from "../../ai-errors";
 import { createKeyChecker } from "./_key-check";
@@ -81,6 +81,15 @@ describe("relay ⇄ transport wire codes", () => {
     const err = await clientReads(await relay(browserRequest(), "messages", GATEWAY_ENV, upstreamAnswers(status)));
     expect(err).toBeInstanceOf(AiGatewayError);
     expect((err as AiGatewayError).code).toBe(code);
+  });
+
+  // §806: the relay's own limit is named as this app's server, never as Anthropic's limit (a bare 429) or the gateway's.
+  it("over the relay's own limit → AiGatewayError ai-relay-rate-limited", async () => {
+    const req = () => browserRequest({ "x-api-key": KEY, "x-forwarded-for": "203.0.113.70" });
+    for (let i = 0; i < RELAY_MAX_REQUESTS; i++) await relay(req(), "models", GATEWAY_ENV, upstreamAnswers(200));
+    const err = await clientReads(await relay(req(), "messages", GATEWAY_ENV, upstreamAnswers(200)));
+    expect(err).toBeInstanceOf(AiGatewayError);
+    expect((err as AiGatewayError).code).toBe("ai-relay-rate-limited");
   });
 
   it("not same-origin → AiGatewayError ai-gateway-error, never a key verdict", async () => {

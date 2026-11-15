@@ -212,7 +212,8 @@
   transport message ahead of the key message and never turns a transport failure into a key verdict. The chat
   (`chat-panel.tsx`) asks `aiTransportMessageKey` and `aiKeyMessageKeyForError` separately. Scheduled jobs record only a
   GATEWAY failure as its own `ReportErrorToken` (`toErrorToken`: `ai-gateway-rejected`, `ai-gateway-error`,
-  `ai-gateway-rate-limited`); a deployment error (`AiDeploymentError`: off, invalid, changed route, unconfirmed) is
+  `ai-gateway-rate-limited`, and `ai-relay-rate-limited`, the relay's own per-caller limit, §806, a 429 the client
+  reads as `AiGatewayError` so it is never shown as Anthropic's limit); a deployment error (`AiDeploymentError`: off, invalid, changed route, unconfirmed) is
   transient — the run records nothing, keeps its period and retries on its next check.
 - **Per-project setting overrides (`Workspace.settingsOverrides`, v0.190.42):** a "This project" Settings section
   (`settings-sections/project-overrides-section.tsx`, SectionId `projectOverrides`, hidden in popouts) overrides

@@ -1040,10 +1040,10 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§800](#800-the-content-security-policy-allows-whole-host-families-by-wildcard) | The Content Security Policy allows whole host families by wildcard | — | — | open |
 | [§801](#801-text-the-ai-writes-carries-no-machine-readable-marking) | Text the AI writes carries no machine-readable marking | — | — | open |
 | [§802](#802-the-ai-gateway-route-has-never-been-run-against-a-real-gateway) | The AI gateway route has never been run against a real gateway | — | — | open |
-| [§803](#803-dictations-private-address-check-does-not-resolve-host-names) | Dictation's private-address check does not resolve host names | — | — | open |
+| [§803](#803-dictations-private-address-check-does-not-resolve-host-names--closed-2026-11-14) | Dictation's private-address check does not resolve host names | — | — | **CLOSED** 2026-11-14 |
 | [§804](#804-plan-with-ai-always-sends-internal-hourly-rates-there-is-no-option-to-leave-them-out) | Plan with AI always sends internal hourly rates; there is no option to leave them out | — | — | open |
-| [§805](#805-the-ai-relay-attaches-the-deployments-gateway-token-for-any-caller-that-reaches-the-server) | The AI relay attaches the deployment's gateway token for any caller that reaches the server | — | — | open |
-| [§806](#806-the-ai-relay-and-dictation-routes-have-no-request-limit) | The AI relay and dictation routes have no request limit | — | — | open |
+| [§805](#805-the-ai-relay-attaches-the-deployments-gateway-token-for-any-caller-that-reaches-the-server--closed-2026-11-14) | The AI relay attaches the deployment's gateway token for any caller that reaches the server | — | — | **CLOSED** 2026-11-14 |
+| [§806](#806-the-ai-relay-and-dictation-routes-have-no-request-limit--closed-2026-11-14) | The AI relay and dictation routes have no request limit | — | — | **CLOSED** 2026-11-14 |
 | [§810](#810-hiding-a-projects-resources-function-keeps-neither-the-chats-people-tools-nor-the-absence-list-from-the-ai) | Hiding a project's Resources function keeps neither the chat's people tools nor the absence list from the AI | — | — | open |
 | [§811](#811-the-time-the-ai-features-save-is-not-measured) | The time the AI features save is not measured | — | — | open |
 | [§812](#812-whether-optimize-work-breakdown-with-ai-repeats-is-not-measured) | Whether Optimize work breakdown with AI repeats is not measured | — | — | open |
@@ -46414,11 +46414,9 @@ Size S.
 
 **Source:** compliance pack gap check, 2026-11-13.
 
-## 803. Dictation's private-address check does not resolve host names
+## 803. Dictation's private-address check does not resolve host names — CLOSED 2026-11-14
 
-**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13, not fixed; found by reading the code, never machine-verified.
-
-**Work item:** #978
+**Status:** CLOSED 2026-11-14 on `fix/805-806-803-route-hardening`. `parseSttRequest` (`src/app/api/stt/_helpers.ts`) now resolves the endpoint's host name (`lookup` from `node:dns/promises`, every address) and answers `400` "blocked host" when any resolved address is private by `isPrivateHost`; a name that does not resolve answers `502` without forwarding, and an IP literal is still judged as written, with no lookup. Tests in `src/app/api/stt/route.test.ts`, with `node:dns/promises` mocked so no test reaches real DNS: a name resolving to an RFC 1918 address, the metadata address, IPv6 loopback, and one private address among public ones, each refused with nothing sent; an unresolvable name; an IP literal with no lookup. Each failed before the change; `npx vitest run src/app/api/ai/_relay.test.ts src/app/api/ai/_relay.wire.test.ts src/app/api/stt/route.test.ts` passed 111 tests in 3 files on 2026-11-14. Residual, accepted and stated in the code and in `docs/security.md`: DNS rebinding, because `fetch` resolves the name again when it connects. Filed OPEN 2026-11-13; the original entry follows.
 
 The speech-to-text endpoint check refuses private network addresses, but it judges the address as entered and does not resolve a host name first.
 
@@ -46442,11 +46440,11 @@ Size S.
 
 **Source:** owner decision 2026-11-13 (file it), from the compliance pack's gap check.
 
-## 805. The AI relay attaches the deployment's gateway token for any caller that reaches the server
+## 805. The AI relay attaches the deployment's gateway token for any caller that reaches the server — CLOSED 2026-11-14
 
-**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13. Reproduced by reading: `grep -rln "authorization\|session\|cookie" src/app/api/ai/messages src/app/api/ai/models` finds no caller check, and `grep -n "cf-aig-authorization" src/app/api/ai/_relay.ts` prints the header the relay adds with the deployment's gateway token.
+**Status:** CLOSED 2026-11-14 on `fix/805-806-803-route-hardening`, by owner decision 2026-11-14 ("docs + tighten"): the app does not authenticate callers; a deployment that relays AI through a gateway must put the server behind its own access control, which `docs/RUNBOOK.md` ("Routing AI through a gateway") now requires and `docs/security.md` states. The relay is tightened as defence in depth: `isSameOrigin` (`src/app/api/ai/_relay.ts`) refuses a call that sends neither `Sec-Fetch-Site` nor `Origin` (`403` `not-same-origin`), where it used to let it through, and §806 limits each caller. Either header can be forged, so this stops a plain script, not a determined caller. Test: "neither Sec-Fetch-Site nor Origin → 403 not-same-origin, nothing sent" in `src/app/api/ai/_relay.test.ts`, which failed before the change; `npx vitest run src/app/api/ai/_relay.test.ts src/app/api/ai/_relay.wire.test.ts src/app/api/stt/route.test.ts` passed 111 tests in 3 files on 2026-11-14. Filed OPEN 2026-11-13; the original entry follows.
 
-**Work item:** #980
+Reproduced by reading (2026-11-13): `grep -rln "authorization\|session\|cookie" src/app/api/ai/messages src/app/api/ai/models` finds no caller check, and `grep -n "cf-aig-authorization" src/app/api/ai/_relay.ts` prints the header the relay adds with the deployment's gateway token.
 
 The app's server routes do not authenticate their callers. On a deployment that routes AI through an organisation's gateway, the relay adds the gateway token to every request it forwards, so anyone who can reach the server can send AI requests through the organisation's gateway, under its token, and so at the organisation's cost where the gateway bills it.
 
@@ -46456,11 +46454,11 @@ Size M.
 
 **Source:** owner decision 2026-11-13 (file it), from the compliance pack's review.
 
-## 806. The AI relay and dictation routes have no request limit
+## 806. The AI relay and dictation routes have no request limit — CLOSED 2026-11-14
 
-**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13. Reproduced by reading: `grep -rln "rateLimit(" src/app/api --include=*.ts` lists only the Jira helpers (which the Confluence route reuses), the Timelog helpers, the ECB route and the limiter itself; the AI routes and the dictation route are not among them.
+**Status:** CLOSED 2026-11-14 on `fix/805-806-803-route-hardening`. The AI relay (`relay` in `src/app/api/ai/_relay.ts`, both `/api/ai/messages` and `/api/ai/models`, scope `"ai"`, `RELAY_MAX_REQUESTS` = 120 a minute, counted only after the origin check and once the call carries a key, so a cross-site call a web page makes a visitor's browser send never uses up that visitor's count, and checked before the key check, which is itself an upstream call) and `/api/stt` (`parseSttRequest`, scope `"stt"`, `STT_MAX_REQUESTS` = 60, counted once the call carries a key) now call the same `rateLimit` (`src/app/api/jira/_rate-limit.ts`, which takes the maximum as an optional third argument). Over the limit `/api/stt` answers `429` `{"error":"too-many-requests"}` and the relay `429` `{"error":"ai-relay-rate-limited"}` (`AI_RELAY_RATE_LIMITED`, which the browser shows as this app's server limiting requests, not as Anthropic's or the gateway's limit), both with `Retry-After`. Tests: a burst one over the maximum from one caller is refused with nothing sent upstream, and another caller is unaffected; refused cross-site and key-less calls do not count; with the organisation key restriction on, a call over the limit never reaches the key check (`_relay.test.ts`, `src/app/api/stt/route.test.ts`); both failed before the change; `npx vitest run src/app/api/ai/_relay.test.ts src/app/api/ai/_relay.wire.test.ts src/app/api/stt/route.test.ts` passed 111 tests in 3 files on 2026-11-14. Residual: like the other routes', the limit is per process and keyed by the first `x-forwarded-for` entry, which a caller sets, so it can be avoided (§562). Filed OPEN 2026-11-13; the original entry follows.
 
-**Work item:** #981
+Reproduced by reading (2026-11-13): `grep -rln "rateLimit(" src/app/api --include=*.ts` lists only the Jira helpers (which the Confluence route reuses), the Timelog helpers, the ECB route and the limiter itself; the AI routes and the dictation route are not among them.
 
 Requests to Jira, Confluence, Timelog and the exchange-rate route are limited per caller. The AI relay and the dictation route have no limit, and the dictation route forwards audio to whatever public https address the caller names.
 

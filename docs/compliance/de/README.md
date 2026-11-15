@@ -89,10 +89,7 @@ Registers.
 | §800 | The Content Security Policy allows whole host families by wildcard |
 | §801 | Text the AI writes carries no machine-readable marking |
 | §802 | The AI gateway route has never been run against a real gateway |
-| §803 | Dictation's private-address check does not resolve host names |
 | §804 | Plan with AI always sends internal hourly rates; there is no option to leave them out |
-| §805 | The AI relay attaches the deployment's gateway token for any caller that reaches the server |
-| §806 | The AI relay and dictation routes have no request limit |
 | §810 | Hiding a project's Resources function keeps neither the chat's people tools nor the absence list from the AI |
 <!-- PACK:open-gaps:END -->
 
@@ -102,9 +99,9 @@ wo die Einzelheiten stehen. [geprüft: die Registereinträge in `docs/open-follo
 - **§487** — Keiner der bisher veröffentlichten Installer ist code-signiert, daher kann Windows Ihnen
   nicht anzeigen, wer ihn veröffentlicht hat. Prüfen Sie jeden Download stattdessen mit den
   GitHub-Attestierungsbefehlen in `SECURITY.md`.
-- **§562** — Die Anfragebegrenzung der Routen für Jira, Confluence, Timelog und Wechselkurse lässt sich
-  von einem Aufrufer umgehen, der einen Weiterleitungs-Header setzt, und sie beginnt bei einem Neustart
-  des Servers wieder bei null. (Die Routen für KI und Diktat haben gar keine Begrenzung; siehe §806.)
+- **§562** — Die Anfragebegrenzung der Routen für Jira, Confluence, Timelog, Wechselkurse, KI und Diktat
+  lässt sich von einem Aufrufer umgehen, der einen Weiterleitungs-Header setzt, und sie beginnt bei einem
+  Neustart des Servers wieder bei null.
 - **§793** — Auch wenn die Signierung eingeschaltet ist, wird das Deinstallationsprogramm, das die
   Installation auf dem Computer ablegt, nicht signiert sein; ein Werkzeug, das jedes Programm auf dem
   Rechner prüft, wird es daher melden.
@@ -134,18 +131,8 @@ wo die Einzelheiten stehen. [geprüft: die Registereinträge in `docs/open-follo
 - **§802** — Die Weiterleitung von KI-Anfragen über das Gateway einer Organisation wurde nur gegen
   Attrappen und einen lokalen Server getestet. Wie sich ein echtes Gateway mit der App verhält, ist durch
   keinen Lauf bestätigt.
-- **§803** — Die Prüfung, die das Diktat von privaten Netzwerkadressen fernhält, betrachtet die Adresse
-  so, wie sie eingegeben wurde, und löst keinen Hostnamen auf; ein Hostname, der auf eine private Adresse
-  zeigt, wird daher nicht erkannt.
 - **§804** — „Mit KI planen“ sendet immer den internen Stundensatz der Rolle jeder internen Person. Der
   einzige Weg, Stundensätze von der KI fernzuhalten, ist der Personenschutz, der die Funktion ausblendet.
-- **§805** — Der Server der App prüft nicht, wer ihn aufruft. Bei einer Bereitstellung mit KI-Gateway
-  kann jeder, der den Server erreicht, KI-Anfragen unter dem Token Ihres Gateways über dieses senden, auf Kosten
-  Ihrer Organisation, soweit das Gateway sie abrechnet. Stellen Sie den Server hinter Ihrer eigenen
-  Zugangskontrolle bereit.
-- **§806** — Die KI-Routen und die Diktat-Route nehmen beliebig viele Anfragen an, und das Diktat leitet
-  Audio an jede öffentliche https-Adresse weiter, die der Aufrufer angibt. Begrenzen Sie den Zugang vor
-  der App.
 - **§810** — Das Ausblenden der Ressourcen-Funktion eines Projekts blendet deren Ansichten aus, hält ihre
   Daten aber nicht von der KI fern. Solange der Personenschutz aus ist, kann der KI-Chat in diesem Projekt
   weiterhin Personen, Abwesenheiten und Zuteilungen lesen sowie Personen und Abwesenheiten ändern. Und fünf

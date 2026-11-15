@@ -37,6 +37,9 @@ export class AiDeploymentError extends Error {
 export const AI_GATEWAY_REJECTED = "ai-gateway-rejected";
 export const AI_GATEWAY_ERROR = "ai-gateway-error";
 export const AI_GATEWAY_RATE_LIMITED = "ai-gateway-rate-limited";
+/** §806: the relay's own per-caller limit (`RELAY_MAX_REQUESTS`) refused the call, 429. Named as this app's server,
+ *  neither as Anthropic's limit nor as the gateway's, and like them never a verdict on the user's key. */
+export const AI_RELAY_RATE_LIMITED = "ai-relay-rate-limited";
 /** The relay's 503 body when the deployment's gateway setting is invalid (not a gateway failure). */
 export const AI_GATEWAY_INVALID = "ai-gateway-invalid";
 /** The relay's refusals when the deployment restricts keys to its Anthropic organisation (and
@@ -66,7 +69,11 @@ export class AiKeyCheckUnavailableError extends Error {
   }
 }
 
-export type AiGatewayErrorCode = typeof AI_GATEWAY_REJECTED | typeof AI_GATEWAY_ERROR | typeof AI_GATEWAY_RATE_LIMITED;
+export type AiGatewayErrorCode =
+  | typeof AI_GATEWAY_REJECTED
+  | typeof AI_GATEWAY_ERROR
+  | typeof AI_GATEWAY_RATE_LIMITED
+  | typeof AI_RELAY_RATE_LIMITED;
 
 /** The organisation's AI gateway (reached through the same-origin relay) refused the app's
  *  gateway token or failed. Never a verdict on the user's own Anthropic key. */
@@ -85,6 +92,7 @@ export type AiTransportMessageKey =
   | "aiGatewayRejected"
   | "aiGatewayFailed"
   | "aiGatewayRateLimited"
+  | "aiRelayRateLimited"
   | "aiKeyCheckUnavailable";
 
 const DEPLOYMENT_MESSAGE: Record<AiDeploymentErrorReason, AiTransportMessageKey> = {
@@ -98,6 +106,7 @@ const GATEWAY_MESSAGE: Record<AiGatewayErrorCode, AiTransportMessageKey> = {
   [AI_GATEWAY_REJECTED]: "aiGatewayRejected",
   [AI_GATEWAY_ERROR]: "aiGatewayFailed",
   [AI_GATEWAY_RATE_LIMITED]: "aiGatewayRateLimited",
+  [AI_RELAY_RATE_LIMITED]: "aiRelayRateLimited",
 };
 
 /** The i18n key naming a transport failure, or null for any other error. */

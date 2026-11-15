@@ -487,6 +487,7 @@ describe("aiTransportMessageKey", () => {
     [new AiGatewayError("ai-gateway-rejected"), "aiGatewayRejected"],
     [new AiGatewayError("ai-gateway-error"), "aiGatewayFailed"],
     [new AiGatewayError("ai-gateway-rate-limited"), "aiGatewayRateLimited"],
+    [new AiGatewayError("ai-relay-rate-limited"), "aiRelayRateLimited"],
     [new Error("x"), null],
   ] as const)("%o → %s", (err, key) => {
     expect(aiTransportMessageKey(err)).toBe(key);

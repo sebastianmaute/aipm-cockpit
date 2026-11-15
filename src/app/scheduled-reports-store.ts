@@ -26,6 +26,8 @@ export type ReportErrorToken =
   // The organisation's AI gateway refused, failed or rate-limited the run. A switched-off, invalid, changed or
   // unconfirmed AI setting is not recorded: the run treats it as transient and retries on its next check.
   | "ai-gateway-rejected" | "ai-gateway-error" | "ai-gateway-rate-limited"
+  // This app's own relay limited the run's caller (§806).
+  | "ai-relay-rate-limited"
   // The deployment's organisation key check refused the key (AI organisation key). A check that could not run is not
   // recorded: the run treats it as transient and retries on its next check.
   | "ai-key-wrong-organization" | "ai-key-wrong-workspace";
@@ -45,6 +47,7 @@ export const REPORT_ERROR_KEY: Record<ReportErrorToken, TranslationKey> = {
   "ai-gateway-rejected": "aiGatewayRejected",
   "ai-gateway-error": "aiGatewayFailed",
   "ai-gateway-rate-limited": "aiGatewayRateLimited",
+  "ai-relay-rate-limited": "aiRelayRateLimited",
   "ai-key-wrong-organization": "aiKeyWrongOrganization",
   "ai-key-wrong-workspace": "aiKeyWrongWorkspace",
 };
