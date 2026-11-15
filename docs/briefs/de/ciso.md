@@ -71,7 +71,7 @@ der App.
 3. **§487, §793:** Die Windows-Installationsdatei ist unsigniert, und das Deinstallationsprogramm bliebe auch mit
    eingeschalteter Signierung unsigniert (E51, *getestet (Unit)*).
 4. **§800:** Die Policy erlaubt ganze Host-Familien per Platzhalter (E34, *im Code gelesen*).
-5. **§562:** Die Begrenzung der Anfragen jeder Server-Route, auch die des Relays und des Diktats, zählt nach
+5. **§562:** Die Begrenzung der Anfragen der sechs begrenzten Routen, auch die des Relays und des Diktats, zählt nach
    einem Header, den der Aufrufer selbst setzen kann, und je Serverprozess, lässt sich also umgehen (E54,
    *im Code gelesen*).
 

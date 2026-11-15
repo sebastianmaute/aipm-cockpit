@@ -58,7 +58,7 @@ to watch spend: nothing in the app stops interactive AI at a spend limit (E38, *
 2. **§798:** most AI calls have no time limit of their own, and none is retried on a rate limit or overload
    (E40, *read in code*).
 3. **§814:** six paths have no measured cost or behaviour, a refused key among them (E39, *not proven*).
-4. **§562:** every server route's request limit, the relay's and dictation's included, is keyed on a header the
+4. **§562:** the request limit of the six limited routes, the relay's and dictation's included, is keyed on a header the
    caller can set and counted per server process, so it can be avoided (E54, *read in code*).
 
 ## What to check or ask for before saying yes

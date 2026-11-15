@@ -69,7 +69,7 @@ Schalter und die Beobachtung der Ausgaben: Nichts in der App hält interaktive K
    Überlastung wiederholt (E40, *im Code gelesen*).
 3. **§814:** Sechs Pfade haben weder gemessene Kosten noch beobachtetes Verhalten, darunter ein abgelehnter
    Schlüssel (E39, *nicht belegt*).
-4. **§562:** Die Begrenzung der Anfragen jeder Server-Route, auch die des Relays und des Diktats, zählt nach
+4. **§562:** Die Begrenzung der Anfragen der sechs begrenzten Routen, auch die des Relays und des Diktats, zählt nach
    einem Header, den der Aufrufer selbst setzen kann, und je Serverprozess, lässt sich also umgehen (E54,
    *im Code gelesen*).
 
