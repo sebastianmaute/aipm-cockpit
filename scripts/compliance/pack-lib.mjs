@@ -393,6 +393,10 @@ function codeSpanRanges(text) {
  *  block quote line. Code spans never cross into such a line. */
 const BLOCK_START = /^\s*(?:\||[-*+]\s|\d+[.)]\s|#|>)/;
 
+/** A line that is a whole block on its own: a table row, a heading, a thematic break (`---`, `***`, `___`) or an
+ *  HTML comment line. Code spans cross neither into nor out of it. */
+const ONE_LINE_BLOCK = /^\s*(?:\||#|<!--|(?:[-*_][ \t]*){3,}$)/;
+
 /** Per line, the line's code-span ranges as [start, end) offsets into that line, paired across the lines of its
  *  block (`codeSpanRanges`). `skip(i)` marks lines that are not prose: they end a block and get no ranges. */
 function lineCodeSpans(lines, skip) {
@@ -416,8 +420,9 @@ function lineCodeSpans(lines, skip) {
     block = [];
   };
   lines.forEach((line, i) => {
-    if (skip(i) || line.trim() === "" || BLOCK_START.test(line)) flush();
+    if (skip(i) || line.trim() === "" || BLOCK_START.test(line) || ONE_LINE_BLOCK.test(line)) flush();
     if (!skip(i) && line.trim() !== "") block.push(i);
+    if (ONE_LINE_BLOCK.test(line)) flush();
   });
   flush();
   return perLine;
@@ -433,8 +438,9 @@ function lineCodeSpans(lines, skip) {
  *  inline code spans are not prose and are skipped too: a quoted test title can
  *  carry a register number without citing that gap. A span is paired within its
  *  Markdown block, so it can cross a hard wrap but never a blank line, a table
- *  row, a list item, a heading or a quote line (`lineCodeSpans`), and an escaped
- *  backtick opens none.
+ *  row, a list item, a heading, a quote line, a thematic break or an HTML comment
+ *  line (`lineCodeSpans`), and an escaped backtick opens none. A span CommonMark
+ *  carries across two quote lines is not recognised: each `>` line starts its own.
  *  A register citation is recognised ONLY as `§NNN` (no space, NNN at least 400): a German-style
  *  `§ NNN` or a lower number is never checked against the register.
  *  @returns {{ n: number, line: number }[]} in document order, 1-based lines. */

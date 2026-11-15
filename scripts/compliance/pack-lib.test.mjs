@@ -330,6 +330,18 @@ describe("proseGapCitations", () => {
     expect(proseGapCitations("escaped \\` then §810 and `x`")).toEqual([{ n: 810, line: 1 }]);
   });
 
+  // A heading, a table row, a thematic break and an HTML comment line are each a block of one line, so a stray
+  // backtick on one never pairs with a backtick in the prose that follows.
+  it.each([
+    ["a heading", "# Title `foo"],
+    ["a table row", "| a ` b |"],
+    ["prose closed by a thematic break", "a `b\n---"],
+    ["prose closed by an HTML comment line", "a `b\n<!-- c -->"],
+  ])("a stray backtick in %s does not hide the next line's citation", (_label, before) => {
+    const src = `${before}\nprose §810 and \`x\``;
+    expect(proseGapCitations(src)).toEqual([{ n: 810, line: before.split("\n").length + 1 }]);
+  });
+
   // A table row is its own block in Markdown, so an unbalanced backtick in one row never swallows the next row.
   it("keeps each table row and list item apart", () => {
     const src = [
