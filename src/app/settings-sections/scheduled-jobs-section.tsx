@@ -10,8 +10,8 @@
 // It reads the project lists itself (never through usePortfolioProjects, which
 // follows the OPEN portfolio) so the picker works from any view.
 
-import { isBackgroundOffForced } from "../ai-project-switches";
 import { useEffect, useId, useMemo, useState } from "react";
+import { isBackgroundOffForced } from "../ai-project-switches";
 import { type Lang, t } from "../i18n";
 import { FieldHint } from "../field-hint";
 import { isAiBackgroundEnabled, isAiEnabled, type Settings } from "../settings-types";

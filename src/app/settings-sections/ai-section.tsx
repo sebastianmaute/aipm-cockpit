@@ -1,7 +1,7 @@
 "use client";
 
-import { AiBackgroundPausedNotice } from "./ai-background-paused-notice";
 import { useEffect, useId, useRef, useState } from "react";
+import { AiBackgroundPausedNotice, useAiBackgroundPaused } from "./ai-background-paused-notice";
 import { CheckIcon } from "../icons";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
@@ -165,6 +165,9 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const hardCapHelpId = useId();
   const modelHintId = useId();
   const recBackgroundHintId = useId();
+  const consentPausedNoticeId = useId();
+  const recPausedNoticeId = useId();
+  const backgroundPaused = useAiBackgroundPaused();
   const deploymentNoticeId = useId();
   const backgroundOk = isConsentCurrent(settings.ai.backgroundConsent);
   // AI-01 — only switching ON needs the background consent: a toggle left on from before can always be switched off.
@@ -438,6 +441,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
     <label className="mt-3 flex items-center gap-2">
       <Checkbox
         aria-label={t(lang, "aiBackgroundConsentToggle")}
+        aria-describedby={backgroundPaused ? consentPausedNoticeId : undefined}
         checked={backgroundOk}
         onChange={(e) => {
           if (e.target.checked) {
@@ -453,7 +457,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const backgroundConsentBlock = (
     <>
       {backgroundConsentToggle}
-      <AiBackgroundPausedNotice lang={lang} />
+      <AiBackgroundPausedNotice lang={lang} id={consentPausedNoticeId} />
     </>
   );
   const removeKeyButton = keyStored && (
@@ -875,7 +879,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           <Checkbox
             aria-label={t(lang, "aiInsightRecommendations")}
             disabled={recToggleLocked}
-            aria-describedby={recToggleLocked ? recBackgroundHintId : undefined}
+            aria-describedby={[recToggleLocked ? recBackgroundHintId : null, backgroundPaused ? recPausedNoticeId : null].filter(Boolean).join(" ") || undefined}
             checked={settings.ai.insightRecommendations === true}
             onChange={() =>
               onChange({
@@ -894,7 +898,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         <FieldHint className="mt-1">
           {t(lang, "aiInsightRecommendationsDesc")}
         </FieldHint>
-        <AiBackgroundPausedNotice lang={lang} />
+        <AiBackgroundPausedNotice lang={lang} id={recPausedNoticeId} />
         {!backgroundOk && (
           <FieldHint id={recBackgroundHintId} className="mt-1">{t(lang, "aiBackgroundConsentNeeded")}</FieldHint>
         )}

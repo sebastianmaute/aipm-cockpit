@@ -41,6 +41,27 @@ describe("AiSection — background AI paused", () => {
     render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
     expect(screen.getAllByText(NOTICE)).toHaveLength(2);
   });
+  // KILLED BY: dropping the id on either notice, or the describedby on either control (the notice is then a stray
+  // line a screen reader never connects to the control it explains).
+  it("links the notice to the background consent and the automatic recommendations while paused", () => {
+    state.overrides = { ai: { backgroundOff: true } };
+    render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") })).toHaveAccessibleDescription(NOTICE);
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiInsightRecommendations") })).toHaveAccessibleDescription(expect.stringContaining(NOTICE));
+  });
+  it("links the organisation variant under the deployment lock", () => {
+    setDisabledIntegrations(["ai-background"]);
+    render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
+    const org = t("en-US", "aiBackgroundPausedByDeployment");
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") })).toHaveAccessibleDescription(org);
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiInsightRecommendations") })).toHaveAccessibleDescription(expect.stringContaining(org));
+  });
+  it("links nothing while background AI is not paused", () => {
+    render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") })).not.toHaveAccessibleDescription(NOTICE);
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") }).getAttribute("aria-describedby")).toBeNull();
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiInsightRecommendations") }).getAttribute("aria-describedby")).toBeNull();
+  });
   it("shows the organisation variant under the deployment lock", () => {
     setDisabledIntegrations(["ai-background"]);
     render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);

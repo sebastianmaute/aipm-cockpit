@@ -10,13 +10,21 @@ import { FieldHint } from "../field-hint";
 import { type Lang, t } from "../i18n";
 import { useOptionalSettingsOverrides } from "../workspace-context";
 
-export function AiBackgroundPausedNotice({ lang }: { lang: Lang }) {
+/** Whether the notice is shown: background AI is paused by the deployment or by the open project. The controls it
+ *  sits under ask this too, to link themselves to the notice only while it exists. */
+export function useAiBackgroundPaused(): boolean {
+  const overrides = useOptionalSettingsOverrides();
+  return isBackgroundOff(overrides);
+}
+
+/** `id` lets the control above it name the notice in its `aria-describedby`. */
+export function AiBackgroundPausedNotice({ lang, id }: { lang: Lang; id?: string }) {
   const overrides = useOptionalSettingsOverrides();
   if (isBackgroundOffForced()) {
-    return <FieldHint className="mt-1">{t(lang, "aiBackgroundPausedByDeployment")}</FieldHint>;
+    return <FieldHint id={id} className="mt-1">{t(lang, "aiBackgroundPausedByDeployment")}</FieldHint>;
   }
   if (isBackgroundOff(overrides)) {
-    return <FieldHint className="mt-1">{t(lang, "aiBackgroundPausedNotice")}</FieldHint>;
+    return <FieldHint id={id} className="mt-1">{t(lang, "aiBackgroundPausedNotice")}</FieldHint>;
   }
   return null;
 }
