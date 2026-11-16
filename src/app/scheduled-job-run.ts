@@ -25,7 +25,7 @@ import { StorageNotReadyError, type Workspace } from "./workspace";
 import { isBusyDbError, isTursoServerBlip } from "./storage-transient";
 
 export type RunOutcome =
-  | "skipped" | "claimed-elsewhere" | "project-missing" | "project-archived" | "transient" | "failed" | "done";
+  | "skipped" | "claimed-elsewhere" | "project-missing" | "project-archived" | "transient" | "paused" | "failed" | "done";
 
 export interface RunDeps {
   config: TursoConfig;
@@ -228,7 +228,13 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
     // a pause (the deployment lock, or the job's project switching background AI off) is refused the same way, before a send. With the max-tokens retry the first reply may
     // already have been billed when the second send is refused: that spend stays recorded in the usage store, and the
     // released slot is retried once the gate allows it.
-    if (e instanceof AiDeploymentError || e instanceof AiKeyCheckUnavailableError || e instanceof AiWeeklyCapReachedError || e instanceof AiBackgroundPausedError || e instanceof AiConsentRevokedError) {
+    // A pause is its own outcome: the claim is released the same way, but the caller remembers the answer and does not
+    // claim and load this job's project again on every tick.
+    if (e instanceof AiBackgroundPausedError) {
+      await settle(releaseClaim(config, reportId));
+      return "paused";
+    }
+    if (e instanceof AiDeploymentError || e instanceof AiKeyCheckUnavailableError || e instanceof AiWeeklyCapReachedError || e instanceof AiConsentRevokedError) {
       await settle(releaseClaim(config, reportId));
       return "transient";
     }

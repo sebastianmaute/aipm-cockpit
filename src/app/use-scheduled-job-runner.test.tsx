@@ -828,6 +828,58 @@ describe("useScheduledJobRunner: the background pause is the job's project's (§
     expect(vi.mocked(releaseClaim)).toHaveBeenCalledTimes(1);
   });
 
+  // KILLED BY: dropping the memory (every tick would claim and load the paused project again), a retry time that never
+  // passes (the job would stay silent after the project resumes), or remembering an unpaused job's run.
+  describe("a paused project is claimed once, then left alone for an hour", () => {
+    const HOUR_MS = 60 * 60 * 1000; // the retry time the spec names, spelled out so a changed constant is noticed
+    let clock = afternoon().getTime();
+    const tickAgain = async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await settle();
+    };
+    beforeEach(() => { clock = afternoon().getTime(); });
+
+    it("claims once, releases without a report, and does not claim or load on the next ticks within the hour", async () => {
+      backendState.overrides = { ai: { backgroundOff: true } };
+      let loads = 0;
+      backendState.onLoad = () => { loads += 1; };
+      renderHook(() => useScheduledJobRunner(baseArgs({ now: () => new Date(clock) })));
+      await settle();
+      expect(mClaim).toHaveBeenCalledTimes(1);
+      expect(loads).toBe(1);
+      expect(vi.mocked(releaseClaim)).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(finishReport)).not.toHaveBeenCalled();
+      expect(mockRun).not.toHaveBeenCalled();
+
+      clock += HOUR_MS - 1;
+      await tickAgain();
+      await tickAgain();
+      expect(mClaim).toHaveBeenCalledTimes(1);
+      expect(loads).toBe(1);
+    });
+
+    it("tries again once the retry time has passed, and sends when the project has resumed meanwhile", async () => {
+      backendState.overrides = { ai: { backgroundOff: true } };
+      renderHook(() => useScheduledJobRunner(baseArgs({ now: () => new Date(clock) })));
+      await settle();
+      expect(mClaim).toHaveBeenCalledTimes(1);
+
+      backendState.overrides = undefined;
+      clock += HOUR_MS;
+      await tickAgain();
+      expect(mClaim).toHaveBeenCalledTimes(2);
+      expect(mockRun).toHaveBeenCalledTimes(1);
+    });
+
+    // CONTROL: the memory is for paused jobs only.
+    it("leaves a job whose project is not paused unaffected", async () => {
+      renderHook(() => useScheduledJobRunner(baseArgs({ now: () => new Date(clock) })));
+      await settle();
+      expect(mockRun).toHaveBeenCalledTimes(1);
+      expect(mClaim).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("neither claims nor sends under the ai-background deployment lock", async () => {
     addDisabledIntegration("ai-background");
     renderHook(() => useScheduledJobRunner(baseArgs()));

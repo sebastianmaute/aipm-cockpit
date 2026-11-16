@@ -600,7 +600,7 @@ describe("runScheduledJob: the background pause (§795)", () => {
       }
     });
     const d = deps({ loadWorkspace: vi.fn().mockResolvedValue(ws), confirmBackgroundGate: gate });
-    expect(await runScheduledJob(job(), SLOT, d)).toBe("transient");
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("paused");
     expect(gate).toHaveBeenLastCalledWith({ settingsOverrides: ws.settingsOverrides });
     expect(d.analyse).not.toHaveBeenCalled();
     expect(mRelease).toHaveBeenCalledWith(CONFIG, "report-1");
@@ -616,9 +616,9 @@ describe("runScheduledJob: the background pause (§795)", () => {
     expect(vi.mocked(d.analyse).mock.calls[0][2]).toEqual({ settingsOverrides: ws.settingsOverrides });
   });
 
-  it("a pause that arrives during the analysis releases the claim as transient: no failure report", async () => {
+  it("a pause that arrives during the analysis releases the claim as paused: no failure report", async () => {
     const d = deps({ analyse: vi.fn().mockRejectedValue(new AiBackgroundPausedError("deployment")) });
-    expect(await runScheduledJob(job(), SLOT, d)).toBe("transient");
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("paused");
     expect(mRelease).toHaveBeenCalledWith(CONFIG, "report-1");
     expect(mFinish).not.toHaveBeenCalled();
     expect(d.recordRun).not.toHaveBeenCalled();

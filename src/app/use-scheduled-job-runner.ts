@@ -25,6 +25,8 @@ import type { ScheduledJob, ScheduledJobRun } from "./scheduled-jobs/types";
 const TICK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 /** Fired on `window` after a run wrote a report row, so the Scheduled reports view can reload (§772). */
 export const SCHEDULED_REPORT_EVENT = "aipm-cockpit:scheduled-report";
+/** How long a job whose project has background AI paused is left alone before it is tried (claimed and loaded) again. */
+export const PAUSED_RETRY_MS = 60 * 60 * 1000;
 const REPORT_WRITTEN: ReadonlySet<RunOutcome> = new Set<RunOutcome>(["done", "failed", "project-archived"]);
 
 export interface ScheduledJobRunnerArgs {
@@ -160,6 +162,9 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
   const isRunningRef = useRef(false);
   // Slots this session knows are done (a report exists or another device claimed them): no more reads for them today.
   const handledRef = useRef<Set<string>>(new Set());
+  // Job + period → when a job whose project is paused may be tried again. Judged BEFORE the claim, so a paused project
+  // is not claimed and loaded on every tick. In memory only: a reload tries once more, which is all it costs.
+  const pausedUntilRef = useRef<Map<string, number>>(new Map());
 
   // ★★ THE TWO EDGE EFFECTS BELOW MUST STAY AFTER THE REF-SYNC EFFECT ABOVE.
   // Effects run in declaration order, and `tick` builds the first request
@@ -205,6 +210,7 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
       if (isRunningRef.current) return; // a run is already in flight
       const at = (a.now ?? (() => new Date()))();
       const notHandled = ({ job, slot }: DueJob) => !handledRef.current.has(periodId(job, slot));
+      const notPaused = ({ job, slot }: DueJob) => (pausedUntilRef.current.get(periodId(job, slot)) ?? 0) <= at.getTime();
 
       isRunningRef.current = true;
       try {
@@ -220,7 +226,7 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
           return;
         }
         if (argsRef.current.config?.httpUrl !== identity) return;
-        const due = dueJobs(fresh, at).filter(notHandled);
+        const due = dueJobs(fresh, at).filter(notHandled).filter(notPaused);
 
         if (due.length === 0) return;
 
@@ -246,6 +252,9 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
         for (const { job, slot } of pending) {
           try {
             const outcome = await runScheduledJob(job, slot, deps);
+            if (outcome === "paused") {
+              pausedUntilRef.current.set(periodId(job, slot), at.getTime() + PAUSED_RETRY_MS);
+            }
             if (REPORT_WRITTEN.has(outcome)) window.dispatchEvent(new CustomEvent(SCHEDULED_REPORT_EVENT));
             // Our own finished row is final. "claimed-elsewhere" is NOT: that claim may yet be released.
             if (REPORT_WRITTEN.has(outcome)) handledRef.current.add(periodId(job, slot));
