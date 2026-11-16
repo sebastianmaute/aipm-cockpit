@@ -31,8 +31,11 @@ export function withPeopleAllowed(
   o: SettingsOverrides | undefined,
   allowed: boolean,
 ): SettingsOverrides | undefined {
+  const ai = { ...o?.ai };
+  if (allowed) ai.peopleAllowed = true;
+  else delete ai.peopleAllowed;
   const next: SettingsOverrides = { ...o };
   delete next.ai;
-  if (allowed) next.ai = { peopleAllowed: true };
+  if (Object.keys(ai).length > 0) next.ai = ai;
   return hasAnyOverride(next) ? next : undefined;
 }

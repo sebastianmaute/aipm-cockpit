@@ -149,9 +149,14 @@ function sanitizeForecastOverride(raw: unknown): SettingsOverrides["forecast"] |
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-/** Only an explicit allow is kept; protected (the default) is absence, and an empty result is undefined. */
+/** Only an explicit `true` is kept per key; every default is absence, and an empty result is undefined. */
 function sanitizeAiOverride(raw: unknown): SettingsOverrides["ai"] | undefined {
-  return isObject(raw) && raw.peopleAllowed === true ? { peopleAllowed: true } : undefined;
+  if (!isObject(raw)) return undefined;
+  const out: NonNullable<SettingsOverrides["ai"]> = {};
+  if (raw.peopleAllowed === true) out.peopleAllowed = true;
+  if (raw.reviewAllWrites === true) out.reviewAllWrites = true;
+  if (raw.ratesWithheld === true) out.ratesWithheld = true;
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /** Validate untrusted per-project overrides. Emits a sub-key ONLY when it holds

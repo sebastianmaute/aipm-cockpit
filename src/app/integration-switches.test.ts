@@ -26,7 +26,7 @@ describe("parseDisabledIntegrations", () => {
   });
 
   it("names the seven integrations and the setting", () => {
-    expect(INTEGRATION_IDS).toEqual(["jira", "confluence", "timelog", "ecb", "stt", "ai", "ai-people"]);
+    expect(INTEGRATION_IDS).toEqual(["jira", "confluence", "timelog", "ecb", "stt", "ai", "ai-people", "ai-direct-writes", "ai-rates"]);
     expect(DISABLED_INTEGRATIONS_ENV).toBe("AIPM_DISABLED_INTEGRATIONS");
   });
 });
