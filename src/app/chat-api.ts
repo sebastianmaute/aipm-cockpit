@@ -4,7 +4,7 @@
 // them" pattern); `chat-panel.tsx` consumes everything here.
 import { TOOL_DEFS, type ToolDispatcher } from "./chat-tools";
 import { DOCUMENT_TOOL_DEFS_WITHOUT_DECISION } from "./chat-tool-defs-documents";
-import { PEOPLE_PROTECTED_DEFS, RESOURCES_HIDDEN_DEFS, peopleToolsLive, toolOffered, type PeopleToolFlags } from "./chat-tool-defs";
+import { PEOPLE_PROTECTED_DEFS, RESOURCES_HIDDEN_DEFS, STAKEHOLDERS_HIDDEN_DEFS, peopleToolsLive, toolOffered, type PeopleToolFlags } from "./chat-tool-defs";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import { reportAiKeyResponse } from "./ai-key-status";
 import { assertInteractiveConsentLive } from "./ai-consent";
@@ -177,6 +177,14 @@ export function buildStableSystemBlocks(
   const peopleLine = toolOffered("list_resources", toolFlags)
     ? "You can also manage the resource directory: list_resources, get_resource, create_resource (firstName/lastName), update_resource, and delete_resource. IMPORTANT: assigning a task to a person by name does NOT add them to the directory — when a document describes a team or resource plan, call create_resource for each person so they appear in the directory, not just as task assignees."
     : peopleToolsLive(toolFlags.peopleProtected) ? RESOURCES_HIDDEN_INSTRUCTION : PEOPLE_PROTECTED_INSTRUCTION;
+  // §810 — the two fixed lines below name stakeholders and people/resources only while their tools are offered, by
+  // the predicate the tool list uses, so the prompt never invites a tool the request does not carry.
+  const stakeholdersOffered = toolOffered("create_stakeholder", toolFlags);
+  const extractable = [
+    "tasks", "risks", "milestones",
+    ...(stakeholdersOffered ? ["stakeholders"] : []),
+    ...(toolOffered("create_resource", toolFlags) ? ["people/resources"] : []),
+  ];
   // STABLE prefix (cached): fixed instructions plus the always-on guides
   // (block 0), followed by the current view's guides (block 1, no marker of
   // its own). Anthropic prompt-cache is prefix-based, so block 0 must come
@@ -187,12 +195,12 @@ export function buildStableSystemBlocks(
     "You are an assistant embedded in AI PM Cockpit, an AI-assisted project management app for tracking open project items (tasks, RAID, changes, milestones, budget).",
     "The user is a project lead tracking open tasks. Each task has: id, taskName, assignee, assigneeEmail, dueDate (YYYY-MM-DD), lastUpdateDate, priority (Low/Medium/High/Urgent), status (To Do/In Progress/On Hold/In Review/Cancelled/Done), blockers, notes, group (single optional category), labels (zero or more tags).",
     "Use the provided tools to read and modify the app's state. Prefer calling tools over guessing. After modifying state, briefly confirm what changed.",
-    "Beyond tasks you can also read and write RAID items (Risks/Assumptions/Issues/Dependencies), change-control items, milestones, and stakeholders via their list_/create_/update_/delete_ tools. RAID category is R/A/I/D; status must match the category. Dates are YYYY-MM-DD.",
+    `Beyond tasks you can also read and write RAID items (Risks/Assumptions/Issues/Dependencies), change-control items, ${stakeholdersOffered ? "milestones, and stakeholders" : "and milestones"} via their list_/create_/update_/delete_ tools. RAID category is R/A/I/D; status must match the category. Dates are YYYY-MM-DD.`,
     peopleLine,
     // §810 — only while the Stakeholders function is hidden (and people are not protected, whose line covers it),
     // so the prompt of a project that shows it is unchanged.
     ...(peopleToolsLive(toolFlags.peopleProtected) && !toolOffered("list_stakeholders", toolFlags) ? [STAKEHOLDERS_HIDDEN_INSTRUCTION] : []),
-    "When the user attaches a document, read it and, when they ask, extract the relevant items (tasks, risks, milestones, stakeholders, people/resources) and create them with the matching create_ tool. Summarise what you created and ask before bulk-creating many records.",
+    `When the user attaches a document, read it and, when they ask, extract the relevant items (${extractable.join(", ")}) and create them with the matching create_ tool. Summarise what you created and ask before bulk-creating many records.`,
     // ★★★ THIS REPLACED AN INSTRUCTION TO "confirm with the user in chat", and
     //    the replacement is not a rewording — the mechanism changed underneath
     //    it. Destructive turns are now STAGED by `shouldStage` and reviewed on a
@@ -603,7 +611,10 @@ export function selectPeopleTools(
   flags: PeopleToolFlags,
 ): ReturnType<typeof withCacheBreakpoint> {
   const kept = defs.filter((d) => toolOffered(d.name, flags));
-  const swap = flags.resourcesHidden === true ? RESOURCES_HIDDEN_DEFS : !peopleToolsLive(flags.peopleProtected) ? PEOPLE_PROTECTED_DEFS : undefined;
+  const swap = flags.resourcesHidden === true ? RESOURCES_HIDDEN_DEFS
+    : !peopleToolsLive(flags.peopleProtected) ? PEOPLE_PROTECTED_DEFS
+    : flags.stakeholdersHidden === true ? STAKEHOLDERS_HIDDEN_DEFS
+    : undefined;
   if (!swap) return withCacheBreakpoint(kept);
   return withCacheBreakpoint(kept.map((d) => (swap.get(d.name) as typeof d | undefined) ?? d));
 }

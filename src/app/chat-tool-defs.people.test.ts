@@ -212,12 +212,17 @@ describe("hidden Resources and Stakeholders functions (§810)", () => {
     expect(JSON.stringify(hidden.find((d) => d.name === "escalate_raid_item"))).toContain("toEmail is required: if the user did not give it, ask.");
   });
 
-  it("a request with Stakeholders hidden drops only the stakeholder tools and changes no other definition", () => {
+  it("a request with Stakeholders hidden drops the stakeholder tools and stops offering a stakeholder's e-mail", () => {
     const hidden = toolsFor({ stakeholdersHidden: true });
     const strip = (d: object) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== "cache_control"));
     const plain = toolsFor({}).filter((d) => !STAKEHOLDER_TOOLS.has(d.name));
     expect(hidden.map((d) => d.name)).toEqual(plain.map((d) => d.name));
-    expect(hidden.map((d) => strip(d))).toEqual(plain.map((d) => strip(d)));
+    const changed = hidden.filter((d, i) => JSON.stringify(strip(d)) !== JSON.stringify(strip(plain[i]!))).map((d) => d.name);
+    expect(new Set(changed)).toEqual(new Set(["get_contact_email", "escalate_raid_item"]));
+    const contact = hidden.find((d) => d.name === "get_contact_email")!;
+    expect((contact.input_schema.properties as { entity: { enum: string[] } }).entity.enum).toEqual(["task", "resource", "raid", "absence"]);
+    expect(contact.description).not.toMatch(/stakeholder/i);
+    expect(JSON.stringify(hidden.find((d) => d.name === "escalate_raid_item"))).not.toMatch(/stakeholder/i);
     expect(toolNamesFor({ stakeholdersHidden: true }).has("list_resources")).toBe(true);
   });
 
@@ -242,6 +247,7 @@ describe("hidden Resources and Stakeholders functions (§810)", () => {
           checked++;
           for (const name of withheld) if (new RegExp(String.raw`\b${name}\b`).test(text)) offenders.add(`${def.name} -> ${name}`);
           if (resourcesHidden && text.includes("absenceClashes")) offenders.add(`${def.name} -> absenceClashes`);
+          if (stakeholdersHidden && def.name === "get_contact_email" && /stakeholder/i.test(text)) offenders.add(`${def.name} -> stakeholder`);
         }
       }
     expect(checked).toBeGreaterThan(300);
@@ -282,6 +288,22 @@ describe("hidden Resources and Stakeholders functions (§810)", () => {
     expect(open).not.toContain(RESOURCES_HIDDEN_INSTRUCTION);
   });
 
+  it("the fixed prompt lines name stakeholders and people/resources only while their tools are offered", () => {
+    const text = (flags: ToolFlags) => buildStableSystemBlocks("en-US", OFF_SNAPSHOT, [], false, { ...OPEN, ...flags })[0]!.text;
+    const open = text({});
+    expect(open).toContain("change-control items, milestones, and stakeholders via their list_/create_/update_/delete_ tools");
+    expect(open).toContain("(tasks, risks, milestones, stakeholders, people/resources)");
+    const stk = text({ stakeholdersHidden: true });
+    expect(stk).toContain("change-control items, and milestones via their list_/create_/update_/delete_ tools");
+    expect(stk).toContain("(tasks, risks, milestones, people/resources)");
+    const res = text({ resourcesHidden: true });
+    expect(res).toContain("and stakeholders via their");
+    expect(res).toContain("(tasks, risks, milestones, stakeholders)");
+    const both = text({ resourcesHidden: true, stakeholdersHidden: true });
+    expect(both).toContain("(tasks, risks, milestones)");
+    expect(both).not.toMatch(/and stakeholders via|people\/resources/);
+  });
+
   function hiddenDispatcher(hidden: { resources?: boolean; stakeholders?: boolean }): { d: ToolDispatcher; calls: string[] } {
     const calls: string[] = [];
     const d = new Proxy({} as Record<string, unknown>, {
@@ -317,6 +339,20 @@ describe("hidden Resources and Stakeholders functions (§810)", () => {
     }
     expect(STAKEHOLDERS_HIDDEN_TOOL_REFUSAL).toMatch(/Stakeholders/);
     expect(STAKEHOLDERS_HIDDEN_TOOL_REFUSAL).not.toMatch(/Resources/);
+  });
+
+  it("get_contact_email refuses a stakeholder while Stakeholders is hidden, and serves a task assignee", async () => {
+    const hidden = hiddenDispatcher({ stakeholders: true });
+    const err = await runTool(hidden.d, "get_contact_email", { entity: "stakeholder", id: 1 }).then(() => null, (e: unknown) => e);
+    expect(err).toBeInstanceOf(PeopleToolRefusedError);
+    expect((err as Error).message).toBe(STAKEHOLDERS_HIDDEN_TOOL_REFUSAL);
+    expect(hidden.calls).toEqual([]);
+    await runTool(hidden.d, "get_contact_email", { entity: "task", id: 1 });
+    expect(hidden.calls).toEqual(["getTask"]);
+    // CONTROL: Stakeholders shown, the stakeholder's address is read.
+    const shown = hiddenDispatcher({});
+    await runTool(shown.d, "get_contact_email", { entity: "stakeholder", id: 1 });
+    expect(shown.calls).toEqual(["getStakeholderRow"]);
   });
 
   it("Resources hidden alone does not refuse a stakeholder tool", async () => {

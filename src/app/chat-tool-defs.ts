@@ -1150,6 +1150,30 @@ export const RESOURCES_HIDDEN_DEFS: ReadonlyMap<string, (typeof TOOL_DEFS)[numbe
   }),
 );
 
+/** §810 — `get_contact_email` belongs to Resources, so it stays offered while only Stakeholders is hidden; that
+ *  request no longer offers a stakeholder's address (`runTool` refuses `entity: "stakeholder"` then too), and the
+ *  escalation stops pointing at a stakeholder look-up. Applied by `selectPeopleTools` when Stakeholders is hidden and
+ *  neither Resources is hidden nor people are protected (both of those withhold `get_contact_email` outright). */
+const STAKEHOLDER_CONTACT_DROPS: Readonly<Record<string, ReadonlyArray<readonly [string, string]>>> = {
+  get_contact_email: [
+    ["(a task's assignee, a stakeholder, a resource,", "(a task's assignee, a resource,"],
+    ['"task","stakeholder","resource"', '"task","resource"'],
+  ],
+  escalate_raid_item: [["get_contact_email (stakeholder or resource)", "get_contact_email (resource)"]],
+};
+
+/** §810 — the tools as a request sends them while the project hides its Stakeholders function (see
+ *  `STAKEHOLDER_CONTACT_DROPS`). A test checks that no `get_contact_email` text such a request carries names a
+ *  stakeholder. */
+export const STAKEHOLDERS_HIDDEN_DEFS: ReadonlyMap<string, (typeof TOOL_DEFS)[number]> = new Map(
+  TOOL_DEFS.flatMap((d) => {
+    const drops = STAKEHOLDER_CONTACT_DROPS[d.name];
+    if (!drops) return [];
+    const json = drops.reduce((text, [from, to]) => text.replace(from, to), JSON.stringify(d));
+    return [[d.name, JSON.parse(json) as typeof d] as const];
+  }),
+);
+
 /** What `runTool` answers for a people tool under protection. English and i18n-free: the model reads it,
  *  like every other tool error. It says why, so the model does not retry. */
 export const PEOPLE_TOOL_REFUSAL =

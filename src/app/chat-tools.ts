@@ -61,7 +61,8 @@ import type { PublishedThreads } from "./chat-threads-registry";
 import { clashesForAi, type AbsenceClash, type AbsenceClashForAi } from "./absence-clash";
 export { TOOL_DEFS } from "./chat-tool-defs";
 import {
-  PEOPLE_TOOLS, PeopleToolRefusedError, RESOURCES_TOOLS, STAKEHOLDER_TOOLS, TOOL_REFUSAL_BY, peopleToolsLive, toolWithheldBy,
+  PEOPLE_TOOLS, PeopleToolRefusedError, RESOURCES_TOOLS, STAKEHOLDERS_HIDDEN_TOOL_REFUSAL, STAKEHOLDER_TOOLS, TOOL_REFUSAL_BY,
+  peopleToolsLive, toolWithheldBy,
 } from "./chat-tool-defs";
 import { PERSON_FIELDS_BY_TOOL, PERSON_FIELDS_REMOVED_NOTE, stripPersonFields, withPersonFieldsNote, type PersonStripContext } from "./ai-person-fields";
 
@@ -658,6 +659,9 @@ function readContactEmail(input: Record<string, unknown>, d: ToolDispatcher): Co
       return { id, email: row.assigneeEmail ?? null };
     }
     case "stakeholder": {
+      // §810 — a stakeholder's address follows the Stakeholders function, as the stakeholder tools do; refused
+      // before any row is read. (`get_contact_email` itself belongs to Resources and is gated in `runTool`.)
+      if (d.isStakeholdersHidden()) throw new PeopleToolRefusedError(STAKEHOLDERS_HIDDEN_TOOL_REFUSAL);
       const row = d.getStakeholderRow(id);
       if (!row) throw new Error(`stakeholder #${id} not found`);
       return { id, email: row.email ?? null };
