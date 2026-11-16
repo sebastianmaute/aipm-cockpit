@@ -5,6 +5,8 @@ import {
   AiPrivacyProvider, AiPrivacyUnavailableError, useAiPrivacySource, useOpenProjectAiPrivacy, useOpenProjectRatesWithheld, useOpenProjectReviewAllWrites,
 } from "./ai-privacy-context";
 import { withPeopleAllowed } from "./ai-people-protection";
+import { backgroundPauseReason } from "./ai-consent";
+import { withAiSwitch } from "./ai-project-switches";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import type { Stakeholder } from "./types";
 import { setDisabledIntegrations } from "./integration-switches";
@@ -139,5 +141,21 @@ describe("the unprotected stand-in honours the deployment locks", () => {
     setDisabledIntegrations(["ai-direct-writes", "ai-rates"]);
     expect(unprotectedStandIn.useOpenProjectReviewAllWrites()()).toBe(true);
     expect(unprotectedStandIn.useOpenProjectRatesWithheld()()).toBe(true);
+  });
+});
+
+describe("the open project publishes its background pause", () => {
+  const paused = (): Workspace => ({ ...emptyWorkspace(), settingsOverrides: withAiSwitch(undefined, "backgroundOff", true) });
+
+  it("follows the workspace on every commit and fails closed on unmount", () => {
+    const view = mount({ projectKey: "p1", workspace: paused() });
+    expect(backgroundPauseReason()).toBe("project");
+    view.rerender({ projectKey: "p1", workspace: emptyWorkspace() });
+    expect(backgroundPauseReason()).toBeNull();
+    view.rerender({ projectKey: "p1", workspace: paused() });
+    expect(backgroundPauseReason()).toBe("project");
+    view.rerender({ projectKey: "p1", workspace: emptyWorkspace() });
+    view.unmount();
+    expect(backgroundPauseReason()).toBe("project");
   });
 });

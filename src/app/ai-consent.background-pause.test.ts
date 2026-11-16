@@ -79,3 +79,29 @@ describe("the background pause", () => {
     expect(backgroundPauseReason()).toBe("project");
   });
 });
+
+describe("the pause follows the project a run targets", () => {
+  const paused = { settingsOverrides: { ai: { backgroundOff: true as const } } };
+  const open = { settingsOverrides: undefined };
+
+  it("a target with backgroundOff pauses while the published flag is false", () => {
+    publishBackgroundProjectOff(false);
+    expect(backgroundPauseReason(paused)).toBe("project");
+    expect(() => assertAiConsentLive("background", paused)).toThrow(expect.objectContaining({ name: "AiBackgroundPausedError", reason: "project" }));
+  });
+
+  it("a target without it runs while the published flag is true", () => {
+    publishBackgroundProjectOff(true);
+    expect(backgroundPauseReason(open)).toBeNull();
+    expect(() => assertAiConsentLive("background", open)).not.toThrow();
+  });
+
+  it("the deployment lock wins over a target that does not pause", () => {
+    addDisabledIntegration("ai-background");
+    expect(backgroundPauseReason(open)).toBe("deployment");
+  });
+
+  it("interactive ignores a paused target", () => {
+    expect(() => assertAiConsentLive("interactive", paused)).not.toThrow();
+  });
+});
