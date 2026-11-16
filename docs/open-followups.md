@@ -46308,8 +46308,6 @@ Size S.
 
 **Earlier:** OPEN 2026-11-13, found by the compliance pack's gap check. Deliberate behaviour, filed so the pack can cite it. Reproduced by reading: `grep -c 'level: "background"' src/app/ai-disclosure.ts` prints 3 (scheduled job analysis, automatic insight recommendations, the scheduled digest summary).
 
-**Work item:** #970
-
 Three AI paths run without a person starting them: scheduled job analyses, automatic insight recommendations and the scheduled digest summary. Each sends project data to the AI under the background consent, which is given once and covers every later run until it is withdrawn. Scheduled jobs and recommendations only advise (a person applies a recommendation), but the data leaves on each run without anyone approving that run.
 
 What it would take: decide whether a deployment may require a person to start each background run, or switch background runs off while leaving interactive AI on. Either needs a deployment setting, the consent dialog's wording, and tests on each of the three paths.
