@@ -113,8 +113,18 @@ let backgroundCapReached = false;
 let backgroundProjectOff = true;
 
 /** Records whether the open project pauses background AI. */
+const projectResumedListeners = new Set<() => void>();
+
+/** Told when the open project's published pause goes from on to off, so a scheduler that remembered a pause can try again. */
+export function onBackgroundProjectResumed(listener: () => void): () => void {
+  projectResumedListeners.add(listener);
+  return () => { projectResumedListeners.delete(listener); };
+}
+
 export function publishBackgroundProjectOff(off: boolean): void {
+  const resumed = backgroundProjectOff && !off;
   backgroundProjectOff = off;
+  if (resumed) for (const l of projectResumedListeners) l();
 }
 
 /** The project a background run reads, when it is not the open one (a scheduled job on a stored project). Only its

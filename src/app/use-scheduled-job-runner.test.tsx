@@ -852,7 +852,7 @@ describe("useScheduledJobRunner: the background pause is the job's project's (§
   // KILLED BY: dropping the memory (every tick would claim and load the paused project again), a retry time that never
   // passes (the job would stay silent after the project resumes), or remembering an unpaused job's run.
   describe("a paused project is claimed once, then left alone for an hour", () => {
-    const HOUR_MS = 60 * 60 * 1000; // the retry time the spec names, spelled out so a changed constant is noticed
+    const HOUR_MS = 60 * 60 * 1000; // PAUSED_RETRY_MS, spelled out so a changed constant is noticed
     let clock = afternoon().getTime();
     const tickAgain = async () => {
       document.dispatchEvent(new Event("visibilitychange"));
@@ -890,6 +890,39 @@ describe("useScheduledJobRunner: the background pause is the job's project's (§
       await tickAgain();
       expect(mClaim).toHaveBeenCalledTimes(2);
       expect(mockRun).toHaveBeenCalledTimes(1);
+    });
+
+    // KILLED BY: not clearing the open project's remembered pauses when its switch goes off (the job would wait out
+    // the hour on the device that just resumed).
+    it("the open project resuming clears its remembered pause: the next tick tries the job at once", async () => {
+      publishBackgroundProjectOff(true);
+      renderHook(() => useScheduledJobRunner(baseArgs({ openProjectId: "p1", now: () => new Date(clock) })));
+      await settle();
+      expect(mClaim).toHaveBeenCalledTimes(1);
+      expect(mockRun).not.toHaveBeenCalled();
+
+      clock += 60_000;
+      await tickAgain();
+      expect(mClaim).toHaveBeenCalledTimes(1); // still remembered while paused
+
+      act(() => publishBackgroundProjectOff(false));
+      await tickAgain();
+      expect(mClaim).toHaveBeenCalledTimes(2);
+      expect(mockRun).toHaveBeenCalledTimes(1);
+    });
+
+    // KILLED BY: clearing every remembered pause on a resume (another project's pause would be re-claimed).
+    it("keeps another project's remembered pause when the open project resumes", async () => {
+      publishBackgroundProjectOff(true);
+      backendState.overrides = { ai: { backgroundOff: true } };
+      renderHook(() => useScheduledJobRunner(baseArgs({ openProjectId: "p2", now: () => new Date(clock) })));
+      await settle();
+      expect(mClaim).toHaveBeenCalledTimes(1);
+
+      act(() => publishBackgroundProjectOff(false));
+      clock += 60_000;
+      await tickAgain();
+      expect(mClaim).toHaveBeenCalledTimes(1);
     });
 
     // CONTROL: the memory is for paused jobs only.

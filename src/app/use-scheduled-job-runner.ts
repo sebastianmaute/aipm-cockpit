@@ -12,7 +12,7 @@ import { loadScheduledJobs } from "./scheduled-jobs-store";
 import { slotStatus } from "./scheduled-reports-store";
 import { runJobAnalysis } from "./scheduled-job-analysis";
 import { confirmAiDeployment } from "./ai-transport";
-import { assertAiConsentLive, PROJECT_NOT_LOADED } from "./ai-consent";
+import { assertAiConsentLive, onBackgroundProjectResumed, PROJECT_NOT_LOADED } from "./ai-consent";
 import { isBackgroundOffForced } from "./ai-project-switches";
 import { runScheduledJob, type RunDeps, type RunOutcome } from "./scheduled-job-run";
 import { getDeviceLabel } from "./device-label";
@@ -166,9 +166,15 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
   const isRunningRef = useRef(false);
   // Slots this session knows are done (a report exists or another device claimed them): no more reads for them today.
   const handledRef = useRef<Set<string>>(new Set());
-  // Job + period → when a job whose project is paused may be tried again. Judged BEFORE the claim, so a paused project
-  // is not claimed and loaded on every tick. In memory only: a reload tries once more, which is all it costs.
-  const pausedUntilRef = useRef<Map<string, number>>(new Map());
+  // Job + period → when a job whose project is paused may be tried again, and which project that is. Judged BEFORE the claim,
+  // so a paused project is not claimed and loaded on every tick. In memory only: a reload tries once more, which is all it costs.
+  // The open project turning its switch back off clears ITS entries (a resume on this device takes effect at once).
+  const pausedUntilRef = useRef<Map<string, { until: number; projectId: string | null }>>(new Map());
+  useEffect(() => onBackgroundProjectResumed(() => {
+    const open = argsRef.current.openProjectId;
+    if (open === null) return;
+    for (const [id, entry] of pausedUntilRef.current) if (entry.projectId === open) pausedUntilRef.current.delete(id);
+  }), []);
 
   // ★★ THE TWO EDGE EFFECTS BELOW MUST STAY AFTER THE REF-SYNC EFFECT ABOVE.
   // Effects run in declaration order, and `tick` builds the first request
@@ -217,7 +223,7 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
       if (isRunningRef.current) return; // a run is already in flight
       const at = (a.now ?? (() => new Date()))();
       const notHandled = ({ job, slot }: DueJob) => !handledRef.current.has(periodId(job, slot));
-      const notPaused = ({ job, slot }: DueJob) => (pausedUntilRef.current.get(periodId(job, slot)) ?? 0) <= at.getTime();
+      const notPaused = ({ job, slot }: DueJob) => (pausedUntilRef.current.get(periodId(job, slot))?.until ?? 0) <= at.getTime();
 
       isRunningRef.current = true;
       try {
@@ -260,7 +266,7 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
           try {
             const outcome = await runScheduledJob(job, slot, deps);
             if (outcome === "paused") {
-              pausedUntilRef.current.set(periodId(job, slot), at.getTime() + PAUSED_RETRY_MS);
+              pausedUntilRef.current.set(periodId(job, slot), { until: at.getTime() + PAUSED_RETRY_MS, projectId: job.projectId });
             }
             if (REPORT_WRITTEN.has(outcome)) window.dispatchEvent(new CustomEvent(SCHEDULED_REPORT_EVENT));
             // Our own finished row is final. "claimed-elsewhere" is NOT: that claim may yet be released.
