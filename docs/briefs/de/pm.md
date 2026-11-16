@@ -56,9 +56,10 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
 - **Zwei Projekteinstellungen in Einstellungen → KI, beide aus, bis sie gesetzt werden:** „Jede KI-Änderung
   prüfen“ schickt jede Änderung an Projektdaten, die der Chat vorschlägt, auf die Prüfkarte, auch eine einzelne,
   und ein Lesezugriff wartet nie (E71, *getestet (Unit)*); „Stundensätze aus Mit KI planen und der Prognose im
-  Chat heraushalten“ lässt die internen Stundensätze aus dieser Anfrage und aus den Prognoseergebnissen weg, die
-  der Chat liest (E72, *getestet (Unit)*). Der Betreiber kann beide für jedes
-  Projekt erzwingen.
+  Chat heraushalten“ lässt die internen Stundensätze aus dieser Anfrage weg, und den Satz der Rolle einer Person
+  aus dem Verzeichnis aus den Prognoseergebnissen, die der Chat liest; den Satz eines Platzhalters, den ein
+  gespeichertes Szenario speichert (eine dafür eingetragene Zahl oder der mittlere interne Satz des Teams),
+  sendet er weiterhin (E72, *getestet (Unit)*). Der Betreiber kann beide für jedes Projekt erzwingen.
 - **Übernehmen oder lassen:** In den Vorschlägen für Ressourcenplanung, RACI, Projektstrukturplan und doppelte
   Aufgaben können Sie Punkte abwählen, und der Gewichtungsvorschlag bietet „Übernehmen“ für jede einzelne
   Gewichtung; die übrigen werden als Ganzes übernommen, angenommen oder bestätigt (E56, *im Code gelesen*). Der

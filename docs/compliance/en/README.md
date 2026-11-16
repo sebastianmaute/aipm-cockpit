@@ -103,7 +103,7 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
 - **§802** — Routing AI through an organisation's gateway has been tested against fakes and a local
   server only. How a real gateway behaves with the app has not been confirmed by a run.
 
-Two limits remain that have no open register entry:
+Three limits remain that have no open register entry:
 
 - **Request limits.** The limit on the Jira, Confluence, Timelog, exchange-rate, AI and dictation routes no
   longer trusts a header the caller sets. By default all callers of a route share one count, so one caller
@@ -113,6 +113,12 @@ Two limits remain that have no open register entry:
   process's memory and starts again from zero when the server restarts. [verified: `clientKey` and
   `rateLimit` in `src/app/api/jira/_rate-limit.ts` and its tests in `_rate-limit.test.ts`; the Confluence
   route's import of the Jira route's helpers in `src/app/api/confluence/page/route.ts`]
+- **A placeholder's rate in a saved forecast scenario.** A project, or the deployment with `ai-rates`, can
+  keep hourly rates out of Plan with AI and the chat's forecast; the forecast then leaves out the role rate of a
+  person from the directory that a scenario or what-if adds. A saved scenario's own changes are still sent as
+  stored, so a placeholder's rate (a figure entered for the scenario, or the team's mean internal rate when it
+  was drafted from the Forecast view's Explore) still reaches the AI. [verified: `buildForecastReport` in
+  `src/app/forecast-ai-report.ts`; `placeholderWho` in `src/app/forecast-levers.ts`]
 - **A hidden Resources function.** While a project hides it, the AI is offered none of that function's tools
   (the resource directory, absences, allocations and contact e-mail look-ups), no prompt lists who is away, and
   insight recommendations name only people already assigned to open tasks. The stakeholder tools follow the

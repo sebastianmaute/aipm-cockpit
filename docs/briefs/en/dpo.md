@@ -61,8 +61,10 @@ with Anthropic, transfers and a works agreement are questions only your organisa
   on in every project (E19, *tested (unit)*) and hides allocation and RACI (E18, *tested (unit)*); lifting it
   returns each project to its stored setting (E43, *read in code*).
 - **Rates:** a project's "Keep hourly rates out of Plan with AI and the chat's forecast" setting, or `ai-rates`
-  for the whole deployment, keeps the rates out of that request and out of the forecast results the chat reads;
-  the people, their roles and their hours are still sent (E72, *tested (unit)*).
+  for the whole deployment, keeps the rates out of that request and keeps the role rate of a person from the
+  directory out of the forecast results the chat reads; the people, their roles and their hours are still sent.
+  A placeholder's rate that a saved scenario stores (a figure entered for it, or the team's mean internal rate)
+  is still sent with that scenario (E72, *tested (unit)*).
 - **Saved chats:** kept only with a Turso database and the operator's recovery key (E28, *read in code*);
   deleted 30 days after their last change (the operator can set 1 to 3650), by the browser and, where set up,
   by the server (E29, *read in code*).

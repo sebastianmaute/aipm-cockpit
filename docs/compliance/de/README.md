@@ -120,7 +120,7 @@ wo die Einzelheiten stehen. [geprüft: die Registereinträge in `docs/open-follo
   Attrappen und einen lokalen Server getestet. Wie sich ein echtes Gateway mit der App verhält, ist durch
   keinen Lauf bestätigt.
 
-Zwei Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
+Drei Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
 
 - **Anfragegrenzen.** Die Begrenzung der Routen für Jira, Confluence, Timelog, Wechselkurse, KI und Diktat
   vertraut keinem Header mehr, den der Aufrufer setzt. Standardmäßig teilen sich alle Aufrufer einer Route
@@ -131,6 +131,13 @@ Zwei Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
   einem Neustart des Servers wieder bei null. [geprüft: `clientKey` und `rateLimit` in
   `src/app/api/jira/_rate-limit.ts` und seine Tests in `_rate-limit.test.ts`; der Import der Hilfsfunktionen
   der Jira-Route in `src/app/api/confluence/page/route.ts`]
+- **Der Satz eines Platzhalters in einem gespeicherten Prognoseszenario.** Ein Projekt, oder die Bereitstellung
+  mit `ai-rates`, kann Stundensätze aus „Mit KI planen“ und der Prognose im Chat heraushalten; die Prognose lässt
+  dann den Satz der Rolle einer Person aus dem Verzeichnis weg, die ein Szenario oder eine Was-wäre-wenn-Rechnung
+  hinzufügt. Die Änderungen eines gespeicherten Szenarios werden aber so gesendet, wie sie gespeichert sind; der
+  Satz eines Platzhalters (eine für das Szenario eingetragene Zahl oder der mittlere interne Satz des Teams, wenn
+  es aus „Erkunden“ in der Prognoseansicht entworfen wurde) erreicht die KI also weiterhin. [geprüft:
+  `buildForecastReport` in `src/app/forecast-ai-report.ts`; `placeholderWho` in `src/app/forecast-levers.ts`]
 - **Eine ausgeblendete Ressourcen-Funktion.** Solange ein Projekt sie ausblendet, bekommt die KI keines der
   Werkzeuge dieser Funktion angeboten (Ressourcenverzeichnis, Abwesenheiten, Zuteilungen und das Nachschlagen
   einer Kontakt-E-Mail), keine Anfrage führt auf, wer abwesend ist, und Insight-Empfehlungen nennen nur

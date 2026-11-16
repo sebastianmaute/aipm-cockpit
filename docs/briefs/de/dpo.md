@@ -71,9 +71,11 @@ Fragen, die nur Ihre Organisation beantworten kann.
   *getestet (Unit)*); wird er aufgehoben, gilt wieder die gespeicherte Einstellung jedes Projekts (E43,
   *im Code gelesen*).
 - **Stundensätze:** Die Einstellung „Stundensätze aus Mit KI planen und der Prognose im Chat heraushalten“ eines
-  Projekts, oder `ai-rates` für die ganze Bereitstellung, hält die Sätze aus dieser Anfrage und aus den
-  Prognoseergebnissen heraus, die der Chat liest; die Personen, ihre Rollen und ihre
-  Stunden werden weiterhin gesendet (E72, *getestet (Unit)*).
+  Projekts, oder `ai-rates` für die ganze Bereitstellung, hält die Sätze aus dieser Anfrage heraus und den
+  Satz der Rolle einer Person aus dem Verzeichnis aus den Prognoseergebnissen, die der Chat liest; die Personen,
+  ihre Rollen und ihre Stunden werden weiterhin gesendet. Den Satz eines Platzhalters, den ein gespeichertes
+  Szenario speichert (eine dafür eingetragene Zahl oder der mittlere interne Satz des Teams), sendet es
+  weiterhin mit diesem Szenario (E72, *getestet (Unit)*).
 - **Gespeicherte Chats:** nur mit einer Turso-Datenbank und dem Wiederherstellungsschlüssel des Betreibers
   aufbewahrt (E28, *im Code gelesen*); gelöscht 30 Tage nach ihrer letzten Änderung (der Betreiber kann 1 bis
   3650 einstellen), vom Browser und, wo eingerichtet, vom Server (E29, *im Code gelesen*).
