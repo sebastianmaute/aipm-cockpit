@@ -51,7 +51,7 @@ app does nothing to make a request give the same answer twice (§812; E27, *not 
   protected (E35, *read in code*); lifting the lock returns each project to its stored setting (E43,
   *read in code*). No switch turns off a single feature (E42, *tested (unit)*).
 - **Review and rates:** `ai-direct-writes` sends every chat write in every project to the review card, and
-  `ai-rates` keeps hourly rates out of Plan with AI and the chat's forecast; without them, each project can set either in Settings → AI,
+  `ai-rates` keeps hourly rates out of Plan with AI and the chat's forecast and dashboard figures; without them, each project can set either in Settings → AI,
   and both are off until set (E71, *tested (unit)*; E72, *tested (unit)*).
 - **For Article 50 (transparency):** the screens name the AI ("AI Assistant", "Ask Claude", "AI-generated — review
   before acting.") and the activity log shows its chat changes with the actor "AI assistant"; machine-readable

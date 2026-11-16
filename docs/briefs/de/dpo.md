@@ -71,9 +71,10 @@ Fragen, die nur Ihre Organisation beantworten kann.
   erzwingt den Schutz in jedem Projekt (E19, *getestet (Unit)*) und blendet Ressourcenplanung und RACI aus (E18,
   *getestet (Unit)*); wird er aufgehoben, gilt wieder die gespeicherte Einstellung jedes Projekts (E43,
   *im Code gelesen*).
-- **Stundensätze:** Die Einstellung „Stundensätze aus Mit KI planen und der Prognose im Chat heraushalten“ eines
-  Projekts, oder `ai-rates` für die ganze Bereitstellung, hält die Sätze aus dieser Anfrage heraus und den
-  Satz der Rolle einer Person aus dem Verzeichnis aus den Prognoseergebnissen, die der Chat liest; die Personen,
+- **Stundensätze:** Die Einstellung „Stundensätze aus Mit KI planen, der Prognose im Chat und den Dashboard-Zahlen
+  heraushalten“ eines Projekts, oder `ai-rates` für die ganze Bereitstellung, hält die Sätze aus dieser Anfrage
+  heraus, den Satz der Rolle einer Person aus dem Verzeichnis aus den Prognoseergebnissen, die der Chat liest, und
+  die geplanten und gebuchten Durchschnittssätze aus den Dashboard-Zahlen, die der Chat liest; die Personen,
   ihre Rollen und ihre Stunden werden weiterhin gesendet. Den Satz eines Platzhalters, den ein gespeichertes
   Szenario speichert (eine dafür eingetragene Zahl oder der mittlere interne Satz des Teams), sendet es
   weiterhin mit diesem Szenario, und die Kosten bei Fertigstellung eines Szenarios oder einer

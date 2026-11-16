@@ -132,7 +132,8 @@ Vier Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
   `src/app/api/jira/_rate-limit.ts` und seine Tests in `_rate-limit.test.ts`; der Import der Hilfsfunktionen
   der Jira-Route in `src/app/api/confluence/page/route.ts`]
 - **Der Satz eines Platzhalters in einem gespeicherten Prognoseszenario.** Ein Projekt, oder die Bereitstellung
-  mit `ai-rates`, kann Stundensätze aus „Mit KI planen“ und der Prognose im Chat heraushalten; die Prognose lässt
+  mit `ai-rates`, kann Stundensätze aus „Mit KI planen“, der Prognose im Chat und den Dashboard-Zahlen heraushalten
+  (die Dashboard-Zahlen enthalten dann keinen geplanten oder gebuchten Durchschnittssatz); die Prognose lässt
   dann den Satz der Rolle einer Person aus dem Verzeichnis weg, die ein Szenario oder eine Was-wäre-wenn-Rechnung
   hinzufügt. Die Änderungen eines gespeicherten Szenarios werden aber so gesendet, wie sie gespeichert sind; der
   Satz eines Platzhalters (eine für das Szenario eingetragene Zahl oder der mittlere interne Satz des Teams, wenn

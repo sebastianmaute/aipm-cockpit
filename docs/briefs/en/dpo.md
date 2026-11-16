@@ -61,9 +61,10 @@ with Anthropic, transfers and a works agreement are questions only your organisa
 - **Protection everywhere:** the deployment's operator, not the DPO, sets `ai-people`, which forces protection
   on in every project (E19, *tested (unit)*) and hides allocation and RACI (E18, *tested (unit)*); lifting it
   returns each project to its stored setting (E43, *read in code*).
-- **Rates:** a project's "Keep hourly rates out of Plan with AI and the chat's forecast" setting, or `ai-rates`
-  for the whole deployment, keeps the rates out of that request and keeps the role rate of a person from the
-  directory out of the forecast results the chat reads; the people, their roles and their hours are still sent.
+- **Rates:** a project's "Keep hourly rates out of Plan with AI and the chat's forecast and dashboard figures"
+  setting, or `ai-rates` for the whole deployment, keeps the rates out of that request, keeps the role rate of a
+  person from the directory out of the forecast results the chat reads, and keeps the planned and booked rate
+  averages out of the dashboard figures the chat reads; the people, their roles and their hours are still sent.
   A placeholder's rate that a saved scenario stores (a figure entered for it, or the team's mean internal rate)
   is still sent with that scenario, and a scenario's or what-if's cost at finish beside As is, with the added
   person's weekly hours, lets the model roughly work out that person's rate (E72, *tested (unit)*).

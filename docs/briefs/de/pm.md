@@ -55,9 +55,10 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
   erzwungen, was Ressourcenplanung und RACI ausblendet (E18, *getestet (Unit)*).
 - **Zwei Projekteinstellungen in Einstellungen → KI, beide aus, bis sie gesetzt werden:** „Jede KI-Änderung
   prüfen“ schickt jede Änderung an Projektdaten, die der Chat vorschlägt, auf die Prüfkarte, auch eine einzelne,
-  und ein Lesezugriff wartet nie (E71, *getestet (Unit)*); „Stundensätze aus Mit KI planen und der Prognose im
-  Chat heraushalten“ lässt die internen Stundensätze aus dieser Anfrage weg, und den Satz der Rolle einer Person
-  aus dem Verzeichnis aus den Prognoseergebnissen, die der Chat liest; den Satz eines Platzhalters, den ein
+  und ein Lesezugriff wartet nie (E71, *getestet (Unit)*); „Stundensätze aus Mit KI planen, der Prognose im Chat
+  und den Dashboard-Zahlen heraushalten“ lässt die internen Stundensätze aus dieser Anfrage weg, den Satz der Rolle
+  einer Person aus dem Verzeichnis aus den Prognoseergebnissen, die der Chat liest, und die geplanten und
+  gebuchten Durchschnittssätze aus den Dashboard-Zahlen, die er liest; den Satz eines Platzhalters, den ein
   gespeichertes Szenario speichert (eine dafür eingetragene Zahl oder der mittlere interne Satz des Teams),
   sendet er weiterhin, und aus den Kosten bei Fertigstellung eines Szenarios neben dem Ist-Stand kann das Modell
   mit den Wochenstunden der hinzugefügten Person deren Satz grob ausrechnen (E72, *getestet (Unit)*). Der

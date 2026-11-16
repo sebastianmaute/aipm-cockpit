@@ -48,9 +48,9 @@ feature on one demo project (E37, *measured*).
   CEO and COO briefs suggest, protection is forced on, which hides allocation and RACI (E18, *tested (unit)*).
 - **Two project settings in Settings → AI, both off until set:** "Review every AI write" sends every change to
   project data the chat proposes to the review card, even a single one, and a read never waits (E71,
-  *tested (unit)*); "Keep hourly rates out of Plan with AI and the chat's forecast" leaves the internal hourly
-  rates out of that request, and the role rate of a person from the directory out of the forecast results the
-  chat reads; a placeholder's rate that a saved scenario stores (a figure entered for it, or the team's mean
+  *tested (unit)*); "Keep hourly rates out of Plan with AI and the chat's forecast and dashboard figures" leaves
+  the internal hourly rates out of that request, the role rate of a person from the directory out of the forecast
+  results the chat reads, and the planned and booked rate averages out of the dashboard figures it reads; a placeholder's rate that a saved scenario stores (a figure entered for it, or the team's mean
   internal rate) is still sent, and a scenario's cost at finish beside As is, with the added person's weekly
   hours, lets the model roughly work out that person's rate (E72, *tested (unit)*). The operator can force
   either on for every project.

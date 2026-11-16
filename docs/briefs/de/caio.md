@@ -58,7 +58,7 @@ ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
   gilt für jedes Projekt wieder seine gespeicherte Einstellung (E43, *im Code gelesen*). Kein Schalter schaltet
   eine einzelne Funktion ab (E42, *getestet (Unit)*).
 - **Prüfung und Stundensätze:** `ai-direct-writes` schickt jede Änderung des Chats in jedem Projekt auf die
-  Prüfkarte, und `ai-rates` hält Stundensätze aus „Mit KI planen“ und der Prognose im Chat heraus; ohne sie kann jedes Projekt beides in
+  Prüfkarte, und `ai-rates` hält Stundensätze aus „Mit KI planen“, der Prognose im Chat und den Dashboard-Zahlen heraus; ohne sie kann jedes Projekt beides in
   Einstellungen → KI festlegen, und beides ist aus, bis es gesetzt wird (E71, *getestet (Unit)*; E72,
   *getestet (Unit)*).
 - **Zu Artikel 50 (Transparenz):** Die Oberflächen benennen die KI („KI-Assistent“, „Claude fragen“,
