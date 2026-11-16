@@ -168,3 +168,24 @@ describe("an invalid trusted-hops setting", () => {
     warn.mockRestore();
   });
 });
+
+// §562 — a proxy that appends the client port (`ip:port`) must not give every connection its own bucket: the key is
+// the address alone. A bare IPv6 address keeps its colons.
+describe("clientKey strips a port from the trusted entry", () => {
+  const hops1 = { [TRUSTED_PROXY_HOPS_ENV]: "1" };
+  it("IPv4 with a port keys on the address", () => {
+    expect(clientKey(req("9.9.9.9, 10.0.0.1:5678"), hops1)).toBe("10.0.0.1");
+    expect(clientKey(req("9.9.9.9, 10.0.0.1:6789"), hops1)).toBe(clientKey(req("10.0.0.1:5678"), hops1));
+  });
+  it("bracketed IPv6 with a port keys on the address", () => {
+    expect(clientKey(req("[2001:db8::1]:5678"), hops1)).toBe("2001:db8::1");
+    expect(clientKey(req("[::1]:443"), hops1)).toBe("::1");
+  });
+  it("a bare IPv6 address keeps its colons", () => {
+    expect(clientKey(req("2001:db8::1"), hops1)).toBe("2001:db8::1");
+    expect(clientKey(req("::1"), hops1)).toBe("::1");
+  });
+  it("a bare IPv4 address is unchanged", () => {
+    expect(clientKey(req("10.0.0.1"), hops1)).toBe("10.0.0.1");
+  });
+});

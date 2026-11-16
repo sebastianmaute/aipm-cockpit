@@ -69,6 +69,16 @@ function trustedHops(env: Record<string, string | undefined>): number {
   return hops;
 }
 
+/** §562 — the address of an `x-forwarded-for` entry without a port a proxy may append: `1.2.3.4:5678` and
+ *  `[2001:db8::1]:5678` key on the address, so every connection of one caller shares a bucket. A bare IPv6 address
+ *  (several colons, no brackets) is kept as it is. */
+function withoutPort(entry: string): string {
+  const bracketed = /^\[([^\]]+)\](?::\d+)?$/.exec(entry);
+  if (bracketed) return bracketed[1]!;
+  const v4 = /^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/.exec(entry);
+  return v4 ? v4[1]! : entry;
+}
+
 /**
  * The bucket key for a request: the `x-forwarded-for` entry `hops` places from
  * the right (see the file header), or "shared" when no hop is trusted or the
@@ -84,7 +94,7 @@ export function clientKey(
     .split(",")
     .map((e) => e.trim())
     .filter((e) => e !== "");
-  return entries.length >= hops ? entries[entries.length - hops] : SHARED_KEY;
+  return entries.length >= hops ? withoutPort(entries[entries.length - hops]) : SHARED_KEY;
 }
 
 /**
