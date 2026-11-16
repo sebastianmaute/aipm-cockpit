@@ -149,15 +149,12 @@ export const ATTACHMENT_DATA_NOTICE =
  *  split WITHIN this half is a later addition (`operating-guide.ts`'s
  *  `assembleGuideBlocks`) and does not affect that composition.
  *
- *  ★★★ `toolFlags` CANNOT MOVE A BYTE OF THIS OUTPUT — measured, not assumed
- *  (a differential probe holding every other input fixed and flipping
- *  `historySearch`/`chatSearch` found this half byte-identical while
- *  `buildTurnContext`'s output changed). The tool-advertising blocks
- *  `toolFlags` gates (view scope, activity recap, chat pointer) all live in
- *  the volatile half; it is accepted here only so both halves share one
- *  param list. This is what makes both these blocks genuinely STABLE across
- *  a conversation's turns even when a setting toggle changes mid-thread —
- *  the relocation of the volatile context depends on it. */
+ *  ★★★ Only the PEOPLE flags move this output: `peopleProtected`, `resourcesHidden` and `stakeholdersHidden`
+ *  choose the people lines (see the comment in the body). `historySearch`, `chatSearch` and `forecast` do not
+ *  (a differential probe flipping the two search flags found this half byte-identical); the blocks those gate
+ *  (view scope, activity recap, chat pointer) live in the volatile half. So a search toggle mid-thread keeps
+ *  this half STABLE, which the relocation of the volatile context depends on; a protection or function switch
+ *  changes it, as it changes the tool list. */
 export function buildStableSystemBlocks(
   lang: Lang,
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
@@ -170,10 +167,11 @@ export function buildStableSystemBlocks(
    *  `forecastSimulation`, and only an explicit true offers it. */
   toolFlags: ToolFlags,
 ): SystemBlock[] {
-  // `toolFlags` drives ONE line here: under people protection the request carries no people tool, so
-  // the prompt must not advertise the resource directory's (AI people protection, layer 1); nor while the
-  // project hides its Resources function (§810), by the predicate the tool list uses. The other
-  // tool-advertising blocks (view scope / activity recap / chat pointer) live in the volatile half.
+  // `toolFlags` drives four things here, each by the predicate the tool list uses (`toolOffered`): the resource
+  // directory line (replaced under people protection, layer 1, or while Resources is hidden, §810), the
+  // "Beyond tasks…" line and the document-extraction list (which name stakeholders and people/resources only
+  // while their tools are offered), and the Stakeholders-hidden instruction. The other tool-advertising blocks
+  // (view scope / activity recap / chat pointer) live in the volatile half.
   const peopleLine = toolOffered("list_resources", toolFlags)
     ? "You can also manage the resource directory: list_resources, get_resource, create_resource (firstName/lastName), update_resource, and delete_resource. IMPORTANT: assigning a task to a person by name does NOT add them to the directory — when a document describes a team or resource plan, call create_resource for each person so they appear in the directory, not just as task assignees."
     : peopleToolsLive(toolFlags.peopleProtected) ? RESOURCES_HIDDEN_INSTRUCTION : PEOPLE_PROTECTED_INSTRUCTION;

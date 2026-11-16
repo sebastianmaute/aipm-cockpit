@@ -355,6 +355,13 @@ describe("hidden Resources and Stakeholders functions (§810)", () => {
     expect(shown.calls).toEqual(["getStakeholderRow"]);
   });
 
+  it("get_contact_email's entity error names stakeholder only while Stakeholders is shown", async () => {
+    const hidden = await runTool(hiddenDispatcher({ stakeholders: true }).d, "get_contact_email", { entity: "x", id: 1 }).then(() => null, (e: Error) => e.message);
+    expect(hidden).toBe("entity must be one of task, resource, raid, absence");
+    const shown = await runTool(hiddenDispatcher({}).d, "get_contact_email", { entity: "x", id: 1 }).then(() => null, (e: Error) => e.message);
+    expect(shown).toBe("entity must be one of task, stakeholder, resource, raid, absence");
+  });
+
   it("Resources hidden alone does not refuse a stakeholder tool", async () => {
     const { d, calls } = hiddenDispatcher({ resources: true });
     await runTool(d, "list_stakeholders", {});

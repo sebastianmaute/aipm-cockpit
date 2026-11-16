@@ -682,7 +682,8 @@ function readContactEmail(input: Record<string, unknown>, d: ToolDispatcher): Co
       return { id, email: row.assigneeEmail ?? null };
     }
     default:
-      throw new Error("entity must be one of task, stakeholder, resource, raid, absence");
+      // §810 — name only the entities the request offered: no stakeholder while that function is hidden.
+      throw new Error(`entity must be one of ${d.isStakeholdersHidden() ? "task, resource, raid, absence" : "task, stakeholder, resource, raid, absence"}`);
   }
 }
 
