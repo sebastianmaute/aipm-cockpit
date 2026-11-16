@@ -372,6 +372,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     isReadOnly: args.isReadOnly,
     logActivityAs: args.logActivityAs,
     settingsRef,
+    featuresRef,
     undoRef,
     getForecastInputRef,
     tasksRef,

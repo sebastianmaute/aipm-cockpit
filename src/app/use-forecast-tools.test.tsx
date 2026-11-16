@@ -16,7 +16,9 @@ import { FORECAST_OFF_MESSAGE } from "./chat-tools-forecast";
 import type { Workspace } from "./workspace";
 import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
 import { DEFAULT_HISTORY_WINDOW } from "./forecast/constants";
-import type { ForecastReportInput } from "./forecast-ai-report";
+import { DIRECTORY_NAME_WITHHELD, type ForecastReportInput } from "./forecast-ai-report";
+import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
+import * as forecastFixture from "../test/forecast-report-fixture";
 import type { ForecastScenario, ScenarioChange } from "./forecast-scenarios";
 import { loadI18n, t } from "./i18n";
 import { __resetMintStateForTests } from "./id-mint-session";
@@ -723,5 +725,36 @@ describe("staging", () => {
       .toBe("Edit scenario “One” (1 → 1 change)");
     expect(titleOf(call("update_forecast_scenario", { id: 2, name: "Renamed", changes: [] }), ws))
       .toBe("Edit scenario “Three” → “Renamed” (3 → 0 changes)");
+  });
+});
+
+// §810 — while the project hides its Resources function, get_forecast does not name a directory person a what-if or
+// scenario adds. Decided at call time from the project's own functions (the workspace slice `get_app_state`
+// reports), through the real dispatcher.
+describe("get_forecast names a directory person only while Resources is shown (§810)", () => {
+  const fixtureInput = (): ForecastReportInput => ({
+    run: forecastFixture.input(), history: [], scenarios: [], currency: "EUR", settingsOverrides: undefined,
+  });
+  const named = (features: FeatureModuleId[]) => {
+    const { result } = mount(
+      {
+        tasks: [...forecastFixture.TASKS], milestones: [...forecastFixture.MILESTONES],
+        resources: [...forecastFixture.DIRECTORY.resources], features,
+        forecastScenarios: [{ id: 1, name: "Add Per", changes: [forecastFixture.addPerson(forecastFixture.PER)] }],
+      },
+      { getForecastInput: fixtureInput },
+    );
+    const report = result.current.dispatcher.getForecast([forecastFixture.addPerson(forecastFixture.PER)]);
+    const sizing = (rows: readonly unknown[] | undefined) => (rows?.[0] as { sizing?: { name: string } } | undefined)?.sizing?.name;
+    return { scenario: sizing(report.scenarios[0]?.rows), whatIf: sizing(report.whatIf?.rows) };
+  };
+
+  test("shown: the scenario and the what-if name the person", () => {
+    expect(named([...ALL_MODULE_IDS])).toEqual({ scenario: "Per Sand", whatIf: "Per Sand" });
+  });
+
+  test("hidden: both report the withheld name", () => {
+    const hidden = ALL_MODULE_IDS.filter((id) => id !== "resources");
+    expect(named(hidden)).toEqual({ scenario: DIRECTORY_NAME_WITHHELD, whatIf: DIRECTORY_NAME_WITHHELD });
   });
 });

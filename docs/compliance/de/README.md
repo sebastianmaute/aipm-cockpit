@@ -146,7 +146,10 @@ Vier Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
 - **Eine ausgeblendete Ressourcen-Funktion.** Solange ein Projekt sie ausblendet, bekommt die KI keines der
   Werkzeuge dieser Funktion angeboten (Ressourcenverzeichnis, Abwesenheiten, Zuteilungen und das Nachschlagen
   einer Kontakt-E-Mail), keine Anfrage führt auf, wer abwesend ist, und Insight-Empfehlungen nennen nur
-  Personen, die bereits offenen Aufgaben zugewiesen sind. Die Stakeholder-Werkzeuge folgen stattdessen der
+  Personen, die bereits offenen Aufgaben zugewiesen sind. Keine KI-Funktion erhält ein Insight über eine
+  einzelne Person (eine Timelog-Prüfung nennt eine Person aus dem Verzeichnis oder ihre Timelog-Benutzernummer),
+  und die Prognoseergebnisse des Chats melden eine Person aus dem Verzeichnis, die ein Szenario oder eine
+  Was-wäre-wenn-Rechnung hinzufügt, ohne ihren Namen. Die Stakeholder-Werkzeuge folgen stattdessen der
   Stakeholder-Funktion; die Suche im Verlauf, die Suche in Chats, die Statusanfrage und die Eskalation eines
   RAID-Eintrags bleiben verfügbar. Eine Terminänderung im Chat, die auf die Abwesenheit einer Person fällt, wird weiterhin auf der
   Prüfkarte zurückgehalten; die KI kann also erkennen, dass die Änderung zurückgehalten wurde, erfährt aber

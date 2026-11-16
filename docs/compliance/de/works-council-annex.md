@@ -51,7 +51,12 @@ Ausblenden der Ressourcen-Funktion blendet deren Ansichten aus und entzieht ihre
 Personenschutz an oder aus ist. Dem KI-Chat und der Bearbeitung einer Zeile wird keines ihrer Werkzeuge
 angeboten (Ressourcenverzeichnis, Abwesenheiten, Zuteilungen und das Nachschlagen einer Kontakt-E-Mail), und
 der Chat lehnt einen solchen Aufruf ab; die Insight-Empfehlungen nennen nur Personen, die bereits offenen
-Aufgaben zugewiesen sind, und senden kein Profil einer Person. Die Stakeholder-Werkzeuge folgen ebenso der
+Aufgaben zugewiesen sind, und senden kein Profil einer Person. Keine KI-Funktion erhält ein Insight über eine
+einzelne Person (eine Timelog-Prüfung nennt eine Person aus dem Verzeichnis oder ihre Timelog-Benutzernummer),
+und die Prognoseergebnisse des Chats melden eine Person aus dem Verzeichnis, die ein Szenario oder eine
+Was-wäre-wenn-Rechnung hinzufügt, ohne ihren Namen. [geprüft: `insightReachesAi` in
+`src/app/insights/insight-prompt.ts`; `DIRECTORY_NAME_WITHHELD` in `src/app/forecast-ai-report.ts`] Die
+Stakeholder-Werkzeuge folgen ebenso der
 Stakeholder-Funktion. Die Suche im Verlauf, die Suche in Chats, die Statusanfrage und die Eskalation eines
 RAID-Eintrags entzieht eine ausgeblendete Funktion nicht. Die fünf Funktionen, die die Liste senden, wer abwesend ist (der Entwurf des
 Lenkungsausschuss-Berichts, „Nächste Schritte mit KI analysieren“, die Analyse durch geplante Aufträge,

@@ -45,7 +45,11 @@ is only logged. [verified: `isEntityWriteCall` and the comment on `shouldStage` 
 views and withdraws their data from the AI, with people protection on or off. The AI chat and the row edit
 are offered none of its tools (the resource directory, absences, allocations and contact e-mail look-ups),
 and the chat refuses such a call; the insight recommendations name only people already assigned to open
-tasks and send no person's profile. The stakeholder tools follow the Stakeholders function in the same way.
+tasks and send no person's profile. No AI feature is sent an insight about one person (a Timelog check names
+a directory person or their Timelog user number), and the chat's forecast results report a person from the
+directory that a scenario or what-if adds without their name. [verified: `insightReachesAi` in
+`src/app/insights/insight-prompt.ts`; `DIRECTORY_NAME_WITHHELD` in `src/app/forecast-ai-report.ts`] The
+stakeholder tools follow the Stakeholders function in the same way.
 History search, chat search, the status inquiry and RAID escalation are not withdrawn by a hidden function. The five features that send the list of who is away (the steering committee
 report draft, Analyze next actions, the scheduled job analysis, the insight recommendations, on request and
 automatic, and the WBS proposal) leave it out. A chat write that puts a date on someone's absence returns

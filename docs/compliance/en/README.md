@@ -125,7 +125,10 @@ Four limits remain that have no open register entry:
   the rate itself is left out. [verified: `buildForecastReport` in `src/app/forecast-ai-report.ts`]
 - **A hidden Resources function.** While a project hides it, the AI is offered none of that function's tools
   (the resource directory, absences, allocations and contact e-mail look-ups), no prompt lists who is away, and
-  insight recommendations name only people already assigned to open tasks. The stakeholder tools follow the
+  insight recommendations name only people already assigned to open tasks. No AI feature is sent an insight
+  about one person (a Timelog check names a directory person or their Timelog user number), and the chat's
+  forecast results report a person from the directory that a scenario or what-if adds without their name. The
+  stakeholder tools follow the
   Stakeholders function instead; history search, chat search, the status inquiry and RAID escalation stay
   available. A chat date change that lands on someone's absence is still
   held on the review card, so the AI can tell that the change was held, but learns nothing about who is away
