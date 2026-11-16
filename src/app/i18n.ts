@@ -1825,7 +1825,7 @@ const enUS = {
   aiReviewAllWritesHint: "On: every change the AI chat proposes, even a single one, waits on the review card until you apply it. Off: a single change is applied at once; most changes can be undone.",
   aiReviewAllWritesForced: "Your organisation has switched this on for every project.",
   aiRatesWithheldLabel: "Keep hourly rates out of Plan with AI and the chat’s forecast",
-  aiRatesWithheldHint: "On: hourly rates are left out of Plan with AI, and out of the chat’s forecast results for a person added in a scenario or what-if. Off: both include the internal hourly rate of each internal person's role.",
+  aiRatesWithheldHint: "On: hourly rates are left out of Plan with AI, and out of the chat’s forecast results for a person from the directory added in a scenario or what-if. Off: both include the internal hourly rate of each such internal person's role.",
   aiRatesWithheldForced: "Your organisation has switched this on for every project.",
   aiConsentPeopleProtection: "People protection is on by default in every project: the AI sees no known person’s name, email address or phone number and cannot assign, move or rate anyone. Plan with AI and RACI suggestions are hidden and dictation and voice commands are off until you turn protection off for a project in Settings → AI, unless your organisation has switched it on for every project.",
   aiProtectedWhenLabel: "With people protection on:",

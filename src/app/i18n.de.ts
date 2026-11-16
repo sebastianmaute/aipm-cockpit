@@ -1717,7 +1717,7 @@ export const de: Record<TranslationKey, string> = {
   aiReviewAllWritesHint: "Ein: Jede Änderung, die der KI-Chat vorschlägt, auch eine einzelne, wartet auf der Prüfkarte, bis Sie sie übernehmen. Aus: Eine einzelne Änderung wird sofort übernommen; die meisten Änderungen lassen sich rückgängig machen.",
   aiReviewAllWritesForced: "Ihre Organisation hat dies für alle Projekte eingeschaltet.",
   aiRatesWithheldLabel: "Stundensätze aus Mit KI planen und der Prognose im Chat heraushalten",
-  aiRatesWithheldHint: "Ein: Stundensätze entfallen in Mit KI planen und in den Prognoseergebnissen des Chats für eine Person, die in einem Szenario oder einer Was-wäre-wenn-Rechnung hinzukommt. Aus: Beide enthalten den internen Stundensatz der Rolle jeder internen Person.",
+  aiRatesWithheldHint: "Ein: Stundensätze entfallen in Mit KI planen und in den Prognoseergebnissen des Chats für eine Person aus dem Verzeichnis, die in einem Szenario oder einer Was-wäre-wenn-Rechnung hinzukommt. Aus: Beide enthalten den internen Stundensatz der Rolle jeder solchen internen Person.",
   aiRatesWithheldForced: "Ihre Organisation hat dies für alle Projekte eingeschaltet.",
   aiConsentPeopleProtection: "Der Personenschutz ist in jedem Projekt standardmäßig eingeschaltet: Die KI sieht weder Namen noch E-Mail-Adressen oder Telefonnummern bekannter Personen und kann niemanden zuweisen, verschieben oder bewerten. „Mit KI planen“ und RACI-Vorschläge sind ausgeblendet und Diktat und Sprachbefehle sind aus, bis Sie den Schutz für ein Projekt unter Einstellungen → KI ausschalten, sofern Ihre Organisation ihn nicht für alle Projekte eingeschaltet hat.",
   aiProtectedWhenLabel: "Bei eingeschaltetem Personenschutz:",
