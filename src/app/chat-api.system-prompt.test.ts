@@ -257,8 +257,13 @@ describe("buildTurnContext Timelog insight lines", () => {
   const turn = (enabledModules: string[]) =>
     buildTurnContext("en-US", snapshot({ insights: [timelogActed], enabledModules }), [], false, {});
 
-  it("names the TimeLog outcome while Timelog is on", () => {
-    expect(turn(["timelog"])).toContain("TLPROBE");
+  it("names the TimeLog outcome while Timelog and Resources are on", () => {
+    expect(turn(["timelog", "resources"])).toContain("TLPROBE");
+  });
+
+  // §810 — the line names a directory person (or their Timelog user number): not while Resources is hidden.
+  it("drops it while the project hides the Resources function", () => {
+    expect(turn(["timelog"])).not.toContain("TLPROBE");
   });
 
   it("drops it while the project hides the Timelog function", () => {
@@ -267,7 +272,7 @@ describe("buildTurnContext Timelog insight lines", () => {
 
   it("drops it while the deployment has switched the timelog integration off", () => {
     setDisabledIntegrations(["timelog"]);
-    expect(turn(["timelog"])).not.toContain("TLPROBE");
+    expect(turn(["timelog", "resources"])).not.toContain("TLPROBE");
   });
 });
 

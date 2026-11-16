@@ -50,6 +50,13 @@ export interface InlineEditArgs {
    *  instruction and tool set, exactly as a chat send does. Required: a caller that forgets it would
    *  send the people tools to a protected project. */
   peopleProtected: boolean;
+  /** §810 — the open project hides its Resources function, so the request carries none of its tools and the
+   *  prompt does not advertise the directory, as a chat send. Only an explicit true withdraws them; the
+   *  executor refuses such a call whatever this says (`isResourcesHidden`). */
+  resourcesHidden?: boolean;
+  /** §810 — the open project hides its Stakeholders function, so the request carries no stakeholder tool, as a
+   *  chat send (`isStakeholdersHidden` at the executor). */
+  stakeholdersHidden?: boolean;
   /** §701 — the guides that target inline edit, from `actionGuideText`;
    *  appended after the scope block. */
   guideText?: string;
@@ -68,7 +75,7 @@ export interface InlineEditResult {
 }
 
 type InlineTools = ReturnType<typeof toolsNamed>;
-const inlineToolsCache = new Map<boolean, InlineTools>();
+const inlineToolsCache = new Map<string, InlineTools>();
 
 /** The `update_*` tool name -> the fields the inline editor withholds from it (D7). */
 function withheldByUpdateTool(): ReadonlyMap<string, ReadonlySet<string>> {
@@ -78,17 +85,20 @@ function withheldByUpdateTool(): ReadonlyMap<string, ReadonlySet<string>> {
 /** The plannable tools, without `expectedToken` (§715 D1). Its schema text says "REQUIRED. The token
  *  returned when you read this record", but this path has no read tools and the app stamps the
  *  stored row's token itself at apply (`use-inline-entity-edit.ts`). A model that follows the schema
- *  asks to read first, which ends in an empty plan. Built once per protection state. ★ So a test
+ *  asks to read first, which ends in an empty plan. Built once per protection and function state. ★ So a test
  *  that mocks `toolsNamed` after the first inline call in its file never reaches this path. */
-function inlineTools(peopleProtected: boolean): InlineTools {
-  // Chat's predicate (`peopleToolsLive`): only an explicit true withholds the people tools.
+function inlineTools(flags: { peopleProtected: boolean; resourcesHidden: boolean; stakeholdersHidden: boolean }): InlineTools {
+  const { peopleProtected, resourcesHidden, stakeholdersHidden } = flags;
+  // Chat's predicates: only an explicit true withholds the people tools (`peopleToolsLive`), and a hidden
+  // Resources or Stakeholders function drops the tools it owns (§810, `toolWithheldBy`, `RESOURCES_HIDDEN_DEFS`).
   const withoutPeople = !peopleToolsLive(peopleProtected);
-  const cached = inlineToolsCache.get(withoutPeople);
+  const key = `${withoutPeople}:${resourcesHidden}:${stakeholdersHidden}`;
+  const cached = inlineToolsCache.get(key);
   if (cached) return cached;
   const withheld = withheldByUpdateTool();
   // Under protection `toolsNamed` makes chat's selection (`selectPeopleTools`, which `toolsFor` uses too):
   // the people tools go, their protected variants swap in, and the cache breakpoint is set after both.
-  const built = toolsNamed(PLANNABLE_TOOL_NAMES, peopleProtected).map((def) => {
+  const built = toolsNamed(PLANNABLE_TOOL_NAMES, { peopleProtected, resourcesHidden, stakeholdersHidden }).map((def) => {
     const schema = def.input_schema as { properties?: Record<string, unknown>; required?: readonly string[] };
     if (!schema.properties) return def;
     // D7: the entity's update tool also loses the withheld properties - a schema the model cannot see
@@ -105,7 +115,7 @@ function inlineTools(peopleProtected: boolean): InlineTools {
       },
     };
   }) as InlineTools;
-  inlineToolsCache.set(withoutPeople, built);
+  inlineToolsCache.set(key, built);
   return built;
 }
 
@@ -184,8 +194,10 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
   // disappears with the tool. `NO_RECALL_TOOLS` alone would not: it names every
   // tool but the two recall ones.
   // §715 D1 — only the tools the plan can act on: a read tool here is a call nobody answers.
-  const tools = inlineTools(args.peopleProtected);
-  const toolFlags: ToolFlags = { ...NO_RECALL_TOOLS, peopleProtected: args.peopleProtected };
+  const resourcesHidden = args.resourcesHidden === true;
+  const stakeholdersHidden = args.stakeholdersHidden === true;
+  const tools = inlineTools({ peopleProtected: args.peopleProtected, resourcesHidden, stakeholdersHidden });
+  const toolFlags: ToolFlags = { ...NO_RECALL_TOOLS, peopleProtected: args.peopleProtected, resourcesHidden, stakeholdersHidden };
   const offered = new Set(tools.map((d) => d.name));
   const system: SystemBlock[] = [
     ...buildSystemPrompt(

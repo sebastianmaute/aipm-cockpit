@@ -1,7 +1,7 @@
 "use client";
 
 import { AiPeopleProtectedContentError, holdsUnredactableContent } from "./ai-privacy";
-import { useOpenProjectAiPrivacy, useOpenProjectPeopleProtected } from "./ai-privacy-context";
+import { useOpenProjectAiPrivacy, useOpenProjectPeopleProtected, useOpenProjectReviewAllWrites } from "./ai-privacy-context";
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { PaperClipIcon, XMarkIcon } from "./icons";
 import { type ToolDispatcher, personStripContext, runTool } from "./chat-tools";
@@ -77,7 +77,9 @@ import { ChatThreadSidebar } from "./chat-thread-sidebar";
 import {
   buildPlanRows,
   cascadeDeselect,
+  carriesEnabledModules,
   isEntityWriteCall,
+  liftsFunctionWithdrawal,
   shouldStage,
   type PlanRow,
   type ProposedCall,
@@ -107,6 +109,7 @@ import {
   stagedToolResult,
 } from "./chat-proposal-stage";
 import { peopleToolsLive } from "./chat-tool-defs";
+import { isModuleEnabled } from "./feature-modules";
 import { PERSON_FIELDS_REMOVED_NOTE, stripPersonFields } from "./ai-person-fields";
 import type { UndoBatch } from "./use-undo-batch";
 import { emptyWorkspace, type Workspace } from "./workspace";
@@ -487,6 +490,7 @@ function ChatPanelInner({
   const workspaceRef = useRef(workspace);
   const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3): asked per request
   const peopleProtectedNow = useOpenProjectPeopleProtected(); // same source, asked once per send (layer 1)
+  const reviewAllWritesNow = useOpenProjectReviewAllWrites(); // §794: asked when the turn is gated
   useEffect(() => {
     workspaceRef.current = workspace;
   }, [workspace]);
@@ -796,6 +800,11 @@ function ChatPanelInner({
       // AI people protection (Review Focus 4): read at SEND time from the transport's own source, so a switch
       // mid-thread drops the people tools on the next send. Once per send: the list must stay one identity.
       peopleProtected: peopleProtectedNow(),
+      // §810 — from the snapshot this send is built from (the dispatcher's live functions, which `runTool`'s
+      // `isResourcesHidden`/`isStakeholdersHidden` read too), so a function hidden mid-thread withdraws the tools
+      // it owns on the next send.
+      resourcesHidden: !isModuleEnabled("resources", snapshot.enabledModules),
+      stakeholdersHidden: !isModuleEnabled("stakeholders", snapshot.enabledModules),
     };
     // Runs one tool, shows it in the transcript and returns its `tool_result`, plus whether it ran without
     // throwing. Used by the ordinary path and by a staging turn's reads, which run in place (AI-02).
@@ -969,7 +978,11 @@ function ChatPanelInner({
             const { ws, absence } = gateContext();
             return callAbsenceClashes(c, ws, absence).length > 0;
           };
-          if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord, hasClash)) {
+          // §810 — turning any hidden function back on always waits for review, judged against the project's live
+          // saved functions (the snapshot the executor's refusal reads from), read only for a functions call.
+          const liftsWithdrawal = (c: ProposedCall) =>
+            carriesEnabledModules(c) && liftsFunctionWithdrawal(c, dispatcher.getSnapshot().enabledModules);
+          if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord, hasClash, reviewAllWritesNow(), liftsWithdrawal)) {
             sendRecord = { ...sendRecord, staged: true };
             const { ws, absence: gateAbsence } = gateContext();
             // AI-02 — a read changes nothing, so it runs in place and gets its real result; so does `optimize_wbs`,
@@ -1027,13 +1040,14 @@ function ChatPanelInner({
             // in this same turn can name the row the plan will create, and (§773) the absence clashes
             // the card shows for that row, so Claude can offer another date while the card waits. After a
             // scope move every id without an answer gets the interrupted result, as a truncated turn's calls do.
+            // §810 — no clash while the project hides its Resources function (the card still shows it to the user).
             const answers = proposed.map((p): ToolResultBlock => {
               const read = readAnswers.get(p.useId);
               if (read !== undefined) return read;
               const at = staged.indexOf(p);
               return scopeMoved || at === -1
                 ? { type: "tool_result", tool_use_id: p.useId, content: INTERRUPTED_TOOL_RESULT, is_error: true }
-                : { type: "tool_result", tool_use_id: p.useId, content: stagedToolResult(planRows[at].mintedId, described[at].plan.clashes.map((n) => n.clash)) + (p.removed.length > 0 ? ` ${PERSON_FIELDS_REMOVED_NOTE(p.removed)}` : "") };
+                : { type: "tool_result", tool_use_id: p.useId, content: stagedToolResult(planRows[at].mintedId, toolFlags.resourcesHidden ? [] : described[at].plan.clashes.map((n) => n.clash)) + (p.removed.length > 0 ? ` ${PERSON_FIELDS_REMOVED_NOTE(p.removed)}` : "") };
             });
             messages.push({ role: "user", content: answers });
             continueBubble = false;

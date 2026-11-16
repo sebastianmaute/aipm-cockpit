@@ -52,6 +52,8 @@ describe("availability rule reaches every view (§773)", () => {
     expect(text).toContain("A clash or availability answer needs both lists.");
     // The guide goes out under people protection too, when list_absences is withheld.
     expect(text).toContain("Under people protection `list_absences` is not offered: do not call it");
+    // §810 — and while the project hides its Resources function, when no write returns clashes either.
+    expect(text).toContain("While the project's Resources function is switched off, `list_absences` is not offered and no write returns `absenceClashes`: do not call it and do not mention absences.");
   });
   it("the rule is stated once, in the Overview", () => {
     const src = readFileSync(join(process.cwd(), "lib", "app-feature-guide.md"), "utf8");

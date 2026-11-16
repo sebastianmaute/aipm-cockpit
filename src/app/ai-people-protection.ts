@@ -8,7 +8,7 @@
 // `ai-people` integration id; the stored value is never touched by that.
 
 import { isIntegrationDisabled } from "./integration-switches";
-import { hasAnyOverride } from "./settings-overrides";
+import { withAiOverrideFlag } from "./settings-overrides";
 import type { SettingsOverrides } from "./settings-types";
 
 /** The deployment forces protection on (AIPM_DISABLED_INTEGRATIONS names `ai-people`). */
@@ -31,8 +31,5 @@ export function withPeopleAllowed(
   o: SettingsOverrides | undefined,
   allowed: boolean,
 ): SettingsOverrides | undefined {
-  const next: SettingsOverrides = { ...o };
-  delete next.ai;
-  if (allowed) next.ai = { peopleAllowed: true };
-  return hasAnyOverride(next) ? next : undefined;
+  return withAiOverrideFlag(o, "peopleAllowed", allowed);
 }

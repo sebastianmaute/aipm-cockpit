@@ -353,4 +353,17 @@ describe("insightReachesAi", () => {
     expect(insightReachesAi(person, { withTimelog: false })).toBe(false);
     expect(insightReachesAi(project, { withTimelog: false })).toBe(true);
   });
+  // §810 — a person-scoped insight names a directory person (or their Timelog user number): withheld while Resources
+  // is hidden, with or without protection. A project-level insight stays.
+  it("drops an insight about one person while Resources is hidden", () => {
+    expect(insightReachesAi(person, { withResources: false })).toBe(false);
+    expect(insightReachesAi(person, { withPeople: true, withTimelog: true, withResources: true })).toBe(true);
+    expect(insightReachesAi(project, { withResources: false })).toBe(true);
+    const block = buildInsightsPromptBlock([
+      make(1, "timelogCapPerDay", "medium", "active", { person: "DANAPROBE", count: 2, threshold: 8, worstHours: 12 }),
+      make(2, "stalledWork", "high", "active", { count: 7 }),
+    ], { withResources: false });
+    expect(block).toContain("7 tasks stalled");
+    expect(block).not.toContain("DANAPROBE");
+  });
 });

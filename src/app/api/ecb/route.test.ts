@@ -10,6 +10,16 @@ import { describe, expect, test, vi, beforeEach, afterEach } from "vitest";
 import { MAX_REQUESTS } from "../jira/_rate-limit";
 import { GET } from "./route";
 
+// These tests send distinct x-forwarded-for values as distinct callers, which the
+// limiter honours only when one proxy hop is trusted. Stubbed per test and restored after it (§562), so the
+// setting cannot leak into another file that runs in the same worker.
+beforeEach(() => {
+  vi.stubEnv("AIPM_TRUSTED_PROXY_HOPS", "1");
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 const SAMPLE = `<?xml version="1.0" encoding="UTF-8"?>
 <gesmes:Envelope xmlns:gesmes="http://www.gesmes.org/xml/2002-08-01" xmlns="http://www.ecb.int/vocabulary/2002-08-01/eurofxref">
  <Cube><Cube time='2026-05-26'>

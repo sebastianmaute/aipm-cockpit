@@ -20,7 +20,7 @@ function dispatcher(peopleProtected: boolean) {
   const updateTask = vi.fn((id: number, patch: Record<string, unknown>) => ({ ...TASK, id, ...patch }));
   const escalateRaid = vi.fn(() => ({ escalated: true }));
   const d = {
-    isPeopleProtected: () => peopleProtected,
+    isPeopleProtected: () => peopleProtected, isResourcesHidden: () => false, isStakeholdersHidden: () => false,
     createTask, updateTask, escalateRaid,
     getTask: (id: number) => (id === TASK.id ? TASK : null),
     getRaidRow: (id: number) => (id === RISK.id ? RISK : null),
@@ -118,7 +118,7 @@ describe("update_forecast_scenario under people protection", () => {
   function forecastDispatcher(peopleProtected: boolean) {
     const updateForecastScenario = vi.fn((id: number, patch: Record<string, unknown>) => ({ id, ...patch }));
     const d = {
-      isPeopleProtected: () => peopleProtected,
+      isPeopleProtected: () => peopleProtected, isResourcesHidden: () => false, isStakeholdersHidden: () => false,
       isForecastEnabled: () => true,
       getForecastScenarioRow: (id: number) => (id === STORED.id ? STORED : null),
       updateForecastScenario,

@@ -58,16 +58,22 @@ to watch spend: nothing in the app stops interactive AI at a spend limit (E38, *
 2. **§798:** most AI calls have no time limit of their own, and none is retried on a rate limit or overload
    (E40, *read in code*).
 3. **§814:** six paths have no measured cost or behaviour, a refused key among them (E39, *not proven*).
-4. **§562:** the request limit of the six limited routes, the relay's and dictation's included, is keyed on a header the
-   caller can set and counted per server process, so it can be avoided (E54, *read in code*).
+4. **Request limits are shared and per process:** unless you set `AIPM_TRUSTED_PROXY_HOPS`, all callers of each
+   of the six limited routes, the relay's and dictation's included, share one count (Jira and Confluence share
+   one between them), so one caller can use it up for everyone; only the relay's and dictation's limits can be
+   raised, and the others are fixed at 60 a minute; the count is kept in each server process's memory and
+   starts again at a restart (E54,
+   *tested (unit)*; the memory store *read in code*).
 
 ## What to check or ask for before saying yes
 
 - Choose the route and write down the [deployment switches](appendix.md#deployment-switches) you set. Whenever
   the relay is used, put the app's server behind your own access control: the app does not authenticate callers
-  (E13, *read in code*). The relay's origin check and its per-caller limit (120 calls a minute unless you set
-  another) stop a plain script, not a determined caller, because both rest on headers a caller can set (§562;
-  E54, *read in code*; E69, *tested (unit)*).
+  (E13, *read in code*). The relay's origin check rests on headers a caller can set, so it stops a plain
+  script, not a determined caller. Its limit (120 calls a minute unless you set another) counts each caller
+  separately only behind reverse proxies that append the caller's address to `x-forwarded-for` and with
+  `AIPM_TRUSTED_PROXY_HOPS` set to their number; otherwise all callers share it (E54, *tested (unit)*; E69,
+  *tested (unit)*).
 - Before relying on a gateway, ask for one run of the live proof through a test gateway of yours (§802; E12,
   *not proven*).
 - Ask Anthropic, for your organisation's account: what it retains of a request and for how long, whether it

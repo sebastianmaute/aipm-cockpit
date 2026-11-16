@@ -21,6 +21,7 @@
 import { createContext, useCallback, useContext, useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { isPeopleProtected } from "./ai-people-protection";
 import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
+import { isRatesWithheld, isReviewAllWrites } from "./ai-project-switches";
 import type { ScopeEpochReader } from "./scope-epoch";
 import type { Workspace } from "./workspace";
 
@@ -59,6 +60,20 @@ function createSourceStore(): SourceStore {
 function protectedNow(store: SourceStore | null): boolean {
   const source = store?.get() ?? null;
   return source === null || isPeopleProtected(source.read().settingsOverrides);
+}
+
+/** Whether the store's open project sends every AI write to review (§794); the deployment lock counts. Like people
+ *  protection it fails CLOSED: with no source registered (no project open yet) every write goes to review. */
+function reviewAllWritesNow(store: SourceStore | null): boolean {
+  const source = store?.get() ?? null;
+  return source === null || isReviewAllWrites(source.read().settingsOverrides);
+}
+
+/** Whether the store's open project keeps hourly rates out of the AI (§804); the deployment lock counts. Like people
+ *  protection and the review switch it fails CLOSED: with no source registered (no project open yet) rates are withheld. */
+function ratesWithheldNow(store: SourceStore | null): boolean {
+  const source = store?.get() ?? null;
+  return source === null || isRatesWithheld(source.read().settingsOverrides);
 }
 
 const NO_SUBSCRIPTION = () => () => undefined;
@@ -105,6 +120,21 @@ export function useOpenProjectScopeEpoch(): ScopeEpochReader {
 export function useOpenProjectPeopleProtected(): () => boolean {
   const store = useContext(SourceContext);
   return useCallback(() => protectedNow(store), [store]);
+}
+
+/** §794: a stable getter for whether the open project reviews every AI write, asked at SEND time like the
+ *  people protection above. With no source registered it answers yes (fail closed), as protection does. */
+export function useOpenProjectReviewAllWrites(): () => boolean {
+  const store = useContext(SourceContext);
+  return useCallback(() => reviewAllWritesNow(store), [store]);
+}
+
+/** §804: a stable getter for whether the open project keeps hourly rates out of Plan with AI, asked at SEND
+ *  time like the switches above (the forecast tool reads the overrides itself, in `buildForecastReport`). With no source registered it answers yes
+ *  (fail closed), as protection and the review switch do. */
+export function useOpenProjectRatesWithheld(): () => boolean {
+  const store = useContext(SourceContext);
+  return useCallback(() => ratesWithheldNow(store), [store]);
 }
 
 /** The same answer, render-reactive: for UI that hides a people feature (Plan with AI, RACI suggestions,

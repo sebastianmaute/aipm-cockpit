@@ -57,8 +57,9 @@ Kennen Sie die Ausnahmen:
   Fälligkeitsdatums, kann er sie sofort vornehmen, ohne Prüfkarte. Er fragt immer vorher, wenn er etwas
   löschen, Besprechungsteilnehmer einladen, die eigenen Angaben des Projekts bearbeiten, mehr als eine
   Sache ändern oder Arbeit auf einen Tag legen will, an dem jemand abwesend ist, und immer dann, wenn eine
-  Datei an die Unterhaltung angehängt ist. [geprüft: `shouldStage` in `src/app/chat-proposal.ts`; Register
-  §794]
+  Datei an die Unterhaltung angehängt ist. Ist in Ihrem Projekt „Jede KI-Änderung prüfen“ in Einstellungen → KI
+  eingeschaltet, fragt er bei jeder Änderung vorher, auch bei einer einzelnen. [geprüft: `shouldStage` in
+  `src/app/chat-proposal.ts`; `src/app/chat-panel.review-all-writes.test.tsx`]
 - **Von außen gelesener Text.** Hat der Chat in einer Unterhaltung eine aus Jira synchronisierte Aufgabe
   gelesen, wartet danach jede Änderung, die er vorschlägt, auf der Prüfkarte, wie bei einer angehängten
   Datei. Text von außen, der keine Kennzeichnung seiner Herkunft trägt, löst das Zurückhalten nicht aus:

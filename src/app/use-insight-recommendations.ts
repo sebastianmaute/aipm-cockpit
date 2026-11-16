@@ -34,7 +34,8 @@ import {
 import type { Insight, InsightActions, InsightRecommendation } from "./insights/insight";
 import { ALLOWED_REC_TOOLS, baselineHistoryDigest, recommendationPredatesSwitch } from "./insights/insight";
 import { insightReachesAi } from "./insights/insight-prompt";
-import { isModuleEnabled } from "./feature-modules";
+import { isModuleEnabled, sanitizeFeatures } from "./feature-modules";
+import type { Workspace } from "./workspace";
 import type { BaselineEntry } from "./baseline-currency";
 import { metricAtActionPatch } from "./insights/outcome";
 import type { ScopeEpochReader } from "./scope-epoch";
@@ -88,6 +89,10 @@ export interface InsightRecommendationDeps {
    *  call site hands it over. */
   getScopeEpoch: ScopeEpochReader;
   settings: Settings;
+  /** §810 — the open project's own functions (`Workspace.features`), the source the chat's tool list and the
+   *  forecast tool read. `settings.features` is only a mirror that can lag a project switch, so the Resources,
+   *  Stakeholders and Timelog decisions read this. Required: the caller says which project's functions decide. */
+  projectFeatures: Workspace["features"];
   /** §701 — the operating-guide library. This hook runs in task-manager's own body, ABOVE the
    *  `AiProviders` it renders, so `useActionGuideText` would read no provider here; the guide
    *  text is resolved from this list instead. Required, so tsc proves the call site hands it over. */
@@ -129,6 +134,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     loadPending,
     getScopeEpoch,
     settings,
+    projectFeatures,
     guides,
     guidesReady,
     lang,
@@ -159,9 +165,17 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // Timelog working-time insight names its person, their Timelog user number and the dates), so neither its
   // figures nor its person's profile digest reach the AI. Timelog switched off (the function hidden, or the
   // integration disabled): no TimeLog guardrail row either; the same condition stops the checks in
-  // use-insight-lifecycle.ts. `?? []`: a settings object without `features` (the type forbids it; partial test
-  // doubles carry one) counts as Timelog off, the direction that sends less.
-  const timelogOn = isModuleEnabled("timelog", settings.features ?? []);
+  // use-insight-lifecycle.ts.
+  // §810 — the functions the digest and the offered tools follow. Resources hidden: no AWAY block, no directory
+  // names, no linked profile and no insight about one person; Stakeholders hidden: no stakeholder tool offered.
+  // ★ Every one of these, the Timelog check included, reads the PROJECT's functions (`projectFeatures`, not the
+  // `settings.features` mirror) through `sanitizeFeatures`, the
+  // repo's absence rule (the project digest's `ws.features ?? ALL_MODULE_IDS` agrees): no `features` means every
+  // function, junk means none. A project that never stored its functions is the absent case.
+  const enabledModules = useMemo(() => sanitizeFeatures(projectFeatures), [projectFeatures]);
+  const timelogOn = isModuleEnabled("timelog", enabledModules);
+  const resourcesHidden = !isModuleEnabled("resources", enabledModules);
+  const stakeholdersHidden = !isModuleEnabled("stakeholders", enabledModules);
   const recommendable = insights ?? NO_INSIGHTS;
 
   // --- Insights → Action Loop (#6B SP2) ---------------------------------
@@ -253,8 +267,9 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // project's setting at run time decides.
   const peopleProtectedNow = useOpenProjectPeopleProtected();
   const canRecommend = useCallback(
-    (insight: Insight) => insightReachesAi(insight, { withPeople: !peopleProtectedNow(), withTimelog: timelogOn }),
-    [peopleProtectedNow, timelogOn],
+    (insight: Insight) =>
+      insightReachesAi(insight, { withPeople: !peopleProtectedNow(), withTimelog: timelogOn, withResources: !resourcesHidden }),
+    [peopleProtectedNow, timelogOn, resourcesHidden],
   );
   const buildInsightRecommendContext = useCallback(
     (insight: Insight) => {
@@ -265,6 +280,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
         // AI people protection: also drops a person's profile digest, even for an insight that reached here
         // without naming a `person` (the backstop lives in `buildRecommendContext`, pinned there).
         peopleProtected: peopleProtectedNow(),
+        enabledModules,
         projectName: project?.name ?? "",
         today,
         insightType: insight.type,
@@ -278,15 +294,16 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
         // assignees of OPEN tasks, which are free text — with resources alone a
         // project without a directory could never get a valid create_task. A
         // closed task's assignee is not offered, and an archived resource's
-        // name is dropped even when an open task still carries it.
+        // name is dropped even when an open task still carries it. §810 — while the project hides its Resources
+        // function the directory's names are not offered: only the names its open tasks already carry.
         people: recommendPeople(
-          [...resourcesById.values()].filter((r) => r.active !== false).map(resourceDisplayName),
+          resourcesHidden ? [] : [...resourcesById.values()].filter((r) => r.active !== false).map(resourceDisplayName),
           tasks.filter((tk) => !isTaskClosed(tk)).map((tk) => tk.assignee ?? ""),
           [...resourcesById.values()].filter((r) => r.active === false).map(resourceDisplayName),
         ),
       });
     },
-    [project, today, tasks, resolveInsightEntity, resourcesById, absences, peopleProtectedNow],
+    [project, today, tasks, resolveInsightEntity, resourcesById, absences, peopleProtectedNow, enabledModules, resourcesHidden],
   );
   // ★★ THE SINGLE CHOKE POINT FOR STORING A GENERATED RECOMMENDATION — both the
   // on-demand `useInsightRecommend` and the background
@@ -333,7 +350,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     cancel: cancelInsightRecommendation,
   } = useInsightRecommend({
     insights: recommendable,
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText, stakeholdersHidden },
     today,
     buildIndex: buildInsightGroundingIndex,
     buildContextFor: buildInsightRecommendContext,
@@ -356,7 +373,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     enabled: isAiBackgroundEnabled(settings.ai) && settings.ai.insightRecommendations === true && !isPopout && !loadPending,
     guidesReady: settings.ai.groundInGuides !== true || guidesReady,
     insights: recommendable,
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText, stakeholdersHidden },
     today,
     intervalMinutes: settings.ai.insightRecommendationIntervalMinutes ?? DEFAULT_INSIGHT_REC_INTERVAL_MIN,
     buildIndex: buildInsightGroundingIndex,

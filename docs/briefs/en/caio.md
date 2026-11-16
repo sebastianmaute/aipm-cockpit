@@ -10,8 +10,9 @@
 
 The app's AI drafts, analyses and proposes project-management work in 17 features, three of them running in
 the background (E1, *read in code*). Outside the chat, a feature that proposes changes applies nothing until a
-person does, a reading of the code that no test pins; the chat applies a single ordinary write at once (E56,
-*read in code*; E47, *tested (unit)*). Two features propose changes to people's work: the allocation plan
+person does, a reading of the code that no test pins; the chat applies a single ordinary write at once unless
+the project or the deployment has every AI write reviewed (E56, *read in code*; E47, *tested (unit)*; E71,
+*tested (unit)*). Two features propose changes to people's work: the allocation plan
 proposal ("Plan with AI") proposes people's planned hours and moves of open tasks between them, and the RACI
 suggestion proposes a role per person and milestone (E56, *read in code*). How these, and your use of them, read
 against Annex III of the AI Act is your organisation's classification; this page gives the facts for it, not a
@@ -21,7 +22,8 @@ app does nothing to make a request give the same answer twice (§812; E27, *not 
 ## What leaves, and who approves it
 
 - **Most person-related requests:** the allocation request carries each person's role, external status,
-  planned and available hours and the internal hourly rate of their role; the RACI request carries
+  planned and available hours and, unless the project or the deployment keeps rates out, the internal hourly
+  rate of their role (E72, *tested (unit)*); the RACI request carries
   stakeholders' influence and interest; insights from Timelog name one person with findings about their logged
   working time and, while people protection is off, go to the chat, the row edit and the insight
   recommendations ([AI paths and people data](appendix.md#ai-paths-and-people-data); E1, *read in code*);
@@ -34,7 +36,9 @@ app does nothing to make a request give the same answer twice (§812; E27, *not 
   *tested (unit)*). Background AI results change no project record until someone confirms
   (E56, *read in code*).
 - **Where nobody approves first:** a single ordinary chat write, and one made after reading outside text that
-  carries no mark of its origin, such as rows created from an imported file (§794; E47, *tested (unit)*; E48,
+  carries no mark of its origin, such as rows created from an imported file (E47, *tested (unit)*; E48,
+  *tested (unit)*), unless the project or the deployment has every AI write reviewed: then every change to
+  project data the chat proposes waits on the review card, even alone, and a read never waits (E71,
   *tested (unit)*).
 
 ## What you control
@@ -46,6 +50,9 @@ app does nothing to make a request give the same answer twice (§812; E27, *not 
   *read in code*); names the project does not know are sent as written, and a new project's names cannot be
   protected (E35, *read in code*); lifting the lock returns each project to its stored setting (E43,
   *read in code*). No switch turns off a single feature (E42, *tested (unit)*).
+- **Review and rates:** `ai-direct-writes` sends every chat write in every project to the review card, and
+  `ai-rates` keeps hourly rates out of Plan with AI and the chat's forecast and dashboard figures; without them, each project can set either in Settings → AI,
+  and both are off until set (E71, *tested (unit)*; E72, *tested (unit)*).
 - **For Article 50 (transparency):** the screens name the AI ("AI Assistant", "Ask Claude", "AI-generated — review
   before acting.") and the activity log shows its chat changes with the actor "AI assistant"; machine-readable
   marking of the text it writes is absent (§801; E55, *read in code*).
@@ -54,13 +61,12 @@ app does nothing to make a request give the same answer twice (§812; E27, *not 
 
 ## Not yet proven / open gaps
 
-1. **§794:** a single chat write applies without the review card (E47, *tested (unit)*).
-2. **§801:** text the AI writes carries no machine-readable marking, so decide how it is labelled once it
+1. **§801:** text the AI writes carries no machine-readable marking, so decide how it is labelled once it
    leaves the app in reports and exports (E55, *read in code*).
-3. **§812:** whether the work breakdown optimisation repeats its result is not measured (E27, *not proven*).
-4. **Unmarked outside text:** outside text with no mark of its origin does not start the review hold; a
-   Jira-synced task does (E48, *tested (unit)*).
-5. **§795:** background AI is consented once, not approved run by run (E32, *tested (unit)*).
+2. **§812:** whether the work breakdown optimisation repeats its result is not measured (E27, *not proven*).
+3. **Unmarked outside text:** outside text with no mark of its origin does not start the review hold; a
+   Jira-synced task does (E48, *tested (unit)*). Only reviewing every write covers it (E71, *tested (unit)*).
+4. **§795:** background AI is consented once, not approved run by run (E32, *tested (unit)*).
 
 ## What to check or ask for before saying yes
 
@@ -75,8 +81,9 @@ app does nothing to make a request give the same answer twice (§812; E27, *not 
   AI as actor of its chat changes, report drafts and applied work breakdowns (E55, *read in code*; E62,
   *read in code*; E66, *read in code*).
 - In a test project, ask the chat for one due-date change on a task whose assignee is not away then: it applies
-  without a card and the activity log shows it as the AI's; with a file attached, the same request waits (E47,
-  *tested (unit)*; E55, *read in code*).
+  without a card and the activity log shows it as the AI's; with a file attached, or with "Review every AI
+  write" on in Settings → AI, the same request waits (E47, *tested (unit)*; E55, *read in code*; E71,
+  *tested (unit)*).
 - Ask Anthropic what it retains of a request, whether it trains on it, and which terms apply to your account.
 
 ## Where to read more

@@ -35,6 +35,7 @@ import {
 } from "./forecast-scenarios";
 import { isSimulationActive } from "./forecast-simulation";
 import { proposalIdOf, targetConfidenceOf, withTargetConfidence } from "./forecast-target";
+import { isModuleEnabled, sanitizeFeatures } from "./feature-modules";
 import { t } from "./i18n";
 import { mintId } from "./id-mint-session";
 import type { Settings, SettingsOverrides } from "./settings-types";
@@ -42,6 +43,7 @@ import { proposalLogEntry, withProposalChange } from "./use-forecast-settings";
 import type { Milestone, Resource, Task } from "./types";
 import { capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 import { useWorkspace } from "./workspace-context";
+import type { Workspace } from "./workspace";
 
 export const HOLIDAYS_LOADING_MESSAGE = "The holiday calendar is still loading; try again in a moment.";
 
@@ -51,6 +53,9 @@ export interface ForecastToolsDeps {
   logActivityAs?: LogActivityAsFn;
   /** Owned by use-chat-dispatcher: `features` for the predicate, `language` for the read-only refusal. */
   settingsRef: RefObject<Settings>;
+  /** §810 — owned by use-chat-dispatcher: the project's SAVED functions (what `get_app_state` reports and the
+   *  people gates read); `settings.features` is only a mirror that can lag a project switch. */
+  featuresRef: RefObject<Workspace["features"]>;
   /** Owned by use-chat-dispatcher; see `RegisterToolsDeps.undoRef` for why a ref. */
   undoRef: RefObject<Pick<UndoStackApi, "captureComposite"> | undefined>;
   /** Owned by use-chat-dispatcher, synced from `ChatDispatcherArgs.getForecastInput`. */
@@ -89,7 +94,7 @@ function toResult(row: ForecastScenario): ForecastScenarioResult {
 }
 
 export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatcher {
-  const { isReadOnly, logActivityAs, settingsRef, undoRef, getForecastInputRef, tasksRef, milestonesRef, resourcesRef } = deps;
+  const { isReadOnly, logActivityAs, settingsRef, featuresRef, undoRef, getForecastInputRef, tasksRef, milestonesRef, resourcesRef } = deps;
   const { forecastScenarios, setForecastScenarios, settingsOverrides, setSettingsOverrides } = useWorkspace();
 
   const scenariosRef = useRef(forecastScenarios);
@@ -167,7 +172,9 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
           ? null
           : checkToolRows(whatIf, scenarioValidationContext(input, comparison.context), []);
         if (refusal !== null) throw new Error(`whatIf ${refusal}`);
-        return buildForecastReport(input, whatIf, comparison, { byGroup: options.byGroup === true });
+        // §810 — from the project's own functions at call time, the reading the dispatcher's people gates use.
+        const resourcesHidden = !isModuleEnabled("resources", sanitizeFeatures(featuresRef.current));
+        return buildForecastReport(input, whatIf, comparison, { byGroup: options.byGroup === true, resourcesHidden });
       },
 
       getForecastScenarioRow: (id) => scenariosRef.current.find((s) => s.id === id) ?? null,
@@ -276,6 +283,6 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
     }),
     // Exhaustive: the slices are read through `scenariosRef` and `settingsOverridesRef`; everything else listed is
     // stable in practice (refs, `useCallback`s over refs, and the provider's `useState` setters).
-    [isReadOnly, logActivityAs, undoRef, setForecastScenarios, isForecastEnabled, readOnlyError, requireInput, writeOverrides, writeScenarios],
+    [isReadOnly, logActivityAs, undoRef, featuresRef, setForecastScenarios, isForecastEnabled, readOnlyError, requireInput, writeOverrides, writeScenarios],
   );
 }

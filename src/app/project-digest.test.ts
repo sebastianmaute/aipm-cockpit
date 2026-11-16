@@ -276,12 +276,16 @@ describe("RAID review date (§772 cr4)", () => {
   });
 });
 
+// The AWAY block exists only while Resources is shown (§810), so the §773 cases below enable it.
+const withResources = (over: Partial<ProjectDigestInput> = {}): ProjectDigestInput =>
+  base({ enabledModules: ["raid", "milestones", "changes", "stakeholders", "resources"], ...over });
+
 describe("buildProjectDigest — who is away (§773)", () => {
   const maya = { id: 7, firstName: "Maya", lastName: "Patel" } as Resource;
   const leave = { id: 1, assignee: "Maya Patel", resourceId: 7, type: "vacation", startDate: "2026-10-26", endDate: "2026-10-28" } as Absence;
 
   test("lists who is away in the next 28 days, before the task lists", () => {
-    const text = buildProjectDigest(base({ absences: [leave], resources: [maya], tasks: [task({ id: 3, taskName: "Live work" })] }));
+    const text = buildProjectDigest(withResources({ absences: [leave], resources: [maya], tasks: [task({ id: 3, taskName: "Live work" })] }));
     expect(text).toContain("AWAY (absent days; type and reason not shown):");
     expect(text).toContain('#7|name: "Maya Patel" away 2026-10-26..2026-10-28');
     expect(text.indexOf("AWAY (")).toBeLessThan(text.indexOf("## Open tasks"));
@@ -290,14 +294,14 @@ describe("buildProjectDigest — who is away (§773)", () => {
 
   test("adds nothing, not even a blank line, when nobody is away in the window", () => {
     const far = { ...leave, startDate: "2026-12-20", endDate: "2026-12-22" } as Absence;
-    const withFar = buildProjectDigest(base({ absences: [far], resources: [maya] }));
-    expect(withFar).toBe(buildProjectDigest(base()));
+    const withFar = buildProjectDigest(withResources({ absences: [far], resources: [maya] }));
+    expect(withFar).toBe(buildProjectDigest(withResources()));
     expect(withFar).not.toContain("AWAY");
   });
 
   test("survives a digest over the cap", () => {
     const tasks = Array.from({ length: 400 }, (_, i) => task({ id: i + 1, taskName: "Long task name ".repeat(6) }));
-    const text = buildProjectDigest(base({ tasks, absences: [leave], resources: [maya] }), 3_000);
+    const text = buildProjectDigest(withResources({ tasks, absences: [leave], resources: [maya] }), 3_000);
     expect(text).toContain("…(truncated)");
     expect(text).toContain('#7|name: "Maya Patel"');
   });
@@ -318,19 +322,34 @@ describe("buildProjectDigest — a large team away does not crowd out the open t
     ({ title: `Queue item ${i + 1} `.padEnd(110, "q"), why: "Because ".padEnd(110, "w"), tier: "soon" as const }));
 
   test("every open task still reaches the digest", () => {
-    const text = buildProjectDigest(base({ tasks, queue, absences, resources }));
+    const text = buildProjectDigest(withResources({ tasks, queue, absences, resources }));
     expect(text).toContain("AWAY (absent days; type and reason not shown):");
     expect(text).toContain(`open-points#${CONTEXT_CAP_PER_CATEGORY}:`);
     expect(text).not.toContain("…(truncated)");
   });
 
   test("the AWAY block stays within its own cap and says how many people it left out", () => {
-    const text = buildProjectDigest(base({ tasks, queue, absences, resources }));
+    const text = buildProjectDigest(withResources({ tasks, queue, absences, resources }));
     const lines = text.split("\n");
     const start = lines.findIndex((l) => l.startsWith("AWAY ("));
     const end = lines.indexOf("", start);
     const block = lines.slice(start, end);
     expect(block.join("\n").length).toBeLessThanOrEqual(AWAY_SUMMARY_MAX_CHARS);
     expect(block[block.length - 1]).toMatch(/^…\(\d+ more people truncated\)$/);
+  });
+});
+
+// §810 — "Analyze next actions" and the scheduled job analysis both send this digest
+// (`use-ai-orchestration.ts` and `scheduled-job-run.ts`, through `buildProjectAnalysisInput`): while the
+// project hides its Resources function, the digest says nothing about who is away.
+describe("buildProjectDigest — Resources hidden (§810)", () => {
+  const maya = { id: 7, firstName: "Maya", lastName: "Patel" } as Resource;
+  const leave = { id: 1, assignee: "Maya Patel", resourceId: 7, type: "vacation", startDate: "2026-10-26", endDate: "2026-10-28" } as Absence;
+
+  test("lists who is away when Resources is on and not when it is off", () => {
+    expect(buildProjectDigest(withResources({ absences: [leave], resources: [maya] }))).toContain("Maya Patel");
+    const off = buildProjectDigest(base({ absences: [leave], resources: [maya] }));
+    expect(off).not.toContain("AWAY");
+    expect(off).not.toContain("Maya Patel");
   });
 });

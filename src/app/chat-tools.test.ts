@@ -328,6 +328,8 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     // AI people protection: allowed here, so this file's people-tool tests reach their handlers; the refusal
     // is pinned in chat-tool-defs.people.test.ts.
     isPeopleProtected: vi.fn(() => false),
+    isResourcesHidden: vi.fn(() => false),
+    isStakeholdersHidden: vi.fn(() => false),
     // Forecast members (§502): the gate reads off here, so no pre-existing test reaches them.
     isForecastEnabled: vi.fn(() => false),
     getForecast: vi.fn(() => {
@@ -1493,7 +1495,7 @@ describe("runTool — get_app_state insights follow the chat's rule", () => {
   async function appStateInsights(peopleProtected: boolean, enabledModules: FeatureModuleId[]): Promise<number[]> {
     const base = makeDispatcher();
     const d = makeDispatcher({
-      isPeopleProtected: () => peopleProtected,
+      isPeopleProtected: () => peopleProtected, isResourcesHidden: () => false, isStakeholdersHidden: () => false,
       getSnapshot: () => ({ ...base.getSnapshot(), enabledModules, insights: [person, named, project] }) as ReturnType<ToolDispatcher["getSnapshot"]>,
     });
     const snapshot = (await runTool(d, "get_app_state", {})) as { insights?: readonly Insight[] };
@@ -1501,11 +1503,16 @@ describe("runTool — get_app_state insights follow the chat's rule", () => {
   }
 
   it("protected: no insight about one person", async () => {
-    expect(await appStateInsights(true, ["timelog"])).toEqual([3]);
+    expect(await appStateInsights(true, ["timelog", "resources"])).toEqual([3]);
   });
 
   it("unprotected: every insight, the per-person ones included", async () => {
-    expect(await appStateInsights(false, ["timelog"])).toEqual([1, 2, 3]);
+    expect(await appStateInsights(false, ["timelog", "resources"])).toEqual([1, 2, 3]);
+  });
+
+  // §810 — an insight about one person names a directory person or their Timelog user number.
+  it("Resources hidden: no insight about one person, even unprotected", async () => {
+    expect(await appStateInsights(false, ["timelog"])).toEqual([3]);
   });
 
   it("Timelog off: no Timelog insight, even unprotected", async () => {
@@ -2051,7 +2058,7 @@ describe("list_allocations", () => {
       resources: [],
       truncated: false,
     } as unknown as ReturnType<ToolDispatcher["listAllocations"]>;
-    const d = { listAllocations: () => snapshot, isPeopleProtected: () => false } as unknown as ToolDispatcher;
+    const d = { listAllocations: () => snapshot, isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false } as unknown as ToolDispatcher;
 
     await expect(runTool(d, "list_allocations", {})).resolves.toBe(snapshot);
   });
@@ -2061,7 +2068,7 @@ describe("list_allocations", () => {
   // reach the dispatcher with its filters intact — validation is the builder's.
   it("passes no scope for an argument-less call", async () => {
     const listAllocations = vi.fn();
-    const d = { listAllocations, isPeopleProtected: () => false } as unknown as ToolDispatcher;
+    const d = { listAllocations, isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false } as unknown as ToolDispatcher;
 
     await runTool(d, "list_allocations", {});
     await runTool(d, "list_allocations", undefined);
@@ -2072,7 +2079,7 @@ describe("list_allocations", () => {
 
   it("forwards resourceIds and the period bounds to the dispatcher", async () => {
     const listAllocations = vi.fn();
-    const d = { listAllocations, isPeopleProtected: () => false } as unknown as ToolDispatcher;
+    const d = { listAllocations, isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false } as unknown as ToolDispatcher;
 
     await runTool(d, "list_allocations", { resourceIds: [2, 5], periodFrom: "2026-08", periodTo: "2026-09" });
 

@@ -2,7 +2,8 @@
 // The per-project "Use Monte Carlo forecasting" policy override (§502): off is ABSENCE.
 
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { isSimulationActive, isSimulationOn, keepSimulationSwitch, withSimulation } from "./forecast-simulation";
+import { isSimulationActive, isSimulationOn, keepSimulationSwitch, withForecastObject, withSimulation } from "./forecast-simulation";
+import { withAiSwitch } from "./ai-project-switches";
 import { showForecastView } from "../test/forecast-view";
 import { hasAnyOverride, sanitizeSettingsOverrides } from "./settings-overrides";
 import type { SettingsOverrides } from "./settings-types";
@@ -128,5 +129,54 @@ describe("keepSimulationSwitch", () => {
     const both = { ...TZ, ...ON };
     expect(keepSimulationSwitch(both, ON)).toBe(both);
     expect(keepSimulationSwitch(undefined, undefined)).toBeUndefined();
+  });
+});
+
+// The in-memory overrides must serialise exactly as the reloaded ones: the writers keep the sanitiser's key order
+// at the top level (nextActions, notifications, timezone, forecast, ai) and inside `forecast`.
+describe("the override's key order after a forecast write", () => {
+  const roundTrip = (o: unknown) => JSON.stringify(sanitizeSettingsOverrides(JSON.parse(JSON.stringify(o))));
+  it("an AI switch, then the simulation switch, matches the sanitised round trip", () => {
+    let o = withAiSwitch(undefined, "reviewAllWrites", true);
+    o = withSimulation(o, true);
+    expect(Object.keys(o!)).toEqual(["forecast", "ai"]);
+    expect(JSON.stringify(o)).toBe(roundTrip(o));
+  });
+  it("a forecast object given in any order is stored in canonical order", () => {
+    const o = withForecastObject(withAiSwitch(undefined, "ratesWithheld", true), { proposalScenarioId: 2, targetConfidence: 95, showSimulation: true });
+    expect(JSON.stringify(o)).toBe(roundTrip(o));
+  });
+});
+
+// An override key this build does not know (written by a newer client) is kept, after the canonical keys, by both
+// writers; dropping it would erase another client's setting on the next toggle.
+describe("the canonical order keeps keys it does not know", () => {
+  const withUnknown = { future: { x: 1 }, forecast: { showSimulation: true } } as unknown as SettingsOverrides;
+  it("withAiOverrideFlag keeps an unknown key, after the canonical ones", () => {
+    const o = withAiSwitch(withUnknown, "reviewAllWrites", true) as unknown as Record<string, unknown>;
+    expect(Object.keys(o)).toEqual(["forecast", "ai", "future"]);
+    expect(o.future).toEqual({ x: 1 });
+  });
+  it("withForecastObject keeps an unknown key too", () => {
+    const o = withForecastObject(withUnknown, { targetConfidence: 95 }) as unknown as Record<string, unknown>;
+    expect(Object.keys(o)).toEqual(["forecast", "future"]);
+    expect(o.future).toEqual({ x: 1 });
+  });
+});
+
+// A key unknown INSIDE `forecast`, and several unknown top-level keys: both kept, in their existing order.
+describe("the canonical order keeps nested and several unknown keys in order", () => {
+  const rich = {
+    zeta: 1, forecast: { later: "x", showSimulation: true, alpha: "y" }, alpha: 2,
+  } as unknown as SettingsOverrides;
+  it("withAiOverrideFlag: known keys first, then zeta and alpha as they were; forecast keeps later and alpha", () => {
+    const o = withAiSwitch(rich, "ratesWithheld", true) as unknown as Record<string, Record<string, unknown>>;
+    expect(Object.keys(o)).toEqual(["forecast", "ai", "zeta", "alpha"]);
+    expect(Object.keys(o.forecast)).toEqual(["showSimulation", "later", "alpha"]);
+  });
+  it("withForecastObject: an unknown key inside the forecast object it is given is kept too", () => {
+    const o = withForecastObject(rich, { showSimulation: true, later: "x", targetConfidence: 95 } as never) as unknown as Record<string, Record<string, unknown>>;
+    expect(Object.keys(o)).toEqual(["forecast", "zeta", "alpha"]);
+    expect(Object.keys(o.forecast)).toEqual(["showSimulation", "targetConfidence", "later"]);
   });
 });

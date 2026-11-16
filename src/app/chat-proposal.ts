@@ -9,6 +9,7 @@
 //   are TYPE-ONLY imports. The one runtime import is `stagesWhenUntrusted`
 //   (AI-02), from `chat-send-record.ts`, which imports only types from here.
 import type { MintKind } from "./id-mint-session";
+import { sanitizeFeatures } from "./feature-modules";
 import { stagesWhenUntrusted, type SendRecord } from "./chat-send-record";
 
 /** One tool call the model emitted. Structurally identical to the insights
@@ -344,6 +345,19 @@ export function carriesEnabledModules(call: ProposedCall): boolean {
   return call.name === "update_settings" && Object.hasOwn(call.input, "enabledModules");
 }
 
+/** §810 — true when this call would turn ON any function the project currently hides (Resources, Stakeholders,
+ *  Timelog or any other). `enabled` is the project's own saved functions read at call time (the dispatcher's
+ *  `getSnapshot().enabledModules`, the source the executor's refusal reads too). `shouldStage` then sends the call to
+ *  the review card whatever the review switch says: the AI cannot turn a hidden function back on by itself, and
+ *  until the card is applied the saved functions, and so every refusal, stay as they are. The wanted list is read
+ *  through `sanitizeFeatures`, so a legacy id maps forward and an unknown one is ignored, as the writer does. */
+export function liftsFunctionWithdrawal(call: ProposedCall, enabled: readonly string[]): boolean {
+  if (!carriesEnabledModules(call)) return false;
+  const wanted = call.input.enabledModules;
+  if (!Array.isArray(wanted)) return false;
+  return sanitizeFeatures(wanted).some((id) => !enabled.includes(id));
+}
+
 /** `update_document` ops that discard blocks the model never had to read.
  *
  *  ★★★ `replaceAll` IS THE ONLY OP REQUIRING NO `expectHash`, which is the whole
@@ -457,23 +471,32 @@ export function isDestructiveCall(call: ProposedCall): boolean {
  *  ★★ §773 — `hasClash` stages a write it flags, even alone: a date write that lands someone's work on
  *   their absence goes to the card, so the user sees the warning before it is written. It is asked only
  *   about entity writes, and the caller builds it (`callAbsenceClashes`), so this stays a function of the
- *   call list. Without it the rule is exactly the one above. */
+ *   call list. Without it the rule is exactly the one above.
+ *
+ *  ★★ §794 — `reviewAllWrites` (the project's switch, or the deployment's `ai-direct-writes`) lowers the
+ *   threshold from two writes to ONE: a lone entity write goes to the card too. Reads and calls that are
+ *   not entity writes still do not stage, and the caller reads the flag at send time. */
 export function shouldStage(
   calls: readonly ProposedCall[],
   send?: SendRecord,
   hasClash?: (c: ProposedCall) => boolean,
+  reviewAllWrites?: boolean,
+  /** §810 — `liftsFunctionWithdrawal` bound to the project's live functions: such a call always stages. */
+  liftsWithdrawal?: (c: ProposedCall) => boolean,
 ): boolean {
-  let writes = send?.appliedWrites ?? 0;
+  const applied = send?.appliedWrites ?? 0;
+  let writes = applied;
   for (const c of calls) {
     if (isDestructiveCall(c)) return true;
     if (sendsInvitations(c)) return true;
     if (ALWAYS_STAGED_TOOLS.has(c.name)) return true;
     if (send?.untrusted === true && stagesWhenUntrusted(c)) return true;
+    if (liftsWithdrawal?.(c) === true) return true;
     if (!isEntityWriteCall(c)) continue;
     if (hasClash?.(c) === true) return true;
     writes += 1;
   }
-  return writes > 1;
+  return reviewAllWrites === true ? writes > applied : writes > 1;
 }
 
 /** True for a tool that MINTS a row rather than addressing an existing one.

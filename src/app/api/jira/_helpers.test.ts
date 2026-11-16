@@ -9,6 +9,16 @@ import {
 } from "./_helpers";
 import { MAX_REQUESTS } from "./_rate-limit";
 
+// These tests send distinct x-forwarded-for values as distinct callers, which the
+// limiter honours only when one proxy hop is trusted. Stubbed per test and restored after it (§562), so the
+// setting cannot leak into another file that runs in the same worker.
+beforeEach(() => {
+  vi.stubEnv("AIPM_TRUSTED_PROXY_HOPS", "1");
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 const CREDS: Creds = {
   siteUrl: "https://acme.atlassian.net",
   email: "user@acme.com",

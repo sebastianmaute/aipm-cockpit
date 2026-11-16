@@ -7,6 +7,7 @@ import { TaskFormProvider } from "./task-form-context";
 import type { CalendarEvent } from "./calendar-event";
 import type { ForecastScenario } from "./forecast-scenarios";
 import type { SettingsOverrides } from "./settings-types";
+import type { FeatureModuleId } from "./feature-modules";
 import {
   type Absence,
   type ChangeItem,
@@ -49,12 +50,14 @@ export interface TestSeed {
   calendarEvents?: CalendarEvent[];
   forecastScenarios?: ForecastScenario[];
   settingsOverrides?: SettingsOverrides;
+  /** §810 — the project's functions; absent keeps the provider's default (every function). */
+  features?: FeatureModuleId[];
 }
 
 function Seeder({ seed }: { seed: TestSeed }) {
   const {
     setTasks, setResources, setRaid, setChanges, setMilestones, setStakeholders,
-    setAbsences, setCalendarEvents, setShifts, setProject, setForecastScenarios, setSettingsOverrides,
+    setAbsences, setCalendarEvents, setShifts, setProject, setForecastScenarios, setSettingsOverrides, setFeatures,
   } = useWorkspace();
   const seededRef = useRef(false);
   useEffect(() => {
@@ -79,6 +82,7 @@ function Seeder({ seed }: { seed: TestSeed }) {
     if (seed.calendarEvents?.length) setCalendarEvents(seed.calendarEvents);
     if (seed.forecastScenarios?.length) setForecastScenarios(seed.forecastScenarios);
     if (seed.settingsOverrides) setSettingsOverrides(seed.settingsOverrides);
+    if (seed.features) setFeatures(seed.features);
     // Seed once on mount; subsequent `seed` prop changes are intentionally ignored.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

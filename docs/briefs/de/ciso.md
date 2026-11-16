@@ -60,6 +60,9 @@ der App.
   Vorschau öffnet (E47, *getestet (Unit)*). Ebenso nach dem Lesen einer aus Jira synchronisierten Aufgabe, für den
   Rest der Unterhaltung. Eingefügter Text und fremder Text ohne Kennzeichnung seiner Herkunft, etwa aus einer
   importierten Datei angelegte Einträge, lösen diese Prüfpflicht nicht aus (E48, *getestet (Unit)*).
+- **Prüfung jeder Änderung im Chat:** `ai-direct-writes` in `AIPM_DISABLED_INTEGRATIONS` oder die eigene
+  Einstellung eines Projekts schickt jede Änderung an Projektdaten, die der Chat vorschlägt, auf die Prüfkarte,
+  auch eine einzelne, gleich was das Gespräch gelesen hat; ein Lesezugriff wartet nie (E71, *getestet (Unit)*).
 - **Installationsdatei:** Jede Desktop-Version trägt eine SBOM, mit Herkunftsnachweisen (Attestierungen) nur,
   solange das Repository öffentlich ist (E50, *getestet (Unit)*); die Installationsdatei ist nicht codesigniert
   (E51, *getestet (Unit)*). `AIPM_DISABLE_UPDATE_CHECK` schaltet die Update-Prüfung der Desktop-App ab (E34,
@@ -69,15 +72,18 @@ der App.
 
 1. **Fremder Text ohne Kennzeichnung und Änderungen im selben Schritt:** Text von außen ohne Kennzeichnung seiner Herkunft, etwa aus einer
    importierten Datei angelegte Einträge, und eine Änderung, die im selben Schritt wie ein Lesen aus Jira gesendet
-   wurde, lösen die Prüfpflicht nicht aus (E48, *getestet (Unit)*).
-2. **§794:** Eine einzelne Änderung im Chat wird ohne Prüfkarte angewendet (E47, *getestet (Unit)*).
-3. **§487, §793:** Die Windows-Installationsdatei ist unsigniert, und das Deinstallationsprogramm bliebe auch mit
+   wurde, lösen die Prüfpflicht nicht aus, sofern nicht jede Änderung im Chat geprüft wird (E48,
+   *getestet (Unit)*; E71, *getestet (Unit)*).
+2. **§487, §793:** Die Windows-Installationsdatei ist unsigniert, und das Deinstallationsprogramm bliebe auch mit
    eingeschalteter Signierung unsigniert (E51, *getestet (Unit)*).
-4. **Platzhalter-Hosts als Voreinstellung:** Solange die Bereitstellung `AIPM_CSP_TURSO_HOSTS` und
+3. **Platzhalter-Hosts als Voreinstellung:** Solange die Bereitstellung `AIPM_CSP_TURSO_HOSTS` und
    `AIPM_CSP_SHAREPOINT_HOSTS` nicht setzt, erlaubt die Policy ganze Host-Familien per Platzhalter (E34,
    *im Code gelesen*).
-5. **§562:** Die Begrenzung der Anfragen der sechs begrenzten Routen, auch die des Relays und des Diktats, zählt nach
-   einem Header, den der Aufrufer selbst setzen kann, und je Serverprozess, lässt sich also umgehen (E54,
+4. **Anfragegrenzen sind geteilt und gelten je Prozess:** Sofern die Bereitstellung `AIPM_TRUSTED_PROXY_HOPS`
+   nicht setzt, teilen sich alle Aufrufer jeder der sechs begrenzten Routen, auch des Relays und des Diktats,
+   eine Zählung (Jira und Confluence teilen sich eine gemeinsame), sodass ein Aufrufer sie für alle aufbrauchen
+   kann; die Zählung liegt im Speicher jedes
+   Serverprozesses und beginnt bei einem Neustart von vorn (E54, *getestet (Unit)*; der Speicher
    *im Code gelesen*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
@@ -90,9 +96,10 @@ der App.
   wartet (E47, *getestet (Unit)*; E48, *getestet (Unit)*).
 - Stellen Sie den Server der App hinter Ihre eigene Zugangskontrolle: Die App authentifiziert ihre Aufrufer
   nicht, und das Relay fügt jedem weitergeleiteten Aufruf das Gateway-Token hinzu (E13, *im Code gelesen*). Das
-  Relay lehnt einen Aufruf ohne Herkunfts-Header ab und begrenzt wie die Diktat-Route jeden Aufrufer, aber beide
-  Prüfungen beruhen auf Headern, die der Aufrufer selbst setzen kann (§562; E54, *im Code gelesen*; E69,
-  *getestet (Unit)*). Die Diktat-Route lehnt einen Endpunkt ab, dessen Hostname zu einer privaten Adresse
+  Relay lehnt einen Aufruf ohne Herkunfts-Header ab, den ein Aufrufer fälschen kann. Wie die Diktat-Route
+  begrenzt es die Anfragen, zählt jeden Aufrufer aber nur dann getrennt, wenn `AIPM_TRUSTED_PROXY_HOPS` hinter
+  Proxys gesetzt ist, die an `x-forwarded-for` anhängen; ohne diese Einstellung kann ein Aufrufer die Grenze für
+  alle aufbrauchen (E54, *getestet (Unit)*; E69, *getestet (Unit)*). Die Diktat-Route lehnt einen Endpunkt ab, dessen Hostname zu einer privaten Adresse
   aufgelöst wird; DNS-Rebinding bleibt möglich (E70, *getestet (Unit)*).
 - Für Vorfälle: Das Aktivitätsprotokoll nennt die KI als Akteur ihrer Änderungen im Chat, aber kein Eintrag
   verweist auf die Chat-Nachricht dahinter (§799; E55, *im Code gelesen*).

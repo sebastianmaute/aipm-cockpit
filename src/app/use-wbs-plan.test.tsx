@@ -2,6 +2,7 @@
 // forced call is mocked, the workspace is the REAL WorkspaceProvider and, where
 // undo matters, the stack is the REAL useUndoStack — so apply, the apply-time
 // re-ground and undo are exercised end to end, not against spies.
+import { ALL_MODULE_IDS } from "./feature-modules";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
 // AI people protection: one describe flips `people.on` (one stable getter, as the real one is).
@@ -287,6 +288,21 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     await screen.findByRole("checkbox", { name: /include this change/i });
     expect(vi.mocked(call.runWbsProposal).mock.calls[0][0]).toContain("AWAY");
     expect(screen.getByText(/Maya Patel is absent/)).toBeTruthy();
+  });
+
+  // §810 — the project's own functions decide (the settings here show every function, as a lagging mirror would).
+  it("sends no who-is-away lines while the project hides its Resources function", async () => {
+    vi.mocked(call.runWbsProposal).mockResolvedValue(proposal([]));
+    const api = renderHarness();
+    act(() => {
+      api().ws.setFeatures(ALL_MODULE_IDS.filter((id) => id !== "resources"));
+      api().ws.setAbsences([
+        { id: 1, assignee: "Maya Patel", type: "Vacation", startDate: "2026-11-03", endDate: "2026-11-07" } as never,
+      ]);
+    });
+    await proposeFromButton();
+    await waitFor(() => expect(call.runWbsProposal).toHaveBeenCalled());
+    expect(vi.mocked(call.runWbsProposal).mock.calls[0][0]).not.toContain("AWAY");
   });
 
   it("an absence added while the call is in flight flags the clash (read at return time, §773)", async () => {

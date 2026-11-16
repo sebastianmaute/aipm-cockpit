@@ -41,13 +41,14 @@ async function confirm(peopleProtected: boolean) {
   const store = mkStore([mkInsight()]);
   const updateStakeholder = vi.fn((id: number, patch: Record<string, unknown>) => ({ ...SAM, id, ...patch }));
   const dispatcher = {
-    isPeopleProtected: () => peopleProtected,
+    isPeopleProtected: () => peopleProtected, isResourcesHidden: () => false, isStakeholdersHidden: () => false,
     getStakeholderRow: (id: number) => (id === 1 ? SAM : null),
     updateStakeholder,
   } as unknown as InsightRecommendationDeps["dispatcher"];
   const deps: InsightRecommendationDeps = {
     isPopout: false, loadPending: false, getScopeEpoch: () => 0, guides: [], guidesReady: true, absences: [], holidaySet: new Set(),
     settings: { ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x" } } as unknown as InsightRecommendationDeps["settings"],
+    projectFeatures: undefined,
     lang: "en-US", today: "2026-09-03", project: undefined,
     tasks: [], raid: [], milestones: [], changes: [], stakeholders: [SAM],
     baselineHistory: [], resourcesById: new Map(),

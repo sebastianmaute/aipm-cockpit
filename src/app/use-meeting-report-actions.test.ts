@@ -62,6 +62,7 @@ function makeDeps(over: Partial<MeetingReportActionsDeps> = {}): MeetingReportAc
     lang: "en-US",
     isPopout: false,
     settings: defaultSettings,
+    projectFeatures: undefined,
     committee: committee(),
     resources,
     absences: [],
@@ -545,6 +546,18 @@ describe("useMeetingReportActions", () => {
     expect(text).toContain("AWAY");
     expect(text).toContain("2026-06-03..2026-06-05");
     expect(text).not.toContain("SECRET-NOTE");
+  });
+
+  // §810 — the project hides its Resources function: the draft is told nothing about who is away. The project's own
+  // functions decide; the settings mirror (every function here) can lag a project switch.
+  it("generate passes no away lines while the project hides Resources", async () => {
+    const absences = [{ id: 1, assignee: "A", resourceId: 1, startDate: "2026-06-03", endDate: "2026-06-05", type: "vacation" }] as unknown as MeetingReportActionsDeps["absences"];
+    const projectFeatures = defaultSettings.features.filter((id) => id !== "resources");
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ absences, settings: defaultSettings, projectFeatures })));
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(runMeetingReport).toHaveBeenCalledTimes(1));
+    const ctx = (runMeetingReport.mock.calls[0] as unknown[])[2] as { away?: string[] };
+    expect(ctx.away ?? []).toEqual([]);
   });
 
   it("generate passes no away lines when nobody is away", async () => {

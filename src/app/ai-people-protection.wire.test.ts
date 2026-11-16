@@ -41,6 +41,7 @@ import { runWeightSuggestion } from "./weight-suggestion-call";
 import { buildDedupContext } from "./task-dedup/dedup";
 import { runDedupProposal } from "./task-dedup-call";
 import { buildWbsContext } from "./wbs-plan/wbs-plan";
+import { ALL_MODULE_IDS } from "./feature-modules";
 import { runWbsProposal } from "./wbs-plan-call";
 import { buildAllocContext } from "./alloc-plan/alloc-plan";
 import { runAllocProposal } from "./alloc-plan-call";
@@ -261,7 +262,7 @@ function insightContext(c: Ctx): string {
     insightType: FIXTURE_INSIGHT.type, severity: FIXTURE_INSIGHT.severity, data: FIXTURE_INSIGHT.data,
     relatedTasks: ws.tasks.map((t) => ({ id: t.id, title: t.taskName })),
     people: recommendPeople(ws.resources.map(resourceDisplayName), ws.tasks.map((t) => t.assignee), []),
-    absences: ws.absences, resources: ws.resources,
+    absences: ws.absences, resources: ws.resources, enabledModules: ALL_MODULE_IDS,
   });
 }
 const groundingOf = (ws: Workspace) =>
@@ -373,7 +374,7 @@ const DRIVERS: Readonly<Record<string, Driver>> = {
     kind: "redacted", sendsPeople: true,
     run: (c) => sendAndIgnoreParse(() => runWbsProposal(
       buildWbsContext({ tasks: c.ws.tasks, scopeIds: new Set(c.ws.tasks.map((t) => t.id)), milestones: c.ws.milestones ?? [], project: c.ws.project,
-        absences: c.ws.absences, resources: c.ws.resources, today: FIXTURE_TODAY }),
+        absences: c.ws.absences, resources: c.ws.resources, today: FIXTURE_TODAY, enabledModules: ALL_MODULE_IDS }),
       { apiKey: KEY, model: MODEL, privacy: c.privacy },
       `Split the platform work; ${MAIL_PERSON} wants a review step.`,
     )),
@@ -401,7 +402,7 @@ const DRIVERS: Readonly<Record<string, Driver>> = {
       buildAllocContext({
         resources: c.ws.resources, roles: c.ws.roles, disciplines: c.ws.disciplines, grades: c.ws.grades, plan: c.ws.plan,
         absences: c.ws.absences, workdayHours: 8, holidaySet: new Set<string>(), tasks: c.ws.tasks, milestones: c.ws.milestones ?? [],
-        stakeholders: c.ws.stakeholders ?? [], instruction: "Plan November.", today: FIXTURE_TODAY,
+        stakeholders: c.ws.stakeholders ?? [], instruction: "Plan November.", today: FIXTURE_TODAY, ratesWithheld: false,
       }),
       { apiKey: KEY, model: MODEL, privacy: c.privacy }, "Plan November.",
     )),

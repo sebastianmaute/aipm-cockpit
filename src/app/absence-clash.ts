@@ -6,6 +6,7 @@ import { isoAddDays } from "./due-dates";
 import { oneLine } from "./rich-text-plain";
 import { resourceDisplayName } from "./resource-foundation";
 import { isTaskClosed } from "./task-closed";
+import { isModuleEnabled, type FeatureModuleId } from "./feature-modules";
 import type { Absence, Milestone, Resource, Task } from "./types";
 
 export interface AbsenceCtx {
@@ -275,4 +276,15 @@ export function buildAwaySummary(args: {
   let kept = personLines.length;
   while (kept > 0 && blockOf(kept).join("\n").length > maxChars) kept--;
   return blockOf(kept);
+}
+
+/** §810 — the "who is away" block as every AI prompt sends it: none at all while the project hides its Resources
+ *  function, otherwise exactly `buildAwaySummary`. The AI callers use this one, never `buildAwaySummary` itself,
+ *  so a hidden function withholds its absences from every prompt by one rule. `enabledModules` is required: a
+ *  caller must say which project's functions decide. */
+export function buildAiAwaySummary(
+  args: Parameters<typeof buildAwaySummary>[0] & { enabledModules: readonly FeatureModuleId[] },
+): string[] {
+  const { enabledModules, ...rest } = args;
+  return isModuleEnabled("resources", enabledModules) ? buildAwaySummary(rest) : [];
 }

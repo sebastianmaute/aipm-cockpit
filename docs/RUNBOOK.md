@@ -510,6 +510,21 @@ section there.
 - **`ai-people` forces people protection on** in every project; AI stays available. Dictation
   to a speech service stops at once (`/api/stt` refuses), but a tab left open keeps the browser's
   own speech recognition until its next AI request or a reload (§789), so ask people to reload.
+- **`ai-direct-writes` forces every AI write into review** in every project, whatever a project chose; AI stays available.
+- **`ai-rates` keeps hourly rates out of Plan with AI and the chat’s forecast and dashboard figures** in every project, whatever a project chose; AI stays available.
+- **`ai-direct-writes` and `ai-rates` are applied by the app,** in the browser: no server route
+  refuses a request under either of them (only `ai-people` also makes `/api/stt` refuse). An
+  open page reads the deployment's list once, when it loads: after a change (and the server
+  restart), a page left open keeps the old locks until it is reloaded, so ask people to reload.
+- **★ Upgrade every client before relying on the per-project switches.** "Review every AI write"
+  and "Keep hourly rates out of Plan with AI and the chat’s forecast and dashboard figures" are stored with the project
+  (`reviewAllWrites`, `ratesWithheld`). A client that has not been upgraded drops both when it
+  saves a shared (Turso) project, which turns them off for everyone. The deployment ids above do
+  not depend on that stored choice.
+- **Several clients on one shared project: prefer the deployment locks.** Where people open a shared
+  (Turso) project from clients that are not all upgraded at once, set `ai-direct-writes` and `ai-rates`
+  in `AIPM_DISABLED_INTEGRATIONS` rather than relying on the per-project switches: a lock does not live in
+  the project, so no client's save can turn it off.
 - **`ai` switches every AI feature off**, and dictation to a speech service with it
   (`/api/stt` refuses too). To check it took effect, open Settings → AI: it says the
   organisation switched AI off, and the master switch cannot be ticked. Users' keys and
@@ -751,7 +766,8 @@ What to know when running it:
   (a whole number from 1 to 100000) to change either number, for example when many
   users reach the server through one address; an invalid value keeps the default and
   is logged once, naming the setting. Restart the server to apply a change. In both
-  cases the count is per server process and keyed by the forwarding header, which a caller sets (§562). When it answers, users see "This app's server is
+  cases the count is per server process, and who counts as one caller is set by
+  `AIPM_TRUSTED_PROXY_HOPS` (see [Request limits behind a proxy](#request-limits-behind-a-proxy)). When it answers, users see "This app's server is
   limiting AI requests from your connection right now". Set a real limit in the
   gateway's settings. When the gateway itself answers
   429, users see "Your organisation's AI gateway is limiting requests right now";
@@ -780,6 +796,50 @@ What to know when running it:
   message. A switched-off, invalid or changed AI setting is named the same way in the
   features; a scheduled job does not record it but waits and retries on its next check.
   An error Anthropic itself returns, such as a rejected key, passes through unchanged.
+
+### Request limits behind a proxy
+
+Every `/api/*` proxy route (Jira, Confluence, Timelog, ECB, the AI relay and dictation)
+limits requests per minute, per route. The server cannot see the caller's network
+address, and a forwarding header the caller sends is not evidence of who they are, so by
+default each route has ONE shared limit for all callers. A burst from one user can use up
+the quota of everyone else on that route.
+
+- **`AIPM_TRUSTED_PROXY_HOPS=N`** gives each caller their own limit. Set `N` to the number
+  of reverse proxies in front of the app that each APPEND the address they saw to
+  `x-forwarded-for` (nginx: `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`),
+  or to 1 for a single proxy that overwrites the header with the address it saw.
+  The app then counts a request under the entry `N` places from the right of that header (a port
+  the proxy appends, `1.2.3.4:5678` or `[::1]:5678`, is dropped, so one caller's connections share it);
+  everything to its left is client-supplied and ignored. A whole number from 1 to 10; an
+  invalid value, or 0, keeps the shared limit; an invalid value is also logged once per server process
+  ("trusted proxy hops setting invalid …", naming the setting, never its value). A request whose header has fewer than `N`
+  entries is counted in the shared bucket.
+- **Unsafe if a hop passes the header through.** The entry `N` places from the right must
+  have been written by one of your own proxies. A single proxy that sets the header to the
+  address it saw, overwriting what the client sent (nginx: `proxy_set_header X-Forwarded-For
+  $remote_addr;`), is safe with `N=1`, and so is a chain in which every hop appends. A proxy
+  that passes the client's header through untouched, or a chain in which some hop neither
+  appends nor overwrites, lets callers choose their own bucket again. Check what each hop
+  sends before setting it.
+- **The app's port must be reachable only through the proxy.** With `N` ≥ 1, a caller who
+  reaches the app directly writes the header themselves and so chooses their own bucket.
+  Bind the app to an address only the proxy can reach, or firewall its port.
+- **Raise the limits for a shared address.** With the shared default, many users share one
+  quota. Raise the AI relay and dictation limits with `AIPM_AI_RELAY_MAX_REQUESTS` and
+  `AIPM_STT_MAX_REQUESTS` (see the AI gateway section above).
+- **Per process.** The counters live in the server process's memory: a restart clears them,
+  and with more than one server instance each instance enforces its own limit.
+- **★ Upgrading from a version that keyed on the forwarding header.** Before this change each
+  caller was counted under the address their own header named; now, without
+  `AIPM_TRUSTED_PROXY_HOPS`, a multi-user server with no appending proxy in front of it
+  shares ONE count per route among all its users. Jira, Confluence, Timelog and ECB are
+  fixed at 60 requests a minute with no setting to raise them, and Jira and Confluence
+  share one count (the Confluence route goes through the Jira route's request helpers). Only
+  the AI relay and dictation limits can be raised. If users start hitting the limit after
+  the upgrade, put an appending proxy in front and set `AIPM_TRUSTED_PROXY_HOPS`.
+
+Restart the server to apply a change.
 
 ### Saved AI chats: recovery key, retention and erasure (run-time)
 

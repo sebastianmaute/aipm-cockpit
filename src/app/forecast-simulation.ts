@@ -8,7 +8,7 @@
 
 import { isViewEnabled } from "./feature-modules";
 import type { FeatureModuleId } from "./feature-modules";
-import { hasAnyOverride } from "./settings-overrides";
+import { hasAnyOverride, inCanonicalOrder } from "./settings-overrides";
 import type { SettingsOverrides } from "./settings-types";
 
 /** True only for an explicit `forecast.showSimulation === true`. */
@@ -47,7 +47,8 @@ export function withForecastObject(
   const next: SettingsOverrides = { ...o };
   delete next.forecast;
   if (Object.keys(kept).length > 0) next.forecast = kept;
-  return hasAnyOverride(next) ? next : undefined;
+  // In the sanitiser's key order, so the override serialises as it does after a reload.
+  return hasAnyOverride(next) ? inCanonicalOrder(next) : undefined;
 }
 
 /** Pin `target`'s switch to `current`'s. The switch is a viewing choice, not project data, so a

@@ -18,7 +18,8 @@ import {
 } from "../sanitize-core";
 import { isTaskClosed } from "../task-closed";
 import { isoAddDays } from "../due-dates";
-import { AWAY_WINDOW_DAYS, NO_HOLIDAYS, buildAwaySummary, taskClashes, type AbsenceClash, type AbsenceCtx } from "../absence-clash";
+import { AWAY_WINDOW_DAYS, NO_HOLIDAYS, buildAiAwaySummary, taskClashes, type AbsenceClash, type AbsenceCtx } from "../absence-clash";
+import type { FeatureModuleId } from "../feature-modules";
 
 /** Bound on how many items one proposal may carry (blast radius + token budget). */
 export const MAX_WBS_ITEMS = 60;
@@ -73,6 +74,9 @@ export interface WbsContextArgs {
   resources: readonly Resource[];
   /** The fallback window start when the project has no dates (today..today+28). */
   today: string;
+  /** §810 — the project's functions: no AWAY block while it hides Resources (`buildAiAwaySummary`). Required, so a
+   *  caller says which project's functions decide. */
+  enabledModules: readonly FeatureModuleId[];
 }
 
 /** From today (or the project start, if later) to the project end; today..today+28 when the project has
@@ -113,7 +117,7 @@ function taskLine(t: Task, inScope: boolean): string {
 /** Compact, token-bounded digest of the project's tasks, groups and milestones.
  *  Sent as the (volatile) user message — never in the cached system block. */
 export function buildWbsContext(args: WbsContextArgs): string {
-  const { tasks, scopeIds, milestones, project, absences, resources, today } = args;
+  const { tasks, scopeIds, milestones, project, absences, resources, today, enabledModules } = args;
   const lines: string[] = [];
   if (project) {
     lines.push(`PROJECT: ${oneLine(project.name)} ${project.startDate || "?"} .. ${project.endDate || "?"}`);
@@ -135,7 +139,7 @@ export function buildWbsContext(args: WbsContextArgs): string {
   if (ordered.length > WBS_CONTEXT_MAX_TASKS) {
     lines.push(`…(${ordered.length - WBS_CONTEXT_MAX_TASKS} more tasks omitted)`);
   }
-  lines.push(...buildAwaySummary({ absences, resources, ...awayWindow(project, today) }));
+  lines.push(...buildAiAwaySummary({ enabledModules, absences, resources, ...awayWindow(project, today) }));
   return lines.join("\n");
 }
 

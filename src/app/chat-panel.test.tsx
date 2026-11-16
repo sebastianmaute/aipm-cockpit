@@ -158,7 +158,7 @@ function makeDispatcher(): ToolDispatcher {
       enabledModules: [] as string[],
       currentView: "open-points" as const,
     })),
-    isPeopleProtected: () => false, // AI people protection: the executor asks on every write
+    isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false, // AI people protection: the executor asks on every write
   } as unknown as ToolDispatcher;
 }
 
@@ -2825,7 +2825,8 @@ describe("historySearch reaches the request body", () => {
     const base = makeDispatcher();
     return {
       ...base,
-      getSnapshot: vi.fn(() => ({ ...base.getSnapshot(), currentView: "activity" as const })),
+      // §810 — Resources shown: `search_history` is a people tool, withdrawn while the function is hidden.
+      getSnapshot: vi.fn(() => ({ ...base.getSnapshot(), currentView: "activity" as const, enabledModules: ["resources"] })),
     } as unknown as ToolDispatcher;
   }
 

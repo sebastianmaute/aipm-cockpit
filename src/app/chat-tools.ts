@@ -60,7 +60,10 @@ import type { ChatPointer } from "./chat-search";
 import type { PublishedThreads } from "./chat-threads-registry";
 import { clashesForAi, type AbsenceClash, type AbsenceClashForAi } from "./absence-clash";
 export { TOOL_DEFS } from "./chat-tool-defs";
-import { PEOPLE_TOOLS, PeopleToolRefusedError, peopleToolsLive } from "./chat-tool-defs";
+import {
+  PEOPLE_TOOLS, PeopleToolRefusedError, RESOURCES_TOOLS, STAKEHOLDERS_HIDDEN_TOOL_REFUSAL, STAKEHOLDER_TOOLS, TOOL_REFUSAL_BY,
+  peopleToolsLive, toolWithheldBy,
+} from "./chat-tool-defs";
 import { PERSON_FIELDS_BY_TOOL, PERSON_FIELDS_REMOVED_NOTE, stripPersonFields, withPersonFieldsNote, type PersonStripContext } from "./ai-person-fields";
 
 type TaskInput = {
@@ -598,6 +601,13 @@ export type ToolDispatcher = {
    *  NAME, and a thread that ran `list_resources` before protection was switched on still carries that
    *  call in its history. Read from the same source as the transport's privacy (`ai-privacy-context`). */
   isPeopleProtected(): boolean;
+  /** §810 — does the open project hide its Resources function? Asked LIVE by the executor for the same
+   *  reason as `isPeopleProtected`, from the same functions `getSnapshot().enabledModules` reports, so the
+   *  list the chat sent and the refusal here cannot disagree. */
+  isResourcesHidden(): boolean;
+  /** §810 — does the open project hide its Stakeholders function? Asked LIVE like `isResourcesHidden`, from the
+   *  same functions; the stakeholder tools follow it. */
+  isStakeholdersHidden(): boolean;
   /** The project's effective IANA zone — the SAME value behind `getSnapshot().today`,
    *  so a day bound and the `Today is …` date the model is given cannot disagree.
    *  ★ NOT the ephemeral display-tz override the top bar can set: that is a
@@ -649,6 +659,9 @@ function readContactEmail(input: Record<string, unknown>, d: ToolDispatcher): Co
       return { id, email: row.assigneeEmail ?? null };
     }
     case "stakeholder": {
+      // §810 — a stakeholder's address follows the Stakeholders function, as the stakeholder tools do; refused
+      // before any row is read. (`get_contact_email` itself belongs to Resources and is gated in `runTool`.)
+      if (d.isStakeholdersHidden()) throw new PeopleToolRefusedError(STAKEHOLDERS_HIDDEN_TOOL_REFUSAL);
       const row = d.getStakeholderRow(id);
       if (!row) throw new Error(`stakeholder #${id} not found`);
       return { id, email: row.email ?? null };
@@ -669,7 +682,8 @@ function readContactEmail(input: Record<string, unknown>, d: ToolDispatcher): Co
       return { id, email: row.assigneeEmail ?? null };
     }
     default:
-      throw new Error("entity must be one of task, stakeholder, resource, raid, absence");
+      // §810 — name only the entities the request offered: no stakeholder while that function is hidden.
+      throw new Error(`entity must be one of ${d.isStakeholdersHidden() ? "task, resource, raid, absence" : "task, stakeholder, resource, raid, absence"}`);
   }
 }
 
@@ -719,9 +733,20 @@ export async function runTool(
     unknown
   >;
 
-  // ★★ AI people protection: ENFORCEMENT, not advertisement. `toolsFor` stops offering these under the same
-  //   predicate; this refuses to SERVE them, before any handler can read or write a row.
-  if (PEOPLE_TOOLS.has(name) && !peopleToolsLive(d.isPeopleProtected())) throw new PeopleToolRefusedError();
+  // ★★ AI people protection and a hidden Resources or Stakeholders function (§810): ENFORCEMENT, not
+  //   advertisement. `toolsFor` stops offering these under the same predicate (`toolWithheldBy`); this refuses to
+  //   SERVE them, before any handler can read or write a row. Protection's own reason wins when it applies, so
+  //   under protection no function is asked about; otherwise only the function that owns the tool is asked.
+  if (PEOPLE_TOOLS.has(name)) {
+    const peopleProtected = d.isPeopleProtected();
+    const live = peopleToolsLive(peopleProtected);
+    const withheld = toolWithheldBy(name, {
+      peopleProtected,
+      resourcesHidden: live && RESOURCES_TOOLS.has(name) && d.isResourcesHidden(),
+      stakeholdersHidden: live && STAKEHOLDER_TOOLS.has(name) && d.isStakeholdersHidden(),
+    });
+    if (withheld !== null) throw new PeopleToolRefusedError(TOOL_REFUSAL_BY[withheld]);
+  }
 
   // ★★ AI people protection, R4: STRIP AND APPLY. A write's person fields (`PERSON_FIELDS_BY_TOOL`) are
   //   removed before any handler sees the call, the rest applies, and the result (or the error) tells the
@@ -937,6 +962,7 @@ async function runToolAsSent(
       const scope = {
         withPeople: peopleToolsLive(d.isPeopleProtected()),
         withTimelog: isModuleEnabled("timelog", snapshot.enabledModules),
+        withResources: isModuleEnabled("resources", snapshot.enabledModules), // §810, as the prompt
       };
       return { ...snapshot, insights: snapshot.insights.filter((i) => insightReachesAi(i, scope)) };
     }

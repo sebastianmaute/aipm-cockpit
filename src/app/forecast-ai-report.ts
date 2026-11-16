@@ -9,6 +9,7 @@
  * (`howManyByPlanEnd`), which the comparison's runs leave at today; and, only when asked, `forecastByGroup`.
  */
 import { entityToken } from "./ai-entity-token";
+import { isRatesWithheld } from "./ai-project-switches";
 import type { ScheduleContext } from "./forecast-added-people";
 import { DEFAULT_HISTORY_WINDOW, FORECAST_TRIALS, type ForecastUnit } from "./forecast/constants";
 import {
@@ -77,7 +78,8 @@ export type RowReport =
   | { index: number; kind: "scope"; milestoneGone: boolean }
   | {
       index: number; kind: "addPeople";
-      sizing: { name: string; weeklyHours: number; ratePerHour: number; rateNote: string; shareAtFullSpeed: number };
+      /** `ratePerHour` is absent while the project keeps hourly rates out of the AI (§804, `isRatesWithheld`). */
+      sizing: { name: string; weeklyHours: number; ratePerHour?: number; rateNote: string; shareAtFullSpeed: number };
     }
   | { index: number; kind: "addPeople"; inert: "person-gone" | "on-team" | "ended" | "needs-booked-hours" };
 
@@ -185,7 +187,13 @@ function columnReport(column: ScenarioColumn, run: ScenarioRunInput): ColumnRepo
   };
 }
 
-function rowReport(row: ScenarioRowStatus, index: number): RowReport {
+/** §810 — the name a row carries for a directory person while the project hides its Resources function. Edits go
+ *  by resource id in a scenario's `changes`, never by this name. */
+export const DIRECTORY_NAME_WITHHELD = "(a person from the resource directory; name withheld)";
+
+type RowPolicy = { ratesWithheld: boolean; resourcesHidden: boolean };
+
+function rowReport(row: ScenarioRowStatus, index: number, policy: RowPolicy): RowReport {
   if (row.kind === "availability") return { index, kind: "availability", ended: row.ended };
   if (row.kind === "scope") return { index, kind: "scope", milestoneGone: row.milestoneGone };
   const s = row.status;
@@ -193,14 +201,17 @@ function rowReport(row: ScenarioRowStatus, index: number): RowReport {
   return {
     index, kind: "addPeople",
     sizing: {
-      name: s.name, weeklyHours: s.weeklyHours, ratePerHour: s.ratePerHour, rateNote: s.rateNote,
+      // §804 — a named person's row carries their role's internal rate: left out while rates are withheld.
+      // §810 — a directory person is not named while Resources is hidden.
+      name: policy.resourcesHidden && s.fromDirectory === true ? DIRECTORY_NAME_WITHHELD : s.name,
+      weeklyHours: s.weeklyHours, ...(policy.ratesWithheld ? {} : { ratePerHour: s.ratePerHour }), rateNote: s.rateNote,
       shareAtFullSpeed: s.shareAtFullSpeed,
     },
   };
 }
 
-function rowsOf(column: ScenarioColumn): RowReport[] {
-  return (column.schedule?.rows ?? []).map(rowReport);
+function rowsOf(column: ScenarioColumn, policy: RowPolicy): RowReport[] {
+  return (column.schedule?.rows ?? []).map((row, index) => rowReport(row, index, policy));
 }
 
 /** How many below-target milestones one call searches, worst first. Each search is synchronous inside the tool call
@@ -267,13 +278,16 @@ export function buildForecastReport(
   input: ForecastReportInput,
   whatIf: readonly ScenarioChange[] | null,
   comparison: ScenarioComparison = computeScenarioComparison(input.run, input.scenarios),
-  options: { byGroup?: boolean } = {},
+  /** `resourcesHidden` (§810): the project hides its Resources function, so no row names a directory person. */
+  options: { byGroup?: boolean; resourcesHidden?: boolean } = {},
 ): ForecastReport {
   const { run, history, currency } = input;
   const { asIs } = comparison;
   const asIsReport = columnReport(asIs, run);
   const goal = targetConfidenceOf(input.settingsOverrides);
   const defaults = isDefaultRun(run);
+  // §804 — the project's switch or the deployment's `ai-rates` lock, from the overrides this call is built with.
+  const policy: RowPolicy = { ratesWithheld: isRatesWithheld(input.settingsOverrides), resourcesHidden: options.resourcesHidden === true };
   const report: ForecastReport = {
     simulated: true,
     settings: {
@@ -291,7 +305,7 @@ export function buildForecastReport(
       : null,
     scenarios: comparison.scenarios.map(({ scenario, column }) => ({
       id: scenario.id, name: scenario.name, expectedToken: entityToken("forecastScenario", scenario),
-      changes: scenario.changes, result: columnReport(column, run), rows: rowsOf(column),
+      changes: scenario.changes, result: columnReport(column, run), rows: rowsOf(column, policy),
     })),
     targetConfidence: goal,
     whatItTakes: whatIf !== null ? { omitted: "whatIf" } : defaults ? whatItTakesReport(run, comparison, goal) : { omitted: "settings" },
@@ -304,7 +318,7 @@ export function buildForecastReport(
   };
   if (whatIf === null) return report;
   const column = computeScenarioColumn(run, whatIf, comparison.context);
-  return { ...report, whatIf: { result: columnReport(column, run), rows: rowsOf(column) } };
+  return { ...report, whatIf: { result: columnReport(column, run), rows: rowsOf(column, policy) } };
 }
 
 /** What `validateScenarioChange` needs: the run's lists and the As-is run's on-team set. Pass the `context` of a

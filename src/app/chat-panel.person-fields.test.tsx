@@ -33,7 +33,8 @@ function makeDispatcher(): ToolDispatcher {
   return {
     getSnapshot: vi.fn(() => ({
       today: "2026-06-04", language: "en-US", holidayCountries: [], storageKind: "memory", taskCount: 0,
-      knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: [] as string[],
+      // §810 — Resources shown, so protection alone decides what reaches Claude here.
+      knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: ["resources"] as string[],
       currentView: "open-points" as const,
     })),
   } as unknown as ToolDispatcher;
@@ -130,7 +131,7 @@ describe("applying a staged turn under people protection", () => {
     const base = makeDispatcher() as unknown as Record<string, unknown>;
     const d = {
       ...base,
-      isPeopleProtected: () => peopleProtected,
+      isPeopleProtected: () => peopleProtected, isResourcesHidden: () => false, isStakeholdersHidden: () => false,
       getTask: (id: number) => (id === stored.id ? stored : null),
       updateTask: (id: number, patch: Partial<Task>) => (id === stored.id ? (stored = { ...stored, ...patch }) : null),
       createTask: (input: Partial<Task>) => ({ ...TASK, ...input, id: 2 }),
@@ -205,7 +206,7 @@ describe("a protected lone date move onto the existing owner's absence", () => {
     const ws = { ...emptyWorkspace(), tasks: [OWNED], resources: [MAYA], absences: [AWAY] } as Workspace;
     const d = {
       ...(makeDispatcher() as unknown as Record<string, unknown>),
-      isPeopleProtected: () => true,
+      isPeopleProtected: () => true, isResourcesHidden: () => false, isStakeholdersHidden: () => false,
       getTask: (id: number) => (id === OWNED.id ? OWNED : null),
       updateTask: vi.fn(() => null),
     } as unknown as ToolDispatcher;

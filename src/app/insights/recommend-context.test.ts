@@ -11,6 +11,8 @@ const BASE = {
   relatedTasks: [],
   absences: [],
   resources: [],
+  // §810 — the AWAY block needs the Resources function shown; the hidden case has its own test.
+  enabledModules: ["resources"],
 } as const;
 
 describe("buildRecommendContext — linked entity", () => {
@@ -206,6 +208,18 @@ describe("buildRecommendContext — who is away (§773)", () => {
   });
 });
 
+// §810 — while the project hides its Resources function, the digest says nothing about who is away.
+describe("buildRecommendContext — Resources hidden (§810)", () => {
+  it("lists who is away with Resources on and not with it off", () => {
+    const away = [{ id: 1, assignee: "Maya Patel", resourceId: 7, type: "vacation", startDate: "2026-07-22", endDate: "2026-07-24" }];
+    const resources = [{ id: 7, firstName: "Maya", lastName: "Patel" }];
+    expect(buildRecommendContext({ ...BASE, absences: away as never, resources: resources as never })).toContain("AWAY (absent days");
+    const off = buildRecommendContext({ ...BASE, absences: away as never, resources: resources as never, enabledModules: ["raid"] });
+    expect(off).not.toContain("AWAY");
+    expect(off).not.toContain("2026-07-22..2026-07-24");
+  });
+});
+
 describe("buildRecommendContext — a large team away (§773 N-2)", () => {
   it("keeps the AWAY block within the shared character cap and says how many people it left out", () => {
     // 60 people, each away for ten separate two-day spells inside the 28-day window.
@@ -241,5 +255,26 @@ describe("buildRecommendContext — a person's profile under people protection",
 
   it("keeps any other linked entity when protected", () => {
     expect(buildRecommendContext({ ...BASE, entity: milestone, peopleProtected: true })).toContain("Linked milestones#42: Go-live");
+  });
+});
+
+// §810 — while the project hides its Resources function, a person's profile (a `resources` entity) is not sent
+// either, whatever reaches the builder. Other linked entities are kept.
+describe("buildRecommendContext — a person's profile while Resources is hidden (§810)", () => {
+  const person = { view: "resources", id: 7, title: "Dana Ortiz", fields: ["jobTitle: Data Engineer", "department: Analytics", "company: Acme"].join("\n") };
+  const milestone = { view: "milestones", id: 42, title: "Go-live", fields: "achieved: no" };
+
+  it("drops the resources entity while Resources is hidden", () => {
+    const out = buildRecommendContext({ ...BASE, entity: person, enabledModules: ["raid"] });
+    for (const term of ["resources#7", "Dana Ortiz", "Data Engineer", "Analytics", "Acme"]) expect(out).not.toContain(term);
+    expect(out).toContain("(no linked entity)");
+  });
+
+  it("CONTROL: keeps it while Resources is shown", () => {
+    expect(buildRecommendContext({ ...BASE, entity: person })).toContain("jobTitle: Data Engineer");
+  });
+
+  it("keeps any other linked entity while Resources is hidden", () => {
+    expect(buildRecommendContext({ ...BASE, entity: milestone, enabledModules: [] })).toContain("Linked milestones#42: Go-live");
   });
 });

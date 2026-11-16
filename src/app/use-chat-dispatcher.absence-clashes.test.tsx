@@ -8,6 +8,7 @@ import { useChatDispatcher } from "./use-chat-dispatcher";
 import { runTool } from "./chat-tools";
 import { entityToken } from "./ai-entity-token";
 import type { Absence, Milestone, Resource, Task } from "./types";
+import { ALL_MODULE_IDS } from "./feature-modules";
 
 const MAYA = { id: 1, firstName: "Maya", lastName: "Patel", email: "maya@example.com" } as Resource;
 // 2026-11-02 is a Monday.
@@ -73,5 +74,45 @@ describe("useChatDispatcher — absence clashes in the tool results (§773)", ()
     const holidays = render(new Set(["2026-11-10", "2026-11-11", "2026-11-12"]));
     const on = await run(holidays.result.current, "update_task", { id: 42, expectedToken: entityToken("task", holidays.result.current.getTask(42)!), dueDate: "2026-11-13" });
     expect(on.absenceClashes).toEqual([{ person: "Maya Patel", reason: "absent-most-of-span", ranges: [{ start: "2026-11-03", end: "2026-11-07" }] }]);
+  });
+});
+
+// §810 — while the project hides its Resources function, no write result carries who is away.
+describe("useChatDispatcher — absence clashes while Resources is hidden (§810)", () => {
+  function renderWith(features: typeof ALL_MODULE_IDS) {
+    return renderHook(() => useChatDispatcher(makeDispatcherArgs({ holidaySet: new Set() })), {
+      wrapper: dispatcherWrapperWith({ tasks: [TASK], resources: [MAYA], absences: [MAYA_WEEK], milestones: [MILESTONE], features: [...features] }),
+    });
+  }
+  const hidden = ALL_MODULE_IDS.filter((id) => id !== "resources");
+
+  it("create_task due on the owner's absence carries no absenceClashes", async () => {
+    const { result } = renderWith(hidden);
+    expect(result.current.isResourcesHidden()).toBe(true);
+    const out = await run(result.current, "create_task", { taskName: "Draft", assignee: "Maya Patel", dueDate: "2026-11-05" });
+    expect(out.id).toBeDefined();
+    expect("absenceClashes" in out).toBe(false);
+    expect(JSON.stringify(out)).not.toContain("2026-11-03");
+  });
+
+  it("update_milestone onto a linked owner's absence carries no absenceClashes", async () => {
+    const { result } = renderWith(hidden);
+    const row = result.current.getMilestoneRow(7)!;
+    const out = await run(result.current, "update_milestone", { id: 7, expectedToken: entityToken("milestone", row), date: "2026-11-05" });
+    expect("absenceClashes" in out).toBe(false);
+  });
+
+  it("CONTROL: the same write with Resources shown reports the clash", async () => {
+    const { result } = renderWith(ALL_MODULE_IDS);
+    expect(result.current.isResourcesHidden()).toBe(false);
+    const out = await run(result.current, "create_task", { taskName: "Draft", assignee: "Maya Patel", dueDate: "2026-11-05" });
+    expect(out.absenceClashes).toEqual([ON_ABSENCE]);
+  });
+
+  // §810 — the stakeholder tools follow the Stakeholders function, read from the same live functions.
+  it("isStakeholdersHidden follows the Stakeholders function alone", () => {
+    expect(renderWith(hidden).result.current.isStakeholdersHidden()).toBe(false);
+    expect(renderWith(ALL_MODULE_IDS.filter((id) => id !== "stakeholders")).result.current.isStakeholdersHidden()).toBe(true);
+    expect(renderWith(ALL_MODULE_IDS.filter((id) => id !== "stakeholders")).result.current.isResourcesHidden()).toBe(false);
   });
 });

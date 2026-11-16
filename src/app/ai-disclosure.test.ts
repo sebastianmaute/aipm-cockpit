@@ -166,7 +166,7 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport|77d3b27235a2|redacted|aiProtectedRedacted|755d95d88527",
     "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation|7433c859ec84|redacted|aiProtectedInsightRecommendation|a1f791791528",
     "action-analysis|interactive|aiDataActionAnalysisLabel|aiDataActionAnalysis|37a0083b91fb|redacted|aiProtectedRedacted|755d95d88527",
-    "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|353f4c07ced6|hidden|aiProtectedAllocPlan|6c3ea3b2cddb",
+    "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|8be36ec1cca6|hidden|aiProtectedAllocPlan|6c3ea3b2cddb",
     "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest|c8bdc16faa5f|hidden|aiProtectedHidden|bb828968bb82",
     "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup|b0832e394653|redacted|aiProtectedRedacted|755d95d88527",
     "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|315ad3046125|redacted|aiProtectedRedacted|755d95d88527",

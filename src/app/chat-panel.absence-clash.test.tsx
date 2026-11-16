@@ -58,7 +58,7 @@ const ABSENCE = { absences: [MAYA_WEEK], resources: [MAYA], holidaySet: new Set<
 
 /** A dispatcher whose one task is stored and updated in place, and which judges clashes the way the live
  *  one does (`callAbsenceClashes` over the pre-write workspace). */
-function makeDispatcher(): ToolDispatcher {
+function makeDispatcher(enabledModules: string[] = ["resources"]): ToolDispatcher {
   let row: Task = TASK;
   return {
     listTasks: vi.fn(() => [row]),
@@ -70,7 +70,7 @@ function makeDispatcher(): ToolDispatcher {
       return row;
     }),
     absenceClashesFor: vi.fn((name: string, input: Readonly<Record<string, unknown>>) => callAbsenceClashes({ name, input }, WORKSPACE, ABSENCE)),
-    isPeopleProtected: () => false, // AI people protection: the executor asks on every write
+    isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false, // AI people protection: the executor asks on every write
     deleteTask: vi.fn(() => false),
     deleteAllTasks: vi.fn(() => 0),
     sendInquiry: vi.fn(() => ({ sent: false })),
@@ -78,7 +78,8 @@ function makeDispatcher(): ToolDispatcher {
     setLanguage: vi.fn(),
     getSnapshot: vi.fn(() => ({
       today: "2026-10-30", language: "en-US", holidayCountries: [], storageKind: "memory", taskCount: 1,
-      knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: [] as string[], currentView: "open-points" as const,
+      // §810 — Resources shown by default: while it is hidden no clash reaches Claude (see the test below).
+      knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules, currentView: "open-points" as const,
     })),
   } as unknown as ToolDispatcher;
 }
@@ -179,6 +180,25 @@ describe("a lone chat date write that clashes with an absence (§773)", () => {
 });
 
 // §773 — a change to a task created earlier in the same turn: its target is in no workspace yet.
+// §810 — while the project hides its Resources function, the staged result says nothing about who is away; the
+// card (the user's view) still warns.
+describe("a staged date write while Resources is hidden (§810)", () => {
+  it("the staged tool result carries no absenceClashes, and the card still warns the user", async () => {
+    const dispatcher = makeDispatcher(["raid"]);
+    const bodies: string[] = [];
+    scriptFetch([toolTurn({ id: 1, dueDate: "2026-11-05" }), doneTurn], bodies);
+    mountAndSend(dispatcher);
+
+    const card = await screen.findByRole("region", CARD);
+    expect(within(card).getByText(/Maya Patel is absent on the due date/)).toBeInTheDocument();
+    await screen.findByText("done");
+    const staged = resultsIn(bodies[1]).get("t1") ?? "";
+    expect(staged.startsWith(STAGED_TOOL_RESULT)).toBe(true);
+    expect(staged).not.toContain("absenceClashes");
+    expect(staged).not.toContain("2026-11-03");
+  });
+});
+
 describe("a chat change to a task created earlier in the same turn (§773)", () => {
   /** `create_task` (no date), then `update_task` on the id the staging will provisionally mint for it. */
   function createThenMove(dueDate: string) {

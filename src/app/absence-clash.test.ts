@@ -3,6 +3,7 @@ import {
   AWAY_SUMMARY_MAX_LINES,
   AWAY_SUMMARY_MAX_RANGES,
   absencesOfPerson,
+  buildAiAwaySummary,
   buildAwaySummary,
   milestoneClashes,
   taskClashes,
@@ -362,5 +363,21 @@ describe("closed work does not clash (§773 P-1)", () => {
     expect(milestoneClashes({ date: "2026-11-05", linkedTaskIds: [10] }, linked("Done"), ctx([MAYA_WEEK]))).toEqual([]);
     expect(milestoneClashes({ date: "2026-11-05", linkedTaskIds: [10] }, linked("Cancelled"), ctx([MAYA_WEEK]))).toEqual([]);
     expect(milestoneClashes({ date: "2026-11-05", linkedTaskIds: [10] }, linked("To Do"), ctx([MAYA_WEEK]))).toHaveLength(1);
+  });
+});
+
+// §810 — the AI's "who is away" block exists only while the project shows its Resources function.
+describe("buildAiAwaySummary", () => {
+  const window = { from: "2026-11-02", to: "2026-11-30" };
+
+  it("is empty when the enabled modules lack resources", () => {
+    expect(buildAiAwaySummary({ absences: [MAYA_WEEK], resources: [maya], ...window, enabledModules: ["raid", "milestones"] })).toEqual([]);
+    expect(buildAiAwaySummary({ absences: [MAYA_WEEK], resources: [maya], ...window, enabledModules: [] })).toEqual([]);
+  });
+
+  it("gives the same lines as buildAwaySummary when resources is enabled", () => {
+    const plain = buildAwaySummary({ absences: [MAYA_WEEK], resources: [maya], ...window, maxChars: 3_000 });
+    expect(plain.length).toBeGreaterThan(0);
+    expect(buildAiAwaySummary({ absences: [MAYA_WEEK], resources: [maya], ...window, maxChars: 3_000, enabledModules: ["resources"] })).toEqual(plain);
   });
 });

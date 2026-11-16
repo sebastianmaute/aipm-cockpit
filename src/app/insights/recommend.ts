@@ -5,8 +5,8 @@
 import type { GroundingIndex, GroundableView } from "../action-ai";
 import type { InsightRecommendation, InsightToolCall } from "./insight";
 import { INSIGHT_REC_MAX_CALLS, INSIGHT_REC_SUMMARY_MAX, ALLOWED_REC_TOOLS } from "./insight";
-import { REC_CALL_ITEM_SCHEMA, REC_CALL_ITEM_SCHEMA_PEOPLE_PROTECTED } from "./recommend-schema";
-import { peopleToolsLive } from "../chat-tool-defs";
+import { REC_CALL_ITEM_SCHEMA, recCallItemSchema } from "./recommend-schema";
+import { toolOffered, type PeopleToolFlags } from "../chat-tool-defs";
 
 // Re-export so existing importers of `./recommend` (tests, call sites) are unchanged.
 export { ALLOWED_REC_TOOLS };
@@ -76,15 +76,27 @@ function recommendTool(items: typeof REC_CALL_ITEM_SCHEMA) {
   } as const;
 }
 
-/** AI people protection (layer 1): the tool as offered for a project that protects its people — no people
- *  tool in its call union. Decided by the executor's own predicate; one constant per answer, so the request's
- *  tool list keeps one identity. */
-const RECOMMEND_TOOL_PEOPLE_PROTECTED = recommendTool(REC_CALL_ITEM_SCHEMA_PEOPLE_PROTECTED);
+/** The allowed tools chat's predicate (`toolWithheldBy`) offers under `flags`, in their order: each tool withheld on
+ *  its own (people protection, or the function that owns it hidden, §810), never as a whole union, so a switch
+ *  can never drop a tool it does not own. ★ `ALLOWED_REC_TOOLS` itself is NOT narrowed: it is the confirm path's
+ *  security allowlist, and the confirm path still refuses a withheld call at the executor. */
+export function offeredRecTools(allowed: Iterable<string>, flags: PeopleToolFlags): string[] {
+  return [...allowed].filter((name) => toolOffered(name, flags));
+}
 
-/** The tool to offer: every allowed tool, or, when the request's project protects its people, all but the
- *  people tools. The confirm path still refuses a people call at the executor. */
-export function recommendToolFor(peopleProtected: boolean) {
-  return peopleToolsLive(peopleProtected) ? RECOMMEND_TOOL : RECOMMEND_TOOL_PEOPLE_PROTECTED;
+/** One tool per offered set, so a request's tool list keeps one identity per answer. */
+const RECOMMEND_TOOL_BY_OFFER = new Map<string, ReturnType<typeof recommendTool>>();
+
+/** The tool to offer: every allowed tool, or the ones `offeredRecTools` keeps. */
+export function recommendToolFor(flags: PeopleToolFlags) {
+  const names = offeredRecTools(ALLOWED_REC_TOOLS, flags);
+  if (names.length === ALLOWED_REC_TOOLS.size) return RECOMMEND_TOOL;
+  const key = names.join(",");
+  const cached = RECOMMEND_TOOL_BY_OFFER.get(key);
+  if (cached) return cached;
+  const built = recommendTool(recCallItemSchema(names));
+  RECOMMEND_TOOL_BY_OFFER.set(key, built);
+  return built;
 }
 
 /** Anthropic tool definition. Forced via tool_choice. */

@@ -7,7 +7,7 @@
 // on apply. Task-bound behavior lives in the thin `use-inline-ai-edit` wrapper.
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, type TranslationKey, t } from "./i18n";
 import { type Workspace } from "./workspace";
 import { type ToolDispatcher, runTool } from "./chat-tools";
 import { entityToken } from "./ai-entity-token";
@@ -18,12 +18,19 @@ import { callInlineEdit } from "./inline-ai-edit-call";
 import { useActionGuideText } from "./action-guides-context";
 import { useOpenProjectAiPrivacy, useOpenProjectPeopleProtected } from "./ai-privacy-context";
 import { stripPersonFieldsFromCalls } from "./ai-person-fields";
-import { PEOPLE_TOOLS } from "./chat-tool-defs";
+import { toolWithheldBy, type ToolWithholder } from "./chat-tool-defs";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiFailureMessageKey } from "./ai-key-status";
 import { describeEntityCalls, isEmptyPlan, type EditPlan, type FieldDiff, type LinkDiff } from "./inline-ai-edit/plan";
 import { inlineDescriptor, type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 import { NO_HOLIDAYS, type AbsenceCtx } from "./absence-clash";
+
+/** What the inline editor says when the record's update tool is withheld, per switch (`toolWithheldBy`, §810). */
+const INLINE_WITHHELD_KEY: Readonly<Record<ToolWithholder, TranslationKey>> = {
+  protected: "inlineAiEditPeopleRecord",
+  resources: "inlineAiEditResourcesHidden",
+  stakeholders: "inlineAiEditStakeholdersHidden",
+};
 
 export type InlinePhase = "idle" | "thinking" | "preview" | "clarify" | "rejected" | "applying" | "error";
 type EntityItem = { id: number; [k: string]: unknown };
@@ -202,12 +209,16 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     if (!activeItem || !instruction.trim() || phase === "thinking" || phase === "applying") return;
     const reqId = ++reqIdRef.current;
     const target = activeItem;
-    // AI people protection (R4): a person record (a resource, stakeholder or absence) is written by a people
-    // tool (`PEOPLE_TOOLS`), which the executor refuses outright under protection. Said here, before a billed
-    // call that could only fail.
+    // AI people protection (R4) and a hidden function (§810): a person record (a resource, stakeholder or absence)
+    // is written by a people tool, which the executor refuses under protection or while the function that owns it
+    // is hidden. Asked here by the executor's own predicate (`toolWithheldBy`) and getters, before a billed call
+    // that could only fail, naming the switch that withholds it.
     const peopleProtected = peopleProtectedNow();
-    if (peopleProtected && PEOPLE_TOOLS.has(d.updateTool)) {
-      setErrorText(t(deps.lang, "inlineAiEditPeopleRecord")); setPhase("error"); return;
+    const resourcesHidden = deps.dispatcher.isResourcesHidden();
+    const stakeholdersHidden = deps.dispatcher.isStakeholdersHidden();
+    const withheld = toolWithheldBy(d.updateTool, { peopleProtected, resourcesHidden, stakeholdersHidden });
+    if (withheld !== null) {
+      setErrorText(t(deps.lang, INLINE_WITHHELD_KEY[withheld])); setPhase("error"); return;
     }
     // Derived from the FULL stored row (`target`), before the await — see
     // tokenRef's comment for why the derivation point is the design. The prompt
@@ -223,6 +234,9 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
         entity: deps.entity, item: target, itemLabel: d.titleOf(target),
         instruction, snapshot: deps.dispatcher.getSnapshot(),
         guides: deps.guides, groundInGuides: deps.ai.groundInGuides, guideText: inlineGuideText, peopleProtected,
+        // §810 — asked of the getters the executor's refusal reads (`runTool`), so the tools offered here and
+        // the refusal of a people call at apply cannot disagree.
+        resourcesHidden, stakeholdersHidden,
         // ★ `historySearch` is NOT forwarded: `callInlineEdit` drops
         //   `search_history` unconditionally, because this path is single-shot
         //   and a search here can only yield an empty plan. Its own comment

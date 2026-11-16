@@ -4,7 +4,7 @@
 // them" pattern); `chat-panel.tsx` consumes everything here.
 import { TOOL_DEFS, type ToolDispatcher } from "./chat-tools";
 import { DOCUMENT_TOOL_DEFS_WITHOUT_DECISION } from "./chat-tool-defs-documents";
-import { PEOPLE_PROTECTED_DEFS, PEOPLE_TOOLS, peopleToolsLive } from "./chat-tool-defs";
+import { PEOPLE_PROTECTED_DEFS, RESOURCES_HIDDEN_DEFS, STAKEHOLDERS_HIDDEN_DEFS, peopleToolsLive, toolOffered, type PeopleToolFlags } from "./chat-tool-defs";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import { reportAiKeyResponse } from "./ai-key-status";
 import { assertInteractiveConsentLive } from "./ai-consent";
@@ -149,15 +149,12 @@ export const ATTACHMENT_DATA_NOTICE =
  *  split WITHIN this half is a later addition (`operating-guide.ts`'s
  *  `assembleGuideBlocks`) and does not affect that composition.
  *
- *  ★★★ `toolFlags` CANNOT MOVE A BYTE OF THIS OUTPUT — measured, not assumed
- *  (a differential probe holding every other input fixed and flipping
- *  `historySearch`/`chatSearch` found this half byte-identical while
- *  `buildTurnContext`'s output changed). The tool-advertising blocks
- *  `toolFlags` gates (view scope, activity recap, chat pointer) all live in
- *  the volatile half; it is accepted here only so both halves share one
- *  param list. This is what makes both these blocks genuinely STABLE across
- *  a conversation's turns even when a setting toggle changes mid-thread —
- *  the relocation of the volatile context depends on it. */
+ *  ★★★ Only the PEOPLE flags move this output: `peopleProtected`, `resourcesHidden` and `stakeholdersHidden`
+ *  choose the people lines (see the comment in the body). `historySearch`, `chatSearch` and `forecast` do not
+ *  (a differential probe flipping the two search flags found this half byte-identical); the blocks those gate
+ *  (view scope, activity recap, chat pointer) live in the volatile half. So a search toggle mid-thread keeps
+ *  this half STABLE, which the relocation of the volatile context depends on; a protection or function switch
+ *  changes it, as it changes the tool list. */
 export function buildStableSystemBlocks(
   lang: Lang,
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
@@ -170,10 +167,22 @@ export function buildStableSystemBlocks(
    *  `forecastSimulation`, and only an explicit true offers it. */
   toolFlags: ToolFlags,
 ): SystemBlock[] {
-  // `toolFlags` drives ONE line here: under people protection the request carries no people tool, so
-  // the prompt must not advertise the resource directory's (AI people protection, layer 1). The other
-  // tool-advertising blocks (view scope / activity recap / chat pointer) live in the volatile half.
-  const peopleLive = peopleToolsLive(toolFlags.peopleProtected);
+  // `toolFlags` drives four things here, each by the predicate the tool list uses (`toolOffered`): the resource
+  // directory line (replaced under people protection, layer 1, or while Resources is hidden, §810), the
+  // "Beyond tasks…" line and the document-extraction list (which name stakeholders and people/resources only
+  // while their tools are offered), and the Stakeholders-hidden instruction. The other tool-advertising blocks
+  // (view scope / activity recap / chat pointer) live in the volatile half.
+  const peopleLine = toolOffered("list_resources", toolFlags)
+    ? "You can also manage the resource directory: list_resources, get_resource, create_resource (firstName/lastName), update_resource, and delete_resource. IMPORTANT: assigning a task to a person by name does NOT add them to the directory — when a document describes a team or resource plan, call create_resource for each person so they appear in the directory, not just as task assignees."
+    : peopleToolsLive(toolFlags.peopleProtected) ? RESOURCES_HIDDEN_INSTRUCTION : PEOPLE_PROTECTED_INSTRUCTION;
+  // §810 — the two fixed lines below name stakeholders and people/resources only while their tools are offered, by
+  // the predicate the tool list uses, so the prompt never invites a tool the request does not carry.
+  const stakeholdersOffered = toolOffered("create_stakeholder", toolFlags);
+  const extractable = [
+    "tasks", "risks", "milestones",
+    ...(stakeholdersOffered ? ["stakeholders"] : []),
+    ...(toolOffered("create_resource", toolFlags) ? ["people/resources"] : []),
+  ];
   // STABLE prefix (cached): fixed instructions plus the always-on guides
   // (block 0), followed by the current view's guides (block 1, no marker of
   // its own). Anthropic prompt-cache is prefix-based, so block 0 must come
@@ -184,11 +193,12 @@ export function buildStableSystemBlocks(
     "You are an assistant embedded in AI PM Cockpit, an AI-assisted project management app for tracking open project items (tasks, RAID, changes, milestones, budget).",
     "The user is a project lead tracking open tasks. Each task has: id, taskName, assignee, assigneeEmail, dueDate (YYYY-MM-DD), lastUpdateDate, priority (Low/Medium/High/Urgent), status (To Do/In Progress/On Hold/In Review/Cancelled/Done), blockers, notes, group (single optional category), labels (zero or more tags).",
     "Use the provided tools to read and modify the app's state. Prefer calling tools over guessing. After modifying state, briefly confirm what changed.",
-    "Beyond tasks you can also read and write RAID items (Risks/Assumptions/Issues/Dependencies), change-control items, milestones, and stakeholders via their list_/create_/update_/delete_ tools. RAID category is R/A/I/D; status must match the category. Dates are YYYY-MM-DD.",
-    peopleLive
-      ? "You can also manage the resource directory: list_resources, get_resource, create_resource (firstName/lastName), update_resource, and delete_resource. IMPORTANT: assigning a task to a person by name does NOT add them to the directory — when a document describes a team or resource plan, call create_resource for each person so they appear in the directory, not just as task assignees."
-      : PEOPLE_PROTECTED_INSTRUCTION,
-    "When the user attaches a document, read it and, when they ask, extract the relevant items (tasks, risks, milestones, stakeholders, people/resources) and create them with the matching create_ tool. Summarise what you created and ask before bulk-creating many records.",
+    `Beyond tasks you can also read and write RAID items (Risks/Assumptions/Issues/Dependencies), change-control items, ${stakeholdersOffered ? "milestones, and stakeholders" : "and milestones"} via their list_/create_/update_/delete_ tools. RAID category is R/A/I/D; status must match the category. Dates are YYYY-MM-DD.`,
+    peopleLine,
+    // §810 — only while the Stakeholders function is hidden (and people are not protected, whose line covers it),
+    // so the prompt of a project that shows it is unchanged.
+    ...(peopleToolsLive(toolFlags.peopleProtected) && !toolOffered("list_stakeholders", toolFlags) ? [STAKEHOLDERS_HIDDEN_INSTRUCTION] : []),
+    `When the user attaches a document, read it and, when they ask, extract the relevant items (${extractable.join(", ")}) and create them with the matching create_ tool. Summarise what you created and ask before bulk-creating many records.`,
     // ★★★ THIS REPLACED AN INSTRUCTION TO "confirm with the user in chat", and
     //    the replacement is not a rewording — the mechanism changed underneath
     //    it. Destructive turns are now STAGED by `shouldStage` and reviewed on a
@@ -286,6 +296,8 @@ export function buildTurnContext(
   const insightsBlock = buildInsightsPromptBlock(snapshot.insights ?? [], {
     withPeople: peopleToolsLive(toolFlags.peopleProtected),
     withTimelog: isModuleEnabled("timelog", snapshot.enabledModules),
+    // §810 — an insight about one person names a directory person or their Timelog user number.
+    withResources: isModuleEnabled("resources", snapshot.enabledModules),
   });
   // The digest (what is on screen right now) is per-call and changes on every
   // filter/sort tweak — it MUST stay in the uncached suffix too, or it would
@@ -535,6 +547,16 @@ export const CACHED_TOOLS = withCacheBreakpoint(TOOL_DEFS);
 export const PEOPLE_PROTECTED_INSTRUCTION =
   "This project protects its people from the AI: you have no tools to read or change the resource directory, stakeholders, absences or allocations, and you must not assign, move or rate anyone. Names may reach you as placeholders of the form [Person N] (also [email N], [phone N], [IBAN N]), where N is a number; use them exactly as given.";
 
+/** §810 — the stable prompt's line in place of the resource-directory one while the project hides its Resources
+ *  function (and does not protect its people, whose line says more). */
+export const RESOURCES_HIDDEN_INSTRUCTION =
+  "This project's Resources function is switched off: you have no tools to read or change the resource directory, absences or allocations, or to look up a contact e-mail.";
+
+/** §810 — the stable prompt's extra line while the project hides its Stakeholders function (and does not protect
+ *  its people, whose line says more). */
+export const STAKEHOLDERS_HIDDEN_INSTRUCTION =
+  "This project's Stakeholders function is switched off: you have no tools to read or change stakeholders.";
+
 /** The flags that select a tool-list variant.
  *
  *  ★★★ ONE OBJECT, NOT TWO ADJACENT BOOLEANS. Both flags are
@@ -551,10 +573,19 @@ export type ToolFlags = Pick<AiConfig, "historySearch" | "chatSearch"> & {
    *  `PEOPLE_TOOLS`. Read at SEND time (chat-panel), so a switch mid-thread takes effect on the next send.
    *  Only an explicit true removes them (`peopleToolsLive`). */
   peopleProtected?: boolean;
+  /** §810 — the open project hides its Resources function, so the request carries no `RESOURCES_TOOLS` (bit 16:
+   *  dropped, and the hint-carrying definitions swap for `RESOURCES_HIDDEN_DEFS`; person fields are NOT
+   *  stripped — that follows `peopleProtected` alone). Read at SEND time like `peopleProtected`. Only an explicit true withdraws
+   *  (`toolWithheldBy`, which `runTool` asks too). */
+  resourcesHidden?: boolean;
+  /** §810 — the open project hides its Stakeholders function, so the request carries no `STAKEHOLDER_TOOLS` (bit 32,
+   *  no definition swap). Read at SEND time; only an explicit true withdraws (`toolWithheldBy`). */
+  stakeholdersHidden?: boolean;
 };
 
 /** Tool names removed by each bit of the variant key. Bit 8 (people protection) is not listed: its drop and
- *  its definition swap are one step, `selectPeopleTools`, which the inline editor's list shares. */
+ *  its definition swap are one step, `selectPeopleTools`, which the inline editor's list shares. Nor are bits 16
+ *  and 32 (Resources and Stakeholders hidden, §810): they drop the tools each function owns, also there. */
 const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
   [1, "search_history"],
   [2, "search_chats"],
@@ -570,13 +601,22 @@ const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
  *  (`variantFor`, bit 8) and the inline editor (`toolsNamed`). Withheld, every `PEOPLE_TOOLS` name goes and
  *  each `PEOPLE_PROTECTED_DEFS` entry replaces its original; otherwise `defs` stay as given. The cache
  *  breakpoint is set AFTER both steps (`withCacheBreakpoint`, on the last tool kept), so neither the drop
- *  nor the swap can lose or duplicate it. `defs` must carry no breakpoint yet. Callers decide
- *  `withoutPeople` with the SAME predicate `runTool` enforces (`peopleToolsLive`). */
-export function selectPeopleTools(defs: typeof TOOL_DEFS, withoutPeople: boolean): ReturnType<typeof withCacheBreakpoint> {
-  if (!withoutPeople) return withCacheBreakpoint(defs);
-  return withCacheBreakpoint(
-    defs.filter((d) => !PEOPLE_TOOLS.has(d.name)).map((d) => (PEOPLE_PROTECTED_DEFS.get(d.name) as typeof d | undefined) ?? d),
-  );
+ *  nor the swap can lose or duplicate it. `defs` must carry no breakpoint yet. The drop is decided by the
+ *  SAME predicate `runTool` enforces (`toolWithheldBy`). The swap: a hidden Resources function (§810) takes
+ *  `RESOURCES_HIDDEN_DEFS` (protection's hint drops plus the absenceClashes promise, since no clash comes back
+ *  then), else protection takes `PEOPLE_PROTECTED_DEFS`. Flags by NAME (§159: two adjacent booleans transpose
+ *  silently). */
+export function selectPeopleTools(
+  defs: typeof TOOL_DEFS,
+  flags: PeopleToolFlags,
+): ReturnType<typeof withCacheBreakpoint> {
+  const kept = defs.filter((d) => toolOffered(d.name, flags));
+  const swap = flags.resourcesHidden === true ? RESOURCES_HIDDEN_DEFS
+    : !peopleToolsLive(flags.peopleProtected) ? PEOPLE_PROTECTED_DEFS
+    : flags.stakeholdersHidden === true ? STAKEHOLDERS_HIDDEN_DEFS
+    : undefined;
+  if (!swap) return withCacheBreakpoint(kept);
+  return withCacheBreakpoint(kept.map((d) => (swap.get(d.name) as typeof d | undefined) ?? d));
 }
 
 /** The document tools as sent with bit 4 set (forecast off): no `forecastDecision` data section (§502 part 4). */
@@ -599,7 +639,9 @@ function variantKey(flags: ToolFlags): number {
     (historySearchEnabled(flags.historySearch) ? 0 : 1) |
     (chatSearchEnabled(flags.chatSearch) ? 0 : 2) |
     (flags.forecast === true ? 0 : 4) |
-    (peopleToolsLive(flags.peopleProtected) ? 0 : 8)
+    (peopleToolsLive(flags.peopleProtected) ? 0 : 8) |
+    (flags.resourcesHidden === true ? 16 : 0) |
+    (flags.stakeholdersHidden === true ? 32 : 0)
   );
 }
 
@@ -625,7 +667,9 @@ function variantFor(key: number) {
   const decided = (key & 4) === 0 ? kept : kept.map((d) => (DOCUMENTS_WITHOUT_DECISION.get(d.name) as typeof d | undefined) ?? d);
   // Bit 8 drops the people tools; §773 — it also withholds list_absences, so the date-writing tools swap
   // for variants that stop pointing at it.
-  const built = selectPeopleTools(decided, (key & 8) !== 0);
+  // Bit 16 (§810, Resources hidden) drops the Resources tools, with its own swap that also drops the clash promise;
+  // bit 32 (Stakeholders hidden) drops the stakeholder tools.
+  const built = selectPeopleTools(decided, { peopleProtected: (key & 8) !== 0, resourcesHidden: (key & 16) !== 0, stakeholdersHidden: (key & 32) !== 0 });
   TOOL_VARIANTS.set(key, built);
   return built;
 }
@@ -667,13 +711,19 @@ const NAMED_VARIANTS = new Map<string, ReturnType<typeof withCacheBreakpoint>>()
  *  single-shot inline edit, where a read tool can never be answered). One array per name set and
  *  protection state, like `toolsFor`, with the cache breakpoint recomputed for the subset. Under people
  *  protection the list is chat's protected selection of those names (`selectPeopleTools`); only an
- *  explicit true protects (`peopleToolsLive`). */
-export function toolsNamed(names: ReadonlySet<string>, peopleProtected?: boolean): ReturnType<typeof withCacheBreakpoint> {
-  const withoutPeople = !peopleToolsLive(peopleProtected);
-  const key = `${withoutPeople ? "protected" : "people"}:${[...names].sort().join(",")}`;
+ *  explicit true protects (`peopleToolsLive`). With Resources or Stakeholders hidden (§810) their tools go as in
+ *  `toolsFor`'s bits 16 and 32, so the list follows `toolWithheldBy` like chat's. */
+export function toolsNamed(
+  names: ReadonlySet<string>,
+  flags: PeopleToolFlags = {},
+): ReturnType<typeof withCacheBreakpoint> {
+  const withoutPeople = !peopleToolsLive(flags.peopleProtected);
+  const hidden = flags.resourcesHidden === true;
+  const stakeholdersHidden = flags.stakeholdersHidden === true;
+  const key = `${withoutPeople ? "protected" : "people"}:${hidden ? "hidden" : "shown"}:${stakeholdersHidden ? "hidden" : "shown"}:${[...names].sort().join(",")}`;
   const cached = NAMED_VARIANTS.get(key);
   if (cached) return cached;
-  const built = selectPeopleTools(TOOL_DEFS.filter((d) => names.has(d.name)), withoutPeople);
+  const built = selectPeopleTools(TOOL_DEFS.filter((d) => names.has(d.name)), { peopleProtected: withoutPeople, resourcesHidden: hidden, stakeholdersHidden });
   NAMED_VARIANTS.set(key, built);
   return built;
 }

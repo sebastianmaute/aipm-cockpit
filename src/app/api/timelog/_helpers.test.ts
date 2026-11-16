@@ -1,6 +1,16 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { parseTimelogRequest, callTimelog, type TimelogCreds } from "./_helpers";
 import { MAX_REQUESTS } from "../jira/_rate-limit";
+
+// These tests send distinct x-forwarded-for values as distinct callers, which the
+// limiter honours only when one proxy hop is trusted. Stubbed per test and restored after it (§562), so the
+// setting cannot leak into another file that runs in the same worker.
+beforeEach(() => {
+  vi.stubEnv("AIPM_TRUSTED_PROXY_HOPS", "1");
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 const creds: TimelogCreds = { host: "app2.timelog.com", tenant: "acme", token: "tok" };
 function req(body: unknown): Request {

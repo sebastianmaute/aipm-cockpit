@@ -149,9 +149,65 @@ function sanitizeForecastOverride(raw: unknown): SettingsOverrides["forecast"] |
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-/** Only an explicit allow is kept; protected (the default) is absence, and an empty result is undefined. */
+/** The `ai` override's flags in the order the sanitiser emits them. */
+const AI_OVERRIDE_FLAGS = ["peopleAllowed", "reviewAllWrites", "ratesWithheld"] as const;
+type AiOverrideFlag = (typeof AI_OVERRIDE_FLAGS)[number];
+
+function canonicalAi(isOn: (flag: AiOverrideFlag) => boolean): SettingsOverrides["ai"] | undefined {
+  const out: NonNullable<SettingsOverrides["ai"]> = {};
+  for (const flag of AI_OVERRIDE_FLAGS) if (isOn(flag)) out[flag] = true;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** Only an explicit `true` is kept per key; every default is absence, and an empty result is undefined. */
 function sanitizeAiOverride(raw: unknown): SettingsOverrides["ai"] | undefined {
-  return isObject(raw) && raw.peopleAllowed === true ? { peopleAllowed: true } : undefined;
+  if (!isObject(raw)) return undefined;
+  return canonicalAi((flag) => raw[flag] === true);
+}
+
+/** The order `sanitizeSettingsOverrides` emits the top-level keys in, and the `forecast` keys in. */
+const OVERRIDE_KEY_ORDER = ["nextActions", "notifications", "timezone", "forecast", "ai"] as const;
+const FORECAST_KEY_ORDER = ["showSimulation", "targetConfidence", "proposalScenarioId"] as const;
+
+/** A copy of `o` with its top-level keys, and its `forecast` keys, in the sanitiser's order. The `ai` and
+ *  `forecast` writers (`withAiOverrideFlag`, `withForecastObject`) return through it, so after any write of
+ *  theirs the override held in memory serialises exactly as it does after a reload. Values are kept as given, and a
+ *  key this build does not know is kept after the known ones (the sanitiser drops such a key on load, so only an
+ *  override carrying one can differ from its reloaded form). */
+export function inCanonicalOrder(o: SettingsOverrides): SettingsOverrides {
+  return withKnownFirst(o, OVERRIDE_KEY_ORDER, (key, value) =>
+    key === "forecast" && value !== null && typeof value === "object"
+      ? withKnownFirst(value as Record<string, unknown>, FORECAST_KEY_ORDER, (_k, v) => v)
+      : value,
+  ) as SettingsOverrides;
+}
+
+/** The known keys in `order`, then every other key in its existing order: a key this build does not know (written by
+ *  a newer client) is kept, never dropped. */
+function withKnownFirst(
+  o: object,
+  order: readonly string[],
+  map: (key: string, value: unknown) => unknown,
+): Record<string, unknown> {
+  const src = o as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const key of order) if (src[key] !== undefined) out[key] = map(key, src[key]);
+  for (const key of Object.keys(src)) if (!order.includes(key) && src[key] !== undefined) out[key] = src[key];
+  return out;
+}
+
+/** Return a NEW override with one `ai` flag set or cleared, in canonical order (`inCanonicalOrder`); `undefined`
+ *  when no override is left. Only `true` is stored (absence means off). */
+export function withAiOverrideFlag(
+  o: SettingsOverrides | undefined,
+  flag: AiOverrideFlag,
+  on: boolean,
+): SettingsOverrides | undefined {
+  const ai = canonicalAi((f) => (f === flag ? on : o?.ai?.[f] === true));
+  const next: SettingsOverrides = { ...o };
+  delete next.ai;
+  if (ai) next.ai = ai;
+  return hasAnyOverride(next) ? inCanonicalOrder(next) : undefined;
 }
 
 /** Validate untrusted per-project overrides. Emits a sub-key ONLY when it holds

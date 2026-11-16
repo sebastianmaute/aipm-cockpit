@@ -28,7 +28,7 @@ const milestones = (n: number): Milestone[] =>
 function context(args: { resources: Resource[]; plan: ResourcePlan; tasks: Task[]; milestones: Milestone[] }): string {
   return buildAllocContext({
     ...args, roles: [], disciplines: [], grades: [], absences: [], workdayHours: 8, holidaySet: new Set(),
-    stakeholders: [], instruction: "Balance the team", today,
+    stakeholders: [], instruction: "Balance the team", today, ratesWithheld: false,
   });
 }
 /** The model-facing count for one kind, 0 when the context reports none. */

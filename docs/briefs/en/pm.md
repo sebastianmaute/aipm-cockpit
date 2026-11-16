@@ -9,7 +9,8 @@
 ## In one paragraph
 
 The AI drafts and proposes work for you: most features change nothing until you apply their proposal, but a
-single ordinary change in the chat applies at once (E56, *read in code*; E47, *tested (unit)*). Its answers can
+single ordinary change in the chat applies at once unless your project reviews every AI write (E56,
+*read in code*; E47, *tested (unit)*; E71, *tested (unit)*). Its answers can
 differ between runs: the app does nothing to make the same request give the same answer, and whether the work
 breakdown optimisation repeats has not been measured (E61, *read in code*; E27, *not proven*). AI text in your
 report carries no mark, so telling a steering committee what the AI drafted is up to you (E55, *read in code*;
@@ -29,9 +30,10 @@ feature on one demo project (E37, *measured*).
   *read in code*). The new
   project proposal fills in the wizard, and nothing is created until you finish it (E49, *read in code*).
 - **Applies on its own:** an ordinary chat change, one change in one send that deletes nothing, invites no one,
-  puts no date on someone's absence and uses no tool that always asks for review, applies at once (§794; E47,
+  puts no date on someone's absence and uses no tool that always asks for review, applies at once (E47,
   *tested (unit)*) and shows in the activity
-  log as the AI's (E55, *read in code*). Anything else waits on a *review card* for you, as does every change
+  log as the AI's (E55, *read in code*), unless "Review every AI write" is on for your project or the
+  deployment (E71, *tested (unit)*). Anything else waits on a *review card* for you, as does every change
   while a file is attached, except the work breakdown optimisation, which opens its own preview; a reopened
   saved chat keeps no attachment (E47, *tested (unit)*). A task synced from Jira that the chat has read starts
   that hold for the rest of the conversation; rows created from an imported file do not (E48, *tested (unit)*).
@@ -44,6 +46,14 @@ feature on one demo project (E37, *measured*).
 - **Not the switches:** AI off, forced protection, the route and the key restriction are server settings of
   the deployment's operator (E19, *tested (unit)*; E4, *tested (unit)*; E7, *tested (unit)*); in the pilot the
   CEO and COO briefs suggest, protection is forced on, which hides allocation and RACI (E18, *tested (unit)*).
+- **Two project settings in Settings → AI, both off until set:** "Review every AI write" sends every change to
+  project data the chat proposes to the review card, even a single one, and a read never waits (E71,
+  *tested (unit)*); "Keep hourly rates out of Plan with AI and the chat's forecast and dashboard figures" leaves
+  the internal hourly rates out of that request, the role rate of a person from the directory out of the forecast
+  results the chat reads, and the planned and booked rate averages out of the dashboard figures it reads; a placeholder's rate that a saved scenario stores (a figure entered for it, or the team's mean
+  internal rate) is still sent, and a scenario's cost at finish beside As is, with the added person's weekly
+  hours, lets the model roughly work out that person's rate (E72, *tested (unit)*). The operator can force
+  either on for every project.
 - **Take or leave:** in the allocation, RACI, work breakdown and duplicate proposals you can deselect items, and
   the weight suggestion offers Accept for each weight; the others are applied, accepted or confirmed as a whole
   (E56, *read in code*). The steering committee draft waits under "AI draft – take sections into the report"
@@ -59,12 +69,11 @@ feature on one demo project (E37, *measured*).
 
 ## Not yet proven / open gaps
 
-1. **§794:** a single chat change applies without the review card (E47, *tested (unit)*).
-2. **§812:** whether the work breakdown optimisation repeats has not been measured (E27, *not proven*).
-3. **§814:** the hours from other projects in the allocation proposal have no observed behaviour from a
+1. **§812:** whether the work breakdown optimisation repeats has not been measured (E27, *not proven*).
+2. **§814:** the hours from other projects in the allocation proposal have no observed behaviour from a
    measured run (E39, *not proven*).
-4. **§801:** text the AI writes carries no machine-readable marking (E55, *read in code*).
-5. **§796:** tasks created by an applied work breakdown cannot be undone (E56, *read in code*).
+3. **§801:** text the AI writes carries no machine-readable marking (E55, *read in code*).
+4. **§796:** tasks created by an applied work breakdown cannot be undone (E56, *read in code*).
 
 ## What to check or ask for before saying yes
 

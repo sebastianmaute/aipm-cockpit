@@ -196,6 +196,7 @@ describe("buildWbsContext", () => {
       absences: [],
       resources: [],
       today: "2026-11-01",
+      enabledModules: ["resources"],
     });
     expect(out).toContain("Apollo");
     expect(out).toContain("2026-01-01");
@@ -221,6 +222,7 @@ describe("buildWbsContext", () => {
       absences: [],
       resources: [],
       today: "2026-11-01",
+      enabledModules: ["resources"],
     });
     expect(out).toContain("x".repeat(300) + "…");
     expect(out).not.toContain("x".repeat(301));
@@ -229,7 +231,7 @@ describe("buildWbsContext", () => {
 
   test("caps a 401-task list and says how many were omitted", () => {
     const tasks = Array.from({ length: 401 }, (_, i) => task(i + 1));
-    const out = buildWbsContext({ tasks, scopeIds: new Set([401]), milestones: [], project: undefined, absences: [], resources: [], today: "2026-11-01" });
+    const out = buildWbsContext({ tasks, scopeIds: new Set([401]), milestones: [], project: undefined, absences: [], resources: [], today: "2026-11-01", enabledModules: ["resources"] });
     expect(out).toContain("…(1 more tasks omitted)");
     expect(out).toMatch(/#401 \[in scope\]/);
     expect(out).not.toMatch(/^#400 /m);
@@ -246,6 +248,7 @@ describe("buildWbsContext line injection", () => {
       absences: [],
       resources: [],
       today: "2026-11-01",
+      enabledModules: ["resources"],
     });
     expect(out).not.toMatch(/^#99/m);
     expect(out).toContain("P Q");
@@ -286,12 +289,20 @@ describe("buildWbsContext — AWAY block (§773)", () => {
     milestones: [],
     project: { name: "Apollo", startDate: "2026-11-01", endDate: "2026-12-31" } as never,
     today: "2026-11-01",
+    enabledModules: ["resources"] as const,
   };
 
   test("lists who is away inside the project window", () => {
     const out = buildWbsContext({ ...base, absences: away, resources });
     expect(out).toContain("AWAY (absent days");
     expect(out).toContain("2026-11-03..2026-11-07");
+  });
+
+  // §810 — the project hides its Resources function: the proposal prompt says nothing about who is away.
+  test("adds nothing while the project hides Resources", () => {
+    const out = buildWbsContext({ ...base, absences: away, resources, enabledModules: ["raid"] });
+    expect(out).not.toContain("AWAY");
+    expect(out).not.toContain("2026-11-03..2026-11-07");
   });
 
   test("adds nothing when nobody is away", () => {

@@ -92,3 +92,20 @@ describe("deployment variables registry", () => {
     });
   });
 });
+
+// §562 — the trusted-hops text says the same as the RUNBOOK: one proxy that overwrites the header is safe at 1, pass-
+// through or a hop that neither appends nor overwrites is not, and the app's port must be reachable only through
+// the proxy.
+describe("the trusted-proxy-hops text", () => {
+  it("names the overwrite case, the unsafe cases and the direct-port risk, in English and German", async () => {
+    const en = t("en-US", "deployVarTrustedProxyHops");
+    expect(en).toMatch(/single proxy that overwrites the header/);
+    expect(en).toMatch(/neither appends nor overwrites/);
+    expect(en).toMatch(/reachable only through the proxy/);
+    await loadI18n("de");
+    const de = t("de", "deployVarTrustedProxyHops");
+    expect(de).toMatch(/ein einzelner Proxy, der den Header überschreibt/);
+    expect(de).toMatch(/weder anhängt noch überschreibt/);
+    expect(de).toMatch(/nur über den Proxy erreichbar/);
+  });
+});

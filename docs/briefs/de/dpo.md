@@ -22,10 +22,21 @@ Fragen, die nur Ihre Organisation beantworten kann.
 ## Was hinausgeht und wer es freigibt
 
 - **Je Funktion:** siehe [KI-Pfade und Personendaten](appendix.md#ki-pfade-und-personendaten). Der Vorschlag
-  für die Ressourcenplanung sendet je Person die geplanten und verfügbaren Stunden und den internen Stundensatz
-  ihrer Rolle, und Timelog-Insights nennen eine Person mit Befunden zu ihrer erfassten Arbeitszeit (E1,
-  *im Code gelesen*); fünf Funktionen senden, wer abwesend ist, auch bei ausgeblendeter Ressourcen-Funktion
-  (E59, *im Code gelesen*).
+  für die Ressourcenplanung sendet je Person die geplanten und verfügbaren Stunden und, sofern nicht das Projekt
+  oder die Bereitstellung Stundensätze heraushält, den internen Stundensatz ihrer Rolle, und Timelog-Insights
+  nennen eine Person mit Befunden zu ihrer erfassten Arbeitszeit (E1, *im Code gelesen*; E72,
+  *getestet (Unit)*).
+- **Ausgeblendete Ressourcen-Funktion:** Solange ein Projekt sie ausblendet, bekommt keine KI-Funktion die
+  Werkzeuge dieser Funktion angeboten (Ressourcenverzeichnis, Abwesenheiten, Zuteilungen und das Nachschlagen
+  einer Kontakt-E-Mail), keine Anfrage enthält die Liste, wer abwesend ist, Insight-Empfehlungen nennen nur
+  Personen, die bereits offenen Aufgaben zugewiesen sind, kein Insight über eine einzelne Person wird gesendet,
+  und die Prognoseergebnisse des Chats nennen keine Person aus dem Verzeichnis; die Stakeholder-Werkzeuge folgen der
+  Stakeholder-Funktion, und die Suche im Verlauf, die Suche in Chats, die Statusanfrage und die Eskalation eines
+  RAID-Eintrags bleiben verfügbar; eine Datumsänderung im Chat, die auf die Abwesenheit einer Person fällt, wird
+  weiterhin zur Prüfung zurückgehalten, sodass das Modell erkennen kann, dass sie zurückgehalten wurde, aber
+  nichts darüber erfährt, wer wann abwesend ist. Das Ausblenden nimmt keine Namen aus Aufgaben und anderen
+  Einträgen heraus; das ist Aufgabe des Personenschutzes. Eine ausgeblendete Funktion über die KI wieder
+  einzuschalten, wartet immer auf die Prüfung. Und eine Was-wäre-wenn-Rechnung der Prognose, die eine Person aus dem Verzeichnis über ihre Nummer nennt, meldet weiterhin ohne Namen den internen Stundensatz ihrer Rolle (außer die Stundensatz-Einstellung ist eingeschaltet), ob sie extern ist oder keinen Satz hat, ob sie schon zum Team gehört oder nicht mehr im Verzeichnis steht, und Prognosezahlen (Termine, Chancen, Kosten), die ihre Schicht und ihre Abwesenheiten prägen (E59, *getestet (Unit)*).
 - **Abwesenheitstypen (möglicherweise besondere Kategorien personenbezogener Daten):** Kein KI-Pfad sendet
   den gespeicherten Typ einer Abwesenheit: Der Chat führt jede als „absent“, die Bearbeitung einer Zeile und
   die Listen, wer abwesend ist, lassen ihn weg (E63, *getestet (Unit)*; E1, *im Code gelesen*). Ein Hinweis
@@ -61,6 +72,15 @@ Fragen, die nur Ihre Organisation beantworten kann.
   erzwingt den Schutz in jedem Projekt (E19, *getestet (Unit)*) und blendet Ressourcenplanung und RACI aus (E18,
   *getestet (Unit)*); wird er aufgehoben, gilt wieder die gespeicherte Einstellung jedes Projekts (E43,
   *im Code gelesen*).
+- **Stundensätze:** Die Einstellung „Stundensätze aus Mit KI planen, der Prognose im Chat und den Dashboard-Zahlen
+  heraushalten“ eines Projekts, oder `ai-rates` für die ganze Bereitstellung, hält die Sätze aus dieser Anfrage
+  heraus, den Satz der Rolle einer Person aus dem Verzeichnis aus den Prognoseergebnissen, die der Chat liest, und
+  die geplanten und gebuchten Durchschnittssätze aus den Dashboard-Zahlen, die der Chat liest; die Personen,
+  ihre Rollen und ihre Stunden werden weiterhin gesendet. Den Satz eines Platzhalters, den ein gespeichertes
+  Szenario speichert (eine dafür eingetragene Zahl oder der mittlere interne Satz des Teams), sendet es
+  weiterhin mit diesem Szenario, und die Kosten bei Fertigstellung eines Szenarios oder einer
+  Was-wäre-wenn-Rechnung neben dem Ist-Stand lassen das Modell mit den Wochenstunden der hinzugefügten Person
+  deren Satz grob ausrechnen (E72, *getestet (Unit)*).
 - **Gespeicherte Chats:** nur mit einer Turso-Datenbank und dem Wiederherstellungsschlüssel des Betreibers
   aufbewahrt (E28, *im Code gelesen*); gelöscht 30 Tage nach ihrer letzten Änderung (der Betreiber kann 1 bis
   3650 einstellen), vom Browser und, wo eingerichtet, vom Server (E29, *im Code gelesen*).
@@ -74,11 +94,8 @@ Fragen, die nur Ihre Organisation beantworten kann.
 1. **§813:** Das Löschen von Chats ist live nur für seine Datenbankanweisungen belegt, nicht für die
    Oberflächen, echte Löschläufe, die Sicherungen des Anbieters oder was der Modellanbieter aufbewahrt (E30,
    *getestet (Live-Datenbank)*).
-2. **§810:** Das Ausblenden der Ressourcen-Funktion hält Personen und Abwesenheiten nicht von der KI fern (E59,
-   *im Code gelesen*).
-3. **§804:** Der Vorschlag für die Ressourcenplanung sendet immer interne Stundensätze (E1, *im Code gelesen*).
-4. **§795:** Für die Hintergrund-KI wird einmal zugestimmt, nicht für jeden Lauf (E32, *getestet (Unit)*).
-5. **§814:** Für die Ablehnung von Bildern und PDFs bei Personenschutz und die Stunden anderer Projekte in der
+2. **§795:** Für die Hintergrund-KI wird einmal zugestimmt, nicht für jeden Lauf (E32, *getestet (Unit)*).
+3. **§814:** Für die Ablehnung von Bildern und PDFs bei Personenschutz und die Stunden anderer Projekte in der
    Ressourcenplanung gibt es kein beobachtetes Verhalten aus einem gemessenen Lauf (E39, *nicht belegt*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten

@@ -1,12 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import {
-  AiPrivacyProvider, AiPrivacyUnavailableError, useAiPrivacySource, useOpenProjectAiPrivacy,
+  AiPrivacyProvider, AiPrivacyUnavailableError, useAiPrivacySource, useOpenProjectAiPrivacy, useOpenProjectRatesWithheld, useOpenProjectReviewAllWrites,
 } from "./ai-privacy-context";
 import { withPeopleAllowed } from "./ai-people-protection";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import type { Stakeholder } from "./types";
+import { setDisabledIntegrations } from "./integration-switches";
+import * as unprotectedStandIn from "../test/ai-privacy-unprotected";
 
 // AI people protection: the open project's privacy is read at SEND time, from the source as
 // task-manager registered it on the latest commit. A source captured once at mount would send every
@@ -78,5 +80,64 @@ describe("fail closed", () => {
   it("throws inside the provider before any source is registered", () => {
     const { result } = renderHook(() => useOpenProjectAiPrivacy(), { wrapper });
     expect(() => result.current()).toThrow(AiPrivacyUnavailableError);
+  });
+});
+
+describe("the open project's rates switch follows the workspace at send time (§804)", () => {
+  const withRates = (on: boolean): Workspace => ({ ...emptyWorkspace(), settingsOverrides: on ? { ai: { ratesWithheld: true } } : undefined });
+  function useRatesHarness({ projectKey, workspace }: Props) {
+    useAiPrivacySource(projectKey, () => workspace, () => 0);
+    return useOpenProjectRatesWithheld();
+  }
+  const mountRates = (initial: Props) => renderHook((p: Props) => useRatesHarness(p), { wrapper, initialProps: initial });
+
+  it("off at mount, switched on later: the next send withholds rates", () => {
+    const { result, rerender } = mountRates({ projectKey: "p1", workspace: withRates(false) });
+    const getter = result.current;
+    expect(getter()).toBe(false);
+    rerender({ projectKey: "p1", workspace: withRates(true) });
+    expect(getter()).toBe(true);
+  });
+
+  // Like people protection and the review switch, it fails CLOSED: with no project source registered rates are withheld.
+  it("with no source registered it withholds rates", () => {
+    const { result } = renderHook(() => useOpenProjectRatesWithheld(), { wrapper });
+    expect(result.current()).toBe(true);
+  });
+});
+
+// §794 — like people protection, the review switch fails CLOSED: with no source registered (no project is open yet)
+// every AI write goes to the review card. With a source, the project's own setting decides.
+describe("the open project's review switch", () => {
+  const withReview = (on: boolean): Workspace => ({ ...emptyWorkspace(), settingsOverrides: on ? { ai: { reviewAllWrites: true } } : undefined });
+  function useReviewHarness({ projectKey, workspace }: Props) {
+    useAiPrivacySource(projectKey, () => workspace, () => 0);
+    return useOpenProjectReviewAllWrites();
+  }
+  it("reviews every write while no source is registered", () => {
+    const { result } = renderHook(() => useOpenProjectReviewAllWrites(), { wrapper });
+    expect(result.current()).toBe(true);
+  });
+  it("CONTROL: with a source, the project's setting decides", () => {
+    const { result, rerender } = renderHook((p: Props) => useReviewHarness(p), { wrapper, initialProps: { projectKey: "p1", workspace: withReview(false) } });
+    const getter = result.current;
+    expect(getter()).toBe(false);
+    rerender({ projectKey: "p1", workspace: withReview(true) });
+    expect(getter()).toBe(true);
+  });
+});
+
+// §794/§804 — the stand-in that feature tests mock this module with has no project, so only a deployment lock can
+// switch either safeguard on there, exactly as the real getters answer with no source registered.
+describe("the unprotected stand-in honours the deployment locks", () => {
+  afterEach(() => setDisabledIntegrations([]));
+
+  it("review of every write and withheld rates are off with no lock, and on under ai-direct-writes and ai-rates", () => {
+    setDisabledIntegrations([]);
+    expect(unprotectedStandIn.useOpenProjectReviewAllWrites()()).toBe(false);
+    expect(unprotectedStandIn.useOpenProjectRatesWithheld()()).toBe(false);
+    setDisabledIntegrations(["ai-direct-writes", "ai-rates"]);
+    expect(unprotectedStandIn.useOpenProjectReviewAllWrites()()).toBe(true);
+    expect(unprotectedStandIn.useOpenProjectRatesWithheld()()).toBe(true);
   });
 });
