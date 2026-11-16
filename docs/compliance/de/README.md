@@ -164,9 +164,10 @@ Sechs Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
   niemandes Hintergrund-Zustimmung zurück. Die App setzt sie im Browser durch, ein veränderter Client könnte sie
   also umgehen; keine Server-Route lehnt ab. Ein Client, der nicht aktualisiert wurde, verwirft die Einstellung
   des Projekts, wenn er ein gemeinsames Projekt speichert; ein Team mit gemischten Versionen sollte daher die
-  Kennung der Installation verwenden. Der Hinweis in den Einstellungen der geplanten Aufträge gibt nur das
-  geöffnete Projekt wieder, und ein geplanter Auftrag eines pausierten Projekts lädt dieses Projekt bei jeder
-  Prüfung noch, bevor er anhält, ohne etwas an die KI zu senden. Ein Lauf, der doch startet, sendet weiter, was
+  Kennung der Installation verwenden. Ein geplanter Job entscheidet nach seinem eigenen Projekt: Der Job eines pausierten Projekts wird
+  auf jedem Gerät höchstens einmal pro Stunde versucht und hält dann ohne Bericht an, ohne etwas an die KI zu
+  senden; die Einstellungen der geplanten Jobs sagen, dass ein Job nicht läuft, solange sein Projekt pausiert ist,
+  nicht aber, welches Projekt es ist. Ein Lauf, der doch startet, sendet weiter, was
   er immer gesendet hat, und niemand gibt ihn vorher frei. [geprüft: `assertBackgroundConsentLive` in
   `src/app/ai-consent.ts`; `backgroundOff` in `src/app/settings-overrides.ts`]
 

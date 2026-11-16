@@ -234,7 +234,9 @@ longer carries its own changelog comment.
   quietly, with no failure report or error notification, and the digest is produced without its AI summary. AI a
   person starts is not affected, and the pause never withdraws or changes anyone's background consent. It is off
   until set; turning it back on asks first, and every change is written to the activity log. A scheduled job
-  follows the setting of the project it analyses, and with no project loaded the runs are paused. The app
+  follows the setting of the project it analyses, and a paused project's job is tried at most once an hour on each
+  device, with no report; the automatic recommendations and the digest summary run on the open project and are paused
+  while none is loaded. The scheduled-jobs settings say that a job does not run while its project is paused. The app
   enforces the pause; no server route refuses. Upgrade every client first: an older client drops the setting
   when it saves a shared project, so a team on mixed versions should use `ai-background`.
 
