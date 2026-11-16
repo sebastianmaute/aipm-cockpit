@@ -147,3 +147,19 @@ describe("the override's key order after a forecast write", () => {
     expect(JSON.stringify(o)).toBe(roundTrip(o));
   });
 });
+
+// An override key this build does not know (written by a newer client) is kept, after the canonical keys, by both
+// writers; dropping it would erase another client's setting on the next toggle.
+describe("the canonical order keeps keys it does not know", () => {
+  const withUnknown = { future: { x: 1 }, forecast: { showSimulation: true } } as unknown as SettingsOverrides;
+  it("withAiOverrideFlag keeps an unknown key, after the canonical ones", () => {
+    const o = withAiSwitch(withUnknown, "reviewAllWrites", true) as unknown as Record<string, unknown>;
+    expect(Object.keys(o)).toEqual(["forecast", "ai", "future"]);
+    expect(o.future).toEqual({ x: 1 });
+  });
+  it("withForecastObject keeps an unknown key too", () => {
+    const o = withForecastObject(withUnknown, { targetConfidence: 95 }) as unknown as Record<string, unknown>;
+    expect(Object.keys(o)).toEqual(["forecast", "future"]);
+    expect(o.future).toEqual({ x: 1 });
+  });
+});

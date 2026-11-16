@@ -171,16 +171,29 @@ const FORECAST_KEY_ORDER = ["showSimulation", "targetConfidence", "proposalScena
 
 /** A copy of `o` with its top-level keys, and its `forecast` keys, in the sanitiser's order. The `ai` and
  *  `forecast` writers (`withAiOverrideFlag`, `withForecastObject`) return through it, so after any write of
- *  theirs the override held in memory serialises exactly as it does after a reload. Values are kept as given. */
+ *  theirs the override held in memory serialises exactly as it does after a reload. Values are kept as given, and a
+ *  key this build does not know is kept after the known ones (the sanitiser drops such a key on load, so only an
+ *  override carrying one can differ from its reloaded form). */
 export function inCanonicalOrder(o: SettingsOverrides): SettingsOverrides {
+  return withKnownFirst(o, OVERRIDE_KEY_ORDER, (key, value) =>
+    key === "forecast" && value !== null && typeof value === "object"
+      ? withKnownFirst(value as Record<string, unknown>, FORECAST_KEY_ORDER, (_k, v) => v)
+      : value,
+  ) as SettingsOverrides;
+}
+
+/** The known keys in `order`, then every other key in its existing order: a key this build does not know (written by
+ *  a newer client) is kept, never dropped. */
+function withKnownFirst(
+  o: object,
+  order: readonly string[],
+  map: (key: string, value: unknown) => unknown,
+): Record<string, unknown> {
+  const src = o as Record<string, unknown>;
   const out: Record<string, unknown> = {};
-  for (const key of OVERRIDE_KEY_ORDER) if (o[key] !== undefined) out[key] = o[key];
-  if (o.forecast) {
-    const f: Record<string, unknown> = {};
-    for (const key of FORECAST_KEY_ORDER) if (o.forecast[key] !== undefined) f[key] = o.forecast[key];
-    out.forecast = f;
-  }
-  return out as SettingsOverrides;
+  for (const key of order) if (src[key] !== undefined) out[key] = map(key, src[key]);
+  for (const key of Object.keys(src)) if (!order.includes(key) && src[key] !== undefined) out[key] = src[key];
+  return out;
 }
 
 /** Return a NEW override with one `ai` flag set or cleared, in canonical order (`inCanonicalOrder`); `undefined`
