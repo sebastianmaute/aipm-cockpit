@@ -38,7 +38,7 @@ function makeDispatcher(enabledModules: string[]): ToolDispatcher {
 
 function renderOpen(enabledModules: string[]) {
   function Source({ children }: { children: ReactNode }) {
-    useAiPrivacySource("p1", () => ALLOWED, () => 0);
+    useAiPrivacySource("p1", () => ALLOWED, () => 0, true);
     return <>{children}</>;
   }
   return render(

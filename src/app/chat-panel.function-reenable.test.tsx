@@ -80,7 +80,7 @@ function scriptFetch(turns: unknown[]): string[] {
 function mountAndSend(dispatcher: ToolDispatcher) {
   const ws: Workspace = { ...emptyWorkspace(), tasks: [TASK], features: ["raid"], settingsOverrides: withPeopleAllowed(undefined, true) };
   function Source({ children }: { children: ReactNode }) {
-    useAiPrivacySource("p1", () => ws, () => 0);
+    useAiPrivacySource("p1", () => ws, () => 0, true);
     return <>{children}</>;
   }
   render(

@@ -29,7 +29,7 @@ interface Props { projectKey: string; workspace: Workspace }
 
 /** Registers the source as task-manager does, and hands back the getter a feature would hold. */
 function useHarness({ projectKey, workspace }: Props) {
-  useAiPrivacySource(projectKey, () => workspace, () => 0);
+  useAiPrivacySource(projectKey, () => workspace, () => 0, true);
   return useOpenProjectAiPrivacy();
 }
 const wrapper = ({ children }: { children: ReactNode }) => <AiPrivacyProvider>{children}</AiPrivacyProvider>;
@@ -88,7 +88,7 @@ describe("fail closed", () => {
 describe("the open project's rates switch follows the workspace at send time (§804)", () => {
   const withRates = (on: boolean): Workspace => ({ ...emptyWorkspace(), settingsOverrides: on ? { ai: { ratesWithheld: true } } : undefined });
   function useRatesHarness({ projectKey, workspace }: Props) {
-    useAiPrivacySource(projectKey, () => workspace, () => 0);
+    useAiPrivacySource(projectKey, () => workspace, () => 0, true);
     return useOpenProjectRatesWithheld();
   }
   const mountRates = (initial: Props) => renderHook((p: Props) => useRatesHarness(p), { wrapper, initialProps: initial });
@@ -113,7 +113,7 @@ describe("the open project's rates switch follows the workspace at send time (§
 describe("the open project's review switch", () => {
   const withReview = (on: boolean): Workspace => ({ ...emptyWorkspace(), settingsOverrides: on ? { ai: { reviewAllWrites: true } } : undefined });
   function useReviewHarness({ projectKey, workspace }: Props) {
-    useAiPrivacySource(projectKey, () => workspace, () => 0);
+    useAiPrivacySource(projectKey, () => workspace, () => 0, true);
     return useOpenProjectReviewAllWrites();
   }
   it("reviews every write while no source is registered", () => {

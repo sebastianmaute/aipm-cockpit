@@ -112,7 +112,6 @@ let backgroundCapReached = false;
 // Published by the open project's privacy source. FAIL CLOSED: paused until a project publishes.
 let backgroundProjectOff = true;
 
-/** Records whether the open project pauses background AI. */
 const projectResumedListeners = new Set<() => void>();
 
 /** Told when the open project's published pause goes from on to off, so a scheduler that remembered a pause can try again. */
@@ -121,6 +120,7 @@ export function onBackgroundProjectResumed(listener: () => void): () => void {
   return () => { projectResumedListeners.delete(listener); };
 }
 
+/** Records whether the open project pauses background AI. */
 export function publishBackgroundProjectOff(off: boolean): void {
   const resumed = backgroundProjectOff && !off;
   backgroundProjectOff = off;

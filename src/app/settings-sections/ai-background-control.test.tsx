@@ -118,7 +118,7 @@ describe("AiBackgroundControl", () => {
 describe("AiBackgroundControl — a project swap while the dialog is open", () => {
   const epoch = { v: 1 };
   function Registrar() {
-    useAiPrivacySource("p1", () => ({}) as unknown as Workspace, () => epoch.v);
+    useAiPrivacySource("p1", () => ({}) as unknown as Workspace, () => epoch.v, true);
     return null;
   }
   function renderInScope() {

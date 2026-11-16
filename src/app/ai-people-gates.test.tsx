@@ -56,7 +56,7 @@ const toast = { showToast: vi.fn(), showToastAction: vi.fn() };
 
 /** The open project's privacy source, as task-manager registers it: re-registered on every render. */
 function Source({ ws, children }: { ws: () => Workspace; children: ReactNode }) {
-  useAiPrivacySource("p1", ws, () => 0);
+  useAiPrivacySource("p1", ws, () => 0, true);
   return <>{children}</>;
 }
 

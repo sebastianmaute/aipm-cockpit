@@ -53,7 +53,7 @@ const withImage: ChatConversation = {
 function renderOpen(ws: Workspace | (() => Workspace), conversation: ChatConversation = withImage) {
   const read = typeof ws === "function" ? ws : () => ws;
   function Source({ children }: { children: ReactNode }) {
-    useAiPrivacySource("p1", read, () => 0);
+    useAiPrivacySource("p1", read, () => 0, true);
     return <>{children}</>;
   }
   return render(
