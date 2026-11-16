@@ -58,7 +58,7 @@ Was-wäre-wenn-Rechnung hinzufügt, ohne ihren Namen. [geprüft: `insightReaches
 `src/app/insights/insight-prompt.ts`; `DIRECTORY_NAME_WITHHELD` in `src/app/forecast-ai-report.ts`] Die
 Stakeholder-Werkzeuge folgen ebenso der
 Stakeholder-Funktion. Die Suche im Verlauf, die Suche in Chats, die Statusanfrage und die Eskalation eines
-RAID-Eintrags entzieht eine ausgeblendete Funktion nicht. Die fünf Funktionen, die die Liste senden, wer abwesend ist (der Entwurf des
+RAID-Eintrags entzieht eine ausgeblendete Funktion nicht. Eine ausgeblendete Ressourcen- oder Stakeholder-Funktion über die KI wieder einzuschalten, wartet immer auf der Prüfkarte, gleich wie die Prüfeinstellung steht, und die entzogenen Werkzeuge bleiben abgelehnt, bis die Karte übernommen ist. [geprüft: `liftsFunctionWithdrawal` und `shouldStage` in `src/app/chat-proposal.ts`] Die fünf Funktionen, die die Liste senden, wer abwesend ist (der Entwurf des
 Lenkungsausschuss-Berichts, „Nächste Schritte mit KI analysieren“, die Analyse durch geplante Aufträge,
 die Insight-Empfehlungen, auf Anfrage und automatisch, und der Vorschlag für den Projektstrukturplan),
 lassen sie weg. Eine Änderung im Chat, die ein Datum auf die Abwesenheit einer Person legt, gibt der KI

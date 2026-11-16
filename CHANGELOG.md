@@ -214,13 +214,15 @@ longer carries its own changelog comment.
 - **A project can have every AI chat change reviewed.** "Review every AI write" in Settings → AI sends every
   change to project data the chat proposes to the review card, even a single one; reads never wait. It is off
   until set. An operator can force it on in every project with `ai-direct-writes` in `AIPM_DISABLED_INTEGRATIONS`.
-  With it off, a single change is applied at once, and most changes can be undone. Upgrade every client first:
+  With it off, a single change is applied at once, and most changes can be undone. Turning it off asks first, and
+  turning it on or off is written to the activity log. Upgrade every client first:
   an older client drops the setting when it saves a shared project.
 - **A project can keep hourly rates out of Plan with AI and the chat's forecast and dashboard figures.** "Keep
   hourly rates out of Plan with AI and the chat’s forecast and dashboard figures" in Settings → AI leaves the
   internal hourly rate out of Plan with AI, out of the forecast results the chat reads for a person from the
   resource directory a scenario or what-if adds, and out of the planned and booked rate averages in the dashboard
-  figures the chat reads. Costs and budgets are still sent. It is off until set, and
+  figures the chat reads. Costs and budgets are still sent. Turning it off asks first, and turning it on or off is
+  written to the activity log. It is off until set, and
   `ai-rates` forces it on in every project. A placeholder's rate that a saved scenario stores is still sent with
   it, and a scenario's cost at finish, beside the added person's weekly hours, lets the model roughly work out
   that person's rate. Upgrade every client first: an older client drops the setting when it saves a shared
@@ -239,10 +241,11 @@ longer carries its own changelog comment.
   request. By default all callers of a route now share one limit; behind reverse proxies that append the
   caller's address to `x-forwarded-for`, set `AIPM_TRUSTED_PROXY_HOPS` to their number to count each caller
   separately (`docs/RUNBOOK.md`); a set but invalid value counts as unset and is logged once. The count is still
-  kept per server process. After upgrading, a server with
-  several users and no such proxy shares one count per route: Jira, Confluence, Timelog and the exchange rates
-  are fixed at 60 requests a minute, Jira and Confluence share one count, and only the AI and dictation limits
-  can be raised.
+  kept per server process; a port a proxy appends to an address is ignored. **Upgrade warning:** by default every
+  caller of a route now shares one count, so one busy user can use up, for example, the AI relay's per-minute
+  limit for everyone; Jira, Confluence, Timelog and the exchange rates stay fixed at 60 requests a minute (Jira
+  and Confluence share one count), and only the AI and dictation limits can be raised. Behind a proxy, set
+  `AIPM_TRUSTED_PROXY_HOPS` as `docs/RUNBOOK.md` "Request limits behind a proxy" describes.
 - **Hiding a project's Resources function now withdraws its tools, who is away and directory names from the AI.** The chat, the row
   edit and the insight recommendations are no longer offered the Resources tools (the resource directory,
   absences, allocations and contact e-mail look-ups), and the steering committee report draft, Analyze next
@@ -254,7 +257,9 @@ longer carries its own changelog comment.
   project in Simple mode keeps them. The stakeholder tools, and a stakeholder's e-mail look-up, follow the
   Stakeholders function instead. A chat date
   change that lands on an absence is still held for review. Names in tasks, RAID items and other records still
-  reach the AI, and so do the assignee names insight recommendations list; people protection covers those.
+  reach the AI, and so do the assignee names insight recommendations list; people protection covers those. While
+  Resources is hidden, a forecast what-if that names a directory person by id still reports, without the name, their weekly hours, whether they are external or have no rate, and whether they are already on the team or gone from the directory. Turning a hidden Resources or Stakeholders function back on
+  through the AI always waits on the review card.
 - **The chat holds its changes for review after it reads a task synced from Jira.** Text synced from Jira can
   carry instructions aimed at the AI, like an attached file. Once the chat has read such a task in a
   conversation, every change it proposes after that waits on the review card, as it already did while a file

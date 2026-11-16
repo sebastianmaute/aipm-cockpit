@@ -120,7 +120,7 @@ wo die Einzelheiten stehen. [geprüft: die Registereinträge in `docs/open-follo
   Attrappen und einen lokalen Server getestet. Wie sich ein echtes Gateway mit der App verhält, ist durch
   keinen Lauf bestätigt.
 
-Vier Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
+Fünf Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
 
 - **Anfragegrenzen.** Die Begrenzung der Routen für Jira, Confluence, Timelog, Wechselkurse, KI und Diktat
   vertraut keinem Header mehr, den der Aufrufer setzt. Standardmäßig teilen sich alle Aufrufer einer Route
@@ -144,6 +144,9 @@ Vier Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
   Ist-Stand, und die Angaben zu einer hinzugefügten Person behalten ihre Wochenstunden. Aus dem Unterschied und
   diesen Stunden könnte das Modell den Satz dieser Person grob ausrechnen, obwohl der Satz selbst entfällt.
   [geprüft: `buildForecastReport` in `src/app/forecast-ai-report.ts`]
+- **Was-wäre-wenn-Rechnung bei ausgeblendeter Ressourcen-Funktion.** Solange ein Projekt Ressourcen ausblendet,
+  eine Was-wäre-wenn-Rechnung der Prognose, die eine Person aus dem Verzeichnis über ihre Nummer nennt, meldet weiterhin ohne Namen ihre Wochenstunden, ob sie extern ist oder keinen Satz hat und ob sie schon zum Team gehört oder nicht mehr im Verzeichnis steht. [geprüft: `resolveAddedPeople` in
+  `src/app/forecast-added-people.ts`; `buildForecastReport` in `src/app/forecast-ai-report.ts`]
 - **Eine ausgeblendete Ressourcen-Funktion.** Solange ein Projekt sie ausblendet, bekommt die KI keines der
   Werkzeuge dieser Funktion angeboten (Ressourcenverzeichnis, Abwesenheiten, Zuteilungen und das Nachschlagen
   einer Kontakt-E-Mail), keine Anfrage führt auf, wer abwesend ist, und Insight-Empfehlungen nennen nur

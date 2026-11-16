@@ -809,7 +809,8 @@ the quota of everyone else on that route.
   of reverse proxies in front of the app that each APPEND the address they saw to
   `x-forwarded-for` (nginx: `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`),
   or to 1 for a single proxy that overwrites the header with the address it saw.
-  The app then counts a request under the entry `N` places from the right of that header;
+  The app then counts a request under the entry `N` places from the right of that header (a port
+  the proxy appends, `1.2.3.4:5678` or `[::1]:5678`, is dropped, so one caller's connections share it);
   everything to its left is client-supplied and ignored. A whole number from 1 to 10; an
   invalid value, or 0, keeps the shared limit; an invalid value is also logged once per server process
   ("trusted proxy hops setting invalid …", naming the setting, never its value). A request whose header has fewer than `N`
