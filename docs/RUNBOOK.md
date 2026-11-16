@@ -513,7 +513,9 @@ section there.
 - **`ai-direct-writes` forces every AI write into review** in every project, whatever a project chose; AI stays available.
 - **`ai-rates` keeps hourly rates out of Plan with AI and the chat’s forecast** in every project, whatever a project chose; AI stays available.
 - **`ai-direct-writes` and `ai-rates` are applied by the app,** in the browser: no server route
-  refuses a request under either of them (only `ai-people` also makes `/api/stt` refuse).
+  refuses a request under either of them (only `ai-people` also makes `/api/stt` refuse). An
+  open page reads the deployment's list once, when it loads: after a change (and the server
+  restart), a page left open keeps the old locks until it is reloaded, so ask people to reload.
 - **★ Upgrade every client before relying on the per-project switches.** "Review every AI write"
   and "Keep hourly rates out of Plan with AI and the chat’s forecast" are stored with the project
   (`reviewAllWrites`, `ratesWithheld`). A client that has not been upgraded drops both when it
@@ -801,7 +803,8 @@ the quota of everyone else on that route.
 
 - **`AIPM_TRUSTED_PROXY_HOPS=N`** gives each caller their own limit. Set `N` to the number
   of reverse proxies in front of the app that each APPEND the address they saw to
-  `x-forwarded-for` (nginx: `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`).
+  `x-forwarded-for` (nginx: `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`),
+  or to 1 for a single proxy that overwrites the header with the address it saw.
   The app then counts a request under the entry `N` places from the right of that header;
   everything to its left is client-supplied and ignored. A whole number from 1 to 10; an
   invalid value, or 0, keeps the shared limit. A request whose header has fewer than `N`
@@ -810,9 +813,12 @@ the quota of everyone else on that route.
   have been written by one of your own proxies. A single proxy that sets the header to the
   address it saw, overwriting what the client sent (nginx: `proxy_set_header X-Forwarded-For
   $remote_addr;`), is safe with `N=1`, and so is a chain in which every hop appends. A proxy
-  that passes the client's header through untouched, or a chain in which some hop does not
-  append, lets callers choose their own bucket again. Check what each hop sends before
-  setting it.
+  that passes the client's header through untouched, or a chain in which some hop neither
+  appends nor overwrites, lets callers choose their own bucket again. Check what each hop
+  sends before setting it.
+- **The app's port must be reachable only through the proxy.** With `N` ≥ 1, a caller who
+  reaches the app directly writes the header themselves and so chooses their own bucket.
+  Bind the app to an address only the proxy can reach, or firewall its port.
 - **Raise the limits for a shared address.** With the shared default, many users share one
   quota. Raise the AI relay and dictation limits with `AIPM_AI_RELAY_MAX_REQUESTS` and
   `AIPM_STT_MAX_REQUESTS` (see the AI gateway section above).

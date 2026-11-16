@@ -28,8 +28,9 @@ Fragen, die nur Ihre Organisation beantworten kann.
   *getestet (Unit)*).
 - **Ausgeblendete Ressourcen-Funktion:** Solange ein Projekt sie ausblendet, bekommt keine KI-Funktion die
   Werkzeuge dieser Funktion angeboten (Ressourcenverzeichnis, Abwesenheiten, Zuteilungen und das Nachschlagen
-  einer Kontakt-E-Mail), keine Anfrage enthält die Liste, wer abwesend ist, und Insight-Empfehlungen nennen nur
-  Personen, die bereits offenen Aufgaben zugewiesen sind; die Stakeholder-Werkzeuge folgen der
+  einer Kontakt-E-Mail), keine Anfrage enthält die Liste, wer abwesend ist, Insight-Empfehlungen nennen nur
+  Personen, die bereits offenen Aufgaben zugewiesen sind, kein Insight über eine einzelne Person wird gesendet,
+  und die Prognoseergebnisse des Chats nennen keine Person aus dem Verzeichnis; die Stakeholder-Werkzeuge folgen der
   Stakeholder-Funktion, und die Suche im Verlauf, die Suche in Chats, die Statusanfrage und die Eskalation eines
   RAID-Eintrags bleiben verfügbar; eine Datumsänderung im Chat, die auf die Abwesenheit einer Person fällt, wird
   weiterhin zur Prüfung zurückgehalten, sodass das Modell erkennen kann, dass sie zurückgehalten wurde, aber

@@ -24,7 +24,8 @@ with Anthropic, transfers and a works agreement are questions only your organisa
   logged working time (E1, *read in code*; E72, *tested (unit)*).
 - **Hidden Resources function:** while a project hides it, no AI feature is offered that function's tools (the
   resource directory, absences, allocations and contact e-mail look-ups), no prompt carries the list of who is
-  away, and insight recommendations name only people already assigned to open tasks; the stakeholder tools
+  away, insight recommendations name only people already assigned to open tasks, no insight about one person
+  is sent, and the chat's forecast results do not name a person from the directory; the stakeholder tools
   follow the Stakeholders function, and history search, chat search, the status inquiry and RAID escalation
   stay available; a chat date write that lands on someone's
   absence is still held for review, so the model can tell it was held but learns nothing about who is away or

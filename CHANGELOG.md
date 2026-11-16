@@ -214,7 +214,8 @@ longer carries its own changelog comment.
 - **A project can have every AI chat change reviewed.** "Review every AI write" in Settings → AI sends every
   change to project data the chat proposes to the review card, even a single one; reads never wait. It is off
   until set. An operator can force it on in every project with `ai-direct-writes` in `AIPM_DISABLED_INTEGRATIONS`.
-  With it off, a single change is applied at once, and most changes can be undone.
+  With it off, a single change is applied at once, and most changes can be undone. Upgrade every client first:
+  an older client drops the setting when it saves a shared project.
 - **A project can keep hourly rates out of Plan with AI and the chat's forecast.** "Keep hourly rates out of Plan
   with AI and the chat's forecast" in Settings → AI leaves the internal hourly rate out of Plan with AI, and out
   of the forecast results the chat reads for a person from the resource directory a scenario or what-if adds. It is off until set, and
@@ -239,12 +240,14 @@ longer carries its own changelog comment.
   several users and no such proxy shares one count per route: Jira, Confluence, Timelog and the exchange rates
   are fixed at 60 requests a minute, Jira and Confluence share one count, and only the AI and dictation limits
   can be raised.
-- **Hiding a project's Resources function now keeps its people and absences from the AI.** The chat, the row
+- **Hiding a project's Resources function now keeps its people, their names and absences from the AI.** The chat, the row
   edit and the insight recommendations are no longer offered the Resources tools (the resource directory,
   absences, allocations and contact e-mail look-ups), and the steering committee report draft, Analyze next
   actions, the scheduled job analysis, the insight recommendations and the work breakdown proposal no longer send
   who is away. Insight recommendations name only people already assigned to open tasks and no longer send a
-  person's profile. History search, chat search, the status inquiry and RAID escalation stay available, so a
+  person's profile, no AI feature is sent an insight about one person (a Timelog check names a person or their
+  Timelog user number), and the chat's forecast results do not name a person from the directory that a
+  scenario or what-if adds. History search, chat search, the status inquiry and RAID escalation stay available, so a
   project in Simple mode keeps them. The stakeholder tools, and a stakeholder's e-mail look-up, follow the
   Stakeholders function instead. A chat date
   change that lands on an absence is still held for review.
