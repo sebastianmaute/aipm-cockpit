@@ -1,10 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
+// The deployment status is asked of the server before every send; here it answers "on".
+vi.mock("./ai-transport", async (orig) => ({
+  ...(await orig<typeof import("./ai-transport")>()),
+  confirmAiDeployment: vi.fn(async () => ({ peopleForced: false })),
+}));
 import { renderHook, act } from "@testing-library/react";
 import { AI_TIMEOUT_MS, useDigest, type UseDigestDeps } from "./use-digest";
 import { t } from "./i18n";
-import { AiWeeklyCapReachedError } from "./ai-consent";
+import { AiWeeklyCapReachedError, newConsent, publishAiConsentState, publishBackgroundProjectOff } from "./ai-consent";
+import { addDisabledIntegration, setDisabledIntegrations } from "./integration-switches";
+import { defaultAiConfig } from "./settings-types";
+import { runDigestNarrative } from "./digest/digest-narrative";
 import { advanceDigestState } from "./digest/digest-state";
 import type { DashboardModel } from "./dashboard";
 import type { ReactNode } from "react";
@@ -606,5 +614,71 @@ describe("useDigest background consent (AI-10)", () => {
     await act(async () => { await result.current.generateNow(); });
     expect(runNarrative).toHaveBeenCalledTimes(1);
     expect(runNarrative.mock.calls[0][1]).toMatchObject({ level: "interactive" });
+  });
+});
+
+// §795 — the due auto-run over the REAL narrative request (only the network is stubbed): a pause means no request,
+// no narrative, and the deterministic digest still stands.
+describe("useDigest background pause (§795)", () => {
+  const dueConfig = { enabled: true, cadenceDays: 7 };
+  const seedDue = () =>
+    advanceDigestState("p1", { now: "2026-07-02T09:00:00.000Z", cadenceDays: 7, rag: "G", metrics: { overdue: 0, openRaid: 0 } });
+  const reply = () => ({
+    ok: true,
+    json: async () => ({ content: [{ type: "tool_use", name: "write_digest_narrative", input: { narrative: "On track." } }] }),
+  }) as unknown as Response;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => reply());
+    publishBackgroundProjectOff(false);
+    publishAiConsentState({ ...defaultAiConfig, enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)) });
+  });
+  afterEach(() => {
+    fetchSpy.mockRestore();
+    setDisabledIntegrations([]);
+    publishBackgroundProjectOff(false);
+    publishAiConsentState(undefined);
+  });
+  const autoRun = async () => {
+    const fire = vi.fn();
+    const view = await act(async () =>
+      renderHook(() => useDigest(deps({
+        aiKey: "sk-ant-k", backgroundAiKey: "sk-ant-k", runNarrative: runDigestNarrative, config: dueConfig, fireNotification: fire,
+      }))),
+    );
+    await act(async () => {});
+    return { ...view, fire };
+  };
+
+  it("runs when nothing pauses", async () => {
+    seedDue();
+    const { result } = await autoRun();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(result.current.digest?.narrative).toBe("On track.");
+  });
+
+  it("pauses without sending while the project switches background AI off", async () => {
+    seedDue();
+    publishBackgroundProjectOff(true);
+    const { result, fire } = await autoRun();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.current.digest).not.toBeNull();
+    expect(result.current.digest?.narrative).toBeUndefined();
+    expect(fire).toHaveBeenCalledTimes(1); // the deterministic digest is unaffected
+  });
+
+  it("pauses under the ai-background lock", async () => {
+    seedDue();
+    addDisabledIntegration("ai-background");
+    const { result } = await autoRun();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.current.digest?.narrative).toBeUndefined();
+  });
+
+  it("leaves a click alone: generateNow still narrates while background AI is paused", async () => {
+    publishBackgroundProjectOff(true);
+    const { result } = renderHook(() => useDigest(deps({ aiKey: "sk-ant-k", backgroundAiKey: null, runNarrative: runDigestNarrative })));
+    await act(async () => { await result.current.generateNow(); });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });

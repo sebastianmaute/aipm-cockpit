@@ -121,6 +121,11 @@ export function publishBackgroundProjectOff(off: boolean): void {
  *  overrides matter: the pause is that project's `ai.backgroundOff`. */
 export type BackgroundTarget = { settingsOverrides: SettingsOverrides | undefined };
 
+/** A run whose project is not loaded yet (a scheduled job is checked before its claim, long before its project is
+ *  read): consent, the deployment lock and the cap still decide, but the OPEN project's switch must not, because the
+ *  job belongs to another project. Its own switch is asked once it is loaded, with that project as the target. */
+export const PROJECT_NOT_LOADED: BackgroundTarget = { settingsOverrides: undefined };
+
 /** Why background AI is paused right now, or null when it may run. The deployment wins over the project. With a
  *  `target` the project is THAT one (the published open-project flag is ignored); without, the open project. */
 export function backgroundPauseReason(target?: BackgroundTarget): BackgroundPauseReason | null {

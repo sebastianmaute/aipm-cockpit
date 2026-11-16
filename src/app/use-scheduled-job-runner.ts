@@ -12,7 +12,7 @@ import { loadScheduledJobs } from "./scheduled-jobs-store";
 import { slotStatus } from "./scheduled-reports-store";
 import { runJobAnalysis } from "./scheduled-job-analysis";
 import { confirmAiDeployment } from "./ai-transport";
-import { assertAiConsentLive } from "./ai-consent";
+import { assertAiConsentLive, PROJECT_NOT_LOADED } from "./ai-consent";
 import { runScheduledJob, type RunDeps, type RunOutcome } from "./scheduled-job-run";
 import { getDeviceLabel } from "./device-label";
 import { listProjectRefs } from "./turso-portfolio";
@@ -116,7 +116,8 @@ function buildRunDeps(argsRef: { readonly current: ScheduledJobRunnerArgs }, con
     confirmDeployment: async () => {
       await confirmAiDeployment();
     },
-    confirmBackgroundGate: () => assertAiConsentLive("background"),
+    // Before the project is loaded the job's own switch is unknown: the early asks must not read the OPEN project's.
+    confirmBackgroundGate: (target) => assertAiConsentLive("background", target ?? PROJECT_NOT_LOADED),
     loadWorkspace: async (projectId) => {
       lastPartial = false;
       const backend = new TursoBackend(config, projectId);
@@ -128,7 +129,8 @@ function buildRunDeps(argsRef: { readonly current: ScheduledJobRunnerArgs }, con
     lastLoadPartial: () => lastPartial,
     // Cache the guide prefix only when this tick sends more than one request: a lone request would pay the cache
     // write and never read it.
-    analyse: (context, privacy) => runJobAnalysis(context, { ...argsRef.current.ai, privacy, cacheGuides, level: "background" }),
+    analyse: (context, privacy, pauseTarget) =>
+      runJobAnalysis(context, { ...argsRef.current.ai, privacy, cacheGuides, level: "background", pauseTarget }),
     deviceSettings: a.deviceSettings,
     lang: a.lang,
     now: a.now ?? (() => new Date()),

@@ -4,6 +4,7 @@ import { useScheduledJobRunner, type ScheduledJobRunnerArgs } from "./use-schedu
 import type { ScheduledJob, ScheduledJobRun } from "./scheduled-jobs/types";
 import { newConsent, publishAiConsentState, publishBackgroundCapState, publishBackgroundProjectOff } from "./ai-consent";
 import { defaultAiConfig } from "./settings-types";
+import { addDisabledIntegration, setDisabledIntegrations } from "./integration-switches";
 
 // The runner builds the run deps itself: the AI call, the portfolio lists, the project load and the report
 // store are mocked at their module edge, so the REAL runScheduledJob runs in every test below.
@@ -29,11 +30,12 @@ vi.mock("./scheduled-jobs-store", () => ({
 }));
 const backendState = vi.hoisted(() => ({
   failures: [] as string[], truncated: { entries: 0, blocks: 0 }, onLoad: undefined as undefined | (() => void),
+  overrides: undefined as undefined | { ai?: { backgroundOff?: boolean } },
 }));
 vi.mock("./turso-backend", () => ({
   TursoBackend: vi.fn().mockImplementation(function () {
     return {
-      load: async () => { backendState.onLoad?.(); return emptyWorkspace(); },
+      load: async () => { backendState.onLoad?.(); return { ...emptyWorkspace(), settingsOverrides: backendState.overrides }; },
       get lastDecodeFailures() { return backendState.failures; },
       get lastLoadTruncation() { return backendState.truncated; },
     };
@@ -108,6 +110,7 @@ function resetStore(): void {
   backendState.failures = [];
   backendState.truncated = { entries: 0, blocks: 0 };
   backendState.onLoad = undefined;
+  backendState.overrides = undefined;
   storeState.fail = false;
   storeState.reads = 0;
 }
@@ -788,6 +791,47 @@ describe("useScheduledJobRunner: the deployment is confirmed before the claim", 
     renderHook(() => useScheduledJobRunner(baseArgs()));
     await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); });
     expect(vi.mocked(confirmAiDeployment)).toHaveBeenCalled();
+    expect(mClaim).not.toHaveBeenCalled();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+});
+
+describe("useScheduledJobRunner: the background pause is the job's project's (§795)", () => {
+  const settle = async () => act(async () => { for (let i = 0; i < 60; i++) await Promise.resolve(); });
+  beforeEach(() => {
+    mockRun.mockReset().mockResolvedValue({ summary: "s", actions: [] });
+    resetStore();
+  });
+  afterEach(() => {
+    setDisabledIntegrations([]);
+    publishBackgroundProjectOff(false);
+  });
+
+  // KILLED BY: reading the open project's flag in the early gate (a paused open project would stop every job).
+  it("runs a job whose project is not paused while the OPEN project is paused", async () => {
+    publishBackgroundProjectOff(true);
+    backendState.overrides = undefined;
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await settle();
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(mockRun.mock.calls[0][1]).toMatchObject({ level: "background", pauseTarget: { settingsOverrides: undefined } });
+  });
+
+  // KILLED BY: leaving the post-load gate out (the target project's own switch would be ignored).
+  it("does not send a job whose project is paused while the OPEN project is not", async () => {
+    publishBackgroundProjectOff(false);
+    backendState.overrides = { ai: { backgroundOff: true } };
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await settle();
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(vi.mocked(finishReport)).not.toHaveBeenCalled();
+    expect(vi.mocked(releaseClaim)).toHaveBeenCalledTimes(1);
+  });
+
+  it("neither claims nor sends under the ai-background deployment lock", async () => {
+    addDisabledIntegration("ai-background");
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await settle();
     expect(mClaim).not.toHaveBeenCalled();
     expect(mockRun).not.toHaveBeenCalled();
   });
