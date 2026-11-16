@@ -78,6 +78,7 @@ import {
   buildPlanRows,
   cascadeDeselect,
   isEntityWriteCall,
+  liftsFunctionWithdrawal,
   shouldStage,
   type PlanRow,
   type ProposedCall,
@@ -976,7 +977,11 @@ function ChatPanelInner({
             const { ws, absence } = gateContext();
             return callAbsenceClashes(c, ws, absence).length > 0;
           };
-          if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord, hasClash, reviewAllWritesNow())) {
+          // §810 — turning a hidden Resources or Stakeholders function back on always waits for review, judged against
+          // the project's live functions (the same getters the executor's refusal reads).
+          const liftsWithdrawal = (c: ProposedCall) =>
+            liftsFunctionWithdrawal(c, { resources: dispatcher.isResourcesHidden(), stakeholders: dispatcher.isStakeholdersHidden() });
+          if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord, hasClash, reviewAllWritesNow(), liftsWithdrawal)) {
             sendRecord = { ...sendRecord, staged: true };
             const { ws, absence: gateAbsence } = gateContext();
             // AI-02 — a read changes nothing, so it runs in place and gets its real result; so does `optimize_wbs`,

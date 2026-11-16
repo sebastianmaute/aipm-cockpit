@@ -344,6 +344,21 @@ export function carriesEnabledModules(call: ProposedCall): boolean {
   return call.name === "update_settings" && Object.hasOwn(call.input, "enabledModules");
 }
 
+/** §810 — true when this call would turn back ON a function whose hiding withdraws AI access (Resources or
+ *  Stakeholders) while the project hides it. `hidden` is the project's own functions read at call time (the
+ *  dispatcher's `isResourcesHidden`/`isStakeholdersHidden`, which the executor's refusal reads too). `shouldStage`
+ *  then sends the call to the review card whatever the review switch says: the AI cannot lift a withdrawal on
+ *  its own, and until the card is applied the saved functions, and so the refusal, stay as they are. */
+export function liftsFunctionWithdrawal(
+  call: ProposedCall,
+  hidden: { resources: boolean; stakeholders: boolean },
+): boolean {
+  if (!carriesEnabledModules(call)) return false;
+  const wanted = call.input.enabledModules;
+  if (!Array.isArray(wanted)) return false;
+  return (hidden.resources && wanted.includes("resources")) || (hidden.stakeholders && wanted.includes("stakeholders"));
+}
+
 /** `update_document` ops that discard blocks the model never had to read.
  *
  *  ★★★ `replaceAll` IS THE ONLY OP REQUIRING NO `expectHash`, which is the whole
@@ -467,6 +482,8 @@ export function shouldStage(
   send?: SendRecord,
   hasClash?: (c: ProposedCall) => boolean,
   reviewAllWrites?: boolean,
+  /** §810 — `liftsFunctionWithdrawal` bound to the project's live functions: such a call always stages. */
+  liftsWithdrawal?: (c: ProposedCall) => boolean,
 ): boolean {
   const applied = send?.appliedWrites ?? 0;
   let writes = applied;
@@ -475,6 +492,7 @@ export function shouldStage(
     if (sendsInvitations(c)) return true;
     if (ALWAYS_STAGED_TOOLS.has(c.name)) return true;
     if (send?.untrusted === true && stagesWhenUntrusted(c)) return true;
+    if (liftsWithdrawal?.(c) === true) return true;
     if (!isEntityWriteCall(c)) continue;
     if (hasClash?.(c) === true) return true;
     writes += 1;
