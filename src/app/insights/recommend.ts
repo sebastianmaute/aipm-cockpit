@@ -5,7 +5,7 @@
 import type { GroundingIndex, GroundableView } from "../action-ai";
 import type { InsightRecommendation, InsightToolCall } from "./insight";
 import { INSIGHT_REC_MAX_CALLS, INSIGHT_REC_SUMMARY_MAX, ALLOWED_REC_TOOLS } from "./insight";
-import { REC_CALL_ITEM_SCHEMA, REC_CALL_ITEM_SCHEMA_PEOPLE_PROTECTED } from "./recommend-schema";
+import { REC_CALL_ITEM_SCHEMA, recCallItemSchema } from "./recommend-schema";
 import { toolOffered, type PeopleToolFlags } from "../chat-tool-defs";
 
 // Re-export so existing importers of `./recommend` (tests, call sites) are unchanged.
@@ -76,19 +76,27 @@ function recommendTool(items: typeof REC_CALL_ITEM_SCHEMA) {
   } as const;
 }
 
-/** AI people protection (layer 1): the tool as offered for a project that protects its people, or hides its
- *  Stakeholders function (§810) — no people tool (the stakeholder writers) in its call union. One constant per
- *  answer, so the request's tool list keeps one identity. */
-const RECOMMEND_TOOL_PEOPLE_PROTECTED = recommendTool(REC_CALL_ITEM_SCHEMA_PEOPLE_PROTECTED);
+/** The allowed tools chat's predicate (`toolWithheldBy`) offers under `flags`, in their order: each tool withheld on
+ *  its own (people protection, or the function that owns it hidden, §810), never as a whole union, so a switch
+ *  can never drop a tool it does not own. ★ `ALLOWED_REC_TOOLS` itself is NOT narrowed: it is the confirm path's
+ *  security allowlist, and the confirm path still refuses a withheld call at the executor. */
+export function offeredRecTools(allowed: Iterable<string>, flags: PeopleToolFlags): string[] {
+  return [...allowed].filter((name) => toolOffered(name, flags));
+}
 
-/** The tool to offer: every allowed tool, or all but the stakeholder writers when chat's predicate
- *  (`toolWithheldBy`) withholds any allowed tool — under people protection, or while the Stakeholders function is
- *  hidden (§810). A hidden Resources function withholds none of them: no Resources tool is in
- *  `ALLOWED_REC_TOOLS`. ★ The people-protected union drops exactly the people tools, so it is only right while
- *  every tool a switch can withhold here is one of those; a test pins that. The confirm path still refuses a
- *  withheld call at the executor. */
+/** One tool per offered set, so a request's tool list keeps one identity per answer. */
+const RECOMMEND_TOOL_BY_OFFER = new Map<string, ReturnType<typeof recommendTool>>();
+
+/** The tool to offer: every allowed tool, or the ones `offeredRecTools` keeps. */
 export function recommendToolFor(flags: PeopleToolFlags) {
-  return [...ALLOWED_REC_TOOLS].every((name) => toolOffered(name, flags)) ? RECOMMEND_TOOL : RECOMMEND_TOOL_PEOPLE_PROTECTED;
+  const names = offeredRecTools(ALLOWED_REC_TOOLS, flags);
+  if (names.length === ALLOWED_REC_TOOLS.size) return RECOMMEND_TOOL;
+  const key = names.join(",");
+  const cached = RECOMMEND_TOOL_BY_OFFER.get(key);
+  if (cached) return cached;
+  const built = recommendTool(recCallItemSchema(names));
+  RECOMMEND_TOOL_BY_OFFER.set(key, built);
+  return built;
 }
 
 /** Anthropic tool definition. Forced via tool_choice. */

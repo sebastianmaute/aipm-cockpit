@@ -6,9 +6,9 @@ import { describe, it, expect, vi } from "vitest";
 const forced = vi.hoisted(() => vi.fn());
 vi.mock("../ai-forced-call", () => ({ runForcedToolCallWithRetry: forced }));
 
-import { PEOPLE_TOOLS, STAKEHOLDER_TOOLS, toolWithheldBy } from "../chat-tool-defs";
+import { PEOPLE_TOOLS, STAKEHOLDER_TOOLS } from "../chat-tool-defs";
 import { ALLOWED_REC_TOOLS } from "./insight";
-import { recommendToolFor } from "./recommend";
+import { offeredRecTools, recommendToolFor } from "./recommend";
 import { runInsightRecommendation } from "./recommend-call";
 import { aiPrivacyFor } from "../ai-privacy";
 import { emptyWorkspace } from "../workspace";
@@ -64,12 +64,13 @@ describe("the recommendation tool with a hidden function (§810)", () => {
 
   // The people-protected union drops exactly the people tools, so it is only the right answer while every allowed
   // tool a switch can withhold is one of them.
-  it("every allowed tool a switch can withhold is a people tool", () => {
-    for (const name of ALLOWED_REC_TOOLS) {
-      const byAnySwitch = toolWithheldBy(name, { resourcesHidden: true, stakeholdersHidden: true }) !== null;
-      if (byAnySwitch) expect(PEOPLE_TOOLS.has(name), name).toBe(true);
-    }
-    expect([...ALLOWED_REC_TOOLS].filter((n) => toolWithheldBy(n, { stakeholdersHidden: true }) !== null).length).toBeGreaterThan(0);
+  // Withheld per tool by chat's predicate, never as a whole union: with a people tool that Stakeholders does not own
+  // added to the allowed set (send_inquiry here, stubbed), a hidden Stakeholders function still offers it.
+  it("withholds per tool: a hidden Stakeholders function never drops a tool it does not own", () => {
+    const allowed = ["update_task", "update_stakeholder", "send_inquiry"];
+    expect(offeredRecTools(allowed, { stakeholdersHidden: true })).toEqual(["update_task", "send_inquiry"]);
+    expect(offeredRecTools(allowed, { peopleProtected: true })).toEqual(["update_task"]);
+    expect(offeredRecTools(allowed, {})).toEqual(allowed);
   });
 
   it("the call sends the filtered tool when its args say Stakeholders is hidden", async () => {
