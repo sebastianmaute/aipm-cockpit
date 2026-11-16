@@ -1,5 +1,5 @@
-// The two per-project AI switches: review every AI write, withhold rates. Both are
-// stored as `true` and absent otherwise; a deployment can force either on.
+// The three per-project AI switches: review every AI write, withhold rates, turn background AI off. Each is
+// stored as `true` and absent otherwise; a deployment can force any of them on.
 
 import { afterEach, describe, expect, it } from "vitest";
 import {

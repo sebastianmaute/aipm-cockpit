@@ -530,6 +530,8 @@ describe("useInsightRecommendRunner — the background pause (§795)", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  // The batch `break` itself is pinned by "a pause is not a failure..." below (the runner is called once for three
+  // candidates); this test covers a pause that arrives while a request is in flight.
   test("stops the batch when a pause arrives mid-batch", async () => {
     fetchSpy.mockImplementationOnce(async () => { publishBackgroundProjectOff(true); return failed(); });
     await run([makeInsight(1), makeInsight(2)]);

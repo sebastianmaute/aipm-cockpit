@@ -1,9 +1,9 @@
 // src/app/ai-project-switches.ts
 //
-// Three per-project AI switches beside the people one. Both are stored as
-// `settingsOverrides.ai.<key> === true` and OFF is ABSENCE: turning one off deletes
+// Three per-project AI switches beside the people one: review every AI write, withhold rates, turn background AI
+// off. Each is stored as `settingsOverrides.ai.<key> === true` and OFF is ABSENCE: turning one off deletes
 // the key and folds an empty override to undefined, so a project that never set
-// either serialises byte-for-byte as before. A deployment can force either on with
+// any of them serialises byte-for-byte as before. A deployment can force any of them on with
 // an integration id; the stored value is never touched by that.
 
 import { isIntegrationDisabled } from "./integration-switches";
