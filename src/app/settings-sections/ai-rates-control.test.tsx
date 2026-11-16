@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { setDisabledIntegrations } from "../integration-switches";
-import { t } from "../i18n";
+import { loadI18n, t } from "../i18n";
 import type { SettingsOverrides } from "../settings-types";
 import { AiRatesControl } from "./ai-rates-control";
 
@@ -74,5 +74,28 @@ describe("AiRatesControl", () => {
   it("does not show the forced reason when nothing forces it", () => {
     render(<AiRatesControl lang="en-US" />);
     expect(screen.queryByText(t("en-US", "aiRatesWithheldForced"))).toBeNull();
+  });
+});
+
+// §804 — the switch covers the chat's forecast too, and the hint says what is left out without claiming nothing
+// else is sent.
+describe("the rates switch wording", () => {
+  it("names Plan with AI and the forecast, and does not say only people, roles and hours are sent", async () => {
+    for (const lang of ["en-US", "de"] as const) {
+      if (lang === "de") await loadI18n("de");
+      const label = t(lang, "aiRatesWithheldLabel");
+      const hint = t(lang, "aiRatesWithheldHint");
+      expect(label, lang).toMatch(lang === "de" ? /Mit KI planen.*Prognose/ : /Plan with AI.*forecast/);
+      expect(hint, lang).toMatch(lang === "de" ? /Prognose/ : /forecast/);
+      expect(hint, lang).not.toMatch(/only the people|nur die Personen/);
+    }
+  });
+
+  it("the deployment variable does not say the server refuses requests for the safeguard values", async () => {
+    const en = t("en-US", "deployVarDisabledIntegrations");
+    expect(en).toMatch(/ai-rates keeps hourly rates out of Plan with AI and the chat’s forecast/);
+    expect(en).toMatch(/no other route refuses under them/);
+    await loadI18n("de");
+    expect(t("de", "deployVarDisabledIntegrations")).toMatch(/keine andere Route lehnt dabei ab/);
   });
 });

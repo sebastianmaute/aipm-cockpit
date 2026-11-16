@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ForecastFacts, ForecastFactsByUnit } from "./budget-forecast";
 import { entityToken } from "./ai-entity-token";
 import type { ScenarioDirectory } from "./forecast-added-people";
@@ -16,6 +16,7 @@ import { withProposal, withTargetConfidence } from "./forecast-target";
 import type { SettingsOverrides } from "./settings-types";
 import type { Milestone, Resource, Role, Shift, Task } from "./types";
 import { workingDaysBefore } from "./working-days";
+import { setDisabledIntegrations } from "./integration-switches";
 
 // A pass-through spy, so one test can make a take come back null; every other test runs the real engine.
 vi.mock("./forecast-levers", async (importOriginal) => {
@@ -480,5 +481,36 @@ describe("scenarioValidationContext", () => {
     expect(ctx.onTeam.has(PER)).toBe(false);
     expect(ctx.milestones).toBe(MILESTONES);
     expect(ctx.resources).toBe(DIRECTORY.resources);
+  });
+});
+
+// §804 — the rates switch covers the forecast tool too: while it is on (the project's switch or the deployment's
+// `ai-rates` lock), no row the report sends carries a rate per hour; a named person's row would otherwise carry their
+// role's internal rate. The switch is read from the input the call is built with, so a change applies on the next call.
+describe("buildForecastReport — hourly rates withheld (§804)", () => {
+  const WITHHELD: SettingsOverrides = { ai: { ratesWithheld: true } };
+  const named = scenario(1, [addPerson(PER)]);
+  const ratesIn = (r: ForecastReport) => JSON.stringify(r).match(/ratePerHour/g)?.length ?? 0;
+
+  afterEach(() => setDisabledIntegrations([]));
+
+  it("CONTROL: with the switch off, a named person's row and the what-if carry the role's rate", () => {
+    const report = buildForecastReport(reportInput({}, [named]), [addPerson(PER)]);
+    expect(report.scenarios[0].rows[0]).toMatchObject({ kind: "addPeople", sizing: { name: "Per Sand", ratePerHour: 80 } });
+    expect(report.whatIf?.rows[0]).toMatchObject({ sizing: { ratePerHour: 80 } });
+  });
+
+  it("the project's switch: no scenario or what-if row carries a rate per hour, and the rest of the sizing stays", () => {
+    const report = buildForecastReport(reportInput({}, [named], WITHHELD), [addPerson(PER)]);
+    expect(ratesIn(report)).toBe(0);
+    expect(report.scenarios[0].rows[0]).toMatchObject({ kind: "addPeople", sizing: { name: "Per Sand", weeklyHours: 40 } });
+    expect(report.whatIf?.rows[0]).toMatchObject({ kind: "addPeople", sizing: { name: "Per Sand" } });
+  });
+
+  it("the deployment's ai-rates lock withholds it with no project switch", () => {
+    setDisabledIntegrations(["ai-rates"]);
+    const report = buildForecastReport(reportInput({}, [named], undefined), [addPerson(PER)]);
+    expect(ratesIn(report)).toBe(0);
+    expect(report.scenarios[0].rows[0]).toMatchObject({ kind: "addPeople", sizing: { name: "Per Sand" } });
   });
 });
