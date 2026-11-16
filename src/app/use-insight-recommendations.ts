@@ -161,9 +161,11 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // integration disabled): no TimeLog guardrail row either; the same condition stops the checks in
   // use-insight-lifecycle.ts.
   // §810 — the functions the digest and the offered tools follow. Resources hidden: no AWAY block, no directory
-  // names, no linked profile; Stakeholders hidden: no stakeholder tool offered. Read through `sanitizeFeatures`,
-  // the repo's absence rule (the project digest's `ws.features ?? ALL_MODULE_IDS` agrees): no `features` means every
-  // function, junk means none. The type makes `features` required; this keeps the two readings from drifting.
+  // names, no linked profile and no insight about one person; Stakeholders hidden: no stakeholder tool offered.
+  // ★ Every one of these, the Timelog check included, reads the project's functions through `sanitizeFeatures`, the
+  // repo's absence rule (the project digest's `ws.features ?? ALL_MODULE_IDS` agrees): no `features` means every
+  // function, junk means none. The type makes `features` required, so only a partial settings object (a test
+  // double) reaches the absent case; it no longer reads as "every function off".
   const enabledModules = useMemo(() => sanitizeFeatures(settings.features), [settings.features]);
   const timelogOn = isModuleEnabled("timelog", enabledModules);
   const resourcesHidden = !isModuleEnabled("resources", enabledModules);
