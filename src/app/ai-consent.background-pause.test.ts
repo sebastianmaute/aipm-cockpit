@@ -90,6 +90,22 @@ describe("the pause follows the project a run targets", () => {
     expect(() => assertAiConsentLive("background", paused)).toThrow(expect.objectContaining({ name: "AiBackgroundPausedError", reason: "project" }));
   });
 
+  // The open project's live setting can be ahead of its stored overrides (the save has not landed yet).
+  it("an open-project target also pauses on the published flag, whatever its stored overrides say", () => {
+    const openTarget = { settingsOverrides: undefined, openProject: true as const };
+    publishBackgroundProjectOff(true);
+    expect(backgroundPauseReason(openTarget)).toBe("project");
+    expect(() => assertAiConsentLive("background", openTarget)).toThrow(expect.objectContaining({ reason: "project" }));
+    publishBackgroundProjectOff(false);
+    expect(backgroundPauseReason(openTarget)).toBeNull(); // control
+    expect(backgroundPauseReason({ ...openTarget, settingsOverrides: paused.settingsOverrides })).toBe("project");
+  });
+
+  it("a target that is not the open project ignores the published flag", () => {
+    publishBackgroundProjectOff(true);
+    expect(backgroundPauseReason({ settingsOverrides: undefined })).toBeNull();
+  });
+
   it("a target without it runs while the published flag is true", () => {
     publishBackgroundProjectOff(true);
     expect(backgroundPauseReason(open)).toBeNull();

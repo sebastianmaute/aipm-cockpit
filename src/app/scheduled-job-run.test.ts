@@ -609,6 +609,22 @@ describe("runScheduledJob: the background pause (§795)", () => {
     expect(d.notify).not.toHaveBeenCalled();
   });
 
+  it("marks the target as the open project when the job's project is the open one", async () => {
+    const ws = workspace();
+    const gate = vi.fn();
+    const d = deps({ loadWorkspace: vi.fn().mockResolvedValue(ws), confirmBackgroundGate: gate, isOpenProject: (id: string) => id === "p1" });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("done");
+    expect(gate).toHaveBeenLastCalledWith({ settingsOverrides: ws.settingsOverrides, openProject: true });
+    expect(vi.mocked(d.analyse).mock.calls[0][2]).toEqual({ settingsOverrides: ws.settingsOverrides, openProject: true });
+  });
+
+  it("does not mark it when another project is open", async () => {
+    const gate = vi.fn();
+    const d = deps({ confirmBackgroundGate: gate, isOpenProject: (id: string) => id === "other" });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("done");
+    expect(gate).toHaveBeenLastCalledWith({ settingsOverrides: workspace().settingsOverrides });
+  });
+
   it("hands the same target to the analysis request", async () => {
     const ws = targetWs();
     const d = deps({ loadWorkspace: vi.fn().mockResolvedValue(ws) });

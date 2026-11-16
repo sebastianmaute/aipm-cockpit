@@ -13,6 +13,7 @@ import { slotStatus } from "./scheduled-reports-store";
 import { runJobAnalysis } from "./scheduled-job-analysis";
 import { confirmAiDeployment } from "./ai-transport";
 import { assertAiConsentLive, PROJECT_NOT_LOADED } from "./ai-consent";
+import { isBackgroundOffForced } from "./ai-project-switches";
 import { runScheduledJob, type RunDeps, type RunOutcome } from "./scheduled-job-run";
 import { getDeviceLabel } from "./device-label";
 import { listProjectRefs } from "./turso-portfolio";
@@ -42,6 +43,8 @@ export interface ScheduledJobRunnerArgs {
   /** §772 — true only on a Turso portfolio with a config; a run reports on a stored project, so nothing
    *  runs otherwise (and the file-mode fallback store never reaches here with a project). */
   available: boolean;
+  /** The project the app has open (null when none): a job on it is paused by the open project's live setting too. */
+  openProjectId: string | null;
   /** Device settings the digest merges the loaded project's overrides into. */
   deviceSettings: Settings;
   lang: Lang;
@@ -120,6 +123,7 @@ function buildRunDeps(argsRef: { readonly current: ScheduledJobRunnerArgs }, con
     },
     // Before the project is loaded the job's own switch is unknown: the early asks must not read the OPEN project's.
     confirmBackgroundGate: (target) => assertAiConsentLive("background", target ?? PROJECT_NOT_LOADED),
+    isOpenProject: (projectId) => argsRef.current.openProjectId === projectId,
     loadWorkspace: async (projectId) => {
       lastPartial = false;
       const backend = new TursoBackend(config, projectId);
@@ -205,6 +209,9 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
     const tick = async () => {
       const a = argsRef.current;
       if (!enabledRef.current || !guidesReadyRef.current) return;
+      // The deployment lock is read once per page load and cannot lift without a reload: no read of the job store or
+      // the report table could lead to a send. A cost short-cut only; the refusal itself is ai-consent's.
+      if (isBackgroundOffForced()) return;
       if (!a.available || a.config === null) return;
       if (a.jobsSource !== a.config.httpUrl) return;
       if (isRunningRef.current) return; // a run is already in flight

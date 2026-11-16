@@ -49,6 +49,9 @@ export interface RunDeps {
   /** `privacy` is the TARGET project's (AI people protection, spec R3): its setting and its people, never the
    *  open project's. */
   analyse(context: string, privacy: AiPrivacy, pauseTarget: BackgroundTarget): Promise<ActionAnalysis>;
+  /** Whether a project is the one the app has open right now, read live. Its pause then also holds on the published
+   *  setting, which is ahead of the stored overrides until the save lands. Absent: no project is the open one. */
+  isOpenProject?(projectId: string): boolean;
   deviceSettings: Settings;
   lang: Lang;
   now(): Date;
@@ -197,7 +200,9 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
   }
 
   // The pause is the loaded project's own, whichever project the app has open: the same target goes to the request.
-  const pauseTarget: BackgroundTarget = { settingsOverrides: workspace.settingsOverrides };
+  const pauseTarget: BackgroundTarget = deps.isOpenProject?.(projectId) === true
+    ? { settingsOverrides: workspace.settingsOverrides, openProject: true }
+    : { settingsOverrides: workspace.settingsOverrides };
 
   const partial = deps.lastLoadPartial?.() === true;
   const reportBase: ReportData = partial ? { ...base, partial: true } : base;

@@ -735,7 +735,7 @@ function TaskManagerInner() {
     learning,
     trendsActive,
     actionTrends,
-    tursoConfig, loadPending,
+    tursoConfig, openProjectId: portfolioMode === "turso" ? (tursoProjectId ?? null) : null, loadPending,
     requestOpen,
     requestChat,
   });

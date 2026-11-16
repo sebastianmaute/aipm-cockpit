@@ -94,6 +94,7 @@ function baseArgs(overrides: Partial<ScheduledJobRunnerArgs> = {}): ScheduledJob
     ai: { apiKey: "k", model: "m" },
     notify: vi.fn(),
     now: afternoon,
+    openProjectId: null,
     ...overrides,
   };
   storeState.jobs = [...args.jobs];
@@ -817,6 +818,26 @@ describe("useScheduledJobRunner: the background pause is the job's project's (§
     expect(mockRun.mock.calls[0][1]).toMatchObject({ level: "background", pauseTarget: { settingsOverrides: undefined } });
   });
 
+  // KILLED BY: not marking the job's project as the open one (a switch just turned on, its save not landed, would be
+  // ignored: the stored overrides still say on).
+  it("does not send a job on the OPEN project whose live switch is on but whose stored overrides are not yet", async () => {
+    publishBackgroundProjectOff(true);
+    backendState.overrides = undefined;
+    renderHook(() => useScheduledJobRunner(baseArgs({ openProjectId: "p1" })));
+    await settle();
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(vi.mocked(finishReport)).not.toHaveBeenCalled();
+    expect(vi.mocked(releaseClaim)).toHaveBeenCalledTimes(1);
+  });
+
+  // CONTROL: the live flag decides only for the open project's own jobs.
+  it("runs a job on the OPEN project when its live switch is off", async () => {
+    publishBackgroundProjectOff(false);
+    renderHook(() => useScheduledJobRunner(baseArgs({ openProjectId: "p1" })));
+    await settle();
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
   // KILLED BY: leaving the post-load gate out (the target project's own switch would be ignored).
   it("does not send a job whose project is paused while the OPEN project is not", async () => {
     publishBackgroundProjectOff(false);
@@ -878,6 +899,22 @@ describe("useScheduledJobRunner: the background pause is the job's project's (§
       expect(mockRun).toHaveBeenCalledTimes(1);
       expect(mClaim).toHaveBeenCalledTimes(1);
     });
+  });
+
+  // KILLED BY: dropping the tick short-cut (the lock cannot lift without a reload, yet every tick would read the store).
+  it("reads no job store on a tick while the deployment lock is on", async () => {
+    addDisabledIntegration("ai-background");
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await settle();
+    expect(storeState.reads).toBe(0);
+    expect(vi.mocked(slotStatus)).not.toHaveBeenCalled();
+  });
+
+  // CONTROL: without the lock the tick reads the store.
+  it("reads the job store on a tick without the lock", async () => {
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await settle();
+    expect(storeState.reads).toBeGreaterThan(0);
   });
 
   it("neither claims nor sends under the ai-background deployment lock", async () => {

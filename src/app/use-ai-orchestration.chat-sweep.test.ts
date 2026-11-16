@@ -25,7 +25,7 @@ function deps(loadPending: boolean): AiOrchestrationDeps {
     settings: { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: false } },
     guides: [], guidesReady: true, lang: "en-US", today: "2026-11-01", project: undefined,
     tasks: [], raid: [], milestones: [], changes: [], stakeholders: [], nextActions: [],
-    learning: { state: {} as never }, trendsActive: false, actionTrends: undefined, tursoConfig: config, loadPending,
+    learning: { state: {} as never }, trendsActive: false, actionTrends: undefined, tursoConfig: config, openProjectId: null, loadPending,
     requestOpen: vi.fn(), requestChat: vi.fn(),
   };
 }

@@ -119,7 +119,12 @@ export function publishBackgroundProjectOff(off: boolean): void {
 
 /** The project a background run reads, when it is not the open one (a scheduled job on a stored project). Only its
  *  overrides matter: the pause is that project's `ai.backgroundOff`. */
-export type BackgroundTarget = { settingsOverrides: SettingsOverrides | undefined };
+export type BackgroundTarget = {
+  settingsOverrides: SettingsOverrides | undefined;
+  /** True when the target IS the open project: its live (published) setting can be ahead of the stored overrides (the
+   *  save has not landed), so the pause holds when either says off. */
+  openProject?: true;
+};
 
 /** A run whose project is not loaded yet (a scheduled job is checked before its claim, long before its project is
  *  read): consent, the deployment lock and the cap still decide, but the OPEN project's switch must not, because the
@@ -127,10 +132,13 @@ export type BackgroundTarget = { settingsOverrides: SettingsOverrides | undefine
 export const PROJECT_NOT_LOADED: Readonly<BackgroundTarget> = Object.freeze({ settingsOverrides: undefined });
 
 /** Why background AI is paused right now, or null when it may run. The deployment wins over the project. With a
- *  `target` the project is THAT one (the published open-project flag is ignored); without, the open project. */
+ *  `target` the project is THAT one (the published open-project flag is ignored, unless the target is marked as the
+ *  open project, when it counts too); without, the open project. */
 export function backgroundPauseReason(target?: BackgroundTarget): BackgroundPauseReason | null {
   if (isIntegrationDisabled("ai-background")) return "deployment";
-  const projectOff = target ? target.settingsOverrides?.ai?.backgroundOff === true : backgroundProjectOff;
+  const projectOff = target
+    ? target.settingsOverrides?.ai?.backgroundOff === true || (target.openProject === true && backgroundProjectOff)
+    : backgroundProjectOff;
   return projectOff ? "project" : null;
 }
 
