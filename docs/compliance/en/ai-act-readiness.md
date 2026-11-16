@@ -85,7 +85,7 @@ Whether you publish AI-written text from the app in that way is for you to decid
   `src/app/i18n.ts`]
 - Changes the chat proposes appear in the chat under "Proposed changes", and changes the chat applies are
   logged in the activity log with the AI as their actor. [verified: `chatProposalTitle` in
-  `src/app/i18n.ts`; `ActivityActor` in `src/app/activity-log.ts`; the register entry §794]
+  `src/app/i18n.ts`; `ActivityActor` in `src/app/activity-log.ts`]
 
 The app has no guest access and no accounts of its own: who can open a project depends on who you give
 access to its storage. [vendor statement; `docs/security.md`, section "Security model"] Whether people
@@ -266,7 +266,9 @@ assessment of whether it is enough: question for you]
   Help in the app and `docs/security.md` describe the app. [vendor statement]
 - **Human oversight.** Allocation and RACI proposals are applied by a person, change by change.
   [verified: `src/app/alloc-plan-modal.tsx`, `src/app/raci-suggest-modal.tsx`] A single chat change can
-  apply without review (§794). [verified: `shouldStage` in `src/app/chat-proposal.ts`; register §794]
+  apply without review, unless the project, or the deployment with `ai-direct-writes`, has every AI write
+  reviewed; then every change to project data the chat proposes waits on the review card. [verified:
+  `shouldStage` in `src/app/chat-proposal.ts`; `src/app/chat-panel.review-all-writes.test.tsx`]
 - **Logs.** The activity log keeps the newest 500 entries per project, a count rather than a period, and
   does not link an AI change to the chat message that caused it (§799). Saved AI chats are deleted after
   the retention period the operator sets: 30 days by default, at most 3650. Whether either covers six

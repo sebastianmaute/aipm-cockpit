@@ -10,8 +10,9 @@ und keinen Lauf dafür), *geschätzt* oder *nicht belegt*. `§N` ist ein offener
 ## Auf einen Blick
 
 Die KI entwirft Arbeit für Sie und schlägt sie vor: Die meisten Funktionen ändern nichts, bevor Sie ihren
-Vorschlag übernehmen, eine einzelne gewöhnliche Änderung im Chat wird aber sofort angewendet (E56,
-*im Code gelesen*; E47, *getestet (Unit)*). Die Antworten der KI können sich von Lauf zu Lauf unterscheiden: Die
+Vorschlag übernehmen, eine einzelne gewöhnliche Änderung im Chat wird aber sofort angewendet, sofern Ihr Projekt
+nicht jede KI-Änderung prüfen lässt (E56, *im Code gelesen*; E47, *getestet (Unit)*; E71, *getestet (Unit)*).
+Die Antworten der KI können sich von Lauf zu Lauf unterscheiden: Die
 App tut nichts dafür, dass dieselbe Anfrage dieselbe Antwort ergibt, und ob die Optimierung der Arbeitspakete
 gleich ausfällt, wurde nicht gemessen (E61, *im Code gelesen*; E27, *nicht belegt*). KI-Text in Ihrem Bericht
 trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen hat, liegt also bei Ihnen (E55,
@@ -34,8 +35,9 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
   *im Code gelesen*).
 - **Wird von selbst angewendet:** Eine gewöhnliche Änderung im Chat, also eine einzelne Änderung je Absenden,
   die nichts löscht, niemanden einlädt, keinen Termin auf eine Abwesenheit legt und kein Werkzeug nutzt, das
-  immer zur Prüfung geht, wird sofort angewendet (§794; E47, *getestet (Unit)*) und erscheint
-  im Aktivitätsprotokoll als Änderung der KI (E55, *im Code gelesen*). Alles andere wartet auf einer *Prüfkarte*
+  immer zur Prüfung geht, wird sofort angewendet (E47, *getestet (Unit)*) und erscheint
+  im Aktivitätsprotokoll als Änderung der KI (E55, *im Code gelesen*), sofern „Jede KI-Änderung prüfen“ für Ihr
+  Projekt oder die Bereitstellung nicht eingeschaltet ist (E71, *getestet (Unit)*). Alles andere wartet auf einer *Prüfkarte*
   auf Sie, ebenso jede Änderung, solange eine Datei angehängt ist, außer der Optimierung der Arbeitspakete, die
   ihre eigene Vorschau öffnet; ein wieder geöffneter gespeicherter Chat behält keinen Anhang (E47,
   *getestet (Unit)*). Eine aus Jira synchronisierte Aufgabe, die der Chat gelesen hat, löst diese Prüfpflicht
@@ -51,6 +53,11 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
   Server-Einstellungen des Betreibers der Installation (E19, *getestet (Unit)*; E4, *getestet (Unit)*; E7,
   *getestet (Unit)*); im Piloten, den die Kurzinformationen für CEO und COO vorschlagen, ist der Schutz
   erzwungen, was Ressourcenplanung und RACI ausblendet (E18, *getestet (Unit)*).
+- **Zwei Projekteinstellungen in Einstellungen → KI, beide aus, bis sie gesetzt werden:** „Jede KI-Änderung
+  prüfen“ schickt jede Änderung an Projektdaten, die der Chat vorschlägt, auf die Prüfkarte, auch eine einzelne,
+  und ein Lesezugriff wartet nie (E71, *getestet (Unit)*); „Stundensätze aus Mit KI planen heraushalten“ lässt
+  die internen Stundensätze aus dieser Anfrage weg (E72, *getestet (Unit)*). Der Betreiber kann beide für jedes
+  Projekt erzwingen.
 - **Übernehmen oder lassen:** In den Vorschlägen für Ressourcenplanung, RACI, Projektstrukturplan und doppelte
   Aufgaben können Sie Punkte abwählen, und der Gewichtungsvorschlag bietet „Übernehmen“ für jede einzelne
   Gewichtung; die übrigen werden als Ganzes übernommen, angenommen oder bestätigt (E56, *im Code gelesen*). Der
@@ -69,12 +76,11 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
 
 ## Noch nicht belegt / offene Lücken
 
-1. **§794:** Eine einzelne Änderung im Chat wird ohne Prüfkarte angewendet (E47, *getestet (Unit)*).
-2. **§812:** Ob die Optimierung der Arbeitspakete gleich ausfällt, wurde nicht gemessen (E27, *nicht belegt*).
-3. **§814:** Für die Stunden aus anderen Projekten im Vorschlag für die Ressourcenplanung gibt es kein
+1. **§812:** Ob die Optimierung der Arbeitspakete gleich ausfällt, wurde nicht gemessen (E27, *nicht belegt*).
+2. **§814:** Für die Stunden aus anderen Projekten im Vorschlag für die Ressourcenplanung gibt es kein
    beobachtetes Verhalten aus einem gemessenen Lauf (E39, *nicht belegt*).
-4. **§801:** Text, den die KI schreibt, trägt keine maschinenlesbare Kennzeichnung (E55, *im Code gelesen*).
-5. **§796:** Aufgaben, die ein übernommener Projektstrukturplan anlegt, lassen sich nicht rückgängig machen (E56,
+3. **§801:** Text, den die KI schreibt, trägt keine maschinenlesbare Kennzeichnung (E55, *im Code gelesen*).
+4. **§796:** Aufgaben, die ein übernommener Projektstrukturplan anlegt, lassen sich nicht rückgängig machen (E56,
    *im Code gelesen*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten

@@ -70,17 +70,13 @@ and the pack's check fails when a listed entry is closed or missing. [verified:
 | Register entry | Title |
 |---|---|
 | §487 | The Windows installer is still unsigned: the signing pipeline exists but is switched off, so every install shows an unknown-publisher warning |
-| §562 | The shared proxy rate limiter is bypassable by a client-supplied header, and its store is in-memory |
 | §793 | The installer's uninstaller is not code-signed |
-| §794 | A single AI chat write applies without the review card |
 | §795 | Background AI runs are consented once, not approved run by run |
 | §796 | Tasks created by Optimize work breakdown with AI cannot be undone |
 | §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |
 | §801 | Text the AI writes carries no machine-readable marking |
 | §802 | The AI gateway route has never been run against a real gateway |
-| §804 | Plan with AI always sends internal hourly rates; there is no option to leave them out |
-| §810 | Hiding a project's Resources function keeps neither the chat's people tools nor the absence list from the AI |
 | §811 | The time the AI features save is not measured |
 | §812 | Whether Optimize work breakdown with AI repeats is not measured |
 | §813 | Erasure and retention of saved chats are proven live only for the statements the erasure spec covers |
@@ -92,14 +88,8 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
 
 - **§487** — No installer released so far is code-signed, so Windows cannot show you who published it.
   Check each download with the GitHub attestation commands in `SECURITY.md` instead.
-- **§562** — The request limit on the Jira, Confluence, Timelog, exchange-rate, AI and dictation routes
-  can be avoided by a caller who sets a forwarding header, and it starts again from zero when the server
-  restarts.
 - **§793** — Even once signing is switched on, the uninstaller that setup puts on the computer will not be
   signed, so a tool that checks every program on the machine will flag it.
-- **§794** — When the AI chat makes exactly one change and none of the conditions that force a review
-  applies, the change is made at once, without a review card. It is logged as the AI's, and most such
-  changes can be undone, but no person approved it first.
 - **§795** — The three background AI features send project data on every run under one consent given in
   advance. Nobody approves each run.
 - **§796** — After a person applies an AI work breakdown, undo reverts the changes to existing tasks but
@@ -112,14 +102,25 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
   Once copied or exported, it cannot be told apart from text a person wrote.
 - **§802** — Routing AI through an organisation's gateway has been tested against fakes and a local
   server only. How a real gateway behaves with the app has not been confirmed by a run.
-- **§804** — Plan with AI always sends the internal hourly rate of each internal person's role. The only
-  way to keep rates from the AI is people protection, which hides the feature.
-- **§810** — Hiding a project's Resources function hides its views but does not keep their data from the
-  AI. While people protection is off, the AI chat can still read people, absences and allocations, and
-  change people and absences, in that project. And five AI features (the steering committee report draft,
-  Analyze next actions, the scheduled job analysis, the insight recommendations and the WBS proposal) send
-  the list of who is away, by name and absent days, whatever the function's state. People protection switches
-  the chat's people tools off and replaces known names with placeholders; the absent days are still sent.
+
+Three limits remain that have no open register entry:
+
+- **Request limits.** The limit on the Jira, Confluence, Timelog, exchange-rate, AI and dictation routes no
+  longer trusts a header the caller sets. By default all callers of a route share one count, so one caller
+  can use it up for everyone; `AIPM_TRUSTED_PROXY_HOPS`, set behind reverse proxies that append the caller's
+  address to `x-forwarded-for`, counts each caller separately. The count is kept in each server process's
+  memory and starts again from zero when the server restarts. [verified: `clientKey` in
+  `src/app/api/jira/_rate-limit.ts` and its tests in `_rate-limit.test.ts`]
+- **Hourly rates in forecasts.** A project, or the deployment with `ai-rates`, can keep hourly rates out of
+  Plan with AI. That setting covers Plan with AI only: when the AI chat reads a forecast, a what-if scenario
+  that adds a person reports that person's internal hourly rate. [verified: `buildAllocContext` in
+  `src/app/alloc-plan/alloc-plan.ts`; `ratePerHour` in `src/app/forecast-ai-report.ts`]
+- **A hidden Resources function.** While a project hides it, the AI is offered no tool for people, absences
+  or allocations and no prompt lists who is away. A chat date change that lands on someone's absence is still
+  held on the review card, so the AI can tell that the change was held, but learns nothing about who is away
+  or when. Hiding the function does not take people's names out of tasks and other records; people
+  protection does that. [verified: `peopleToolsOffered` in `src/app/chat-tool-defs.ts`;
+  `buildAiAwaySummary` in `src/app/absence-clash.ts`; `src/app/chat-panel.absence-clash.test.tsx`]
 
 ## How to read the labels
 

@@ -69,18 +69,21 @@ Schalter und die Beobachtung der Ausgaben: Nichts in der App hält interaktive K
    Überlastung wiederholt (E40, *im Code gelesen*).
 3. **§814:** Sechs Pfade haben weder gemessene Kosten noch beobachtetes Verhalten, darunter ein abgelehnter
    Schlüssel (E39, *nicht belegt*).
-4. **§562:** Die Begrenzung der Anfragen der sechs begrenzten Routen, auch die des Relays und des Diktats, zählt nach
-   einem Header, den der Aufrufer selbst setzen kann, und je Serverprozess, lässt sich also umgehen (E54,
-   *im Code gelesen*).
+4. **Anfragegrenzen sind geteilt und gelten je Prozess:** Sofern Sie `AIPM_TRUSTED_PROXY_HOPS` nicht setzen,
+   teilen sich alle Aufrufer jeder der sechs begrenzten Routen, auch des Relays und des Diktats, eine Zählung,
+   sodass ein Aufrufer sie für alle aufbrauchen kann; die Zählung liegt im Speicher jedes Serverprozesses und
+   beginnt bei einem Neustart von vorn (E54, *getestet (Unit)*; der Speicher *im Code gelesen*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
 
 - Legen Sie den Weg fest und halten Sie fest, welche [Betriebsschalter](appendix.md#betriebsschalter) Sie
   setzen. Sobald das Relay genutzt wird, stellen Sie den Server der App hinter Ihre eigene Zugangskontrolle: Die
-  App authentifiziert ihre Aufrufer nicht (E13, *im Code gelesen*). Die Herkunftsprüfung des Relays und seine
-  Grenze je Aufrufer (120 Aufrufe je Minute, sofern Sie keine andere setzen) halten ein einfaches Skript auf,
-  aber keinen entschlossenen Aufrufer, denn beide beruhen auf Headern, die der Aufrufer selbst setzen kann
-  (§562; E54, *im Code gelesen*; E69, *getestet (Unit)*).
+  App authentifiziert ihre Aufrufer nicht (E13, *im Code gelesen*). Die Herkunftsprüfung des Relays beruht auf
+  Headern, die der Aufrufer selbst setzen kann, hält also ein einfaches Skript auf, aber keinen entschlossenen
+  Aufrufer. Seine Grenze (120 Aufrufe je Minute, sofern Sie keine andere setzen) zählt jeden Aufrufer nur dann
+  getrennt, wenn vor dem Server Reverse-Proxys stehen, die die Adresse des Aufrufers an `x-forwarded-for`
+  anhängen, und `AIPM_TRUSTED_PROXY_HOPS` auf ihre Anzahl gesetzt ist; sonst teilen sich alle Aufrufer die
+  Grenze (E54, *getestet (Unit)*; E69, *getestet (Unit)*).
 - Bevor Sie sich auf ein Gateway verlassen, verlangen Sie einen Lauf des Live-Nachweises über ein Test-Gateway
   Ihrer Organisation (§802; E12, *nicht belegt*).
 - Fragen Sie Anthropic für das Konto Ihrer Organisation: was es von einer Anfrage aufbewahrt und wie lange, ob

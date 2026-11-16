@@ -153,9 +153,11 @@ caught. [verified: `classifyResolvedHost` in `src/app/api/stt/_helpers.ts`]
 there is no sign-in on the server side. [verified: the 15 route files under `src/app/api`] Anyone who can
 reach the server can therefore use these routes: send AI requests through your organisation's gateway
 under its token, and send requests to the integrations with credentials they hold themselves. The AI
-relay refuses a call that carries no browser origin header, and every route that forwards limits
-requests per caller, but a script can send that header and the limit can be avoided (§562). [verified:
-`isSameOrigin` and `rateLimit` in `src/app/api/ai/_relay.ts`; register §562] Run the server
+relay refuses a call that carries no browser origin header, but a script can send that header. Every
+route that forwards limits requests, by default with one count shared by all callers of the route, so one
+caller can use it up for everyone; only with `AIPM_TRUSTED_PROXY_HOPS` set behind proxies that append to
+`x-forwarded-for` is each caller counted separately. [verified: `isSameOrigin` and `rateLimit` in
+`src/app/api/ai/_relay.ts`; `clientKey` in `src/app/api/jira/_rate-limit.ts`] Run the server
 behind your organisation's own access control (a deployment that routes AI through a gateway must), such as a reverse proxy with sign-in, single sign-on or a
 network restriction. [vendor statement; how you do it: question for you]
 

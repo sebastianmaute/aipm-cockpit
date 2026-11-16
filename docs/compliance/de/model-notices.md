@@ -108,7 +108,9 @@ Anmerkungen zum Hinweis für Beschäftigte: [geprüft wie angegeben]
   (`src/app/deployment-variables.ts`).
 - Der Satz zum Hintergrund: die drei Zeilen der Tabelle unten, deren Zustimmung „gesondert“ abgefragt
   wird (`level: "background"` in `src/app/ai-disclosure.ts`); Register §795.
-- Der Satz „Eine Ausnahme“: `shouldStage` in `src/app/chat-proposal.ts`; Register §794. Auch andere
+- Der Satz „Eine Ausnahme“: `shouldStage` in `src/app/chat-proposal.ts`. Ein Projekt, oder die Bereitstellung mit
+  `ai-direct-writes`, kann die Ausnahme aufheben, indem es jede KI-Änderung prüfen lässt; tut Ihres das, streichen
+  Sie den Satz. Auch andere
   Bedingungen führen eine Chat-Änderung zur Prüfung; die [Anlage für den
   Betriebsrat](works-council-annex.md#was-die-ki-ohne-freigabe-durch-eine-person-tun-darf) führt sie auf.
 - Der Satz zur Übermittlung: die Angaben für die Datenschutz-Folgenabschätzung, [Übermittlungen außerhalb
@@ -189,7 +191,7 @@ Anmerkungen zum Hinweis für Stakeholder: [geprüft wie angegeben]
   Stakeholder-Datensätze lesen; Namen externer Personen in angehängten E-Mails, die das Projekt nicht
   kennt, werden weiterhin gesendet. [geprüft: `src/app/ai-disclosure.ts`, `PEOPLE_TOOLS` in
   `src/app/chat-tool-defs.ts`]
-- Der Satz „Eine Ausnahme“: wie beim Hinweis für Beschäftigte (§794).
+- Der Satz „Eine Ausnahme“: wie beim Hinweis für Beschäftigte.
 - Wann externe Personen zu informieren sind (Art. 14 Abs. 3): innerhalb einer angemessenen Frist,
   spätestens innerhalb eines Monats nach Erlangung ihrer Daten; wenn Sie die Daten zur Kommunikation mit
   ihnen verwenden, spätestens bei der ersten Mitteilung. [extern: wie oben zitiert]

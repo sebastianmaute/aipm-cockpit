@@ -42,17 +42,17 @@ integration or AI off for the whole deployment with `AIPM_DISABLED_INTEGRATIONS`
 functions on or off too: one such change applies at once, without a review card, and cannot be undone; it
 is only logged. [verified: `isEntityWriteCall` and the comment on `shouldStage` in
 `src/app/chat-proposal.ts` (`update_settings` with `enabledModules`)] Hiding the Resources function hides its
-views; it does not keep their data from the AI (§810). The AI chat is told which functions are on, but
-while people protection is off it can still read people, absences and allocations, and change people and
-absences, in that project. [verified: `toolsFor` and `variantKey` in `src/app/chat-api.ts`, whose
-settings carry no function switch; `PEOPLE_TOOLS` in `src/app/chat-tool-defs.ts`] Five features send the
-list of who is away, by name and absent days, whatever the Resources function's state: the steering
-committee report draft, Analyze next actions, the scheduled job analysis, the insight recommendations (on
-request and automatic) and the WBS proposal. With people protection on, the names of people the project
-knows are replaced by placeholders in that list; the absent days are still sent. [verified: the
-`buildAwaySummary` calls in `src/app/project-digest.ts`, `src/app/use-meeting-report-actions.ts`,
-`src/app/insights/recommend-context.ts` and `src/app/wbs-plan/wbs-plan.ts`, none of which checks the
-function; `AI_DATA_PATHS` in `src/app/ai-disclosure.ts`] Timelog is different: see its entry below.
+views and withdraws their data from the AI, with people protection on or off. The AI chat, the row edit and
+the insight recommendations are offered no tool that reads or changes people, absences or allocations, and
+the chat refuses such a call. The five features that send the list of who is away (the steering committee
+report draft, Analyze next actions, the scheduled job analysis, the insight recommendations, on request and
+automatic, and the WBS proposal) leave it out. A chat write that puts a date on someone's absence returns
+no clash details to the AI; it is still held on the review card, which warns the user, so the AI can tell
+that the write was held but learns nothing about who is away or when. Hiding the function does not take
+people's names out of tasks and other records; people protection does that. [verified:
+`peopleToolsOffered` and `PEOPLE_TOOLS` in `src/app/chat-tool-defs.ts`; `buildAiAwaySummary` in
+`src/app/absence-clash.ts`, which the five features call; `src/app/chat-tool-defs.people.test.ts`,
+`src/app/chat-panel.absence-clash.test.tsx`] Timelog is different: see its entry below.
 
 - **Activity log.** Records each change with its time, its kind, the old and new values of the changed
   fields (which can include people's names), and whether a user, the AI or an integration made it. It does
@@ -93,10 +93,10 @@ function; `AI_DATA_PATHS` in `src/app/ai-disclosure.ts`] Timelog is different: s
 - **Absences.** Records the person, the dates, the type (vacation, sick, training or other) and a note.
   [verified: `Absence` in `src/app/types.ts`] Switch: project (the Resources function, which holds the
   absence calendar). [verified: `FEATURE_MODULES` in `src/app/feature-modules.ts`] Hiding it hides the
-  calendar but does not keep the absence list from the AI (§810), by two routes. The AI chat's absence
-  tools stay available while people protection is off and are withdrawn while it is on. The five AI
-  features named above send the absence list whether people protection is on or off; with it on, names
-  are replaced by placeholders, but the resource-directory number and the absent days are still sent.
+  calendar and keeps the absence list from the AI: the AI chat's absence tools are withdrawn, and the five
+  AI features named above leave the list out, whether people protection is on or off. A chat date change
+  that lands on an absence is still held for review, which tells the AI that it was held, not who is away
+  or when. [verified: see the paragraph on project functions above]
 - **Stakeholder ratings.** Stakeholders, who can be staff, carry an influence and an interest rating and
   RACI roles per milestone. [verified: `Stakeholder` in `src/app/types.ts`] Switch: project (the
   Stakeholders function).
@@ -207,8 +207,12 @@ below]
   sets a date that falls on someone's absence, or makes more than one change across the user's message;
   and every change waits while a file is attached to the conversation. [verified: `shouldStage` in
   `src/app/chat-proposal.ts`, `stagesWhenUntrusted` in `src/app/chat-send-record.ts`] **Exception:** a
-  single change outside those cases applies at once, without a card (§794). It is logged as the AI's, and
-  most such changes can be undone, but no person approved it first. [verified: `shouldStage` in `src/app/chat-proposal.ts`, `src/app/activity-log.ts`; register §794]
+  single change outside those cases applies at once, without a card. It is logged as the AI's, and
+  most such changes can be undone, but no person approved it first. [verified: `shouldStage` in `src/app/chat-proposal.ts`, `src/app/activity-log.ts`]
+  A project can remove the exception with "Review every AI write" in Settings → AI, and an operator for every
+  project with `ai-direct-writes`: then every change to project data the chat proposes waits on the card, even
+  a single one; reads never wait. [verified: `isReviewAllWrites` in `src/app/ai-project-switches.ts`;
+  `src/app/chat-panel.review-all-writes.test.tsx`]
   Once the chat has read a task synced from Jira, every later change in the conversation waits on the card as
   well; outside text that carries no mark of its origin, such as rows created from an imported file or the app's
   own summaries of the project, does not start that hold. [verified: `resultCarriesExternalText` and `openSendRecord` in `src/app/chat-send-record.ts`] A status inquiry the chat prepares opens as a draft e-mail in

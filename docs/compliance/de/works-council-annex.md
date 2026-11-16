@@ -47,20 +47,19 @@ Wiedereinschalten so zurück, wie sie war. Ein **Administrator** kann eine Integ
 eines Projekts ein- oder ausschalten: Eine solche Änderung wird sofort ausgeführt, ohne Prüfkarte, und
 lässt sich nicht rückgängig machen; sie wird nur protokolliert. [geprüft: `isEntityWriteCall` und der
 Kommentar zu `shouldStage` in `src/app/chat-proposal.ts` (`update_settings` mit `enabledModules`)] Das
-Ausblenden der Ressourcen-Funktion blendet deren Ansichten aus; es hält ihre Daten nicht von der KI fern
-(§810). Dem KI-Chat wird mitgeteilt, welche Funktionen eingeschaltet sind, aber solange der
-Personenschutz aus ist, kann er in diesem Projekt weiterhin Personen, Abwesenheiten und Zuteilungen lesen
-sowie Personen und Abwesenheiten ändern. [geprüft: `toolsFor` und `variantKey` in `src/app/chat-api.ts`,
-deren Einstellungen keinen Funktionsschalter enthalten; `PEOPLE_TOOLS` in `src/app/chat-tool-defs.ts`]
-Fünf Funktionen senden die Liste, wer abwesend ist, mit Namen und Abwesenheitstagen, unabhängig davon, ob
-die Ressourcen-Funktion eingeschaltet ist: der Entwurf des Lenkungsausschuss-Berichts, „Nächste Schritte
-mit KI analysieren“, die Analyse durch geplante Aufträge, die Insight-Empfehlungen (auf Anfrage und
-automatisch) und der Vorschlag für den Projektstrukturplan. Bei eingeschaltetem Personenschutz werden in
-dieser Liste die Namen der Personen, die das Projekt kennt, durch Platzhalter ersetzt; die
-Abwesenheitstage werden weiterhin gesendet. [geprüft: die Aufrufe von `buildAwaySummary` in
-`src/app/project-digest.ts`, `src/app/use-meeting-report-actions.ts`,
-`src/app/insights/recommend-context.ts` und `src/app/wbs-plan/wbs-plan.ts`, von denen keiner die
-Funktion prüft; `AI_DATA_PATHS` in `src/app/ai-disclosure.ts`] Für Timelog gilt etwas anderes: siehe den
+Ausblenden der Ressourcen-Funktion blendet deren Ansichten aus und entzieht ihre Daten der KI, ob der
+Personenschutz an oder aus ist. Dem KI-Chat, der Bearbeitung einer Zeile und den Insight-Empfehlungen wird
+kein Werkzeug angeboten, das Personen, Abwesenheiten oder Zuteilungen liest oder ändert, und der Chat lehnt
+einen solchen Aufruf ab. Die fünf Funktionen, die die Liste senden, wer abwesend ist (der Entwurf des
+Lenkungsausschuss-Berichts, „Nächste Schritte mit KI analysieren“, die Analyse durch geplante Aufträge,
+die Insight-Empfehlungen, auf Anfrage und automatisch, und der Vorschlag für den Projektstrukturplan),
+lassen sie weg. Eine Änderung im Chat, die ein Datum auf die Abwesenheit einer Person legt, gibt der KI
+keine Angaben zum Konflikt zurück; sie wird weiterhin auf der Prüfkarte zurückgehalten, die die nutzende
+Person warnt, sodass die KI erkennen kann, dass die Änderung zurückgehalten wurde, aber nichts darüber
+erfährt, wer wann abwesend ist. Das Ausblenden nimmt keine Namen von Personen aus Aufgaben und anderen
+Einträgen heraus; das tut der Personenschutz. [geprüft: `peopleToolsOffered` und `PEOPLE_TOOLS` in
+`src/app/chat-tool-defs.ts`; `buildAiAwaySummary` in `src/app/absence-clash.ts`, das die fünf Funktionen
+aufrufen; `src/app/chat-tool-defs.people.test.ts`, `src/app/chat-panel.absence-clash.test.tsx`] Für Timelog gilt etwas anderes: siehe den
 Eintrag unten.
 
 - **Aktivitätsprotokoll.** Hält jede Änderung mit Zeitpunkt, Art, den alten und neuen Werten der
@@ -108,11 +107,11 @@ Eintrag unten.
 - **Abwesenheiten.** Erfasst die Person, die Daten, die Art (Urlaub, Krankheit, Schulung oder Sonstiges)
   und eine Notiz. [geprüft: `Absence` in `src/app/types.ts`] Schalter: Projekt (die Ressourcen-Funktion,
   die den Abwesenheitskalender enthält). [geprüft: `FEATURE_MODULES` in `src/app/feature-modules.ts`]
-  Das Ausblenden blendet den Kalender aus, hält die Abwesenheitsliste aber auf zwei Wegen nicht von der
-  KI fern (§810). Die Abwesenheits-Werkzeuge des KI-Chats bleiben verfügbar, solange der Personenschutz
-  aus ist, und werden entzogen, solange er an ist. Die fünf oben genannten KI-Funktionen senden die
-  Abwesenheitsliste, ob der Personenschutz an oder aus ist; ist er an, werden Namen durch Platzhalter
-  ersetzt, die Nummer im Ressourcenverzeichnis und die Abwesenheitstage werden aber weiterhin gesendet.
+  Das Ausblenden blendet den Kalender aus und hält die Abwesenheitsliste von der KI fern: Die
+  Abwesenheits-Werkzeuge des KI-Chats werden entzogen, und die fünf oben genannten KI-Funktionen lassen
+  die Liste weg, ob der Personenschutz an oder aus ist. Eine Terminänderung im Chat, die auf eine
+  Abwesenheit fällt, wird weiterhin zur Prüfung zurückgehalten, was der KI sagt, dass sie zurückgehalten
+  wurde, nicht aber, wer wann abwesend ist. [geprüft: siehe den Absatz zu den Projektfunktionen oben]
 - **Bewertungen von Stakeholdern.** Stakeholder, die auch Beschäftigte sein können, tragen eine Bewertung
   von Einfluss und Interesse sowie RACI-Rollen je Meilenstein. [geprüft: `Stakeholder` in
   `src/app/types.ts`] Schalter: Projekt (die Stakeholder-Funktion).
@@ -232,9 +231,13 @@ aufgeführt. [geprüft je Punkt unten]
   einer Person fällt, oder über die Nachricht des Nutzers hinweg mehr als eine Änderung vornimmt; und jede
   Änderung wartet, solange eine Datei an die Unterhaltung angehängt ist. [geprüft: `shouldStage` in
   `src/app/chat-proposal.ts`, `stagesWhenUntrusted` in `src/app/chat-send-record.ts`] **Ausnahme:** Eine
-  einzelne Änderung außerhalb dieser Fälle wird sofort ausgeführt, ohne Karte (§794). Sie wird als
+  einzelne Änderung außerhalb dieser Fälle wird sofort ausgeführt, ohne Karte. Sie wird als
   Änderung der KI protokolliert, und die meisten solchen Änderungen lassen sich rückgängig machen, aber
-  keine Person hat sie vorher freigegeben. [geprüft: `shouldStage` in `src/app/chat-proposal.ts`, `src/app/activity-log.ts`; Register §794] Hat der Chat eine aus Jira
+  keine Person hat sie vorher freigegeben. [geprüft: `shouldStage` in `src/app/chat-proposal.ts`, `src/app/activity-log.ts`]
+  Ein Projekt kann die Ausnahme mit „Jede KI-Änderung prüfen“ in Einstellungen → KI aufheben, ein Betreiber
+  für jedes Projekt mit `ai-direct-writes`: Dann wartet jede Änderung an Projektdaten, die der Chat
+  vorschlägt, auf der Karte, auch eine einzelne; Lesezugriffe warten nie. [geprüft: `isReviewAllWrites` in
+  `src/app/ai-project-switches.ts`; `src/app/chat-panel.review-all-writes.test.tsx`] Hat der Chat eine aus Jira
   synchronisierte Aufgabe gelesen, wartet auch jede spätere Änderung der Unterhaltung auf der Karte; Text
   von außen ohne Kennzeichnung seiner Herkunft, etwa aus einer importierten Datei angelegte Einträge oder die
   eigenen Zusammenfassungen der App zum Projekt, löst das Zurückhalten nicht aus. [geprüft: `resultCarriesExternalText` und `openSendRecord` in

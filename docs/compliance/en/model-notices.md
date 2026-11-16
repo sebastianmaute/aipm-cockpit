@@ -95,7 +95,9 @@ Notes for the staff notice: [verified as named]
   turned it off, or force it on with `AIPM_DISABLED_INTEGRATIONS=ai-people` (`src/app/deployment-variables.ts`).
 - The background sentence: the three rows of the table below whose consent is "asked separately"
   (`level: "background"` in `src/app/ai-disclosure.ts`); register §795.
-- The "one exception" sentence: `shouldStage` in `src/app/chat-proposal.ts`; register §794. Other
+- The "one exception" sentence: `shouldStage` in `src/app/chat-proposal.ts`. A project, or the deployment with
+  `ai-direct-writes`, can remove the exception by having every AI write reviewed; if yours does, drop the
+  sentence. Other
   conditions also bring a chat change to review; the [works council annex](works-council-annex.md#what-the-ai-may-do-without-a-person-approving-it)
   lists them.
 - The transfer sentence: the DPIA input, [Transfers outside the EU](dpia-input.md#transfers-outside-the-eu),
@@ -164,7 +166,7 @@ Notes for the stakeholder notice: [verified as named]
 - With people protection on, the RACI suggestion is unavailable and the chat cannot read stakeholder
   records; external people's names in attached e-mails that the project does not know are still sent.
   [verified: `src/app/ai-disclosure.ts`, `PEOPLE_TOOLS` in `src/app/chat-tool-defs.ts`]
-- The "one exception" sentence: as for the staff notice (§794).
+- The "one exception" sentence: as for the staff notice.
 - When to inform external people (Art 14(3)): within a reasonable period and at the latest within one month
   of obtaining their data; where you use the data to communicate with them, at the latest at your first
   communication. [external: as cited above]

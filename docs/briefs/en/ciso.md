@@ -55,6 +55,9 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
   (E47, *tested (unit)*). So does a Jira-synced task the chat has read, for the rest of the conversation. Pasted
   text, and outside text with no mark of its origin, such as rows created from an imported file, do not start
   that hold (E48, *tested (unit)*).
+- **Every chat write reviewed:** `ai-direct-writes` in `AIPM_DISABLED_INTEGRATIONS`, or a project's own
+  setting, sends every change to project data the chat proposes to the review card, even a single one, whatever
+  the conversation read; a read never waits (E71, *tested (unit)*).
 - **Installer:** each desktop release carries an SBOM, with attestations only while the repository is public
   (E50, *tested (unit)*); the installer is not code-signed (E51, *tested (unit)*). `AIPM_DISABLE_UPDATE_CHECK`
   switches the desktop update check off (E34, *read in code*).
@@ -62,15 +65,16 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
 ## Not yet proven / open gaps
 
 1. **Unmarked outside text and same-turn writes:** text from outside that carries no mark of its origin, such as rows created from an
-   imported file, and a change sent in the same turn as a Jira read, do not start the review hold (E48,
-   *tested (unit)*).
-2. **§794:** a single chat write applies without the review card (E47, *tested (unit)*).
-3. **§487, §793:** the Windows installer is unsigned, and the uninstaller would stay unsigned with signing on
+   imported file, and a change sent in the same turn as a Jira read, do not start the review hold unless every
+   chat write is reviewed (E48, *tested (unit)*; E71, *tested (unit)*).
+2. **§487, §793:** the Windows installer is unsigned, and the uninstaller would stay unsigned with signing on
    (E51, *tested (unit)*).
-4. **Wildcard hosts by default:** unless the deployment sets `AIPM_CSP_TURSO_HOSTS` and `AIPM_CSP_SHAREPOINT_HOSTS`,
+3. **Wildcard hosts by default:** unless the deployment sets `AIPM_CSP_TURSO_HOSTS` and `AIPM_CSP_SHAREPOINT_HOSTS`,
    the policy allows whole host families by wildcard (E34, *read in code*).
-5. **§562:** the request limit of the six limited routes, the relay's and dictation's included, is keyed on a header the
-   caller can set and counted per server process, so it can be avoided (E54, *read in code*).
+4. **Request limits are shared and per process:** unless the deployment sets `AIPM_TRUSTED_PROXY_HOPS`, all
+   callers of each of the six limited routes, the relay's and dictation's included, share one count, so one
+   caller can use it up for everyone; the count is kept in each server process's memory and starts again at a
+   restart (E54, *tested (unit)*; the memory store *read in code*).
 
 ## What to check or ask for before saying yes
 
@@ -81,8 +85,9 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
   write it proposes afterwards waits too (E47, *tested (unit)*; E48, *tested (unit)*).
 - Put the app's server behind your own access control: the app does not authenticate callers, and the relay
   adds the gateway token to every call it forwards (E13, *read in code*). The relay refuses a call without an
-  origin header and, like the dictation route, limits each caller, but both checks rest on headers a caller can
-  set (§562; E54, *read in code*; E69, *tested (unit)*). The dictation route refuses an endpoint whose host name
+  origin header, which a caller can forge. Like the dictation route, it limits requests, but counts each caller
+  separately only with `AIPM_TRUSTED_PROXY_HOPS` set behind proxies that append to `x-forwarded-for`; without
+  it, one caller can use up the limit for all (E54, *tested (unit)*; E69, *tested (unit)*). The dictation route refuses an endpoint whose host name
   resolves to a private address, though DNS rebinding remains (E70, *tested (unit)*).
 - For incidents: the activity log names the AI as actor of its chat changes, but no entry links to the chat
   message behind it (§799; E55, *read in code*).

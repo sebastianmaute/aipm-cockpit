@@ -53,8 +53,9 @@ Know the exceptions:
 - **One change in the chat.** If you ask the chat for a single change, such as moving one due date, it can
   make it straight away, without a review card. It always asks first when it wants to delete something,
   invite meeting attendees, edit the project's own details, change more than one thing, or put work on a
-  day someone is absent, and whenever a file is attached to the conversation. [verified: `shouldStage` in
-  `src/app/chat-proposal.ts`; register §794]
+  day someone is absent, and whenever a file is attached to the conversation. If your project has "Review
+  every AI write" on in Settings → AI, it asks first for every change, even a single one. [verified:
+  `shouldStage` in `src/app/chat-proposal.ts`; `src/app/chat-panel.review-all-writes.test.tsx`]
 - **Text read from outside.** Once the chat has read a task synced from Jira in a conversation, every change
   it proposes after that waits on the review card, as it does while a file is attached. Text from outside
   that carries no mark of where it came from does not start that hold: rows created from an imported file

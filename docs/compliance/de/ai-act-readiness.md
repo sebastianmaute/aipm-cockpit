@@ -98,8 +98,7 @@ Ob Sie KI-geschriebenen Text aus der App auf diese Weise veröffentlichen, entsc
   `src/app/i18n.ts` und `src/app/i18n.de.ts`]
 - Änderungen, die der Chat vorschlägt, erscheinen im Chat unter „Vorgeschlagene Änderungen“ („Proposed changes“), und Änderungen, die
   der Chat ausführt, werden im Aktivitätsprotokoll mit der KI als Urheber protokolliert. [geprüft:
-  `chatProposalTitle` in `src/app/i18n.ts` und `src/app/i18n.de.ts`; `ActivityActor` in `src/app/activity-log.ts`; der
-  Registereintrag §794]
+  `chatProposalTitle` in `src/app/i18n.ts` und `src/app/i18n.de.ts`; `ActivityActor` in `src/app/activity-log.ts`]
 
 Die App hat keinen Gastzugang und keine eigenen Konten: Wer ein Projekt öffnen kann, hängt davon ab, wem
 Sie Zugriff auf dessen Speicher geben. [Aussage des Maintainers; `docs/security.md`, Abschnitt „Security
@@ -305,7 +304,10 @@ Bewertung, ob das ausreicht: Frage an Sie]
   App. [Aussage des Maintainers]
 - **Menschliche Aufsicht.** Zuteilungs- und RACI-Vorschläge werden von einer Person übernommen, Änderung
   für Änderung. [geprüft: `src/app/alloc-plan-modal.tsx`, `src/app/raci-suggest-modal.tsx`] Eine einzelne
-  Chat-Änderung kann ohne Prüfung ausgeführt werden (§794). [geprüft: `shouldStage` in `src/app/chat-proposal.ts`; Register §794]
+  Chat-Änderung kann ohne Prüfung ausgeführt werden, sofern nicht das Projekt, oder die Bereitstellung mit
+  `ai-direct-writes`, jede KI-Änderung prüfen lässt; dann wartet jede Änderung an Projektdaten, die der Chat
+  vorschlägt, auf der Prüfkarte. [geprüft: `shouldStage` in `src/app/chat-proposal.ts`;
+  `src/app/chat-panel.review-all-writes.test.tsx`]
 - **Protokolle.** Das Aktivitätsprotokoll behält je Projekt die neuesten 500 Einträge, eine Anzahl statt
   eines Zeitraums, und verknüpft eine KI-Änderung nicht mit der Chat-Nachricht, die sie veranlasst hat
   (§799). Gespeicherte KI-Chats werden nach der Aufbewahrungsdauer gelöscht, die der Administrator

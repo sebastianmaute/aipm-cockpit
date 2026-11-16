@@ -165,10 +165,12 @@ dazwischen ändert, wird daher nicht erkannt. [geprüft: `classifyResolvedHost` 
 Aufrufer; serverseitig gibt es keine Anmeldung. [geprüft: die 15 Routendateien unter `src/app/api`] Jeder,
 der den Server erreicht, kann diese Routen daher nutzen: KI-Anfragen unter dem Token Ihres Gateways
 über dieses senden und Anfragen an die Integrationen mit Zugangsdaten senden, über die er selbst
-verfügt. Das KI-Relay lehnt einen Aufruf ohne Herkunfts-Header eines Browsers ab, und jede
-weiterleitende Route begrenzt Anfragen je Aufrufer, doch ein Skript kann diesen Header senden, und die
-Begrenzung lässt sich umgehen (§562). [geprüft: `isSameOrigin` und `rateLimit` in
-`src/app/api/ai/_relay.ts`; Register §562]
+verfügt. Das KI-Relay lehnt einen Aufruf ohne Herkunfts-Header eines Browsers ab, doch ein Skript kann
+diesen Header senden. Jede weiterleitende Route begrenzt Anfragen, standardmäßig mit einer Zählung, die
+sich alle Aufrufer der Route teilen, sodass ein Aufrufer sie für alle aufbrauchen kann; nur wenn
+`AIPM_TRUSTED_PROXY_HOPS` hinter Proxys gesetzt ist, die an `x-forwarded-for` anhängen, wird jeder Aufrufer
+getrennt gezählt. [geprüft: `isSameOrigin` und `rateLimit` in `src/app/api/ai/_relay.ts`; `clientKey` in
+`src/app/api/jira/_rate-limit.ts`]
 Stellen Sie den Server hinter der eigenen Zugangskontrolle Ihrer Organisation bereit (eine
 Bereitstellung, die KI über ein Gateway leitet, muss das), etwa einem Reverse
 Proxy mit Anmeldung, Single Sign-on oder einer Netzwerkbeschränkung.

@@ -12,7 +12,8 @@ und keinen Lauf dafür), *geschätzt* oder *nicht belegt*. `§N` ist ein offener
 Die KI der App entwirft, analysiert und schlägt Projektmanagement-Arbeit in 17 Funktionen vor, drei davon laufen
 im Hintergrund (E1, *im Code gelesen*). Außerhalb des Chats wendet eine Funktion, die Änderungen vorschlägt,
 nichts an, bevor eine Person es tut, so der Code, ohne dass ein Test es festlegt; der Chat wendet eine einzelne
-gewöhnliche Änderung sofort an (E56, *im Code gelesen*; E47, *getestet (Unit)*). Zwei Funktionen schlagen
+gewöhnliche Änderung sofort an, sofern nicht das Projekt oder die Bereitstellung jede KI-Änderung prüfen lässt
+(E56, *im Code gelesen*; E47, *getestet (Unit)*; E71, *getestet (Unit)*). Zwei Funktionen schlagen
 Änderungen an der Arbeit von Personen vor: Der Vorschlag für die Ressourcenplanung („Mit KI planen“) schlägt
 geplante Stunden von Personen und Verschiebungen offener Aufgaben zwischen ihnen vor, und der RACI-Vorschlag
 schlägt eine Rolle je Person und Meilenstein vor (E56, *im Code gelesen*). Wie sich diese Funktionen und Ihre
@@ -24,7 +25,8 @@ ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
 ## Was hinausgeht und wer es freigibt
 
 - **Die Anfragen mit dem stärksten Personenbezug:** Die Anfrage zur Ressourcenplanung enthält je Person Rolle,
-  Status als extern, geplante und verfügbare Stunden und den internen Stundensatz ihrer Rolle; die RACI-Anfrage
+  Status als extern, geplante und verfügbare Stunden und, sofern nicht das Projekt oder die Bereitstellung
+  Stundensätze heraushält, den internen Stundensatz ihrer Rolle (E72, *getestet (Unit)*); die RACI-Anfrage
   enthält Einfluss und Interesse der Stakeholder; Insights aus Timelog nennen eine Person mit Befunden zu ihrer
   erfassten Arbeitszeit und gehen bei ausgeschaltetem Personenschutz an den Chat, die Bearbeitung einer Zeile und
   die Insight-Empfehlungen ([KI-Pfade und Personendaten](appendix.md#ki-pfade-und-personendaten); E1,
@@ -39,8 +41,10 @@ ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
   keinen Anhang (E47, *getestet (Unit)*). Ergebnisse der Hintergrund-KI ändern keinen
   Projektdatensatz, bevor jemand bestätigt (E56, *im Code gelesen*).
 - **Wo niemand vorher freigibt:** eine einzelne gewöhnliche Änderung im Chat, auch nach dem Lesen fremden Textes
-  ohne Kennzeichnung seiner Herkunft, etwa aus einer importierten Datei angelegter Einträge (§794; E47,
-  *getestet (Unit)*; E48, *getestet (Unit)*).
+  ohne Kennzeichnung seiner Herkunft, etwa aus einer importierten Datei angelegter Einträge (E47,
+  *getestet (Unit)*; E48, *getestet (Unit)*), sofern nicht das Projekt oder die Bereitstellung jede KI-Änderung
+  prüfen lässt: Dann wartet jede Änderung an Projektdaten, die der Chat vorschlägt, auf der Prüfkarte, auch
+  allein, und ein Lesezugriff wartet nie (E71, *getestet (Unit)*).
 
 ## Was Sie steuern
 
@@ -53,6 +57,10 @@ ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
   Namen eines neuen Projekts lassen sich nicht schützen (E35, *im Code gelesen*); wird die Sperre aufgehoben,
   gilt für jedes Projekt wieder seine gespeicherte Einstellung (E43, *im Code gelesen*). Kein Schalter schaltet
   eine einzelne Funktion ab (E42, *getestet (Unit)*).
+- **Prüfung und Stundensätze:** `ai-direct-writes` schickt jede Änderung des Chats in jedem Projekt auf die
+  Prüfkarte, und `ai-rates` hält Stundensätze aus „Mit KI planen“ heraus; ohne sie kann jedes Projekt beides in
+  Einstellungen → KI festlegen, und beides ist aus, bis es gesetzt wird (E71, *getestet (Unit)*; E72,
+  *getestet (Unit)*).
 - **Zu Artikel 50 (Transparenz):** Die Oberflächen benennen die KI („KI-Assistent“, „Claude fragen“,
   „KI-generiert – vor dem Handeln prüfen.“), und das Aktivitätsprotokoll zeigt ihre Änderungen im Chat mit dem
   Akteur „KI-Assistent“; eine maschinenlesbare Kennzeichnung des Textes, den sie schreibt, fehlt (§801; E55,
@@ -62,14 +70,14 @@ ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
 
 ## Noch nicht belegt / offene Lücken
 
-1. **§794:** Eine einzelne Änderung im Chat wird ohne Prüfkarte angewendet (E47, *getestet (Unit)*).
-2. **§801:** Text, den die KI schreibt, trägt keine maschinenlesbare Kennzeichnung; legen Sie also fest, wie er
+1. **§801:** Text, den die KI schreibt, trägt keine maschinenlesbare Kennzeichnung; legen Sie also fest, wie er
    gekennzeichnet wird, sobald er die App in Berichten und Exporten verlässt (E55, *im Code gelesen*).
-3. **§812:** Ob die Optimierung der Arbeitspakete ihr Ergebnis wiederholt, ist nicht gemessen (E27,
+2. **§812:** Ob die Optimierung der Arbeitspakete ihr Ergebnis wiederholt, ist nicht gemessen (E27,
    *nicht belegt*).
-4. **Fremder Text ohne Kennzeichnung:** Fremder Text ohne Kennzeichnung seiner Herkunft löst die Prüfpflicht
-   nicht aus; eine aus Jira synchronisierte Aufgabe tut es (E48, *getestet (Unit)*).
-5. **§795:** Für die Hintergrund-KI wird einmal zugestimmt, nicht für jeden Lauf (E32, *getestet (Unit)*).
+3. **Fremder Text ohne Kennzeichnung:** Fremder Text ohne Kennzeichnung seiner Herkunft löst die Prüfpflicht
+   nicht aus; eine aus Jira synchronisierte Aufgabe tut es (E48, *getestet (Unit)*). Nur die Prüfung jeder
+   Änderung deckt ihn ab (E71, *getestet (Unit)*).
+4. **§795:** Für die Hintergrund-KI wird einmal zugestimmt, nicht für jeden Lauf (E32, *getestet (Unit)*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
 
@@ -87,7 +95,9 @@ ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
   E66, *im Code gelesen*).
 - Bitten Sie den Chat in einem Testprojekt um eine einzelne Terminänderung an einer Aufgabe, deren zuständige
   Person dann nicht abwesend ist: Sie wird ohne Karte angewendet, und das Aktivitätsprotokoll zeigt sie als
-  Änderung der KI; mit angehängter Datei wartet dieselbe Bitte (E47, *getestet (Unit)*; E55, *im Code gelesen*).
+  Änderung der KI; mit angehängter Datei, oder wenn „Jede KI-Änderung prüfen“ in Einstellungen → KI
+  eingeschaltet ist, wartet dieselbe Bitte (E47, *getestet (Unit)*; E55, *im Code gelesen*; E71,
+  *getestet (Unit)*).
 - Fragen Sie Anthropic, was es von einer Anfrage aufbewahrt, ob es damit trainiert und welche Bedingungen für
   Ihr Konto gelten.
 
