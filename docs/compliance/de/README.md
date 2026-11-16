@@ -167,7 +167,9 @@ Sechs Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
   Kennung der Installation verwenden. Ein geplanter Job entscheidet nach seinem eigenen Projekt: Der Job eines pausierten Projekts wird
   auf jedem Gerät höchstens einmal pro Stunde versucht und hält dann ohne Bericht an, ohne etwas an die KI zu
   senden; die Einstellungen der geplanten Jobs sagen, dass ein Job nicht läuft, solange sein Projekt pausiert ist,
-  nicht aber, welches Projekt es ist. Ein Lauf, der doch startet, sendet weiter, was
+  nicht aber, welches Projekt es ist. Auf dem Gerät, auf dem der Schalter gesetzt wird, pausieren die Jobs des
+  geöffneten Projekts sofort, noch bevor gespeichert ist; andere Geräte folgen, sobald es gespeichert ist.
+  Ein Lauf, der doch startet, sendet weiter, was
   er immer gesendet hat, und niemand gibt ihn vorher frei. [geprüft: `assertBackgroundConsentLive` in
   `src/app/ai-consent.ts`; `backgroundOff` in `src/app/settings-overrides.ts`]
 
