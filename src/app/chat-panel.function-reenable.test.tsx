@@ -33,6 +33,7 @@ const TASK = { id: 1, taskName: "Ship the release", assignee: "", dueDate: "2026
 
 function makeDispatcher(resourcesHidden: boolean): ToolDispatcher {
   let row: Task = TASK;
+  let features: string[] = resourcesHidden ? ["raid"] : ["raid", "resources"];
   return {
     listTasks: vi.fn(() => [row]),
     getTask: vi.fn((id: number) => (id === row.id ? row : null)),
@@ -42,12 +43,16 @@ function makeDispatcher(resourcesHidden: boolean): ToolDispatcher {
       return row;
     }),
     absenceClashesFor: vi.fn(() => []),
-    isPeopleProtected: () => false, isResourcesHidden: () => resourcesHidden, isStakeholdersHidden: () => false,
-    updateSettings: vi.fn(() => ({ enabledModules: ["raid", "resources"] })),
+    isPeopleProtected: () => false, isResourcesHidden: () => !features.includes("resources"), isStakeholdersHidden: () => false,
+    listResources: vi.fn(() => []),
+    updateSettings: vi.fn((patch: { enabledModules?: string[] }) => {
+      if (patch.enabledModules) features = [...patch.enabledModules];
+      return { enabledModules: features };
+    }),
     previewSettings: vi.fn(() => ({ enabledModules: ["raid", "resources"] })),
     getSnapshot: vi.fn(() => ({
       today: "2026-10-30", language: "en-US", holidayCountries: [], storageKind: "memory", taskCount: 1,
-      knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: (resourcesHidden ? ["raid"] : ["raid", "resources"]) as string[], currentView: "open-points" as const,
+      knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: [...features], currentView: "open-points" as const,
     })),
   } as unknown as ToolDispatcher;
 }
@@ -60,13 +65,16 @@ const reEnable = {
 };
 const doneTurn = { content: [{ type: "text", text: "done" }], stop_reason: "end_turn", usage };
 
-function scriptFetch(turns: unknown[]) {
+function scriptFetch(turns: unknown[]): string[] {
   let call = 0;
-  vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+  const bodies: string[] = [];
+  vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+    bodies.push(String(init?.body ?? ""));
     const body = turns[Math.min(call, turns.length - 1)];
     call += 1;
     return Promise.resolve({ ok: true, text: () => Promise.resolve(""), json: () => Promise.resolve(body) } as unknown as Response);
   });
+  return bodies;
 }
 
 function mountAndSend(dispatcher: ToolDispatcher) {
@@ -94,6 +102,23 @@ describe("turning a hidden Resources function back on through the chat (§810)",
     await screen.findByRole("region", CARD);
     await screen.findByText("done");
     expect(dispatcher.updateSettings).not.toHaveBeenCalled();
+  });
+
+  // The same-send guarantee, end to end: after the staged re-enable, a later turn of the same send that calls a
+  // Resources tool is refused, because the saved functions did not change. Applying the call at once instead (the
+  // mutant: no staging for a re-enable) would let it through.
+  it("a later turn of the same send that calls a Resources tool is refused while the re-enable waits", async () => {
+    const dispatcher = makeDispatcher(true);
+    const listTurn = { content: [{ type: "tool_use", id: "t2", name: "list_resources", input: {} }], stop_reason: "tool_use", usage };
+    const bodies = scriptFetch([reEnable, listTurn, doneTurn]);
+    mountAndSend(dispatcher);
+    await screen.findByRole("region", CARD);
+    await screen.findByText("done");
+    expect(dispatcher.updateSettings).not.toHaveBeenCalled();
+    expect(dispatcher.listResources).not.toHaveBeenCalled();
+    const third = bodies[2] ?? "";
+    expect(third).toContain("t2");
+    expect(third).toContain("Resources function is switched off");
   });
 
   it("CONTROL - with Resources shown the same lone call applies at once", async () => {

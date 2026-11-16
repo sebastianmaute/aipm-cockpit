@@ -163,3 +163,20 @@ describe("the canonical order keeps keys it does not know", () => {
     expect(o.future).toEqual({ x: 1 });
   });
 });
+
+// A key unknown INSIDE `forecast`, and several unknown top-level keys: both kept, in their existing order.
+describe("the canonical order keeps nested and several unknown keys in order", () => {
+  const rich = {
+    zeta: 1, forecast: { later: "x", showSimulation: true, alpha: "y" }, alpha: 2,
+  } as unknown as SettingsOverrides;
+  it("withAiOverrideFlag: known keys first, then zeta and alpha as they were; forecast keeps later and alpha", () => {
+    const o = withAiSwitch(rich, "ratesWithheld", true) as unknown as Record<string, Record<string, unknown>>;
+    expect(Object.keys(o)).toEqual(["forecast", "ai", "zeta", "alpha"]);
+    expect(Object.keys(o.forecast)).toEqual(["showSimulation", "later", "alpha"]);
+  });
+  it("withForecastObject: an unknown key inside the forecast object it is given is kept too", () => {
+    const o = withForecastObject(rich, { showSimulation: true, later: "x", targetConfidence: 95 } as never) as unknown as Record<string, Record<string, unknown>>;
+    expect(Object.keys(o)).toEqual(["forecast", "zeta", "alpha"]);
+    expect(Object.keys(o.forecast)).toEqual(["showSimulation", "targetConfidence", "later"]);
+  });
+});
