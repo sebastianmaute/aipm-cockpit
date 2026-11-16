@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { setDisabledIntegrations } from "../integration-switches";
-import { t } from "../i18n";
+import { loadI18n, t } from "../i18n";
 import type { SettingsOverrides } from "../settings-types";
 import { AiReviewWritesControl } from "./ai-review-writes-control";
 
@@ -54,6 +54,12 @@ describe("AiReviewWritesControl", () => {
     expect(applied({ ai: { reviewAllWrites: true } })).toBeUndefined();
   });
 
+  it("decides from the previous overrides inside the updater, not from what was rendered", () => {
+    render(<AiReviewWritesControl lang="en-US" />); // rendered off
+    fireEvent.click(control());
+    expect(applied({ ai: { reviewAllWrites: true } })).toBeUndefined(); // already on by the time the updater runs
+  });
+
   it("with the deployment lock it is on, disabled and says why; a click changes nothing", () => {
     setDisabledIntegrations(["ai-direct-writes"]);
     render(<AiReviewWritesControl lang="en-US" />);
@@ -68,5 +74,16 @@ describe("AiReviewWritesControl", () => {
   it("does not show the forced reason when nothing forces it", () => {
     render(<AiReviewWritesControl lang="en-US" />);
     expect(screen.queryByText(t("en-US", "aiReviewAllWritesForced"))).toBeNull();
+  });
+});
+
+// §794 — not every AI change can be undone (an inquiry mail, a forecast proposal or target, a functions change,
+// a document write), so the hint promises it for most changes, not for every one.
+describe("the review switch hint", () => {
+  it("says most changes can be undone, in English and German", async () => {
+    expect(t("en-US", "aiReviewAllWritesHint")).toMatch(/most changes can be undone/);
+    expect(t("en-US", "aiReviewAllWritesHint")).not.toMatch(/applied at once and can be undone/);
+    await loadI18n("de");
+    expect(t("de", "aiReviewAllWritesHint")).toMatch(/die meisten Änderungen lassen sich rückgängig machen/);
   });
 });

@@ -1822,7 +1822,7 @@ const enUS = {
   aiPeopleProtectionOffConfirm: "Turn off people protection for this project? The AI will then see the people listed in the AI data disclosure and can suggest assignments.",
   aiPeopleProtectionOffButton: "Turn off",
   aiReviewAllWritesLabel: "Review every AI write",
-  aiReviewAllWritesHint: "On: every change the AI chat proposes, even a single one, waits on the review card until you apply it. Off: a single change is applied at once and can be undone.",
+  aiReviewAllWritesHint: "On: every change the AI chat proposes, even a single one, waits on the review card until you apply it. Off: a single change is applied at once; most changes can be undone.",
   aiReviewAllWritesForced: "Your organisation has switched this on for every project.",
   aiRatesWithheldLabel: "Keep hourly rates out of Plan with AI and the chat’s forecast",
   aiRatesWithheldHint: "On: hourly rates are left out of Plan with AI, and out of the chat’s forecast results for a person added in a scenario or what-if. Off: both include the internal hourly rate of each internal person's role.",

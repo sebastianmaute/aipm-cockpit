@@ -8,7 +8,7 @@
 // request is pinned elsewhere: `ai-transport.privacy.test.ts`, `scheduled-job-privacy.test.tsx`,
 // `chat-panel.people-protected.test.tsx`, and the site scan `ai-privacy.sites.test.ts`.
 import { aiPrivacyFor, type AiPrivacy } from "../app/ai-privacy";
-import { isRatesWithheld } from "../app/ai-project-switches";
+import { isRatesWithheld, isReviewAllWrites } from "../app/ai-project-switches";
 
 const UNPROTECTED = aiPrivacyFor([]);
 const getUnprotected = (): AiPrivacy => UNPROTECTED;
@@ -31,8 +31,8 @@ export function usePeopleProtected(): boolean {
   return false;
 }
 
-// §794: no project, so nothing asks for every write to be reviewed.
-const noReview = (): boolean => false;
+// §794: no project, so only the deployment lock (`ai-direct-writes`) can ask for every write to be reviewed.
+const noReview = (): boolean => isReviewAllWrites(undefined);
 
 export function useOpenProjectReviewAllWrites(): () => boolean {
   return noReview;

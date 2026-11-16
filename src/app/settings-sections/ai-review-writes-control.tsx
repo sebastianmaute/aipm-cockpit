@@ -30,7 +30,7 @@ export function AiReviewWritesControl({ lang }: { lang: Lang }) {
           aria-describedby={forced ? `${helpId} ${lockedId}` : helpId}
           onChange={() => {
             if (forced) return; // the deployment decides; the stored choice stays as it is
-            setSettingsOverrides((prev) => withAiSwitch(prev, "reviewAllWrites", !reviewing));
+            setSettingsOverrides((prev) => withAiSwitch(prev, "reviewAllWrites", !isReviewAllWrites(prev)));
           }}
         />
         <span className="text-sm font-medium text-foreground">{t(lang, "aiReviewAllWritesLabel")}</span>

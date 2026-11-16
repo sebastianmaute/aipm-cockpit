@@ -1714,7 +1714,7 @@ export const de: Record<TranslationKey, string> = {
   aiPeopleProtectionOffConfirm: "Personenschutz für dieses Projekt ausschalten? Die KI sieht dann die im KI-Datenhinweis aufgeführten Personen und kann Zuweisungen vorschlagen.",
   aiPeopleProtectionOffButton: "Ausschalten",
   aiReviewAllWritesLabel: "Jede KI-Änderung prüfen",
-  aiReviewAllWritesHint: "Ein: Jede Änderung, die der KI-Chat vorschlägt, auch eine einzelne, wartet auf der Prüfkarte, bis Sie sie übernehmen. Aus: Eine einzelne Änderung wird sofort übernommen und lässt sich rückgängig machen.",
+  aiReviewAllWritesHint: "Ein: Jede Änderung, die der KI-Chat vorschlägt, auch eine einzelne, wartet auf der Prüfkarte, bis Sie sie übernehmen. Aus: Eine einzelne Änderung wird sofort übernommen; die meisten Änderungen lassen sich rückgängig machen.",
   aiReviewAllWritesForced: "Ihre Organisation hat dies für alle Projekte eingeschaltet.",
   aiRatesWithheldLabel: "Stundensätze aus Mit KI planen und der Prognose im Chat heraushalten",
   aiRatesWithheldHint: "Ein: Stundensätze entfallen in Mit KI planen und in den Prognoseergebnissen des Chats für eine Person, die in einem Szenario oder einer Was-wäre-wenn-Rechnung hinzukommt. Aus: Beide enthalten den internen Stundensatz der Rolle jeder internen Person.",

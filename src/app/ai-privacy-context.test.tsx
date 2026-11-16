@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import {
@@ -7,6 +7,8 @@ import {
 import { withPeopleAllowed } from "./ai-people-protection";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import type { Stakeholder } from "./types";
+import { setDisabledIntegrations } from "./integration-switches";
+import * as unprotectedStandIn from "../test/ai-privacy-unprotected";
 
 // AI people protection: the open project's privacy is read at SEND time, from the source as
 // task-manager registered it on the latest commit. A source captured once at mount would send every
@@ -100,5 +102,20 @@ describe("the open project's rates switch follows the workspace at send time (§
   it("with no source registered only the deployment lock can say yes", () => {
     const { result } = renderHook(() => useOpenProjectRatesWithheld(), { wrapper });
     expect(result.current()).toBe(false);
+  });
+});
+
+// §794/§804 — the stand-in that feature tests mock this module with has no project, so only a deployment lock can
+// switch either safeguard on there, exactly as the real getters answer with no source registered.
+describe("the unprotected stand-in honours the deployment locks", () => {
+  afterEach(() => setDisabledIntegrations([]));
+
+  it("review of every write and withheld rates are off with no lock, and on under ai-direct-writes and ai-rates", () => {
+    setDisabledIntegrations([]);
+    expect(unprotectedStandIn.useOpenProjectReviewAllWrites()()).toBe(false);
+    expect(unprotectedStandIn.useOpenProjectRatesWithheld()()).toBe(false);
+    setDisabledIntegrations(["ai-direct-writes", "ai-rates"]);
+    expect(unprotectedStandIn.useOpenProjectReviewAllWrites()()).toBe(true);
+    expect(unprotectedStandIn.useOpenProjectRatesWithheld()()).toBe(true);
   });
 });
