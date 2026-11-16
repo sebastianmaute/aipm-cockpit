@@ -42,6 +42,9 @@ export function useOpenProjectReviewAllWrites(): () => boolean {
 }
 
 // §804: no project, so only the deployment lock (`ai-rates`) can keep hourly rates out of a request.
+// ★ Deliberately NOT the real getter's answer: with no project source registered the real
+// `useOpenProjectRatesWithheld` fails CLOSED (withhold). This stand-in serves feature tests that need the rate in
+// the request, so it answers like an open project that has not switched the rates switch on.
 const noRatesWithheld = (): boolean => isRatesWithheld(undefined);
 
 export function useOpenProjectRatesWithheld(): () => boolean {

@@ -99,9 +99,10 @@ describe("the open project's rates switch follows the workspace at send time (§
     expect(getter()).toBe(true);
   });
 
-  it("with no source registered only the deployment lock can say yes", () => {
+  // Like people protection and the review switch, it fails CLOSED: with no project source registered rates are withheld.
+  it("with no source registered it withholds rates", () => {
     const { result } = renderHook(() => useOpenProjectRatesWithheld(), { wrapper });
-    expect(result.current()).toBe(false);
+    expect(result.current()).toBe(true);
   });
 });
 

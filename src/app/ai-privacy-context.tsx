@@ -69,10 +69,11 @@ function reviewAllWritesNow(store: SourceStore | null): boolean {
   return source === null || isReviewAllWrites(source.read().settingsOverrides);
 }
 
-/** Whether the store's open project keeps hourly rates out of Plan with AI and the forecast tool (§804); the deployment lock counts. */
+/** Whether the store's open project keeps hourly rates out of the AI (§804); the deployment lock counts. Like people
+ *  protection and the review switch it fails CLOSED: with no source registered (no project open yet) rates are withheld. */
 function ratesWithheldNow(store: SourceStore | null): boolean {
   const source = store?.get() ?? null;
-  return isRatesWithheld(source?.read().settingsOverrides);
+  return source === null || isRatesWithheld(source.read().settingsOverrides);
 }
 
 const NO_SUBSCRIPTION = () => () => undefined;
@@ -129,7 +130,8 @@ export function useOpenProjectReviewAllWrites(): () => boolean {
 }
 
 /** §804: a stable getter for whether the open project keeps hourly rates out of Plan with AI, asked at SEND
- *  time like the switches above (the forecast tool reads the overrides itself, in `buildForecastReport`). With no source registered only the deployment lock can say yes. */
+ *  time like the switches above (the forecast tool reads the overrides itself, in `buildForecastReport`). With no source registered it answers yes
+ *  (fail closed), as protection and the review switch do. */
 export function useOpenProjectRatesWithheld(): () => boolean {
   const store = useContext(SourceContext);
   return useCallback(() => ratesWithheldNow(store), [store]);
