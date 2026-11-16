@@ -1032,13 +1032,14 @@ function ChatPanelInner({
             // in this same turn can name the row the plan will create, and (§773) the absence clashes
             // the card shows for that row, so Claude can offer another date while the card waits. After a
             // scope move every id without an answer gets the interrupted result, as a truncated turn's calls do.
+            // §810 — no clash while the project hides its Resources function (the card still shows it to the user).
             const answers = proposed.map((p): ToolResultBlock => {
               const read = readAnswers.get(p.useId);
               if (read !== undefined) return read;
               const at = staged.indexOf(p);
               return scopeMoved || at === -1
                 ? { type: "tool_result", tool_use_id: p.useId, content: INTERRUPTED_TOOL_RESULT, is_error: true }
-                : { type: "tool_result", tool_use_id: p.useId, content: stagedToolResult(planRows[at].mintedId, described[at].plan.clashes.map((n) => n.clash)) + (p.removed.length > 0 ? ` ${PERSON_FIELDS_REMOVED_NOTE(p.removed)}` : "") };
+                : { type: "tool_result", tool_use_id: p.useId, content: stagedToolResult(planRows[at].mintedId, toolFlags.resourcesHidden ? [] : described[at].plan.clashes.map((n) => n.clash)) + (p.removed.length > 0 ? ` ${PERSON_FIELDS_REMOVED_NOTE(p.removed)}` : "") };
             });
             messages.push({ role: "user", content: answers });
             continueBubble = false;

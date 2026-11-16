@@ -4,7 +4,7 @@
 // them" pattern); `chat-panel.tsx` consumes everything here.
 import { TOOL_DEFS, type ToolDispatcher } from "./chat-tools";
 import { DOCUMENT_TOOL_DEFS_WITHOUT_DECISION } from "./chat-tool-defs-documents";
-import { PEOPLE_PROTECTED_DEFS, PEOPLE_TOOLS, peopleToolsLive, peopleToolsOffered } from "./chat-tool-defs";
+import { PEOPLE_PROTECTED_DEFS, PEOPLE_TOOLS, RESOURCES_HIDDEN_DEFS, peopleToolsLive, peopleToolsOffered } from "./chat-tool-defs";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import { reportAiKeyResponse } from "./ai-key-status";
 import { assertInteractiveConsentLive } from "./ai-consent";
@@ -558,8 +558,8 @@ export type ToolFlags = Pick<AiConfig, "historySearch" | "chatSearch"> & {
    *  Only an explicit true removes them (`peopleToolsLive`). */
   peopleProtected?: boolean;
   /** §810 — the open project hides its Resources function, so the request carries no `PEOPLE_TOOLS` (bit 16:
-   *  dropped WITHOUT protection's definition swap; person fields are not stripped either — that follows
-   *  `peopleProtected` alone). Read at SEND time like `peopleProtected`. Only an explicit true withdraws
+   *  dropped, and the hint-carrying definitions swap for `RESOURCES_HIDDEN_DEFS`; person fields are NOT
+   *  stripped — that follows `peopleProtected` alone). Read at SEND time like `peopleProtected`. Only an explicit true withdraws
    *  (`peopleToolsOffered`, which `runTool` asks too). */
   resourcesHidden?: boolean;
 };
@@ -583,17 +583,18 @@ const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
  *  each `PEOPLE_PROTECTED_DEFS` entry replaces its original; otherwise `defs` stay as given. The cache
  *  breakpoint is set AFTER both steps (`withCacheBreakpoint`, on the last tool kept), so neither the drop
  *  nor the swap can lose or duplicate it. `defs` must carry no breakpoint yet. The drop is decided by the
- *  SAME predicate `runTool` enforces (`peopleToolsOffered`); the swap by protection alone, so a project that
- *  only hides its Resources function (§810) loses the people tools and keeps every other definition. Flags
- *  by NAME (§159: two adjacent booleans transpose silently). */
+ *  SAME predicate `runTool` enforces (`peopleToolsOffered`). The swap: a hidden Resources function (§810) takes
+ *  `RESOURCES_HIDDEN_DEFS` (protection's hint drops plus the absenceClashes promise, since no clash comes back
+ *  then), else protection takes `PEOPLE_PROTECTED_DEFS`. Flags by NAME (§159: two adjacent booleans transpose
+ *  silently). */
 export function selectPeopleTools(
   defs: typeof TOOL_DEFS,
   flags: { peopleProtected?: boolean; resourcesHidden?: boolean },
 ): ReturnType<typeof withCacheBreakpoint> {
   if (peopleToolsOffered(flags)) return withCacheBreakpoint(defs);
   const kept = defs.filter((d) => !PEOPLE_TOOLS.has(d.name));
-  if (peopleToolsLive(flags.peopleProtected)) return withCacheBreakpoint(kept);
-  return withCacheBreakpoint(kept.map((d) => (PEOPLE_PROTECTED_DEFS.get(d.name) as typeof d | undefined) ?? d));
+  const swap = flags.resourcesHidden === true ? RESOURCES_HIDDEN_DEFS : PEOPLE_PROTECTED_DEFS;
+  return withCacheBreakpoint(kept.map((d) => (swap.get(d.name) as typeof d | undefined) ?? d));
 }
 
 /** The document tools as sent with bit 4 set (forecast off): no `forecastDecision` data section (§502 part 4). */
@@ -643,7 +644,7 @@ function variantFor(key: number) {
   const decided = (key & 4) === 0 ? kept : kept.map((d) => (DOCUMENTS_WITHOUT_DECISION.get(d.name) as typeof d | undefined) ?? d);
   // Bit 8 drops the people tools; §773 — it also withholds list_absences, so the date-writing tools swap
   // for variants that stop pointing at it.
-  // Bit 16 (§810, Resources hidden) drops them as well, without that swap.
+  // Bit 16 (§810, Resources hidden) drops them as well, with its own swap that also drops the clash promise.
   const built = selectPeopleTools(decided, { peopleProtected: (key & 8) !== 0, resourcesHidden: (key & 16) !== 0 });
   TOOL_VARIANTS.set(key, built);
   return built;

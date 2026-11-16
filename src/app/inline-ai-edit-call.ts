@@ -86,7 +86,7 @@ function withheldByUpdateTool(): ReadonlyMap<string, ReadonlySet<string>> {
  *  that mocks `toolsNamed` after the first inline call in its file never reaches this path. */
 function inlineTools(peopleProtected: boolean, resourcesHidden: boolean): InlineTools {
   // Chat's predicates: only an explicit true withholds the people tools (`peopleToolsLive`), and a hidden
-  // Resources function drops them without the protected swap (§810, `peopleToolsOffered`).
+  // Resources function drops them with its own hint swap (§810, `peopleToolsOffered`, `RESOURCES_HIDDEN_DEFS`).
   const withoutPeople = !peopleToolsLive(peopleProtected);
   const key = `${withoutPeople}:${resourcesHidden}`;
   const cached = inlineToolsCache.get(key);

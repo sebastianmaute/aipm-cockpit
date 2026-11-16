@@ -33,7 +33,8 @@ function makeDispatcher(): ToolDispatcher {
   return {
     getSnapshot: vi.fn(() => ({
       today: "2026-06-04", language: "en-US", holidayCountries: [], storageKind: "memory", taskCount: 0,
-      knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: [] as string[],
+      // §810 — Resources shown, so protection alone decides what reaches Claude here.
+      knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: ["resources"] as string[],
       currentView: "open-points" as const,
     })),
   } as unknown as ToolDispatcher;

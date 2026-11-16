@@ -1083,6 +1083,27 @@ export const PEOPLE_PROTECTED_DEFS: ReadonlyMap<string, (typeof TOOL_DEFS)[numbe
   }),
 );
 
+/** §810 — the absence-clash promise four date-writing tools make. While the project hides its Resources function
+ *  no write returns clashes (the dispatcher's `absenceClashesFor` answers none), so that request drops it too. */
+const ABSENCE_CLASHES_PROMISES: readonly string[] = [
+  " A result may list absenceClashes to mention to the user, offering another date.",
+  " A result may list absenceClashes to mention to the user.",
+];
+
+/** §810 — the tools as a request sends them while the project hides its Resources function: protection's hint drops
+ *  (`PROTECTED_DROPS`: no pointer at the withdrawn `list_absences` or `get_contact_email`) and, unlike under
+ *  protection alone, the absenceClashes promise as well. Applied by `toolsFor` on bit 16 (and by `toolsNamed`);
+ *  person-field stripping is not part of it. A test checks that no tool text such a request carries names a
+ *  withheld people tool or `absenceClashes`. */
+export const RESOURCES_HIDDEN_DEFS: ReadonlyMap<string, (typeof TOOL_DEFS)[number]> = new Map(
+  TOOL_DEFS.flatMap((d) => {
+    const drop = PROTECTED_DROPS[d.name];
+    if (!drop) return [];
+    const description = ABSENCE_CLASHES_PROMISES.reduce((text, promise) => text.replace(promise, ""), d.description.replace(drop, ""));
+    return [[d.name, { ...d, description }] as const];
+  }),
+);
+
 /** What `runTool` answers for a people tool under protection. English and i18n-free: the model reads it,
  *  like every other tool error. It says why, so the model does not retry. */
 export const PEOPLE_TOOL_REFUSAL =

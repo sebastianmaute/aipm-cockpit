@@ -2,7 +2,7 @@
 // request and refused by the executor, with ONE predicate behind both gates.
 import { describe, it, expect, vi } from "vitest";
 import {
-  TOOL_DEFS, PEOPLE_TOOLS, NON_PEOPLE_TOOLS, PEOPLE_TOOL_REFUSAL, RESOURCES_HIDDEN_TOOL_REFUSAL, PeopleToolRefusedError,
+  TOOL_DEFS, PEOPLE_TOOLS, NON_PEOPLE_TOOLS, PEOPLE_TOOL_REFUSAL, RESOURCES_HIDDEN_DEFS, RESOURCES_HIDDEN_TOOL_REFUSAL, PeopleToolRefusedError,
   peopleToolsLive, peopleToolsOffered,
 } from "./chat-tool-defs";
 import { RESOURCES_HIDDEN_INSTRUCTION, toolNamesFor, toolsFor, buildStableSystemBlocks, buildTurnContext, type ToolFlags } from "./chat-api";
@@ -175,15 +175,38 @@ describe("Resources hidden (§810)", () => {
     expect(peopleToolsOffered({ peopleProtected: true, resourcesHidden: true })).toBe(false);
   });
 
-  it("a request with Resources hidden carries no people tool and every other definition unchanged", () => {
+  it("a request with Resources hidden carries no people tool and every other definition unchanged but the hint-carrying ones", () => {
     const hidden = toolsFor({ resourcesHidden: true });
     expect(hidden.map((d) => d.name).filter((n) => PEOPLE_TOOLS.has(n))).toEqual([]);
-    // No swap: each kept tool is the definition the default request sends (the cache breakpoint aside).
+    // Only the definitions that point at a withdrawn people tool or promise absence clashes differ.
     const strip = (d: object) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== "cache_control"));
     const plain = toolsFor({}).filter((d) => !PEOPLE_TOOLS.has(d.name));
-    expect(hidden.map(strip)).toEqual(plain.map(strip));
+    expect(hidden.map((d) => d.name)).toEqual(plain.map((d) => d.name));
+    const changed = hidden.filter((d, i) => JSON.stringify(strip(d)) !== JSON.stringify(strip(plain[i]!))).map((d) => d.name);
+    expect(new Set(changed)).toEqual(new Set([...RESOURCES_HIDDEN_DEFS.keys()]));
+    expect(new Set(changed)).toEqual(new Set(["create_task", "update_task", "create_milestone", "update_milestone", "get_task"]));
     expect(hidden.length).toBeGreaterThan(0);
     expect(toolNamesFor({ resourcesHidden: true }).has("list_resources")).toBe(false);
+  });
+
+  // Fix 1 withholds absence clashes while Resources is hidden, so no text may promise them either.
+  it("no tool text a Resources-hidden request advertises names a withheld people tool or promises absenceClashes", () => {
+    const offenders = new Set<string>();
+    let checked = 0;
+    for (const peopleProtected of [false, true]) for (const historySearch of [false, true]) for (const forecast of [false, true]) {
+      const flags: ToolFlags = { historySearch, chatSearch: true, forecast, peopleProtected, resourcesHidden: true };
+      const carried = toolNamesFor(flags);
+      const withheld = [...PEOPLE_TOOLS].filter((n) => !carried.has(n));
+      expect(withheld.length).toBe(PEOPLE_TOOLS.size);
+      for (const def of toolsFor(flags)) {
+        const text = JSON.stringify(def);
+        checked++;
+        for (const name of withheld) if (new RegExp(String.raw`\b${name}\b`).test(text)) offenders.add(`${def.name} -> ${name}`);
+        if (text.includes("absenceClashes")) offenders.add(`${def.name} -> absenceClashes`);
+      }
+    }
+    expect(checked).toBeGreaterThan(100);
+    expect([...offenders]).toEqual([]);
   });
 
   it("only an explicit true withdraws them, and each combination keeps one array identity", () => {

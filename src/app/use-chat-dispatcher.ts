@@ -398,6 +398,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
 
   // AI people protection: a STABLE getter over the open project's live setting (the transport's own source).
   const peopleProtectedNow = useOpenProjectPeopleProtected();
+  // §810 — the project's live functions (`featuresRef`, what `getSnapshot` reports): read at call time.
+  const resourcesHiddenNow = useCallback(() => !isModuleEnabled("resources", sanitizeFeatures(featuresRef.current)), []);
 
   const dispatcher = useMemo<ToolDispatcher>(
     () => ({
@@ -411,7 +413,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       },
       // §773 — the live slices, judged by the same function as the staging gate and the review card.
       // ★ `backstopWorkspace` keeps only the four slices that judgment reads; its parity test pins that.
+      // §810 — none while the project hides its Resources function: who is away does not reach the AI then.
+      // The same reading as `isResourcesHidden` below, which the tool list and the refusal follow.
       absenceClashesFor: (name, input) => {
+        if (resourcesHiddenNow()) return [];
         const resources = resourcesRef.current;
         const absences = absencesRef.current;
         const ws = backstopWorkspace({ tasks: tasksRef.current, milestones: milestonesRef.current, resources, absences });
@@ -1088,7 +1093,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       // ★ LIVE, like the line above: the getter reads the project's setting at call time.
       isPeopleProtected: peopleProtectedNow,
       // §810 — LIVE too, and from the functions `getSnapshot` reports, which the chat's list is built from.
-      isResourcesHidden: () => !isModuleEnabled("resources", sanitizeFeatures(featuresRef.current)),
+      isResourcesHidden: resourcesHiddenNow,
       ...chatBindings.tools,
 
       ...forecastTools,
@@ -1139,7 +1144,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // ★ `forecastTools` is the same shape again: a useMemo'd object spread in, and read by `getSnapshot`; so is
     // `projectTools`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [args.isReadOnly, documentTools, registerTools, forecastTools, projectTools, setRaid, setAbsences, setShifts, setStakeholders, setProject, setFeatures, peopleProtectedNow],
+    [args.isReadOnly, documentTools, registerTools, forecastTools, projectTools, setRaid, setAbsences, setShifts, setStakeholders, setProject, setFeatures, peopleProtectedNow, resourcesHiddenNow],
   );
 
   return dispatcher;
