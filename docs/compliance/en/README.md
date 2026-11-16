@@ -124,8 +124,8 @@ Five limits remain that have no open register entry:
   what-if's cost at finish (P50, P80, P95) beside As is, and the sizing of a person it adds keeps their weekly
   hours. From the difference and those hours the model could roughly work out that person's rate, although
   the rate itself is left out. [verified: `buildForecastReport` in `src/app/forecast-ai-report.ts`]
-- **Forecast what-if with a hidden Resources function.** While a project hides Resources, a forecast what-if that names a directory person by id still reports, without the name, their weekly hours, whether they are external or have no rate, and whether they are already on the team or gone from the directory.
-  [verified: `resolveAddedPeople` in `src/app/forecast-added-people.ts`; `buildForecastReport` in
+- **Forecast what-if with a hidden Resources function.** While a project hides Resources, a forecast what-if that names a directory person by id still reports, without the name, the internal hourly rate of their role (unless the rates switch is on), whether they are external or have no rate, whether they are already on the team or gone from the directory, and forecast figures (dates, chances, cost) shaped by their shift and their absences.
+  [verified: `directorySizing` and `resolveAddedPeople` in `src/app/forecast-added-people.ts`; `buildForecastReport` in
   `src/app/forecast-ai-report.ts`]
 - **A hidden Resources function.** While a project hides it, the AI is offered none of that function's tools
   (the resource directory, absences, allocations and contact e-mail look-ups), no prompt lists who is away, and

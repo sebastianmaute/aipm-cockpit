@@ -36,7 +36,7 @@ Fragen, die nur Ihre Organisation beantworten kann.
   weiterhin zur Prüfung zurückgehalten, sodass das Modell erkennen kann, dass sie zurückgehalten wurde, aber
   nichts darüber erfährt, wer wann abwesend ist. Das Ausblenden nimmt keine Namen aus Aufgaben und anderen
   Einträgen heraus; das ist Aufgabe des Personenschutzes. Eine ausgeblendete Funktion über die KI wieder
-  einzuschalten, wartet immer auf die Prüfung. Und eine Was-wäre-wenn-Rechnung der Prognose, die eine Person aus dem Verzeichnis über ihre Nummer nennt, meldet weiterhin ohne Namen ihre Wochenstunden, ob sie extern ist oder keinen Satz hat und ob sie schon zum Team gehört oder nicht mehr im Verzeichnis steht (E59, *getestet (Unit)*).
+  einzuschalten, wartet immer auf die Prüfung. Und eine Was-wäre-wenn-Rechnung der Prognose, die eine Person aus dem Verzeichnis über ihre Nummer nennt, meldet weiterhin ohne Namen den internen Stundensatz ihrer Rolle (außer die Stundensatz-Einstellung ist eingeschaltet), ob sie extern ist oder keinen Satz hat, ob sie schon zum Team gehört oder nicht mehr im Verzeichnis steht, und Prognosezahlen (Termine, Chancen, Kosten), die ihre Schicht und ihre Abwesenheiten prägen (E59, *getestet (Unit)*).
 - **Abwesenheitstypen (möglicherweise besondere Kategorien personenbezogener Daten):** Kein KI-Pfad sendet
   den gespeicherten Typ einer Abwesenheit: Der Chat führt jede als „absent“, die Bearbeitung einer Zeile und
   die Listen, wer abwesend ist, lassen ihn weg (E63, *getestet (Unit)*; E1, *im Code gelesen*). Ein Hinweis

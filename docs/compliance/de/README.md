@@ -145,7 +145,7 @@ Fünf Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
   diesen Stunden könnte das Modell den Satz dieser Person grob ausrechnen, obwohl der Satz selbst entfällt.
   [geprüft: `buildForecastReport` in `src/app/forecast-ai-report.ts`]
 - **Was-wäre-wenn-Rechnung bei ausgeblendeter Ressourcen-Funktion.** Solange ein Projekt Ressourcen ausblendet,
-  eine Was-wäre-wenn-Rechnung der Prognose, die eine Person aus dem Verzeichnis über ihre Nummer nennt, meldet weiterhin ohne Namen ihre Wochenstunden, ob sie extern ist oder keinen Satz hat und ob sie schon zum Team gehört oder nicht mehr im Verzeichnis steht. [geprüft: `resolveAddedPeople` in
+  eine Was-wäre-wenn-Rechnung der Prognose, die eine Person aus dem Verzeichnis über ihre Nummer nennt, meldet weiterhin ohne Namen den internen Stundensatz ihrer Rolle (außer die Stundensatz-Einstellung ist eingeschaltet), ob sie extern ist oder keinen Satz hat, ob sie schon zum Team gehört oder nicht mehr im Verzeichnis steht, und Prognosezahlen (Termine, Chancen, Kosten), die ihre Schicht und ihre Abwesenheiten prägen. [geprüft: `directorySizing` und `resolveAddedPeople` in
   `src/app/forecast-added-people.ts`; `buildForecastReport` in `src/app/forecast-ai-report.ts`]
 - **Eine ausgeblendete Ressourcen-Funktion.** Solange ein Projekt sie ausblendet, bekommt die KI keines der
   Werkzeuge dieser Funktion angeboten (Ressourcenverzeichnis, Abwesenheiten, Zuteilungen und das Nachschlagen

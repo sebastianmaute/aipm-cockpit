@@ -258,7 +258,7 @@ longer carries its own changelog comment.
   Stakeholders function instead. A chat date
   change that lands on an absence is still held for review. Names in tasks, RAID items and other records still
   reach the AI, and so do the assignee names insight recommendations list; people protection covers those. While
-  Resources is hidden, a forecast what-if that names a directory person by id still reports, without the name, their weekly hours, whether they are external or have no rate, and whether they are already on the team or gone from the directory. Turning any hidden function back on through the
+  Resources is hidden, a forecast what-if that names a directory person by id still reports, without the name, the internal hourly rate of their role (unless the rates switch is on), whether they are external or have no rate, whether they are already on the team or gone from the directory, and forecast figures (dates, chances, cost) shaped by their shift and their absences. Turning any hidden function back on through the
   AI always waits on the review card.
 - **The chat holds its changes for review after it reads a task synced from Jira.** Text synced from Jira can
   carry instructions aimed at the AI, like an attached file. Once the chat has read such a task in a
