@@ -962,6 +962,7 @@ async function runToolAsSent(
       const scope = {
         withPeople: peopleToolsLive(d.isPeopleProtected()),
         withTimelog: isModuleEnabled("timelog", snapshot.enabledModules),
+        withResources: isModuleEnabled("resources", snapshot.enabledModules), // §810, as the prompt
       };
       return { ...snapshot, insights: snapshot.insights.filter((i) => insightReachesAi(i, scope)) };
     }

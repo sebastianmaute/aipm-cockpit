@@ -35,6 +35,7 @@ import {
 } from "./forecast-scenarios";
 import { isSimulationActive } from "./forecast-simulation";
 import { proposalIdOf, targetConfidenceOf, withTargetConfidence } from "./forecast-target";
+import { isModuleEnabled, sanitizeFeatures } from "./feature-modules";
 import { t } from "./i18n";
 import { mintId } from "./id-mint-session";
 import type { Settings, SettingsOverrides } from "./settings-types";
@@ -167,7 +168,9 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
           ? null
           : checkToolRows(whatIf, scenarioValidationContext(input, comparison.context), []);
         if (refusal !== null) throw new Error(`whatIf ${refusal}`);
-        return buildForecastReport(input, whatIf, comparison, { byGroup: options.byGroup === true });
+        // §810 — from the same functions `isForecastEnabled` reads, at call time.
+        const resourcesHidden = !isModuleEnabled("resources", sanitizeFeatures(settingsRef.current.features));
+        return buildForecastReport(input, whatIf, comparison, { byGroup: options.byGroup === true, resourcesHidden });
       },
 
       getForecastScenarioRow: (id) => scenariosRef.current.find((s) => s.id === id) ?? null,
@@ -276,6 +279,6 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
     }),
     // Exhaustive: the slices are read through `scenariosRef` and `settingsOverridesRef`; everything else listed is
     // stable in practice (refs, `useCallback`s over refs, and the provider's `useState` setters).
-    [isReadOnly, logActivityAs, undoRef, setForecastScenarios, isForecastEnabled, readOnlyError, requireInput, writeOverrides, writeScenarios],
+    [isReadOnly, logActivityAs, undoRef, settingsRef, setForecastScenarios, isForecastEnabled, readOnlyError, requireInput, writeOverrides, writeScenarios],
   );
 }

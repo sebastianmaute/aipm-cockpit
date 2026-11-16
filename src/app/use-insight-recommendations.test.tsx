@@ -942,7 +942,8 @@ describe("TimeLog insights while Timelog is off", () => {
   }
 
   it("asks the AI while the Timelog function is shown and the integration is on", async () => {
-    expect(await generate(["timelog"])).toBe(1);
+    // Resources shown too: the row names a person, withheld while Resources is hidden (§810).
+    expect(await generate(["timelog", "resources"])).toBe(1);
   });
 
   it("does not ask while the project hides the Timelog function", async () => {
@@ -951,7 +952,7 @@ describe("TimeLog insights while Timelog is off", () => {
 
   it("does not ask while the deployment has switched the timelog integration off", async () => {
     setDisabledIntegrations(["timelog"]);
-    expect(await generate(["timelog"])).toBe(0);
+    expect(await generate(["timelog", "resources"])).toBe(0);
   });
 });
 

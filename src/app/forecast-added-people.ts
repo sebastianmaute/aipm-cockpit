@@ -32,7 +32,10 @@ export type AddedPersonStatus =
   | { kind: "sized"; name: string; weeklyHours: number; ratePerHour: number;
       rateNote: "ok" | "no-rate" | "external" | "at-par"; shareAtFullSpeed: number;
       /** A placeholder's own rate currency (absent for a directory person): what an at-par note names. */
-      rateCurrency?: BudgetCurrency }
+      rateCurrency?: BudgetCurrency;
+      /** §810 — set for a person from the resource directory (absent for a placeholder), so a report can withhold
+       *  the name while the project hides its Resources function. */
+      fromDirectory?: true }
   | { kind: "inert"; reason: "person-gone" | "on-team" | "ended" | "needs-booked-hours" };
 
 const WORKING_WEEKDAYS = 5;
@@ -189,6 +192,7 @@ export function resolveAddedPeople(
       kind: "sized", name: sizing.name, weeklyHours: sizing.weeklyHours, ratePerHour: sizing.ratePerHour,
       rateNote: sizing.rateNote, shareAtFullSpeed: sizing.weeklyHours / WORKING_WEEKDAYS / teamHours,
       ...(sizing.rateCurrency ? { rateCurrency: sizing.rateCurrency } : {}),
+      ...("resourceId" in c.who ? { fromDirectory: true as const } : {}),
     },
     share,
     cost,

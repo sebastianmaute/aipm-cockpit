@@ -49,13 +49,13 @@ const PROJECT_INSIGHT = {
 
 const REC: InsightRecommendation = { summary: "s", proposedCalls: [], generatedAt: "2026-09-03", status: "proposed" };
 
-function mkDeps(insights: readonly Insight[], background: boolean): InsightRecommendationDeps {
+function mkDeps(insights: readonly Insight[], background: boolean, features: string[] = ["timelog", "resources"]): InsightRecommendationDeps {
   const consent = newConsent(new Date(0));
   return {
     isPopout: false, loadPending: false, getScopeEpoch: () => 0, guides: [], guidesReady: true,
     settings: {
       // Resources shown: while it is hidden a linked person's profile is withheld whatever protection says (§810).
-      features: ["timelog", "resources"],
+      features,
       ai: { enabled: true, consent, backgroundConsent: consent, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", insightRecommendations: background },
     } as unknown as InsightRecommendationDeps["settings"],
     lang: "en-US", today: "2026-09-03", project: undefined,
@@ -86,6 +86,23 @@ async function inBackground(): Promise<string[]> {
 /** The linked person's profile digest, and the unlinked person's Timelog user number. */
 const PROFILE = ["jobTitle", "Data Engineer", "Analytics", "Acme"];
 const TIMELOG_USER = "#4711";
+
+// §810 — while the project hides Resources, an insight about one person names a directory person (or their
+// Timelog user number), so it is not sent; a project-level insight still is.
+describe("with the Resources function hidden", () => {
+  async function onRequestHidden(id: number): Promise<string[]> {
+    const call = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(REC);
+    const { result } = renderHook(() => useInsightRecommendations(mkDeps([PERSON_INSIGHT, PROJECT_INSIGHT, UNLINKED_INSIGHT], false, ["timelog"])));
+    await act(async () => { result.current.insightActions.onGenerateRecommendation(id); });
+    return call.mock.calls.map((c) => c[0].context);
+  }
+  it.each([5, 8])("unprotected: an insight about one person (#%s) is not sent", async (id) => {
+    expect(await onRequestHidden(id)).toEqual([]);
+  });
+  it("a project-level insight is still sent", async () => {
+    expect(await onRequestHidden(6)).toHaveLength(1);
+  });
+});
 
 describe("on request", () => {
   it.each([5, 8])("protected: an insight about one person (#%s) is not sent", async (id) => {

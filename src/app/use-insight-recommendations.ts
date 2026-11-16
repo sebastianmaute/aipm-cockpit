@@ -259,8 +259,9 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // project's setting at run time decides.
   const peopleProtectedNow = useOpenProjectPeopleProtected();
   const canRecommend = useCallback(
-    (insight: Insight) => insightReachesAi(insight, { withPeople: !peopleProtectedNow(), withTimelog: timelogOn }),
-    [peopleProtectedNow, timelogOn],
+    (insight: Insight) =>
+      insightReachesAi(insight, { withPeople: !peopleProtectedNow(), withTimelog: timelogOn, withResources: !resourcesHidden }),
+    [peopleProtectedNow, timelogOn, resourcesHidden],
   );
   const buildInsightRecommendContext = useCallback(
     (insight: Insight) => {

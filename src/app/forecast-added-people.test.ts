@@ -115,7 +115,7 @@ describe("resolveAddedPeople", () => {
       resources: [resource(1, { roleId: 1 })], roles: [role(1)], shifts: [shift(1, [4, 8, 8, 8, 8, 8, 4], { resourceId: 1 })],
     });
     const { status, share, cost } = resolveAddedPeople(person(1, 20), ctx({ directory: dir }));
-    expect(status).toEqual({ kind: "sized", name: "P1 X", weeklyHours: 20, ratePerHour: 50, rateNote: "ok", shareAtFullSpeed: 0.5 });
+    expect(status).toEqual({ kind: "sized", name: "P1 X", weeklyHours: 20, ratePerHour: 50, rateNote: "ok", shareAtFullSpeed: 0.5, fromDirectory: true });
     for (let d = 1; d <= HORIZON; d += 1) {
       expect(share[d]).toBeCloseTo(4 / 8, 12);
       expect(cost[d]).toBeCloseTo(4 * 50, 12);

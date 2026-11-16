@@ -21,12 +21,16 @@ export const MAX_PROMPT_INSIGHTS = 10;
 export const MAX_PROMPT_OUTCOMES = 5;
 
 /** Which insights may reach the AI at all. `withPeople: false` (AI people protection) drops every insight about
- *  ONE person: its data names a `person`, as the Timelog working-time checks do. `withTimelog: false` drops every
- *  Timelog guardrail insight. Absent, a flag keeps all. ★ The ONE rule for the chat's insight block
- *  (`buildInsightsPromptBlock`) and both insight recommendation paths (`use-insight-recommendations.ts`). */
+ *  ONE person: its data names a `person`, as the Timelog working-time checks do. `withResources: false` (§810, the
+ *  project hides its Resources function) drops the same insights: their `person` is a directory name or a Timelog
+ *  user number, and without it the insight gives the model nothing it can act on, so it is dropped rather than
+ *  blanked. `withTimelog: false` drops every Timelog guardrail insight. Absent, a flag keeps all. ★ The ONE rule for
+ *  the chat's insight block (`buildInsightsPromptBlock`), `get_app_state` (`chat-tools.ts`) and both insight
+ *  recommendation paths (`use-insight-recommendations.ts`). */
 export interface InsightAiScope {
   readonly withPeople?: boolean;
   readonly withTimelog?: boolean;
+  readonly withResources?: boolean;
 }
 
 /** True when the insight is about one person (its data names a `person`). */
@@ -36,7 +40,7 @@ export function isPersonScopedInsight(insight: Pick<Insight, "data">): boolean {
 
 /** True when the insight may be sent to the AI under `scope`. */
 export function insightReachesAi(insight: Pick<Insight, "type" | "data">, scope: InsightAiScope): boolean {
-  if (scope.withPeople === false && isPersonScopedInsight(insight)) return false;
+  if ((scope.withPeople === false || scope.withResources === false) && isPersonScopedInsight(insight)) return false;
   return !(scope.withTimelog === false && GUARDRAIL_INSIGHT_TYPES.has(insight.type));
 }
 

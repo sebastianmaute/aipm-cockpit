@@ -296,6 +296,8 @@ export function buildTurnContext(
   const insightsBlock = buildInsightsPromptBlock(snapshot.insights ?? [], {
     withPeople: peopleToolsLive(toolFlags.peopleProtected),
     withTimelog: isModuleEnabled("timelog", snapshot.enabledModules),
+    // §810 — an insight about one person names a directory person or their Timelog user number.
+    withResources: isModuleEnabled("resources", snapshot.enabledModules),
   });
   // The digest (what is on screen right now) is per-call and changes on every
   // filter/sort tweak — it MUST stay in the uncached suffix too, or it would

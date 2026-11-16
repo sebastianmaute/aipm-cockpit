@@ -514,3 +514,27 @@ describe("buildForecastReport — hourly rates withheld (§804)", () => {
     expect(report.scenarios[0].rows[0]).toMatchObject({ kind: "addPeople", sizing: { name: "Per Sand" } });
   });
 });
+
+// §810 — while the project hides its Resources function, a directory person a scenario or what-if adds is not named:
+// the row keeps its index and sizing, and edits go by resource id in `changes`, never by this name.
+describe("buildForecastReport — directory names withheld while Resources is hidden (§810)", () => {
+  const placeholder: ScenarioChange = {
+    kind: "addPeople", who: { label: "Contractor", count: 1, hoursPerWeek: 40, rate: 90, currency: "EUR" },
+    from: TODAY, until: "", rampWeeks: 4,
+  };
+  const input = () => reportInput({}, [scenario(1, [addPerson(PER), placeholder])]);
+
+  it("CONTROL: shown, the person is named", () => {
+    const report = buildForecastReport(input(), [addPerson(PER)]);
+    expect(report.scenarios[0].rows[0]).toMatchObject({ sizing: { name: "Per Sand" } });
+    expect(report.whatIf?.rows[0]).toMatchObject({ sizing: { name: "Per Sand" } });
+  });
+
+  it("hidden: no scenario or what-if row names a directory person; a placeholder keeps its label", () => {
+    const report = buildForecastReport(input(), [addPerson(PER)], undefined, { resourcesHidden: true });
+    expect(JSON.stringify(report)).not.toMatch(/Per Sand|\bSand\b/);
+    expect(report.scenarios[0].rows[0]).toMatchObject({ kind: "addPeople", sizing: { weeklyHours: 40 } });
+    expect(report.scenarios[0].rows[1]).toMatchObject({ sizing: { name: "Contractor" } });
+    expect(report.scenarios[0].changes[0]).toMatchObject({ who: { resourceId: PER } });
+  });
+});

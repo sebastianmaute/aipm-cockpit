@@ -1503,11 +1503,16 @@ describe("runTool — get_app_state insights follow the chat's rule", () => {
   }
 
   it("protected: no insight about one person", async () => {
-    expect(await appStateInsights(true, ["timelog"])).toEqual([3]);
+    expect(await appStateInsights(true, ["timelog", "resources"])).toEqual([3]);
   });
 
   it("unprotected: every insight, the per-person ones included", async () => {
-    expect(await appStateInsights(false, ["timelog"])).toEqual([1, 2, 3]);
+    expect(await appStateInsights(false, ["timelog", "resources"])).toEqual([1, 2, 3]);
+  });
+
+  // §810 — an insight about one person names a directory person or their Timelog user number.
+  it("Resources hidden: no insight about one person, even unprotected", async () => {
+    expect(await appStateInsights(false, ["timelog"])).toEqual([3]);
   });
 
   it("Timelog off: no Timelog insight, even unprotected", async () => {
