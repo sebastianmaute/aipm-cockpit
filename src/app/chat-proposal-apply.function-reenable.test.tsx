@@ -1,5 +1,5 @@
-// §810 — the AI cannot lift a function withdrawal on its own. While the project hides Resources (or Stakeholders),
-// an `update_settings` whose `enabledModules` turns that function back ON always goes to the review card, whatever
+// §810 — the AI cannot turn a hidden function back on by itself. An `update_settings` whose `enabledModules` turns ON
+// any function the project currently hides (Resources, Stakeholders, Timelog, any other) always goes to the review card, whatever
 // the review switch says; until the card is applied the withdrawn tools are still refused, and applying it turns
 // the function on. The REAL dispatcher (its live functions), people allowed, so Resources is the only gate.
 import { act, renderHook } from "@testing-library/react";
@@ -34,10 +34,9 @@ function renderDispatcher() {
   );
 }
 
-/** The staging decision as chat-panel makes it: the dispatcher's live functions decide what is withdrawn. */
+/** The staging decision as chat-panel makes it: the project's live saved functions decide what is hidden. */
 function stages(d: ToolDispatcher, calls: readonly ProposedCall[]): boolean {
-  const lifts = (c: ProposedCall) =>
-    liftsFunctionWithdrawal(c, { resources: d.isResourcesHidden(), stakeholders: d.isStakeholdersHidden() });
+  const lifts = (c: ProposedCall) => liftsFunctionWithdrawal(c, d.getSnapshot().enabledModules);
   return shouldStage(calls, undefined, undefined, false, lifts);
 }
 
@@ -73,11 +72,16 @@ describe("turning a hidden function back on through the AI (§810)", () => {
   test("CONTROL: a lone call that keeps or hides functions applies at once, as before", () => {
     const { result } = renderDispatcher();
     expect(stages(result.current.dispatcher, [{ name: "update_settings", input: { enabledModules: ["raid"] } }])).toBe(false);
-    expect(stages(result.current.dispatcher, [{ name: "update_settings", input: { enabledModules: [...HIDDEN, "budget"] } }])).toBe(false);
+    expect(stages(result.current.dispatcher, [{ name: "update_settings", input: { enabledModules: [...HIDDEN] } }])).toBe(false);
   });
 
-  test("CONTROL: with Resources shown, naming it again is not a re-enable", () => {
-    expect(liftsFunctionWithdrawal({ name: "update_settings", input: { enabledModules: ["resources"] } }, { resources: false, stakeholders: false })).toBe(false);
-    expect(liftsFunctionWithdrawal({ name: "update_task", input: { id: 1 } }, { resources: true, stakeholders: true })).toBe(false);
+  test("a lone call that turns a hidden Timelog function on stages too", () => {
+    const { result } = renderDispatcher();
+    expect(stages(result.current.dispatcher, [{ name: "update_settings", input: { enabledModules: [...HIDDEN, "timelog"] } }])).toBe(true);
+  });
+
+  test("CONTROL: naming only functions already shown is not a re-enable", () => {
+    expect(liftsFunctionWithdrawal({ name: "update_settings", input: { enabledModules: ["resources"] } }, ["resources", "raid"])).toBe(false);
+    expect(liftsFunctionWithdrawal({ name: "update_task", input: { id: 1 } }, [])).toBe(false);
   });
 });

@@ -9,6 +9,7 @@
 //   are TYPE-ONLY imports. The one runtime import is `stagesWhenUntrusted`
 //   (AI-02), from `chat-send-record.ts`, which imports only types from here.
 import type { MintKind } from "./id-mint-session";
+import { sanitizeFeatures } from "./feature-modules";
 import { stagesWhenUntrusted, type SendRecord } from "./chat-send-record";
 
 /** One tool call the model emitted. Structurally identical to the insights
@@ -344,19 +345,17 @@ export function carriesEnabledModules(call: ProposedCall): boolean {
   return call.name === "update_settings" && Object.hasOwn(call.input, "enabledModules");
 }
 
-/** §810 — true when this call would turn back ON a function whose hiding withdraws AI access (Resources or
- *  Stakeholders) while the project hides it. `hidden` is the project's own functions read at call time (the
- *  dispatcher's `isResourcesHidden`/`isStakeholdersHidden`, which the executor's refusal reads too). `shouldStage`
- *  then sends the call to the review card whatever the review switch says: the AI cannot lift a withdrawal on
- *  its own, and until the card is applied the saved functions, and so the refusal, stay as they are. */
-export function liftsFunctionWithdrawal(
-  call: ProposedCall,
-  hidden: { resources: boolean; stakeholders: boolean },
-): boolean {
+/** §810 — true when this call would turn ON any function the project currently hides (Resources, Stakeholders,
+ *  Timelog or any other). `enabled` is the project's own saved functions read at call time (the dispatcher's
+ *  `getSnapshot().enabledModules`, the source the executor's refusal reads too). `shouldStage` then sends the call to
+ *  the review card whatever the review switch says: the AI cannot turn a hidden function back on by itself, and
+ *  until the card is applied the saved functions, and so every refusal, stay as they are. The wanted list is read
+ *  through `sanitizeFeatures`, so a legacy id maps forward and an unknown one is ignored, as the writer does. */
+export function liftsFunctionWithdrawal(call: ProposedCall, enabled: readonly string[]): boolean {
   if (!carriesEnabledModules(call)) return false;
   const wanted = call.input.enabledModules;
   if (!Array.isArray(wanted)) return false;
-  return (hidden.resources && wanted.includes("resources")) || (hidden.stakeholders && wanted.includes("stakeholders"));
+  return sanitizeFeatures(wanted).some((id) => !enabled.includes(id));
 }
 
 /** `update_document` ops that discard blocks the model never had to read.

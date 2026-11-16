@@ -1,5 +1,5 @@
 // src/app/chat-panel.function-reenable.test.tsx — §810: through the real chat send, a lone update_settings that
-// turns a hidden Resources function back on waits on the review card; with Resources shown it applies at once.
+// turns a hidden function back on waits on the review card; with the function shown it applies at once.
 import "fake-indexeddb/auto";
 import "../test/ai-consent-live";
 import { render, screen, fireEvent } from "@testing-library/react";
@@ -47,7 +47,7 @@ function makeDispatcher(resourcesHidden: boolean): ToolDispatcher {
     previewSettings: vi.fn(() => ({ enabledModules: ["raid", "resources"] })),
     getSnapshot: vi.fn(() => ({
       today: "2026-10-30", language: "en-US", holidayCountries: [], storageKind: "memory", taskCount: 1,
-      knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: [] as string[], currentView: "open-points" as const,
+      knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: (resourcesHidden ? ["raid"] : ["raid", "resources"]) as string[], currentView: "open-points" as const,
     })),
   } as unknown as ToolDispatcher;
 }

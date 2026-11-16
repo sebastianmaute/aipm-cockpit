@@ -29,7 +29,7 @@ with Anthropic, transfers and a works agreement are questions only your organisa
   follow the Stakeholders function, and history search, chat search, the status inquiry and RAID escalation
   stay available; a chat date write that lands on someone's
   absence is still held for review, so the model can tell it was held but learns nothing about who is away or
-  when. Turning the function back on through the AI always waits for review. Hiding it does not take names out
+  when. Turning any hidden function back on through the AI always waits for review. Hiding it does not take names out
   of tasks and other records; that is people protection's job. And a forecast what-if that names a directory person by id still reports, without the name, their weekly hours, whether they are external or have no rate, and whether they are already on the team or gone from the directory (E59,
   *tested (unit)*).
 - **Absence types (possible special-category data):** no AI path sends an absence's stored type: the chat

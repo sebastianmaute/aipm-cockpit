@@ -50,7 +50,7 @@ a directory person or their Timelog user number), and the chat's forecast result
 directory that a scenario or what-if adds without their name. [verified: `insightReachesAi` in
 `src/app/insights/insight-prompt.ts`; `DIRECTORY_NAME_WITHHELD` in `src/app/forecast-ai-report.ts`] The
 stakeholder tools follow the Stakeholders function in the same way.
-History search, chat search, the status inquiry and RAID escalation are not withdrawn by a hidden function. Turning a hidden Resources or Stakeholders function back on through the AI always waits on the review card, whatever the review switch says, and the withdrawn tools stay refused until the card is applied. [verified: `liftsFunctionWithdrawal` and `shouldStage` in `src/app/chat-proposal.ts`] The five features that send the list of who is away (the steering committee
+History search, chat search, the status inquiry and RAID escalation are not withdrawn by a hidden function. Turning any hidden function back on through the AI (Resources, Stakeholders, Timelog or any other) always waits on the review card, whatever the review switch says, and what the hidden function withdraws stays withdrawn until the card is applied. [verified: `liftsFunctionWithdrawal` and `shouldStage` in `src/app/chat-proposal.ts`] The five features that send the list of who is away (the steering committee
 report draft, Analyze next actions, the scheduled job analysis, the insight recommendations, on request and
 automatic, and the WBS proposal) leave it out. A chat write that puts a date on someone's absence returns
 no clash details to the AI; it is still held on the review card, which warns the user, so the AI can tell
