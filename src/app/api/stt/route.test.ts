@@ -8,6 +8,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "./route";
 import { STT_MAX_REQUESTS } from "./_helpers";
 
+// These tests send distinct x-forwarded-for values as distinct callers, which the
+// limiter honours only when one proxy hop is trusted.
+process.env.AIPM_TRUSTED_PROXY_HOPS = "1";
+
 // §803: the route resolves the endpoint's host name before forwarding. No test may reach real DNS,
 // so every lookup goes through this mock; by default a name resolves to a public address.
 const lookup = vi.hoisted(() => vi.fn());

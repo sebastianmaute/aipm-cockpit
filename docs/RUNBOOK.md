@@ -751,7 +751,8 @@ What to know when running it:
   (a whole number from 1 to 100000) to change either number, for example when many
   users reach the server through one address; an invalid value keeps the default and
   is logged once, naming the setting. Restart the server to apply a change. In both
-  cases the count is per server process and keyed by the forwarding header, which a caller sets (§562). When it answers, users see "This app's server is
+  cases the count is per server process, and who counts as one caller is set by
+  `AIPM_TRUSTED_PROXY_HOPS` (see [Request limits behind a proxy](#request-limits-behind-a-proxy)). When it answers, users see "This app's server is
   limiting AI requests from your connection right now". Set a real limit in the
   gateway's settings. When the gateway itself answers
   429, users see "Your organisation's AI gateway is limiting requests right now";
@@ -780,6 +781,32 @@ What to know when running it:
   message. A switched-off, invalid or changed AI setting is named the same way in the
   features; a scheduled job does not record it but waits and retries on its next check.
   An error Anthropic itself returns, such as a rejected key, passes through unchanged.
+
+### Request limits behind a proxy
+
+Every `/api/*` proxy route (Jira, Confluence, Timelog, ECB, the AI relay and dictation)
+limits requests per minute, per route. The server cannot see the caller's network
+address, and a forwarding header the caller sends is not evidence of who they are, so by
+default each route has ONE shared limit for all callers. A burst from one user can use up
+the quota of everyone else on that route.
+
+- **`AIPM_TRUSTED_PROXY_HOPS=N`** gives each caller their own limit. Set `N` to the number
+  of reverse proxies in front of the app that each APPEND the address they saw to
+  `x-forwarded-for` (nginx: `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`).
+  The app then counts a request under the entry `N` places from the right of that header;
+  everything to its left is client-supplied and ignored. A whole number from 1 to 10; an
+  invalid value, or 0, keeps the shared limit. A request whose header has fewer than `N`
+  entries is counted in the shared bucket.
+- **Unsafe if the proxy does not append.** A proxy that overwrites the header, or passes
+  the client's through untouched, makes the setting wrong: callers could again choose
+  their own bucket. Check what your proxy sends before setting it.
+- **Raise the limits for a shared address.** With the shared default, many users share one
+  quota. Raise the AI relay and dictation limits with `AIPM_AI_RELAY_MAX_REQUESTS` and
+  `AIPM_STT_MAX_REQUESTS` (see the AI gateway section above).
+- **Per process.** The counters live in the server process's memory: a restart clears them,
+  and with more than one server instance each instance enforces its own limit.
+
+Restart the server to apply a change.
 
 ### Saved AI chats: recovery key, retention and erasure (run-time)
 

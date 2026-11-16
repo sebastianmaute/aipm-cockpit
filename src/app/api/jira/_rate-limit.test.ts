@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MAX_REQUESTS, rateLimit, storeSize } from "./_rate-limit";
+import { MAX_REQUESTS, TRUSTED_PROXY_HOPS_ENV, clientKey, rateLimit, storeSize } from "./_rate-limit";
 
 const WINDOW_MS = 60_000;
 
-// The limiter keeps a module-level Map keyed by client IP. There is no reset
-// hook, so each test uses a UNIQUE ip string to avoid bleeding state between
+// The limiter keeps a module-level Map keyed by scope and client key. There is
+// no reset hook, so each test uses a UNIQUE scope string to avoid bleeding state between
 // tests. Fake timers let us drive the sliding window deterministically.
 function req(ip: string, header: "x-forwarded-for" | "x-real-ip" = "x-forwarded-for"): Request {
   return new Request("https://example.com/api/jira/test", {
@@ -24,15 +24,15 @@ afterEach(() => {
 
 describe("rateLimit", () => {
   it("allows the first request from an IP", () => {
-    expect(rateLimit(req("10.0.0.1"))).toBeNull();
+    expect(rateLimit(req("10.0.0.1"), "first")).toBeNull();
   });
 
   it("allows requests up to the limit, then returns 429", async () => {
     const ip = "10.0.0.2";
     for (let i = 0; i < MAX_REQUESTS; i++) {
-      expect(rateLimit(req(ip))).toBeNull();
+      expect(rateLimit(req(ip), ip)).toBeNull();
     }
-    const blocked = rateLimit(req(ip));
+    const blocked = rateLimit(req(ip), ip);
     expect(blocked).not.toBeNull();
     expect(blocked!.status).toBe(429);
     expect(blocked!.headers.get("Retry-After")).toBeTruthy();
@@ -41,75 +41,90 @@ describe("rateLimit", () => {
 
   it("sets Retry-After to the seconds remaining in the window", () => {
     const ip = "10.0.0.3";
-    for (let i = 0; i < MAX_REQUESTS; i++) rateLimit(req(ip));
+    for (let i = 0; i < MAX_REQUESTS; i++) rateLimit(req(ip), ip);
     // Advance 10s into the 60s window before tripping the limit.
     vi.advanceTimersByTime(10_000);
-    const blocked = rateLimit(req(ip));
+    const blocked = rateLimit(req(ip), ip);
     expect(blocked!.headers.get("Retry-After")).toBe("50");
   });
 
   it("resets the counter once the window elapses", () => {
     const ip = "10.0.0.4";
-    for (let i = 0; i < MAX_REQUESTS; i++) rateLimit(req(ip));
-    expect(rateLimit(req(ip))!.status).toBe(429);
+    for (let i = 0; i < MAX_REQUESTS; i++) rateLimit(req(ip), ip);
+    expect(rateLimit(req(ip), ip)!.status).toBe(429);
     // Cross the window boundary — the next request starts a fresh window.
     vi.advanceTimersByTime(WINDOW_MS);
-    expect(rateLimit(req(ip))).toBeNull();
+    expect(rateLimit(req(ip), ip)).toBeNull();
   });
 
-  it("tracks distinct IPs independently", () => {
-    const a = "10.0.0.5";
-    const b = "10.0.0.6";
-    for (let i = 0; i < MAX_REQUESTS; i++) rateLimit(req(a));
-    expect(rateLimit(req(a))!.status).toBe(429);
-    // b is untouched, so it is still allowed.
-    expect(rateLimit(req(b))).toBeNull();
+  it("hops 0 (unset): different x-forwarded-for values share one bucket", () => {
+    const scope = "hops0-xff";
+    for (let i = 0; i < MAX_REQUESTS; i++) expect(rateLimit(req("1.1.1.1"), scope)).toBeNull();
+    expect(rateLimit(req("2.2.2.2"), scope)!.status).toBe(429);
   });
 
-  it("uses the first IP in a comma-separated x-forwarded-for chain", () => {
-    const proxied = "203.0.113.9, 70.41.3.18, 150.172.238.178";
-    for (let i = 0; i < MAX_REQUESTS; i++) rateLimit(req(proxied));
-    // Same leading client IP → counted as one bucket → 61st blocked.
-    expect(rateLimit(req(proxied))!.status).toBe(429);
-    // A request whose leading IP differs is a different bucket.
-    expect(rateLimit(req("198.51.100.1, 70.41.3.18"))).toBeNull();
-  });
-
-  it("falls back to x-real-ip when x-forwarded-for is absent", () => {
-    const ip = "192.0.2.50";
-    for (let i = 0; i < MAX_REQUESTS; i++) rateLimit(req(ip, "x-real-ip"));
-    expect(rateLimit(req(ip, "x-real-ip"))!.status).toBe(429);
+  it("hops 0: x-real-ip is ignored", () => {
+    const scope = "hops0-real";
+    for (let i = 0; i < MAX_REQUESTS; i++) {
+      expect(rateLimit(req("1.1.1.1", "x-real-ip"), scope)).toBeNull();
+    }
+    expect(rateLimit(req("2.2.2.2", "x-real-ip"), scope)!.status).toBe(429);
   });
 
   it("keys buckets per scope so routes do not share limits", () => {
     const ip = "10.0.0.7";
-    for (let i = 0; i < MAX_REQUESTS; i++) rateLimit(req(ip));
-    expect(rateLimit(req(ip))!.status).toBe(429);
+    for (let i = 0; i < MAX_REQUESTS; i++) rateLimit(req(ip), ip);
+    expect(rateLimit(req(ip), ip)!.status).toBe(429);
     // The same IP under a different scope has its own untouched bucket.
     expect(rateLimit(req(ip), "ecb")).toBeNull();
   });
 
   it("evicts elapsed-window buckets when a request starts a fresh window", () => {
     const exhausted = "10.0.0.30";
-    for (let i = 0; i < MAX_REQUESTS; i++) rateLimit(req(exhausted));
-    expect(rateLimit(req(exhausted))!.status).toBe(429);
-    rateLimit(req("10.0.0.31")); // another stale-to-be bucket
+    for (let i = 0; i < MAX_REQUESTS; i++) rateLimit(req(exhausted), exhausted);
+    expect(rateLimit(req(exhausted), exhausted)!.status).toBe(429);
+    rateLimit(req("10.0.0.31"), "10.0.0.31"); // another stale-to-be bucket
     const before = storeSize();
     expect(before).toBeGreaterThan(1);
 
     // Cross the window boundary — the next fresh-window request sweeps every
     // bucket whose window has fully elapsed.
     vi.advanceTimersByTime(WINDOW_MS);
-    expect(rateLimit(req("10.0.0.32"))).toBeNull();
+    expect(rateLimit(req("10.0.0.32"), "10.0.0.32")).toBeNull();
     expect(storeSize()).toBeLessThan(before);
     // The previously rate-limited IP was evicted, so it is allowed again.
-    expect(rateLimit(req(exhausted))).toBeNull();
+    expect(rateLimit(req(exhausted), exhausted)).toBeNull();
   });
 
-  it("buckets all header-less requests under 'unknown'", () => {
-    const bare = () =>
-      new Request("https://example.com/api/jira/test", { method: "POST" });
-    for (let i = 0; i < MAX_REQUESTS; i++) expect(rateLimit(bare())).toBeNull();
-    expect(rateLimit(bare())!.status).toBe(429);
+});
+
+describe("clientKey", () => {
+  const hops = (n: string) => ({ [TRUSTED_PROXY_HOPS_ENV]: n });
+
+  it("hops 1: keys on the rightmost entry", () => {
+    expect(clientKey(req("9.9.9.9, 10.0.0.1"), hops("1"))).toBe("10.0.0.1");
+    expect(clientKey(req("6.6.6.6, 10.0.0.1"), hops("1"))).toBe("10.0.0.1");
+  });
+
+  it("hops 2: second from the right", () => {
+    expect(clientKey(req("a, 1.1.1.1, 10.0.0.1"), hops("2"))).toBe("1.1.1.1");
+  });
+
+  it("fewer entries than hops gives the shared key", () => {
+    expect(clientKey(req("10.0.0.1"), hops("2"))).toBe("shared");
+    const bare = new Request("https://example.com/api/jira/test", { method: "POST" });
+    expect(clientKey(bare, hops("1"))).toBe("shared");
+  });
+
+  it("empty entries are dropped", () => {
+    expect(clientKey(req("1.1.1.1,, "), hops("1"))).toBe("1.1.1.1");
+  });
+
+  it.each(["abc", "-1", "1.5", "", "99999", "11"])("bad env value %j is hops 0", (v) => {
+    expect(clientKey(req("9.9.9.9, 10.0.0.1"), hops(v))).toBe("shared");
+  });
+
+  it("unset env is hops 0", () => {
+    expect(clientKey(req("9.9.9.9"), {})).toBe("shared");
   });
 });

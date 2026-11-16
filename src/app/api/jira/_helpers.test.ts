@@ -9,6 +9,10 @@ import {
 } from "./_helpers";
 import { MAX_REQUESTS } from "./_rate-limit";
 
+// These tests send distinct x-forwarded-for values as distinct callers, which the
+// limiter honours only when one proxy hop is trusted.
+process.env.AIPM_TRUSTED_PROXY_HOPS = "1";
+
 const CREDS: Creds = {
   siteUrl: "https://acme.atlassian.net",
   email: "user@acme.com",

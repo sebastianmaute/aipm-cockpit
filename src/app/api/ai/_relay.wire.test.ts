@@ -13,6 +13,10 @@ import { setAiDeploymentState, type AiDeploymentState } from "../../ai-deploymen
 import { __setAiStatusRequestForTests } from "../../ai-status-request";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../../../test/ai-status-fetch";
 
+// These tests send distinct x-forwarded-for values as distinct callers, which the
+// limiter honours only when one proxy hop is trusted.
+process.env.AIPM_TRUSTED_PROXY_HOPS = "1";
+
 const GATEWAY: AiDeploymentState = { off: false, route: "gateway", invalid: false, keyRestricted: false, chat: null };
 const GATEWAY_ENV = { AIPM_AI_GATEWAY_URL: "https://gateway.example.com/acct/gw/anthropic" };
 const KEY = "sk-ant-wire-test";
