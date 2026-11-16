@@ -2,7 +2,8 @@
 // The per-project "Use Monte Carlo forecasting" policy override (§502): off is ABSENCE.
 
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { isSimulationActive, isSimulationOn, keepSimulationSwitch, withSimulation } from "./forecast-simulation";
+import { isSimulationActive, isSimulationOn, keepSimulationSwitch, withForecastObject, withSimulation } from "./forecast-simulation";
+import { withAiSwitch } from "./ai-project-switches";
 import { showForecastView } from "../test/forecast-view";
 import { hasAnyOverride, sanitizeSettingsOverrides } from "./settings-overrides";
 import type { SettingsOverrides } from "./settings-types";
@@ -128,5 +129,21 @@ describe("keepSimulationSwitch", () => {
     const both = { ...TZ, ...ON };
     expect(keepSimulationSwitch(both, ON)).toBe(both);
     expect(keepSimulationSwitch(undefined, undefined)).toBeUndefined();
+  });
+});
+
+// The in-memory overrides must serialise exactly as the reloaded ones: the writers keep the sanitiser's key order
+// at the top level (nextActions, notifications, timezone, forecast, ai) and inside `forecast`.
+describe("the override's key order after a forecast write", () => {
+  const roundTrip = (o: unknown) => JSON.stringify(sanitizeSettingsOverrides(JSON.parse(JSON.stringify(o))));
+  it("an AI switch, then the simulation switch, matches the sanitised round trip", () => {
+    let o = withAiSwitch(undefined, "reviewAllWrites", true);
+    o = withSimulation(o, true);
+    expect(Object.keys(o!)).toEqual(["forecast", "ai"]);
+    expect(JSON.stringify(o)).toBe(roundTrip(o));
+  });
+  it("a forecast object given in any order is stored in canonical order", () => {
+    const o = withForecastObject(withAiSwitch(undefined, "ratesWithheld", true), { proposalScenarioId: 2, targetConfidence: 95, showSimulation: true });
+    expect(JSON.stringify(o)).toBe(roundTrip(o));
   });
 });

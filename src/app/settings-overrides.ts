@@ -149,9 +149,7 @@ function sanitizeForecastOverride(raw: unknown): SettingsOverrides["forecast"] |
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-/** Only an explicit `true` is kept per key; every default is absence, and an empty result is undefined. */
-/** The `ai` override's flags in their canonical order: the sanitiser emits them in this order, and so do the
- *  writers (`withAiOverrideFlag`), so an override held in memory serialises exactly as it does after a reload. */
+/** The `ai` override's flags in the order the sanitiser emits them. */
 const AI_OVERRIDE_FLAGS = ["peopleAllowed", "reviewAllWrites", "ratesWithheld"] as const;
 type AiOverrideFlag = (typeof AI_OVERRIDE_FLAGS)[number];
 
@@ -161,13 +159,32 @@ function canonicalAi(isOn: (flag: AiOverrideFlag) => boolean): SettingsOverrides
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
+/** Only an explicit `true` is kept per key; every default is absence, and an empty result is undefined. */
 function sanitizeAiOverride(raw: unknown): SettingsOverrides["ai"] | undefined {
   if (!isObject(raw)) return undefined;
   return canonicalAi((flag) => raw[flag] === true);
 }
 
-/** Return a NEW override with one `ai` flag set or cleared, the `ai` object in canonical order and kept last, as
- *  the sanitiser emits it; `undefined` when no override is left. Only `true` is stored (absence means off). */
+/** The order `sanitizeSettingsOverrides` emits the top-level keys in, and the `forecast` keys in. */
+const OVERRIDE_KEY_ORDER = ["nextActions", "notifications", "timezone", "forecast", "ai"] as const;
+const FORECAST_KEY_ORDER = ["showSimulation", "targetConfidence", "proposalScenarioId"] as const;
+
+/** A copy of `o` with its top-level keys, and its `forecast` keys, in the sanitiser's order. The `ai` and
+ *  `forecast` writers (`withAiOverrideFlag`, `withForecastObject`) return through it, so after any write of
+ *  theirs the override held in memory serialises exactly as it does after a reload. Values are kept as given. */
+export function inCanonicalOrder(o: SettingsOverrides): SettingsOverrides {
+  const out: Record<string, unknown> = {};
+  for (const key of OVERRIDE_KEY_ORDER) if (o[key] !== undefined) out[key] = o[key];
+  if (o.forecast) {
+    const f: Record<string, unknown> = {};
+    for (const key of FORECAST_KEY_ORDER) if (o.forecast[key] !== undefined) f[key] = o.forecast[key];
+    out.forecast = f;
+  }
+  return out as SettingsOverrides;
+}
+
+/** Return a NEW override with one `ai` flag set or cleared, in canonical order (`inCanonicalOrder`); `undefined`
+ *  when no override is left. Only `true` is stored (absence means off). */
 export function withAiOverrideFlag(
   o: SettingsOverrides | undefined,
   flag: AiOverrideFlag,
@@ -177,7 +194,7 @@ export function withAiOverrideFlag(
   const next: SettingsOverrides = { ...o };
   delete next.ai;
   if (ai) next.ai = ai;
-  return hasAnyOverride(next) ? next : undefined;
+  return hasAnyOverride(next) ? inCanonicalOrder(next) : undefined;
 }
 
 /** Validate untrusted per-project overrides. Emits a sub-key ONLY when it holds
