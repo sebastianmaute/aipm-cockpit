@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import {
-  AiPrivacyProvider, AiPrivacyUnavailableError, useAiPrivacySource, useOpenProjectAiPrivacy,
+  AiPrivacyProvider, AiPrivacyUnavailableError, useAiPrivacySource, useOpenProjectAiPrivacy, useOpenProjectRatesWithheld,
 } from "./ai-privacy-context";
 import { withPeopleAllowed } from "./ai-people-protection";
 import { emptyWorkspace, type Workspace } from "./workspace";
@@ -78,5 +78,27 @@ describe("fail closed", () => {
   it("throws inside the provider before any source is registered", () => {
     const { result } = renderHook(() => useOpenProjectAiPrivacy(), { wrapper });
     expect(() => result.current()).toThrow(AiPrivacyUnavailableError);
+  });
+});
+
+describe("the open project's rates switch follows the workspace at send time (§804)", () => {
+  const withRates = (on: boolean): Workspace => ({ ...emptyWorkspace(), settingsOverrides: on ? { ai: { ratesWithheld: true } } : undefined });
+  function useRatesHarness({ projectKey, workspace }: Props) {
+    useAiPrivacySource(projectKey, () => workspace, () => 0);
+    return useOpenProjectRatesWithheld();
+  }
+  const mountRates = (initial: Props) => renderHook((p: Props) => useRatesHarness(p), { wrapper, initialProps: initial });
+
+  it("off at mount, switched on later: the next send withholds rates", () => {
+    const { result, rerender } = mountRates({ projectKey: "p1", workspace: withRates(false) });
+    const getter = result.current;
+    expect(getter()).toBe(false);
+    rerender({ projectKey: "p1", workspace: withRates(true) });
+    expect(getter()).toBe(true);
+  });
+
+  it("with no source registered only the deployment lock can say yes", () => {
+    const { result } = renderHook(() => useOpenProjectRatesWithheld(), { wrapper });
+    expect(result.current()).toBe(false);
   });
 });

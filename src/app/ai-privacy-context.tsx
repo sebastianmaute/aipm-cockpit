@@ -21,7 +21,7 @@
 import { createContext, useCallback, useContext, useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { isPeopleProtected } from "./ai-people-protection";
 import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
-import { isReviewAllWrites } from "./ai-project-switches";
+import { isRatesWithheld, isReviewAllWrites } from "./ai-project-switches";
 import type { ScopeEpochReader } from "./scope-epoch";
 import type { Workspace } from "./workspace";
 
@@ -66,6 +66,12 @@ function protectedNow(store: SourceStore | null): boolean {
 function reviewAllWritesNow(store: SourceStore | null): boolean {
   const source = store?.get() ?? null;
   return isReviewAllWrites(source?.read().settingsOverrides);
+}
+
+/** Whether the store's open project keeps hourly rates out of Plan with AI (§804); the deployment lock counts. */
+function ratesWithheldNow(store: SourceStore | null): boolean {
+  const source = store?.get() ?? null;
+  return isRatesWithheld(source?.read().settingsOverrides);
 }
 
 const NO_SUBSCRIPTION = () => () => undefined;
@@ -119,6 +125,13 @@ export function useOpenProjectPeopleProtected(): () => boolean {
 export function useOpenProjectReviewAllWrites(): () => boolean {
   const store = useContext(SourceContext);
   return useCallback(() => reviewAllWritesNow(store), [store]);
+}
+
+/** §804: a stable getter for whether the open project keeps hourly rates out of Plan with AI, asked at SEND
+ *  time like the switches above. With no source registered only the deployment lock can say yes. */
+export function useOpenProjectRatesWithheld(): () => boolean {
+  const store = useContext(SourceContext);
+  return useCallback(() => ratesWithheldNow(store), [store]);
 }
 
 /** The same answer, render-reactive: for UI that hides a people feature (Plan with AI, RACI suggestions,

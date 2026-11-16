@@ -59,7 +59,7 @@ describe("Plan with AI call size (§769)", () => {
     const { resources, tasks, milestones, stakeholders } = largeProject();
     const context = buildAllocContext({
       resources, roles, disciplines, grades, plan, absences: [], workdayHours: 8, holidaySet: new Set<string>(),
-      tasks, milestones, stakeholders, instruction: "bring the architects under 100 % in October", today,
+      tasks, milestones, stakeholders, instruction: "bring the architects under 100 % in October", today, ratesWithheld: false,
     });
     // The sample really is at every cap.
     expect(context).toContain("more resources truncated)");

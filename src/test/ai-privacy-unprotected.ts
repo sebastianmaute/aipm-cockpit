@@ -8,6 +8,7 @@
 // request is pinned elsewhere: `ai-transport.privacy.test.ts`, `scheduled-job-privacy.test.tsx`,
 // `chat-panel.people-protected.test.tsx`, and the site scan `ai-privacy.sites.test.ts`.
 import { aiPrivacyFor, type AiPrivacy } from "../app/ai-privacy";
+import { isRatesWithheld } from "../app/ai-project-switches";
 
 const UNPROTECTED = aiPrivacyFor([]);
 const getUnprotected = (): AiPrivacy => UNPROTECTED;
@@ -35,6 +36,13 @@ const noReview = (): boolean => false;
 
 export function useOpenProjectReviewAllWrites(): () => boolean {
   return noReview;
+}
+
+// §804: no project, so only the deployment lock (`ai-rates`) can keep hourly rates out of a request.
+const noRatesWithheld = (): boolean => isRatesWithheld(undefined);
+
+export function useOpenProjectRatesWithheld(): () => boolean {
+  return noRatesWithheld;
 }
 
 // Final review F4: a scope that never moves, so a feature's own tests see every awaited write land.

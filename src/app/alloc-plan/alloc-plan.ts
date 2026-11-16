@@ -81,6 +81,9 @@ export interface AllocContextArgs {
   instruction: string;
   /** YYYY-MM-DD the task hours are split from (§774's split). */
   today: string;
+  /** §804: keep every internal hourly rate out of the request (the project's choice, or the deployment's).
+   *  Required, so every caller decides. */
+  ratesWithheld: boolean;
   /** §785: what each person is booked for in OTHER projects. Absent → the digest says nothing about it. */
   elsewhere?: AllocElsewhere;
 }
@@ -204,7 +207,7 @@ export function buildAllocContext(args: AllocContextArgs): string {
     const label = roleLabel(r.roleId, roles, disciplines, grades);
     const role = label === null ? "-" : JSON.stringify(oneLine(label));
     const external = r.isExternal ? " external" : "";
-    const rate = hourlyRate(r, roles);
+    const rate = args.ratesWithheld ? "" : hourlyRate(r, roles);
     const cells = periods.map((period) => {
       const capacityRaw = availableCapacityHours(r, period, resourceAbsences, workdayHours, holidaySet);
       const stored = r.utilization[period.key] ?? 0;

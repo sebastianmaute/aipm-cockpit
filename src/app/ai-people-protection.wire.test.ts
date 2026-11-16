@@ -401,7 +401,7 @@ const DRIVERS: Readonly<Record<string, Driver>> = {
       buildAllocContext({
         resources: c.ws.resources, roles: c.ws.roles, disciplines: c.ws.disciplines, grades: c.ws.grades, plan: c.ws.plan,
         absences: c.ws.absences, workdayHours: 8, holidaySet: new Set<string>(), tasks: c.ws.tasks, milestones: c.ws.milestones ?? [],
-        stakeholders: c.ws.stakeholders ?? [], instruction: "Plan November.", today: FIXTURE_TODAY,
+        stakeholders: c.ws.stakeholders ?? [], instruction: "Plan November.", today: FIXTURE_TODAY, ratesWithheld: false,
       }),
       { apiKey: KEY, model: MODEL, privacy: c.privacy }, "Plan November.",
     )),

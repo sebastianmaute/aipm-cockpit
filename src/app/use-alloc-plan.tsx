@@ -32,7 +32,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiFailureMessageKey } from "./ai-key-status";
 import { runAllocProposal } from "./alloc-plan-call";
 import { useActionGuideText } from "./action-guides-context";
-import { useOpenProjectAiPrivacy, usePeopleProtected } from "./ai-privacy-context";
+import { useOpenProjectAiPrivacy, useOpenProjectRatesWithheld, usePeopleProtected } from "./ai-privacy-context";
 import {
   applyAllocationCells,
   allocContextOmissions,
@@ -146,6 +146,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const apiKey = aiKeyIfEnabled(settings.ai);
   const guideText = useActionGuideText("alloc");
   const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
+  const ratesWithheldNow = useOpenProjectRatesWithheld(); // §804: asked when the request is built
   // AI people protection (layer 1): Plan with AI moves people, so a protected project has no Plan with AI at
   // all — the trigger is hidden, an open window closes and is reset (below), and propose/apply refuse. Guarded HERE, not at the
   // button, so no other entry point reaches it.
@@ -216,6 +217,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       setSentOmitted(allocContextOmissions({ resources, plan, tasks, milestones }));
       const context = buildAllocContext({
         resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, tasks, milestones, stakeholders, instruction, today,
+        ratesWithheld: ratesWithheldNow(),
         elsewhere: crossProject && { status: crossProject.status, figuresFor: crossProject.elsewhere, failures: crossProject.failures, protectedProjects: crossProject.protectedProjects, loadFailed: crossProject.loadFailed, singleProject: crossProject.singleProject },
       });
       const parsed = await runAllocProposal(context, { apiKey, model: settings.ai.model, guideText, privacy: aiPrivacy() }, instruction, controller.signal);
@@ -272,7 +274,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       }
       setPhase("input");
     }
-  }, [peopleProtected, phase, resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, tasks, milestones, stakeholders, today, apiKey, settings.ai.model, guideText, aiPrivacy, lang, showToast, crossProject]);
+  }, [peopleProtected, phase, resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, tasks, milestones, stakeholders, today, apiKey, settings.ai.model, guideText, aiPrivacy, ratesWithheldNow, lang, showToast, crossProject]);
 
   // Toggles a row of the ACTIVE alternative only; the others keep their ticks.
   const onToggle = useCallback((key: string) => {

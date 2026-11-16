@@ -10,7 +10,8 @@ import { useAllocPlan } from "./use-alloc-plan";
 import { ToastProvider } from "./toast-context";
 import { useToast } from "./use-toast";
 import { defaultSettings, type Settings } from "./settings-types";
-import { type Resource, type ResourcePlan, type Task } from "./types";
+import { type Resource, type ResourcePlan, type Role, type Task } from "./types";
+import { setDisabledIntegrations } from "./integration-switches";
 import { buildUndoLabel, useUndoStack } from "./undo/use-undo-stack";
 import { useReassignHours, type ReassignHours } from "./use-reassign-hours";
 import { planHoursMoves } from "./reassign-hours";
@@ -67,6 +68,8 @@ interface HarnessProps {
   crossProject?: CrossProjectPeople;
   /** The resources the harness starts with (default: Alice and Bob). */
   initialResources?: readonly Resource[];
+  /** The rate card (default: none). */
+  roles?: readonly Role[];
 }
 
 /** Renders of the component that owns the hook (in the app, the Resources panel and its planning grid). */
@@ -81,6 +84,7 @@ function Harness({
   externalEdit,
   crossProject,
   initialResources,
+  roles = [],
 }: HarnessProps) {
   // Counted in an effect (every committed render runs it): mutating it in the render body is refused by lint.
   useEffect(() => { harnessRenders.count++; });
@@ -99,7 +103,7 @@ function Harness({
         onResources?.(next);
         return next;
       }),
-    roles: [],
+    roles,
     disciplines: [],
     grades: [],
     plan: PLAN,
@@ -153,6 +157,39 @@ function openAndType(instruction = "spread 40 hours across the team") {
   fireEvent.click(screen.getByRole("button", { name: /plan with ai/i }));
   fireEvent.change(screen.getByPlaceholderText(/distribute 200 hours/i), { target: { value: instruction } });
 }
+
+describe("useAllocPlan rates (§804)", () => {
+  const RATE_CARD: Role[] = [{ id: 7, disciplineId: 1, gradeId: 1, internalRate: 80, externalRate: 120 }];
+  const WITH_ROLE: Resource[] = [{ ...mkResource(1, "Alice", "Anderson"), roleId: 7 }];
+  const sentContext = async (): Promise<string> => {
+    vi.mocked(call.runAllocProposal).mockImplementation(() => new Promise(() => {}));
+    renderHarness({ roles: RATE_CARD, initialResources: WITH_ROLE });
+    openAndType();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "allocPlanPropose") }));
+    await waitFor(() => expect(call.runAllocProposal).toHaveBeenCalled());
+    return vi.mocked(call.runAllocProposal).mock.calls[0][0];
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setDisabledIntegrations([]);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    setDisabledIntegrations([]);
+  });
+
+  it("sends the internal rate when nothing withholds it", async () => {
+    expect(await sentContext()).toContain(" rate=80/h");
+  });
+
+  it("a deployment that forces ai-rates keeps every rate out of the request", async () => {
+    setDisabledIntegrations(["ai-rates"]);
+    const sent = await sentContext();
+    expect(sent).toContain("#1 ");
+    expect(sent).not.toContain("rate=");
+  });
+});
 
 describe("useAllocPlan (plan-then-apply)", () => {
   beforeEach(() => {

@@ -33,6 +33,7 @@ import {
   type Task,
 } from "../types";
 import { generatePeriods, periodCapacityHours } from "../resource-capacity";
+import { loadI18n, t } from "../i18n";
 import { type ElsewhereFigure } from "../cross-project/elsewhere-hours";
 
 const plan: ResourcePlan = {
@@ -43,7 +44,7 @@ const plan: ResourcePlan = {
 };
 
 /** §769's required project context, empty: these tests are about the RESOURCES part. */
-const NO_PROJECT = { tasks: [], milestones: [], stakeholders: [], instruction: "", today: plan.startDate };
+const NO_PROJECT = { tasks: [], milestones: [], stakeholders: [], instruction: "", today: plan.startDate, ratesWithheld: false };
 
 function resource(id: number, over: Partial<Resource> = {}): Resource {
   return {
@@ -101,6 +102,29 @@ describe("AI-facing resource labels (AI-08)", () => {
 
   it("the screen label still falls back to the address (control)", () => {
     expect(resourceLabel(nameless)).toBe("ada@example.com");
+  });
+});
+
+describe("buildAllocContext rates (§804)", () => {
+  const roles: Role[] = [{ id: 5, disciplineId: 1, gradeId: 2, internalRate: 50, externalRate: 100 }];
+  const disciplines: Discipline[] = [{ id: 1, name: "Design" }];
+  const grades: Grade[] = [{ id: 2, name: "Senior" }];
+  const internal = resource(3, { firstName: "Ada", lastName: "Lovelace", roleId: 5 });
+  const text = (ratesWithheld: boolean) =>
+    buildAllocContext({
+      ...NO_PROJECT, resources: [internal], roles, disciplines, grades, plan,
+      absences: [], workdayHours: 8, holidaySet: new Set<string>(), ratesWithheld,
+    });
+
+  it("names the internal hourly rate of an internal person with a role when rates are not withheld", () => {
+    expect(text(false)).toContain(" rate=50/h");
+  });
+
+  it("carries no rate on any line when rates are withheld, and still lists the person and role", () => {
+    const out = text(true);
+    expect(out).not.toContain("rate=");
+    expect(out).toContain('#3 "Ada Lovelace"');
+    expect(out).toContain("Design / Senior");
   });
 });
 
@@ -1541,5 +1565,20 @@ describe("ELSEWHERE in the allocation digest (§785)", () => {
     const p = buildAllocSystemPrompt();
     expect(p).toMatch(/ELSEWHERE/);
     expect(p).toMatch(/cannot change/i);
+  });
+});
+
+describe("the Plan with AI data notice names the rates switch (§804)", () => {
+  it("says the internal hourly rate is left out when the project keeps rates out, in English", () => {
+    const notice = t("en-US", "aiDataAllocPlan");
+    expect(notice).toContain("internal hourly rate");
+    expect(notice).toMatch(/left out when the project keeps hourly rates out of Plan with AI/);
+  });
+
+  it("says it in German too", async () => {
+    await loadI18n("de");
+    const notice = t("de", "aiDataAllocPlan");
+    expect(notice).toContain("interne Stundensatz");
+    expect(notice).toMatch(/entfällt, wenn das Projekt Stundensätze aus Mit KI planen heraushält/);
   });
 });
