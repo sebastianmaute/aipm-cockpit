@@ -14,11 +14,15 @@ function req(ip: string, header: "x-forwarded-for" | "x-real-ip" = "x-forwarded-
 }
 
 beforeEach(() => {
+  // The hops-0 tests read the real environment (`rateLimit` takes no env argument): pin it unset, so an ambient
+  // AIPM_TRUSTED_PROXY_HOPS on the machine running the tests cannot change what they check.
+  vi.stubEnv(TRUSTED_PROXY_HOPS_ENV, undefined);
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-06-02T00:00:00Z"));
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.useRealTimers();
 });
 
