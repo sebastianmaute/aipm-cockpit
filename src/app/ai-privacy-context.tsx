@@ -62,10 +62,11 @@ function protectedNow(store: SourceStore | null): boolean {
   return source === null || isPeopleProtected(source.read().settingsOverrides);
 }
 
-/** Whether the store's open project sends every AI write to review (§794); the deployment lock counts. */
+/** Whether the store's open project sends every AI write to review (§794); the deployment lock counts. Like people
+ *  protection it fails CLOSED: with no source registered (no project open yet) every write goes to review. */
 function reviewAllWritesNow(store: SourceStore | null): boolean {
   const source = store?.get() ?? null;
-  return isReviewAllWrites(source?.read().settingsOverrides);
+  return source === null || isReviewAllWrites(source.read().settingsOverrides);
 }
 
 /** Whether the store's open project keeps hourly rates out of Plan with AI and the forecast tool (§804); the deployment lock counts. */
@@ -121,7 +122,7 @@ export function useOpenProjectPeopleProtected(): () => boolean {
 }
 
 /** §794: a stable getter for whether the open project reviews every AI write, asked at SEND time like the
- *  people protection above. With no source registered only the deployment lock can say yes. */
+ *  people protection above. With no source registered it answers yes (fail closed), as protection does. */
 export function useOpenProjectReviewAllWrites(): () => boolean {
   const store = useContext(SourceContext);
   return useCallback(() => reviewAllWritesNow(store), [store]);

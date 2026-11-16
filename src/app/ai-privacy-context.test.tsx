@@ -2,7 +2,7 @@ import { afterEach, describe, it, expect } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import {
-  AiPrivacyProvider, AiPrivacyUnavailableError, useAiPrivacySource, useOpenProjectAiPrivacy, useOpenProjectRatesWithheld,
+  AiPrivacyProvider, AiPrivacyUnavailableError, useAiPrivacySource, useOpenProjectAiPrivacy, useOpenProjectRatesWithheld, useOpenProjectReviewAllWrites,
 } from "./ai-privacy-context";
 import { withPeopleAllowed } from "./ai-people-protection";
 import { emptyWorkspace, type Workspace } from "./workspace";
@@ -102,6 +102,27 @@ describe("the open project's rates switch follows the workspace at send time (§
   it("with no source registered only the deployment lock can say yes", () => {
     const { result } = renderHook(() => useOpenProjectRatesWithheld(), { wrapper });
     expect(result.current()).toBe(false);
+  });
+});
+
+// §794 — like people protection, the review switch fails CLOSED: with no source registered (no project is open yet)
+// every AI write goes to the review card. With a source, the project's own setting decides.
+describe("the open project's review switch", () => {
+  const withReview = (on: boolean): Workspace => ({ ...emptyWorkspace(), settingsOverrides: on ? { ai: { reviewAllWrites: true } } : undefined });
+  function useReviewHarness({ projectKey, workspace }: Props) {
+    useAiPrivacySource(projectKey, () => workspace, () => 0);
+    return useOpenProjectReviewAllWrites();
+  }
+  it("reviews every write while no source is registered", () => {
+    const { result } = renderHook(() => useOpenProjectReviewAllWrites(), { wrapper });
+    expect(result.current()).toBe(true);
+  });
+  it("CONTROL: with a source, the project's setting decides", () => {
+    const { result, rerender } = renderHook((p: Props) => useReviewHarness(p), { wrapper, initialProps: { projectKey: "p1", workspace: withReview(false) } });
+    const getter = result.current;
+    expect(getter()).toBe(false);
+    rerender({ projectKey: "p1", workspace: withReview(true) });
+    expect(getter()).toBe(true);
   });
 });
 
