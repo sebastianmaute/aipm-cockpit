@@ -121,6 +121,12 @@ export type ActivityKind =
   // AI people protection — a project's protection switch was turned off / on in Settings → AI (no args; actor user).
   | "ai.peopleProtectionOff"
   | "ai.peopleProtectionOn"
+  // §794 / §804 — a project's "Review every AI write" / rates switch was turned off / on in Settings → AI
+  // (no args; actor user). Turning either off asks first, as people protection does.
+  | "ai.reviewAllWritesOff"
+  | "ai.reviewAllWritesOn"
+  | "ai.ratesWithheldOff"
+  | "ai.ratesWithheldOn"
   | "undo"
   | "redo";
 
@@ -417,6 +423,10 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "ai.reportDraft": "activityAiReportDraft",
   "ai.peopleProtectionOff": "activityAiPeopleProtectionOff",
   "ai.peopleProtectionOn": "activityAiPeopleProtectionOn",
+  "ai.reviewAllWritesOff": "activityAiReviewAllWritesOff",
+  "ai.reviewAllWritesOn": "activityAiReviewAllWritesOn",
+  "ai.ratesWithheldOff": "activityAiRatesWithheldOff",
+  "ai.ratesWithheldOn": "activityAiRatesWithheldOn",
   "undo": "activityUndo",
   "redo": "activityRedo",
 };

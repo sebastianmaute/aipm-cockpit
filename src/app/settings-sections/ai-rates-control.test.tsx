@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { ActivityLogProvider } from "../activity-log-context";
 import { setDisabledIntegrations } from "../integration-switches";
 import { loadI18n, t } from "../i18n";
 import type { SettingsOverrides } from "../settings-types";
@@ -8,11 +9,24 @@ import { AiRatesControl } from "./ai-rates-control";
 const state = vi.hoisted(() => ({
   overrides: undefined as SettingsOverrides | undefined,
   setOverrides: vi.fn(),
+  confirm: vi.fn(),
 }));
 
 vi.mock("../workspace-context", () => ({
   useWorkspace: () => ({ settingsOverrides: state.overrides, setSettingsOverrides: state.setOverrides }),
 }));
+vi.mock("../confirm-dialog", () => ({ useConfirm: () => state.confirm }));
+
+const log = vi.fn();
+
+/** The control under the activity logger, as the settings views mount it. */
+function renderControl() {
+  return render(
+    <ActivityLogProvider value={log}>
+      <AiRatesControl lang="en-US" />
+    </ActivityLogProvider>,
+  );
+}
 
 const control = () => screen.getByRole("checkbox", { name: t("en-US", "aiRatesWithheldLabel") });
 
@@ -25,6 +39,8 @@ function applied(prev: SettingsOverrides | undefined): SettingsOverrides | undef
 beforeEach(() => {
   state.overrides = undefined;
   state.setOverrides.mockReset();
+  state.confirm.mockReset();
+  log.mockReset();
   setDisabledIntegrations([]);
 });
 afterEach(() => {
@@ -40,24 +56,40 @@ describe("AiRatesControl", () => {
     expect(control()).toHaveAccessibleDescription(t("en-US", "aiRatesWithheldHint"));
   });
 
-  it("turning it on stores ratesWithheld: true", () => {
-    render(<AiRatesControl lang="en-US" />);
+  // §804 — like people protection: turning the safeguard ON needs no dialog and is logged; turning it OFF
+  // asks first, and only a confirmed change is written and logged (actor "user"). Each write sets the state the
+  // user chose, so a second click cannot flip it back.
+  it("turning it on stores ratesWithheld: true, asks nothing and logs ai.ratesWithheldOn", () => {
+    renderControl();
     fireEvent.click(control());
+    expect(state.confirm).not.toHaveBeenCalled();
     expect(applied(undefined)).toEqual({ ai: { ratesWithheld: true } });
+    expect(applied({ ai: { ratesWithheld: true } })).toEqual({ ai: { ratesWithheld: true } });
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledWith("user", "ai.ratesWithheldOn");
   });
 
-  it("turning it off clears the stored choice back to absence", () => {
+  it("turning it off asks first, and Cancel leaves it on with nothing written or logged", async () => {
     state.overrides = { ai: { ratesWithheld: true } };
-    render(<AiRatesControl lang="en-US" />);
-    expect(control()).toBeChecked();
+    state.confirm.mockResolvedValue(false);
+    renderControl();
     fireEvent.click(control());
-    expect(applied({ ai: { ratesWithheld: true } })).toBeUndefined();
+    await waitFor(() => expect(state.confirm).toHaveBeenCalledTimes(1));
+    expect(state.confirm.mock.calls[0][0].message).toBe(t("en-US", "aiRatesWithheldOffConfirm"));
+    expect(state.setOverrides).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalled();
+    expect(control()).toBeChecked();
   });
 
-  it("decides from the previous overrides inside the updater, not from what was rendered", () => {
-    render(<AiRatesControl lang="en-US" />); // rendered off
+  it("Confirm clears the stored choice back to absence and logs ai.ratesWithheldOff once", async () => {
+    state.overrides = { ai: { ratesWithheld: true } };
+    state.confirm.mockResolvedValue(true);
+    renderControl();
     fireEvent.click(control());
-    expect(applied({ ai: { ratesWithheld: true } })).toBeUndefined(); // already on by the time the updater runs
+    await waitFor(() => expect(state.setOverrides).toHaveBeenCalledTimes(1));
+    expect(applied({ ai: { ratesWithheld: true } })).toBeUndefined();
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledWith("user", "ai.ratesWithheldOff");
   });
 
   it("with the deployment lock it is on, disabled and says why; a click changes nothing", () => {

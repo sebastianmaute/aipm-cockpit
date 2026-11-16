@@ -123,7 +123,7 @@ describe("isDeleteKind", () => {
     const ALL_KINDS = Object.keys(ACTIVITY_KIND_TO_KEY) as ActivityKind[];
 
     test("classifies every member exactly as declared", () => {
-      expect(ALL_KINDS).toHaveLength(72); // tripwire — see the note above; ai.allocationPlanAlt (§769, not a delete), raid.escalated added (§515), ai.wbsPlan (optimize_wbs), plan.currencySwitched (§476, not a delete), forecastScenario.created/updated/deleted (§502), forecast.targetChanged/proposalSet/proposalCleared (§502), project.updated (§715, not a delete), resource.hoursMoved (§774, not a delete), meetingReport.updated + ai.reportDraft (AI-04), ai.peopleProtectionOff/On (AI people protection, not deletes)
+      expect(ALL_KINDS).toHaveLength(76); // tripwire — see the note above; ai.reviewAllWritesOff/On + ai.ratesWithheldOff/On (§794, §804, not deletes), ai.allocationPlanAlt (§769, not a delete), raid.escalated added (§515), ai.wbsPlan (optimize_wbs), plan.currencySwitched (§476, not a delete), forecastScenario.created/updated/deleted (§502), forecast.targetChanged/proposalSet/proposalCleared (§502), project.updated (§715, not a delete), resource.hoursMoved (§774, not a delete), meetingReport.updated + ai.reportDraft (AI-04), ai.peopleProtectionOff/On (AI people protection, not deletes)
       expect(ALL_KINDS.filter(isDeleteKind).sort()).toEqual([...DELETE_KINDS].sort());
     });
 
@@ -248,6 +248,10 @@ describe("ACTIVITY_KIND_TO_KEY — new kinds have non-empty labels in both local
     "forecast.proposalCleared",
     "ai.peopleProtectionOff",
     "ai.peopleProtectionOn",
+    "ai.reviewAllWritesOff",
+    "ai.reviewAllWritesOn",
+    "ai.ratesWithheldOff",
+    "ai.ratesWithheldOn",
   ];
 
   test.each(NEW_KINDS)("%s has a non-empty en-US label", (kind) => {

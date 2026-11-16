@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { ActivityLogProvider } from "../activity-log-context";
 import { setDisabledIntegrations } from "../integration-switches";
 import { loadI18n, t } from "../i18n";
 import type { SettingsOverrides } from "../settings-types";
@@ -8,11 +9,24 @@ import { AiReviewWritesControl } from "./ai-review-writes-control";
 const state = vi.hoisted(() => ({
   overrides: undefined as SettingsOverrides | undefined,
   setOverrides: vi.fn(),
+  confirm: vi.fn(),
 }));
 
 vi.mock("../workspace-context", () => ({
   useWorkspace: () => ({ settingsOverrides: state.overrides, setSettingsOverrides: state.setOverrides }),
 }));
+vi.mock("../confirm-dialog", () => ({ useConfirm: () => state.confirm }));
+
+const log = vi.fn();
+
+/** The control under the activity logger, as the settings views mount it. */
+function renderControl() {
+  return render(
+    <ActivityLogProvider value={log}>
+      <AiReviewWritesControl lang="en-US" />
+    </ActivityLogProvider>,
+  );
+}
 
 const control = () => screen.getByRole("checkbox", { name: t("en-US", "aiReviewAllWritesLabel") });
 
@@ -25,6 +39,8 @@ function applied(prev: SettingsOverrides | undefined): SettingsOverrides | undef
 beforeEach(() => {
   state.overrides = undefined;
   state.setOverrides.mockReset();
+  state.confirm.mockReset();
+  log.mockReset();
   setDisabledIntegrations([]);
 });
 afterEach(() => {
@@ -40,24 +56,40 @@ describe("AiReviewWritesControl", () => {
     expect(control()).toHaveAccessibleDescription(t("en-US", "aiReviewAllWritesHint"));
   });
 
-  it("turning it on stores reviewAllWrites: true", () => {
-    render(<AiReviewWritesControl lang="en-US" />);
+  // §794 — like people protection: turning the safeguard ON needs no dialog and is logged; turning it OFF
+  // asks first, and only a confirmed change is written and logged (actor "user"). Each write sets the state the
+  // user chose, so a second click cannot flip it back.
+  it("turning it on stores reviewAllWrites: true, asks nothing and logs ai.reviewAllWritesOn", () => {
+    renderControl();
     fireEvent.click(control());
+    expect(state.confirm).not.toHaveBeenCalled();
     expect(applied(undefined)).toEqual({ ai: { reviewAllWrites: true } });
+    expect(applied({ ai: { reviewAllWrites: true } })).toEqual({ ai: { reviewAllWrites: true } });
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledWith("user", "ai.reviewAllWritesOn");
   });
 
-  it("turning it off clears the stored choice back to absence", () => {
+  it("turning it off asks first, and Cancel leaves it on with nothing written or logged", async () => {
     state.overrides = { ai: { reviewAllWrites: true } };
-    render(<AiReviewWritesControl lang="en-US" />);
-    expect(control()).toBeChecked();
+    state.confirm.mockResolvedValue(false);
+    renderControl();
     fireEvent.click(control());
-    expect(applied({ ai: { reviewAllWrites: true } })).toBeUndefined();
+    await waitFor(() => expect(state.confirm).toHaveBeenCalledTimes(1));
+    expect(state.confirm.mock.calls[0][0].message).toBe(t("en-US", "aiReviewAllWritesOffConfirm"));
+    expect(state.setOverrides).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalled();
+    expect(control()).toBeChecked();
   });
 
-  it("decides from the previous overrides inside the updater, not from what was rendered", () => {
-    render(<AiReviewWritesControl lang="en-US" />); // rendered off
+  it("Confirm clears the stored choice back to absence and logs ai.reviewAllWritesOff once", async () => {
+    state.overrides = { ai: { reviewAllWrites: true } };
+    state.confirm.mockResolvedValue(true);
+    renderControl();
     fireEvent.click(control());
-    expect(applied({ ai: { reviewAllWrites: true } })).toBeUndefined(); // already on by the time the updater runs
+    await waitFor(() => expect(state.setOverrides).toHaveBeenCalledTimes(1));
+    expect(applied({ ai: { reviewAllWrites: true } })).toBeUndefined();
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledWith("user", "ai.reviewAllWritesOff");
   });
 
   it("with the deployment lock it is on, disabled and says why; a click changes nothing", () => {
