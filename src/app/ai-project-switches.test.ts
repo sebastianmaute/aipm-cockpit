@@ -95,3 +95,23 @@ describe("the switches", () => {
     expect(parseDisabledIntegrations("ai-rates, ai-direct-writes")).toHaveLength(2);
   });
 });
+
+// The in-memory overrides and the reloaded ones must serialise byte for byte the same: the writers emit the `ai`
+// object in the sanitiser's canonical order (peopleAllowed, reviewAllWrites, ratesWithheld) whatever order the
+// switches were turned on in.
+describe("the ai override's key order", () => {
+  const roundTrip = (o: unknown) => JSON.stringify(sanitizeSettingsOverrides(JSON.parse(JSON.stringify(o))));
+  it("matches the sanitised round trip after toggles in mixed order", () => {
+    let o = withAiSwitch({ forecast: { showSimulation: true } }, "ratesWithheld", true);
+    o = withPeopleAllowed(o, true);
+    o = withAiSwitch(o, "reviewAllWrites", true);
+    expect(Object.keys(o!.ai!)).toEqual(["peopleAllowed", "reviewAllWrites", "ratesWithheld"]);
+    expect(JSON.stringify(o)).toBe(roundTrip(o));
+    o = withAiSwitch(o, "reviewAllWrites", false);
+    o = withAiSwitch(o, "reviewAllWrites", true);
+    expect(JSON.stringify(o)).toBe(roundTrip(o));
+    o = withPeopleAllowed(o, false);
+    o = withPeopleAllowed(o, true);
+    expect(JSON.stringify(o)).toBe(roundTrip(o));
+  });
+});

@@ -150,13 +150,34 @@ function sanitizeForecastOverride(raw: unknown): SettingsOverrides["forecast"] |
 }
 
 /** Only an explicit `true` is kept per key; every default is absence, and an empty result is undefined. */
+/** The `ai` override's flags in their canonical order: the sanitiser emits them in this order, and so do the
+ *  writers (`withAiOverrideFlag`), so an override held in memory serialises exactly as it does after a reload. */
+const AI_OVERRIDE_FLAGS = ["peopleAllowed", "reviewAllWrites", "ratesWithheld"] as const;
+type AiOverrideFlag = (typeof AI_OVERRIDE_FLAGS)[number];
+
+function canonicalAi(isOn: (flag: AiOverrideFlag) => boolean): SettingsOverrides["ai"] | undefined {
+  const out: NonNullable<SettingsOverrides["ai"]> = {};
+  for (const flag of AI_OVERRIDE_FLAGS) if (isOn(flag)) out[flag] = true;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 function sanitizeAiOverride(raw: unknown): SettingsOverrides["ai"] | undefined {
   if (!isObject(raw)) return undefined;
-  const out: NonNullable<SettingsOverrides["ai"]> = {};
-  if (raw.peopleAllowed === true) out.peopleAllowed = true;
-  if (raw.reviewAllWrites === true) out.reviewAllWrites = true;
-  if (raw.ratesWithheld === true) out.ratesWithheld = true;
-  return Object.keys(out).length > 0 ? out : undefined;
+  return canonicalAi((flag) => raw[flag] === true);
+}
+
+/** Return a NEW override with one `ai` flag set or cleared, the `ai` object in canonical order and kept last, as
+ *  the sanitiser emits it; `undefined` when no override is left. Only `true` is stored (absence means off). */
+export function withAiOverrideFlag(
+  o: SettingsOverrides | undefined,
+  flag: AiOverrideFlag,
+  on: boolean,
+): SettingsOverrides | undefined {
+  const ai = canonicalAi((f) => (f === flag ? on : o?.ai?.[f] === true));
+  const next: SettingsOverrides = { ...o };
+  delete next.ai;
+  if (ai) next.ai = ai;
+  return hasAnyOverride(next) ? next : undefined;
 }
 
 /** Validate untrusted per-project overrides. Emits a sub-key ONLY when it holds

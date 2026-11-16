@@ -7,7 +7,7 @@
 // an integration id; the stored value is never touched by that.
 
 import { isIntegrationDisabled } from "./integration-switches";
-import { hasAnyOverride } from "./settings-overrides";
+import { withAiOverrideFlag } from "./settings-overrides";
 import type { SettingsOverrides } from "./settings-types";
 
 /** The deployment forces review of every AI write (AIPM_DISABLED_INTEGRATIONS names `ai-direct-writes`). */
@@ -36,11 +36,5 @@ export function withAiSwitch(
   key: "reviewAllWrites" | "ratesWithheld",
   on: boolean,
 ): SettingsOverrides | undefined {
-  const ai = { ...o?.ai };
-  if (on) ai[key] = true;
-  else delete ai[key];
-  const next: SettingsOverrides = { ...o };
-  delete next.ai;
-  if (Object.keys(ai).length > 0) next.ai = ai;
-  return hasAnyOverride(next) ? next : undefined;
+  return withAiOverrideFlag(o, key, on);
 }

@@ -86,4 +86,12 @@ describe("the review switch hint", () => {
     await loadI18n("de");
     expect(t("de", "aiReviewAllWritesHint")).toMatch(/die meisten Änderungen lassen sich rückgängig machen/);
   });
+
+  // Device-local calls (set_filters, set_language, update_settings without functions) still apply at once, so the
+  // hint promises review for changes to project data only (as the CHANGELOG and E71 say).
+  it("says it reviews every change to project data", async () => {
+    expect(t("en-US", "aiReviewAllWritesHint")).toMatch(/every change to project data the AI chat proposes/);
+    await loadI18n("de");
+    expect(t("de", "aiReviewAllWritesHint")).toMatch(/Jede Änderung an Projektdaten, die der KI-Chat vorschlägt/);
+  });
 });
