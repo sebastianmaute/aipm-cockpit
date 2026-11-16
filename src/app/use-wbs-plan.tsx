@@ -38,6 +38,7 @@ import { wbsPlanActivityArgs } from "./activity-log";
 import { type UndoStackApi } from "./undo/use-undo-stack";
 import { useToastContext } from "./toast-context";
 import { useWorkspace } from "./workspace-context";
+import { sanitizeFeatures } from "./feature-modules";
 import { useFilters } from "./filters-context";
 import { filterTasksByHealth } from "./health";
 import { AiHttpError, classifyAiError } from "./ai-errors";
@@ -133,7 +134,7 @@ const isEditable = (task: Task): boolean => !isTaskClosed(task) && !task.jiraKey
 
 export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   const { settings, isPopout, lang, capture, logActivityAs, getScopeEpoch, loadPending, today: tableToday, holidaySet } = deps;
-  const { tasks, setTasks, milestones, project, filteredSortedTasks, absences, resources } = useWorkspace();
+  const { tasks, setTasks, milestones, project, filteredSortedTasks, absences, resources, features } = useWorkspace();
   const { healthFilter } = useFilters();
   const showToast = useToastContext();
 
@@ -256,8 +257,9 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         const live = liveTasks ?? tasksRef.current;
         const context = buildWbsContext({
           tasks: live, scopeIds: runScope.taskIds, milestones, project, absences, resources, today: tableToday,
-          // §810 — the open project's functions (`settings.features` mirrors them): no AWAY block while Resources is hidden.
-          enabledModules: settings.features,
+          // §810 — the open project's own functions (absent: every function), not the `settings.features` mirror,
+          // which can lag a project switch: no AWAY block while Resources is hidden.
+          enabledModules: sanitizeFeatures(features),
         });
         const parsed = await runWbsProposal(
           context,
@@ -310,7 +312,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         reset();
       }
     },
-    [milestones, project, absences, resources, tableToday, apiKey, settings.ai.model, settings.features, guideText, aiPrivacy, peopleProtectedNow, lang, showToast, reset, setPhase, getScopeEpoch],
+    [milestones, project, absences, resources, tableToday, apiKey, settings.ai.model, features, guideText, aiPrivacy, peopleProtectedNow, lang, showToast, reset, setPhase, getScopeEpoch],
   );
 
   const onOpen = useCallback(() => {

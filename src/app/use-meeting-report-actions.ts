@@ -8,6 +8,8 @@ import { t, type Lang, tPlural } from "./i18n";
 import { aiFailureMessageKey } from "./ai-key-status";
 import type { SteeringCommittee, CommitteeMeeting, Resource, MeetingReport, Absence } from "./types";
 import { AWAY_SUMMARY_MAX_CHARS, AWAY_WINDOW_DAYS, buildAiAwaySummary } from "./absence-clash";
+import { sanitizeFeatures } from "./feature-modules";
+import type { Workspace } from "./workspace";
 import { isoAddDays } from "./due-dates";
 import type { Settings } from "./settings-types";
 import { isAiEnabled } from "./settings-types";
@@ -31,6 +33,9 @@ export interface MeetingReportActionsDeps {
   lang: Lang;
   isPopout: boolean;
   settings: Settings;
+  /** §810 — the open project's own functions (`Workspace.features`); `settings.features` is a mirror that can lag a
+   *  project switch. Required, so the caller says which project's functions decide. */
+  projectFeatures: Workspace["features"];
   committee: SteeringCommittee | undefined;
   resources: readonly Resource[];
   /** §773 — with `today`, the AI draft is told who is away in the next `AWAY_WINDOW_DAYS`. */
@@ -348,10 +353,9 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     const startEpoch = deps.getScopeEpoch();
     const startFingerprint = meetingFingerprint(meeting);
     try {
-      // §810 — the project's functions (`settings.features` mirrors the open project): no AWAY lines while
-      // it hides Resources.
+      // §810 — the project's own functions (absent: every function): no AWAY lines while it hides Resources.
       const away = buildAiAwaySummary({
-        enabledModules: deps.settings.features, absences: deps.absences, resources: deps.resources,
+        enabledModules: sanitizeFeatures(deps.projectFeatures), absences: deps.absences, resources: deps.resources,
         from: deps.today, to: isoAddDays(deps.today, AWAY_WINDOW_DAYS), maxChars: AWAY_SUMMARY_MAX_CHARS,
       });
       const html = await runMeetingReport(

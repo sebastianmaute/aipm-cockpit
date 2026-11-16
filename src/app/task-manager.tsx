@@ -882,7 +882,7 @@ function TaskManagerInner() {
   const meetingReportActions = useMeetingReportActions({
     lang,
     isPopout,
-    settings,
+    settings, projectFeatures: features,
     committee: steeringCommittee,
     resources, absences, today,
     setSteeringCommittee,
