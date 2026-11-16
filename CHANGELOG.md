@@ -211,6 +211,13 @@ longer carries its own changelog comment.
   retention period, and removing a permanently deleted project's chats. It runs in CI's destructive live-Turso job.
 - **Role briefs on AI use (CEO, COO, CIO, CISO, CAIO, DPO, project manager) in English and German under
   `docs/briefs/`, with an evidence table.**
+- **A project can have every AI chat change reviewed.** "Review every AI write" in Settings → AI sends every
+  change to project data the chat proposes to the review card, even a single one; reads never wait. It is off
+  until set. An operator can force it on in every project with `ai-direct-writes` in `AIPM_DISABLED_INTEGRATIONS`.
+- **A project can keep hourly rates out of Plan with AI.** "Keep hourly rates out of Plan with AI" in Settings →
+  AI sends the people, their roles and their hours without the internal hourly rate. It is off until set, and
+  `ai-rates` forces it on in every project. It does not cover a forecast the chat reads, which still reports the
+  internal rate of a person a what-if scenario adds.
 
 ### Changed
 
@@ -220,6 +227,16 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The request limit no longer trusts a header the caller sets.** The limit on the Jira, Confluence, Timelog,
+  exchange-rate, AI and dictation routes could be avoided by sending a different forwarding header on each
+  request. By default all callers of a route now share one limit; behind reverse proxies that append the
+  caller's address to `x-forwarded-for`, set `AIPM_TRUSTED_PROXY_HOPS` to their number to count each caller
+  separately (`docs/RUNBOOK.md`). The count is still kept per server process.
+- **Hiding a project's Resources function now keeps its people and absences from the AI.** The chat, the row
+  edit and the insight recommendations are no longer offered the people tools, and the steering committee
+  report draft, Analyze next actions, the scheduled job analysis, the insight recommendations and the work
+  breakdown proposal no longer send who is away. A chat date change that lands on an absence is still held for
+  review.
 - **The chat holds its changes for review after it reads a task synced from Jira.** Text synced from Jira can
   carry instructions aimed at the AI, like an attached file. Once the chat has read such a task in a
   conversation, every change it proposes after that waits on the review card, as it already did while a file
