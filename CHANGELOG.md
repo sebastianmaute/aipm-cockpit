@@ -218,7 +218,10 @@ longer carries its own changelog comment.
 - **A project can keep hourly rates out of Plan with AI and the chat's forecast.** "Keep hourly rates out of Plan
   with AI and the chat's forecast" in Settings → AI leaves the internal hourly rate out of Plan with AI, and out
   of the forecast results the chat reads for a person from the resource directory a scenario or what-if adds. It is off until set, and
-  `ai-rates` forces it on in every project.
+  `ai-rates` forces it on in every project. A placeholder's rate that a saved scenario stores is still sent with
+  it, and a scenario's cost at finish, beside the added person's weekly hours, lets the model roughly work out
+  that person's rate. Upgrade every client first: an older client drops the setting when it saves a shared
+  project.
 
 ### Changed
 
@@ -242,7 +245,8 @@ longer carries its own changelog comment.
   actions, the scheduled job analysis, the insight recommendations and the work breakdown proposal no longer send
   who is away. Insight recommendations name only people already assigned to open tasks and no longer send a
   person's profile. History search, chat search, the status inquiry and RAID escalation stay available, so a
-  project in Simple mode keeps them. The stakeholder tools follow the Stakeholders function instead. A chat date
+  project in Simple mode keeps them. The stakeholder tools, and a stakeholder's e-mail look-up, follow the
+  Stakeholders function instead. A chat date
   change that lands on an absence is still held for review.
 - **The chat holds its changes for review after it reads a task synced from Jira.** Text synced from Jira can
   carry instructions aimed at the AI, like an attached file. Once the chat has read such a task in a

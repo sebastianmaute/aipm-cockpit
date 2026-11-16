@@ -59,7 +59,9 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
   Chat heraushalten“ lässt die internen Stundensätze aus dieser Anfrage weg, und den Satz der Rolle einer Person
   aus dem Verzeichnis aus den Prognoseergebnissen, die der Chat liest; den Satz eines Platzhalters, den ein
   gespeichertes Szenario speichert (eine dafür eingetragene Zahl oder der mittlere interne Satz des Teams),
-  sendet er weiterhin (E72, *getestet (Unit)*). Der Betreiber kann beide für jedes Projekt erzwingen.
+  sendet er weiterhin, und aus den Kosten bei Fertigstellung eines Szenarios neben dem Ist-Stand kann das Modell
+  mit den Wochenstunden der hinzugefügten Person deren Satz grob ausrechnen (E72, *getestet (Unit)*). Der
+  Betreiber kann beide für jedes Projekt erzwingen.
 - **Übernehmen oder lassen:** In den Vorschlägen für Ressourcenplanung, RACI, Projektstrukturplan und doppelte
   Aufgaben können Sie Punkte abwählen, und der Gewichtungsvorschlag bietet „Übernehmen“ für jede einzelne
   Gewichtung; die übrigen werden als Ganzes übernommen, angenommen oder bestätigt (E56, *im Code gelesen*). Der

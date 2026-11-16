@@ -75,7 +75,9 @@ Fragen, die nur Ihre Organisation beantworten kann.
   Satz der Rolle einer Person aus dem Verzeichnis aus den Prognoseergebnissen, die der Chat liest; die Personen,
   ihre Rollen und ihre Stunden werden weiterhin gesendet. Den Satz eines Platzhalters, den ein gespeichertes
   Szenario speichert (eine dafür eingetragene Zahl oder der mittlere interne Satz des Teams), sendet es
-  weiterhin mit diesem Szenario (E72, *getestet (Unit)*).
+  weiterhin mit diesem Szenario, und die Kosten bei Fertigstellung eines Szenarios oder einer
+  Was-wäre-wenn-Rechnung neben dem Ist-Stand lassen das Modell mit den Wochenstunden der hinzugefügten Person
+  deren Satz grob ausrechnen (E72, *getestet (Unit)*).
 - **Gespeicherte Chats:** nur mit einer Turso-Datenbank und dem Wiederherstellungsschlüssel des Betreibers
   aufbewahrt (E28, *im Code gelesen*); gelöscht 30 Tage nach ihrer letzten Änderung (der Betreiber kann 1 bis
   3650 einstellen), vom Browser und, wo eingerichtet, vom Server (E29, *im Code gelesen*).

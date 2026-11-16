@@ -103,7 +103,7 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
 - **§802** — Routing AI through an organisation's gateway has been tested against fakes and a local
   server only. How a real gateway behaves with the app has not been confirmed by a run.
 
-Three limits remain that have no open register entry:
+Four limits remain that have no open register entry:
 
 - **Request limits.** The limit on the Jira, Confluence, Timelog, exchange-rate, AI and dictation routes no
   longer trusts a header the caller sets. By default all callers of a route share one count, so one caller
@@ -119,6 +119,10 @@ Three limits remain that have no open register entry:
   stored, so a placeholder's rate (a figure entered for the scenario, or the team's mean internal rate when it
   was drafted from the Forecast view's Explore) still reaches the AI. [verified: `buildForecastReport` in
   `src/app/forecast-ai-report.ts`; `placeholderWho` in `src/app/forecast-levers.ts`]
+- **Forecast cost figures with rates withheld.** The chat's forecast still reports each scenario's and
+  what-if's cost at finish (P50, P80, P95) beside As is, and the sizing of a person it adds keeps their weekly
+  hours. From the difference and those hours the model could roughly work out that person's rate, although
+  the rate itself is left out. [verified: `buildForecastReport` in `src/app/forecast-ai-report.ts`]
 - **A hidden Resources function.** While a project hides it, the AI is offered none of that function's tools
   (the resource directory, absences, allocations and contact e-mail look-ups), no prompt lists who is away, and
   insight recommendations name only people already assigned to open tasks. The stakeholder tools follow the

@@ -64,7 +64,8 @@ with Anthropic, transfers and a works agreement are questions only your organisa
   for the whole deployment, keeps the rates out of that request and keeps the role rate of a person from the
   directory out of the forecast results the chat reads; the people, their roles and their hours are still sent.
   A placeholder's rate that a saved scenario stores (a figure entered for it, or the team's mean internal rate)
-  is still sent with that scenario (E72, *tested (unit)*).
+  is still sent with that scenario, and a scenario's or what-if's cost at finish beside As is, with the added
+  person's weekly hours, lets the model roughly work out that person's rate (E72, *tested (unit)*).
 - **Saved chats:** kept only with a Turso database and the operator's recovery key (E28, *read in code*);
   deleted 30 days after their last change (the operator can set 1 to 3650), by the browser and, where set up,
   by the server (E29, *read in code*).

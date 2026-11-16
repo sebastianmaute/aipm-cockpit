@@ -51,7 +51,9 @@ feature on one demo project (E37, *measured*).
   *tested (unit)*); "Keep hourly rates out of Plan with AI and the chat's forecast" leaves the internal hourly
   rates out of that request, and the role rate of a person from the directory out of the forecast results the
   chat reads; a placeholder's rate that a saved scenario stores (a figure entered for it, or the team's mean
-  internal rate) is still sent (E72, *tested (unit)*). The operator can force either on for every project.
+  internal rate) is still sent, and a scenario's cost at finish beside As is, with the added person's weekly
+  hours, lets the model roughly work out that person's rate (E72, *tested (unit)*). The operator can force
+  either on for every project.
 - **Take or leave:** in the allocation, RACI, work breakdown and duplicate proposals you can deselect items, and
   the weight suggestion offers Accept for each weight; the others are applied, accepted or confirmed as a whole
   (E56, *read in code*). The steering committee draft waits under "AI draft – take sections into the report"

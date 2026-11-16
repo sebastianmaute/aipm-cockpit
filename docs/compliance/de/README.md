@@ -120,7 +120,7 @@ wo die Einzelheiten stehen. [geprüft: die Registereinträge in `docs/open-follo
   Attrappen und einen lokalen Server getestet. Wie sich ein echtes Gateway mit der App verhält, ist durch
   keinen Lauf bestätigt.
 
-Drei Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
+Vier Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
 
 - **Anfragegrenzen.** Die Begrenzung der Routen für Jira, Confluence, Timelog, Wechselkurse, KI und Diktat
   vertraut keinem Header mehr, den der Aufrufer setzt. Standardmäßig teilen sich alle Aufrufer einer Route
@@ -138,6 +138,11 @@ Drei Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
   Satz eines Platzhalters (eine für das Szenario eingetragene Zahl oder der mittlere interne Satz des Teams, wenn
   es aus „Erkunden“ in der Prognoseansicht entworfen wurde) erreicht die KI also weiterhin. [geprüft:
   `buildForecastReport` in `src/app/forecast-ai-report.ts`; `placeholderWho` in `src/app/forecast-levers.ts`]
+- **Kostenzahlen der Prognose bei herausgehaltenen Stundensätzen.** Die Prognose im Chat meldet weiterhin die
+  Kosten bei Fertigstellung (P50, P80, P95) jedes Szenarios und jeder Was-wäre-wenn-Rechnung neben dem
+  Ist-Stand, und die Angaben zu einer hinzugefügten Person behalten ihre Wochenstunden. Aus dem Unterschied und
+  diesen Stunden könnte das Modell den Satz dieser Person grob ausrechnen, obwohl der Satz selbst entfällt.
+  [geprüft: `buildForecastReport` in `src/app/forecast-ai-report.ts`]
 - **Eine ausgeblendete Ressourcen-Funktion.** Solange ein Projekt sie ausblendet, bekommt die KI keines der
   Werkzeuge dieser Funktion angeboten (Ressourcenverzeichnis, Abwesenheiten, Zuteilungen und das Nachschlagen
   einer Kontakt-E-Mail), keine Anfrage führt auf, wer abwesend ist, und Insight-Empfehlungen nennen nur

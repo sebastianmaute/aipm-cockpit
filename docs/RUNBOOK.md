@@ -512,6 +512,13 @@ section there.
   own speech recognition until its next AI request or a reload (§789), so ask people to reload.
 - **`ai-direct-writes` forces every AI write into review** in every project, whatever a project chose; AI stays available.
 - **`ai-rates` keeps hourly rates out of Plan with AI and the chat’s forecast** in every project, whatever a project chose; AI stays available.
+- **`ai-direct-writes` and `ai-rates` are applied by the app,** in the browser: no server route
+  refuses a request under either of them (only `ai-people` also makes `/api/stt` refuse).
+- **★ Upgrade every client before relying on the per-project switches.** "Review every AI write"
+  and "Keep hourly rates out of Plan with AI and the chat’s forecast" are stored with the project
+  (`reviewAllWrites`, `ratesWithheld`). A client that has not been upgraded drops both when it
+  saves a shared (Turso) project, which turns them off for everyone. The deployment ids above do
+  not depend on that stored choice.
 - **`ai` switches every AI feature off**, and dictation to a speech service with it
   (`/api/stt` refuses too). To check it took effect, open Settings → AI: it says the
   organisation switched AI off, and the master switch cannot be ticked. Users' keys and
@@ -799,9 +806,13 @@ the quota of everyone else on that route.
   everything to its left is client-supplied and ignored. A whole number from 1 to 10; an
   invalid value, or 0, keeps the shared limit. A request whose header has fewer than `N`
   entries is counted in the shared bucket.
-- **Unsafe if the proxy does not append.** A proxy that overwrites the header, or passes
-  the client's through untouched, makes the setting wrong: callers could again choose
-  their own bucket. Check what your proxy sends before setting it.
+- **Unsafe if a hop passes the header through.** The entry `N` places from the right must
+  have been written by one of your own proxies. A single proxy that sets the header to the
+  address it saw, overwriting what the client sent (nginx: `proxy_set_header X-Forwarded-For
+  $remote_addr;`), is safe with `N=1`, and so is a chain in which every hop appends. A proxy
+  that passes the client's header through untouched, or a chain in which some hop does not
+  append, lets callers choose their own bucket again. Check what each hop sends before
+  setting it.
 - **Raise the limits for a shared address.** With the shared default, many users share one
   quota. Raise the AI relay and dictation limits with `AIPM_AI_RELAY_MAX_REQUESTS` and
   `AIPM_STT_MAX_REQUESTS` (see the AI gateway section above).
