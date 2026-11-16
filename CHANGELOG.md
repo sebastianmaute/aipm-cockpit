@@ -227,6 +227,16 @@ longer carries its own changelog comment.
   it, and a scenario's cost at finish, beside the added person's weekly hours, lets the model roughly work out
   that person's rate. Upgrade every client first: an older client drops the setting when it saves a shared
   project.
+- **Background AI can be switched off for a project or for the whole deployment.** "Turn off background AI for this
+  project" in Settings → AI pauses the three runs that start without a person: the scheduled job analysis, the
+  automatic insight recommendations and the scheduled digest summary. An operator can pause them in every project
+  with `ai-background` in `AIPM_DISABLED_INTEGRATIONS`, which a page reads once when it loads. A paused run stops
+  quietly, with no failure report or error notification, and the digest is produced without its AI summary. AI a
+  person starts is not affected, and the pause never withdraws or changes anyone's background consent. It is off
+  until set; turning it back on asks first, and every change is written to the activity log. A scheduled job
+  follows the setting of the project it analyses, and with no project loaded the runs are paused. The app
+  enforces the pause; no server route refuses. Upgrade every client first: an older client drops the setting
+  when it saves a shared project, so a team on mixed versions should use `ai-background`.
 
 ### Changed
 

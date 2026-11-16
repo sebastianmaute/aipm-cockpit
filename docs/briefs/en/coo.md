@@ -44,7 +44,6 @@ address, valid IBAN and phone-shaped number are replaced by placeholders in the 
 4. **§798:** only the on-request digest and the browser-side key test have a time limit of their own. On the
    relay route an answer that stays silent for 15 minutes is cut off, and a rate-limit or overload answer is
    shown to the user as such and not retried (E40, *read in code*).
-5. **§795:** background runs are consented once, not approved run by run (E32, *tested (unit)*).
 
 ## What to check or ask for before saying yes
 

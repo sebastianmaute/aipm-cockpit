@@ -45,7 +45,7 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
   *getestet (Unit)*).
 - **Im Hintergrund:** Die geplanten Analysen und Zusammenfassungen erzeugen Text und ändern keinen
   Projektdatensatz, und eine Empfehlung wartet auf Ihre Bestätigung (E56, *im Code gelesen*); für
-  Hintergrundläufe stimmen Sie einmal zu, nicht für jeden Lauf (E32, *getestet (Unit)*).
+  Hintergrundläufe stimmen Sie einmal zu, nicht für jeden Lauf; ein Projekt (Einstellungen → KI) oder Ihre Organisation kann sie pausieren (E32, *getestet (Unit)*).
 
 ## Was Sie steuern
 

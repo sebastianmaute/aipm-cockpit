@@ -39,7 +39,7 @@ feature on one demo project (E37, *measured*).
   that hold for the rest of the conversation; rows created from an imported file do not (E48, *tested (unit)*).
 - **In the background:** the scheduled analyses and digests produce text and change no project record, and a
   recommendation waits for your confirmation (E56, *read in code*); you consent to background runs once, not
-  run by run (E32, *tested (unit)*).
+  run by run, and a project (Settings → AI) or your organisation can pause them (E32, *tested (unit)*).
 
 ## What you control
 

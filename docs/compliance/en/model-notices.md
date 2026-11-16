@@ -94,7 +94,7 @@ Notes for the staff notice: [verified as named]
   last column of the table below. Protection is on by default per project; check whether a project has
   turned it off, or force it on with `AIPM_DISABLED_INTEGRATIONS=ai-people` (`src/app/deployment-variables.ts`).
 - The background sentence: the three rows of the table below whose consent is "asked separately"
-  (`level: "background"` in `src/app/ai-disclosure.ts`); register §795.
+  (`level: "background"` in `src/app/ai-disclosure.ts`); the pause in `assertBackgroundConsentLive` in `src/app/ai-consent.ts`.
 - The "one exception" sentence: `shouldStage` in `src/app/chat-proposal.ts`. A project, or the deployment with
   `ai-direct-writes`, can remove the exception by having every AI write reviewed; if yours does, drop the
   sentence. Other

@@ -53,6 +53,9 @@ app does nothing to make a request give the same answer twice (§812; E27, *not 
 - **Review and rates:** `ai-direct-writes` sends every chat write in every project to the review card, and
   `ai-rates` keeps hourly rates out of Plan with AI and the chat's forecast and dashboard figures; without them, each project can set either in Settings → AI,
   and both are off until set (E71, *tested (unit)*; E72, *tested (unit)*).
+- **Background AI:** `ai-background` pauses the scheduled job analysis, the automatic insight recommendations and
+  the scheduled digest summary in every project, and each project can pause them in Settings → AI; AI a person
+  starts is not affected, and the pause does not withdraw anyone's background consent (E32, *tested (unit)*).
 - **For Article 50 (transparency):** the screens name the AI ("AI Assistant", "Ask Claude", "AI-generated — review
   before acting.") and the activity log shows its chat changes with the actor "AI assistant"; machine-readable
   marking of the text it writes is absent (§801; E55, *read in code*).
@@ -66,7 +69,6 @@ app does nothing to make a request give the same answer twice (§812; E27, *not 
 2. **§812:** whether the work breakdown optimisation repeats its result is not measured (E27, *not proven*).
 3. **Unmarked outside text:** outside text with no mark of its origin does not start the review hold; a
    Jira-synced task does (E48, *tested (unit)*). Only reviewing every write covers it (E71, *tested (unit)*).
-4. **§795:** background AI is consented once, not approved run by run (E32, *tested (unit)*).
 
 ## What to check or ask for before saying yes
 

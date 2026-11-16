@@ -178,7 +178,7 @@ each. It is generated from the app's disclosure table. Left out are only the two
 
 All AI features, with what each sends and the consent it needs. AI is off until a user switches it on and
 accepts this list on their device; the three features asked "separately" run in the background while the
-app is open, without a person starting each run (§795). [verified: `src/app/ai-disclosure.ts`,
+app is open, without a person starting each run; a project or the deployment can pause them. [verified: `src/app/ai-disclosure.ts`,
 `src/app/ai-consent.ts`]
 
 <!-- PACK:ai-paths:BEGIN -->
@@ -247,7 +247,7 @@ below]
   These produce text and change no project records. [verified: `src/app/committee-report/report-call.ts`,
   `src/app/use-digest.ts`, `src/app/use-action-analysis.ts`, `src/app/scheduled-job-run.ts`] **Exception:**
   the scheduled job analysis, the automatic insight recommendations and the scheduled digest summary send
-  data to the AI on each run without a person starting it (§795). [verified: `src/app/ai-disclosure.ts`]
+  data to the AI on each run without a person starting it; a project, or the deployment with `ai-background`, can pause all three and the pause does not withdraw anyone's consent. [verified: `src/app/ai-disclosure.ts`; `assertBackgroundConsentLive` in `src/app/ai-consent.ts`]
   When a user e-mails the digest to themselves and it has no summary yet, the summary is written and sent
   in the same step, with no separate approval of its text. [verified: `emailDigest` in `src/app/use-digest.ts`,
   `src/app/digest/digest-mail-sender.ts`]
@@ -276,7 +276,7 @@ deployment sets, and who may change them, is for the agreement to record. [quest
 | AIPM_AI_GATEWAY_TOKEN | - | Server | - | Token the server sends to the AI gateway with each request; it never reaches the browser, and without a gateway address it is an invalid setting. |
 | AIPM_AI_ORGANIZATION_ID | - | Server | - | Restricts AI use to API keys of this Anthropic organisation: the server checks each key's organisation before forwarding a request and refuses other keys; a set variable whose name, in any letter case, starts with AIPM_AI_ and contains ORG or WORKSPACE but is not exactly this name or the workspace-ids name makes AI requests fail. |
 | AIPM_AI_WORKSPACE_IDS | - | Server | - | With the organisation id, further restricts AI use to keys of the listed Anthropic workspaces (comma-separated); without the organisation id it is an invalid setting, and a set variable whose name, in any letter case, starts with AIPM_AI_ and contains ORG or WORKSPACE but is not exactly this name or the organisation-id name makes AI requests fail. |
-| AIPM_DISABLED_INTEGRATIONS | - | Server | jira, confluence, timelog, ecb, stt, ai, ai-people, ai-direct-writes, ai-rates | Comma-separated integrations this deployment switches off: the server refuses their requests and the app hides them. Three values switch an AI safeguard on in every project instead: ai-people forces people protection (the speech-to-text route also refuses then), ai-direct-writes sends every AI write to review, and ai-rates keeps hourly rates out of Plan with AI and the chat’s forecast and dashboard figures; the app enforces these three, and no other route refuses under them. |
+| AIPM_DISABLED_INTEGRATIONS | - | Server | jira, confluence, timelog, ecb, stt, ai, ai-people, ai-direct-writes, ai-rates, ai-background | Comma-separated integrations this deployment switches off: the server refuses their requests and the app hides them. Four values switch an AI safeguard on in every project instead: ai-people forces people protection (the speech-to-text route also refuses then), ai-direct-writes sends every AI write to review, ai-rates keeps hourly rates out of Plan with AI and the chat’s forecast and dashboard figures, and ai-background pauses the three background AI runs (scheduled job analysis, automatic insight recommendations, scheduled digest summary) while interactive AI stays on; the app enforces these four, and no other route refuses under them. The value is read once per page load. |
 | AIPM_AI_RELAY_MAX_REQUESTS | - | Server | - | AI calls the app's server relays for one caller per minute (a whole number from 1 to 100000; 120 when unset); an invalid value keeps 120. The count is per server process, and callers share one count unless AIPM_TRUSTED_PROXY_HOPS is set, so it guards against a runaway client and is not a quota. |
 | AIPM_STT_MAX_REQUESTS | - | Server | - | Dictation requests the app's server forwards for one caller per minute (a whole number from 1 to 100000; 60 when unset); an invalid value keeps 60. Counted the same way as the AI relay's limit. |
 | AIPM_TRUSTED_PROXY_HOPS | - | Server | - | How many reverse proxies in front of the app write the caller's address into x-forwarded-for (a whole number from 1 to 10; 0 when unset): each appends the address it saw, or a single proxy that overwrites the header with it counts as 1. The request limits then count each caller separately, by the entry that many places from the right. Unset or invalid, every caller of a route shares one count. Unsafe if a proxy passes the header through or a hop neither appends nor overwrites, and the app's port must be reachable only through the proxy: a caller who reaches it directly can choose their own count. |

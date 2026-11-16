@@ -64,8 +64,10 @@ Know the exceptions:
   count as outside text. [verified:
   `resultCarriesExternalText` and `openSendRecord` in `src/app/chat-send-record.ts`]
 - **Background runs.** The background features above send data on every run without asking each time.
-  Their results only advise: a recommendation changes nothing until a person confirms it. [verified:
-  `src/app/use-insight-recommendations.ts`, `src/app/scheduled-job-run.ts`; register §795]
+  Their results only advise: a recommendation changes nothing until a person confirms it. A project, or the
+  deployment with `ai-background`, can pause all three; a paused run stops quietly and AI a person starts is
+  not affected. [verified: `src/app/use-insight-recommendations.ts`, `src/app/scheduled-job-run.ts`,
+  `assertBackgroundConsentLive` in `src/app/ai-consent.ts`]
 
 What the chat changes is recorded in the activity log as the AI's change, and most changes can be undone
 with Undo. Tasks created by a work breakdown you applied cannot be undone; delete them by hand.

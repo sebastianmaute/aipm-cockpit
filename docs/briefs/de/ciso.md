@@ -63,6 +63,11 @@ der App.
 - **Prüfung jeder Änderung im Chat:** `ai-direct-writes` in `AIPM_DISABLED_INTEGRATIONS` oder die eigene
   Einstellung eines Projekts schickt jede Änderung an Projektdaten, die der Chat vorschlägt, auf die Prüfkarte,
   auch eine einzelne, gleich was das Gespräch gelesen hat; ein Lesezugriff wartet nie (E71, *getestet (Unit)*).
+- **KI im Hintergrund pausiert:** `ai-background` in `AIPM_DISABLED_INTEGRATIONS` pausiert die drei KI-Hintergrundläufe
+  in jedem Projekt; die eigene Einstellung eines Projekts tut dasselbe für dieses Projekt. Die App setzt es durch,
+  keine Server-Route lehnt ab, und ein Client, der nicht aktualisiert wurde, verwirft die Einstellung des Projekts,
+  wenn er ein gemeinsames Projekt speichert; verwenden Sie bei gemischten Versionen die Kennung (E32,
+  *getestet (Unit)*).
 - **Installationsdatei:** Jede Desktop-Version trägt eine SBOM, mit Herkunftsnachweisen (Attestierungen) nur,
   solange das Repository öffentlich ist (E50, *getestet (Unit)*); die Installationsdatei ist nicht codesigniert
   (E51, *getestet (Unit)*). `AIPM_DISABLE_UPDATE_CHECK` schaltet die Update-Prüfung der Desktop-App ab (E34,

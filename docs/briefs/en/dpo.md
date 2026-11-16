@@ -81,8 +81,7 @@ with Anthropic, transfers and a works agreement are questions only your organisa
 
 1. **§813:** chat erasure is proven live only for its database statements, not for the screens, real sweeps,
    the provider's backups or what the model vendor keeps (E30, *tested (live database)*).
-2. **§795:** background AI is consented once, not approved run by run (E32, *tested (unit)*).
-3. **§814:** the refusal of images and PDFs under protection, and the other projects' hours in allocation, have
+2. **§814:** the refusal of images and PDFs under protection, and the other projects' hours in allocation, have
    no observed behaviour from a measured run (E39, *not proven*).
 
 ## What to check or ask for before saying yes
