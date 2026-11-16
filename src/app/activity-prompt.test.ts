@@ -118,7 +118,7 @@ describe("renderActivityEntry", () => {
   //   NOT assert wording — the i18n string IS the wording.
   it("renders every ActivityKind with no placeholder left unfilled", () => {
     const kinds = Object.keys(ACTIVITY_KIND_TO_KEY) as ActivityKind[];
-    expect(kinds).toHaveLength(76); // ai.reviewAllWritesOff/On + ai.ratesWithheldOff/On (§794, §804), raid.escalated added (§515), ai.wbsPlan (optimize_wbs), plan.currencySwitched (§476), forecastScenario.* (§502), forecast.targetChanged/proposalSet/proposalCleared (§502), project.updated (§715), resource.hoursMoved (§774), ai.allocationPlanAlt (§769), meetingReport.updated + ai.reportDraft (AI-04), ai.peopleProtectionOff/On (AI people protection)
+    expect(kinds).toHaveLength(78); // ai.reviewAllWritesOff/On + ai.ratesWithheldOff/On + ai.backgroundPaused/Resumed (§794, §804, §795), raid.escalated added (§515), ai.wbsPlan (optimize_wbs), plan.currencySwitched (§476), forecastScenario.* (§502), forecast.targetChanged/proposalSet/proposalCleared (§502), project.updated (§715), resource.hoursMoved (§774), ai.allocationPlanAlt (§769), meetingReport.updated + ai.reportDraft (AI-04), ai.peopleProtectionOff/On (AI people protection)
     for (const kind of kinds) {
       const r = renderActivityEntry(entry({ kind, args: ["A", "B", "C", "D"] }));
       expect(r.summary, kind).not.toBe("");
