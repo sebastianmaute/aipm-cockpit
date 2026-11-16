@@ -4,13 +4,19 @@
 // Node's undici multipart parser (a Blob appended with a filename fails
 // undici's `webidl.is.File` brand check on decode) — this route has no DOM
 // dependency, so run it under the real `node` environment instead.
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { POST } from "./route";
 import { STT_MAX_REQUESTS } from "./_helpers";
 
 // These tests send distinct x-forwarded-for values as distinct callers, which the
-// limiter honours only when one proxy hop is trusted.
-process.env.AIPM_TRUSTED_PROXY_HOPS = "1";
+// limiter honours only when one proxy hop is trusted. Stubbed per test and restored after it (§562), so the
+// setting cannot leak into another file that runs in the same worker.
+beforeEach(() => {
+  vi.stubEnv("AIPM_TRUSTED_PROXY_HOPS", "1");
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 // §803: the route resolves the endpoint's host name before forwarding. No test may reach real DNS,
 // so every lookup goes through this mock; by default a name resolves to a public address.

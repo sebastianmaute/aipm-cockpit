@@ -14,8 +14,14 @@ import { __setAiStatusRequestForTests } from "../../ai-status-request";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../../../test/ai-status-fetch";
 
 // These tests send distinct x-forwarded-for values as distinct callers, which the
-// limiter honours only when one proxy hop is trusted.
-process.env.AIPM_TRUSTED_PROXY_HOPS = "1";
+// limiter honours only when one proxy hop is trusted. Stubbed per test and restored after it (§562), so the
+// setting cannot leak into another file that runs in the same worker.
+beforeEach(() => {
+  vi.stubEnv("AIPM_TRUSTED_PROXY_HOPS", "1");
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 const GATEWAY: AiDeploymentState = { off: false, route: "gateway", invalid: false, keyRestricted: false, chat: null };
 const GATEWAY_ENV = { AIPM_AI_GATEWAY_URL: "https://gateway.example.com/acct/gw/anthropic" };

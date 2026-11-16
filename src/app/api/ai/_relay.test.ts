@@ -24,8 +24,14 @@ import {
 } from "./_relay";
 
 // These tests send distinct x-forwarded-for values as distinct callers, which the
-// limiter honours only when one proxy hop is trusted.
-process.env.AIPM_TRUSTED_PROXY_HOPS = "1";
+// limiter honours only when one proxy hop is trusted. Stubbed per test and restored after it (§562), so the
+// setting cannot leak into another file that runs in the same worker.
+beforeEach(() => {
+  vi.stubEnv("AIPM_TRUSTED_PROXY_HOPS", "1");
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 const KEY = "sk-ant-secret-key";
 const TOKEN = "gateway-secret-token";
