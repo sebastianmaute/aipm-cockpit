@@ -29,19 +29,25 @@ const show = () => render(<ScheduledJobsSection lang="en-US" settings={settings}
 beforeEach(() => { state.overrides = undefined; setDisabledIntegrations([]); });
 afterEach(() => { cleanup(); setDisabledIntegrations([]); });
 
+// The section lists jobs for ANY project, so it never reflects the OPEN project's switch: a job decides from its own
+// project. It names the organisation lock while that is on, and otherwise says the rule once, statically.
 describe("ScheduledJobsSection — background AI paused", () => {
-  it("shows nothing while nothing pauses background AI", () => {
+  const hint = () => t("en-US", "scheduledJobsPausedProjectHint");
+  it("shows the static hint while nothing pauses background AI", () => {
     show();
-    expect(screen.queryByText(t("en-US", "aiBackgroundPausedNotice"))).toBeNull();
+    expect(screen.getByText(hint())).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "aiBackgroundPausedByDeployment"))).toBeNull();
   });
-  it("shows the project notice while the project paused it", () => {
+  it("shows the same static hint, not the open project's notice, while the OPEN project paused it", () => {
     state.overrides = { ai: { backgroundOff: true } };
     show();
-    expect(screen.getByText(t("en-US", "aiBackgroundPausedNotice"))).toBeInTheDocument();
+    expect(screen.getByText(hint())).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "aiBackgroundPausedNotice"))).toBeNull();
   });
   it("shows the organisation variant under the deployment lock", () => {
     setDisabledIntegrations(["ai-background"]);
     show();
     expect(screen.getByText(t("en-US", "aiBackgroundPausedByDeployment"))).toBeInTheDocument();
+    expect(screen.queryByText(hint())).toBeNull();
   });
 });

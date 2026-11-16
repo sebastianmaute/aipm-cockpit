@@ -10,7 +10,7 @@
 // It reads the project lists itself (never through usePortfolioProjects, which
 // follows the OPEN portfolio) so the picker works from any view.
 
-import { AiBackgroundPausedNotice } from "./ai-background-paused-notice";
+import { isBackgroundOffForced } from "../ai-project-switches";
 import { useEffect, useId, useMemo, useState } from "react";
 import { type Lang, t } from "../i18n";
 import { FieldHint } from "../field-hint";
@@ -153,7 +153,8 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
             <span className="text-xs text-foreground">{t(lang, "scheduledJobsToggle")}</span>
           </label>
           {!hasBackgroundConsent && <FieldHint id={backgroundHintId}>{t(lang, "aiBackgroundConsentNeeded")}</FieldHint>}
-          <AiBackgroundPausedNotice lang={lang} />
+          {/* A job decides from its OWN project, not the open one, so only the organisation lock is named; otherwise the rule is stated once. */}
+          <FieldHint>{t(lang, isBackgroundOffForced() ? "aiBackgroundPausedByDeployment" : "scheduledJobsPausedProjectHint")}</FieldHint>
           <FieldHint>{t(lang, "scheduledJobsCostNote")}</FieldHint>
 
           {enabled && (

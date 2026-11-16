@@ -1,7 +1,8 @@
 "use client";
 
-// The "background AI is paused" line under every setting that starts a background run (§795): the background consent
-// toggle, the automatic insight recommendations and scheduled jobs.
+// The "background AI is paused" line under the settings that start a background run on the OPEN project (§795): the
+// background consent toggle and the automatic insight recommendations. The scheduled-jobs section does not use it: a job
+// decides from its own project.
 // ★ Derived REACTIVELY from settings (the deployment switch, then the open project's `settingsOverrides`), never from
 //   `backgroundPauseReason()`, which reads module state that does not re-render anything.
 import { isBackgroundOff, isBackgroundOffForced } from "../ai-project-switches";

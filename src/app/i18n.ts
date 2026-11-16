@@ -1848,6 +1848,7 @@ const enUS = {
   aiBackgroundOffResumeButton: "Allow",
   aiBackgroundPausedNotice: "Background AI is paused for this project.",
   aiBackgroundPausedByDeployment: "Background AI is paused by your organisation.",
+  scheduledJobsPausedProjectHint: "A job does not run while its project has background AI turned off in Settings → AI.",
   aiConsentPeopleProtection: "People protection is on by default in every project: the AI sees no known person’s name, email address or phone number and cannot assign, move or rate anyone. Plan with AI and RACI suggestions are hidden and dictation and voice commands are off until you turn protection off for a project in Settings → AI, unless your organisation has switched it on for every project.",
   aiProtectedWhenLabel: "With people protection on:",
   aiProtectedRedacted: "The names, email addresses and phone numbers of people the project knows are replaced by placeholders before sending. Names the project does not know, typed into free text or contained in attachments, may still be sent.",
