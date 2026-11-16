@@ -278,7 +278,7 @@ function TaskManagerInner() {
     setTimelogLinks,
     knowledgeItems,
     insights,
-    documents, setInsights, baselineHistory, forecastHistory, setForecastHistory,
+    documents, setInsights, baselineHistory, forecastHistory, setForecastHistory, features,
     settingsOverrides,
     fxRates,
     project,
@@ -1112,7 +1112,7 @@ function TaskManagerInner() {
     reviewPlan,
     setReviewInsightId,
   } = useInsightRecommendations({
-    isPopout, loadPending, getScopeEpoch, settings, lang, today, project, guides: operatingGuides.guides, guidesReady: operatingGuides.ready,
+    isPopout, loadPending, getScopeEpoch, settings, projectFeatures: features, lang, today, project, guides: operatingGuides.guides, guidesReady: operatingGuides.ready,
     tasks, raid, milestones, changes, stakeholders, baselineHistory,
     resourcesById, absences, holidaySet, insights, setInsights, dispatcher,
     showToast, logActivityAs,

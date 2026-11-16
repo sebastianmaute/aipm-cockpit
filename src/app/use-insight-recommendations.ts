@@ -35,6 +35,7 @@ import type { Insight, InsightActions, InsightRecommendation } from "./insights/
 import { ALLOWED_REC_TOOLS, baselineHistoryDigest, recommendationPredatesSwitch } from "./insights/insight";
 import { insightReachesAi } from "./insights/insight-prompt";
 import { isModuleEnabled, sanitizeFeatures } from "./feature-modules";
+import type { Workspace } from "./workspace";
 import type { BaselineEntry } from "./baseline-currency";
 import { metricAtActionPatch } from "./insights/outcome";
 import type { ScopeEpochReader } from "./scope-epoch";
@@ -88,6 +89,10 @@ export interface InsightRecommendationDeps {
    *  call site hands it over. */
   getScopeEpoch: ScopeEpochReader;
   settings: Settings;
+  /** §810 — the open project's own functions (`Workspace.features`), the source the chat's tool list and the
+   *  forecast tool read. `settings.features` is only a mirror that can lag a project switch, so the Resources,
+   *  Stakeholders and Timelog decisions read this. Required: the caller says which project's functions decide. */
+  projectFeatures: Workspace["features"];
   /** §701 — the operating-guide library. This hook runs in task-manager's own body, ABOVE the
    *  `AiProviders` it renders, so `useActionGuideText` would read no provider here; the guide
    *  text is resolved from this list instead. Required, so tsc proves the call site hands it over. */
@@ -129,6 +134,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     loadPending,
     getScopeEpoch,
     settings,
+    projectFeatures,
     guides,
     guidesReady,
     lang,
@@ -162,11 +168,11 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // use-insight-lifecycle.ts.
   // §810 — the functions the digest and the offered tools follow. Resources hidden: no AWAY block, no directory
   // names, no linked profile and no insight about one person; Stakeholders hidden: no stakeholder tool offered.
-  // ★ Every one of these, the Timelog check included, reads the project's functions through `sanitizeFeatures`, the
+  // ★ Every one of these, the Timelog check included, reads the PROJECT's functions (`projectFeatures`, not the
+  // `settings.features` mirror) through `sanitizeFeatures`, the
   // repo's absence rule (the project digest's `ws.features ?? ALL_MODULE_IDS` agrees): no `features` means every
-  // function, junk means none. The type makes `features` required, so only a partial settings object (a test
-  // double) reaches the absent case; it no longer reads as "every function off".
-  const enabledModules = useMemo(() => sanitizeFeatures(settings.features), [settings.features]);
+  // function, junk means none. A project that never stored its functions is the absent case.
+  const enabledModules = useMemo(() => sanitizeFeatures(projectFeatures), [projectFeatures]);
   const timelogOn = isModuleEnabled("timelog", enabledModules);
   const resourcesHidden = !isModuleEnabled("resources", enabledModules);
   const stakeholdersHidden = !isModuleEnabled("stakeholders", enabledModules);

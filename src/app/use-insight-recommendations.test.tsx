@@ -64,6 +64,7 @@ function mkDeps(over: Partial<InsightRecommendationDeps> = {}): InsightRecommend
     guidesReady: true,
     // A project that shows every function (§810: a hidden Resources function withholds the directory's names).
     settings: { ai: { enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x" }, features: [...ALL_MODULE_IDS] } as unknown as InsightRecommendationDeps["settings"],
+    projectFeatures: undefined,
     lang: "en-US",
     today: "2026-09-03",
     project: undefined,
@@ -929,13 +930,11 @@ describe("TimeLog insights while Timelog is off", () => {
     id: 5, key: "timelog:timelogCapPerDay:7", type: "timelogCapPerDay", severity: "medium",
     data: { person: "Dana Ortiz", count: 2, threshold: 8, worstHours: 12, timelogUserId: 7 },
   });
-  const withFeatures = (features: string[]) =>
-    ({ ...mkDeps().settings, features }) as unknown as InsightRecommendationDeps["settings"];
   async function generate(features: string[]): Promise<number> {
     const call = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42, status: "In Progress" }));
     const store = mkStore([timelogRow]);
     const { result } = renderHook(() =>
-      useInsightRecommendations(mkDeps({ settings: withFeatures(features), insights: store.read(), setInsights: store.setInsights })),
+      useInsightRecommendations(mkDeps({ projectFeatures: features as InsightRecommendationDeps["projectFeatures"], insights: store.read(), setInsights: store.setInsights })),
     );
     await act(async () => { result.current.insightActions.onGenerateRecommendation(5); });
     return call.mock.calls.length;
@@ -962,14 +961,11 @@ describe("§810 — insight recommendations while Resources is hidden", () => {
   const dana = { id: 7, firstName: "Dana", lastName: "Ortiz", title: "Data Engineer", department: "Analytics", company: "Acme", active: true };
   const resourcesById = new Map([[7, dana]]) as unknown as InsightRecommendationDeps["resourcesById"];
   const tasks = [{ ...task, assignee: "Sam Lee" }] as unknown as InsightRecommendationDeps["tasks"];
-  const withFeatures = (features: string[]) =>
-    ({ ...mkDeps().settings, features }) as unknown as InsightRecommendationDeps["settings"];
-
   async function contextWith(features: string[], insight: Partial<Insight> = {}) {
     const spy = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42 }));
     const store = mkStore([mkInsight(insight)]);
     const { result } = renderHook(() =>
-      useInsightRecommendations(mkDeps({ settings: withFeatures(features), tasks, resourcesById, insights: store.read(), setInsights: store.setInsights })),
+      useInsightRecommendations(mkDeps({ projectFeatures: features as InsightRecommendationDeps["projectFeatures"], tasks, resourcesById, insights: store.read(), setInsights: store.setInsights })),
     );
     await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
     expect(spy).toHaveBeenCalledTimes(1);
@@ -995,13 +991,14 @@ describe("§810 — insight recommendations while Resources is hidden", () => {
     expect(ctx).toContain("(no linked entity)");
   });
 
-  // The repo's absence rule (`sanitizeFeatures`, the project digest): no stored `features` means every function.
-  it("settings without features count as every function shown", async () => {
+  // The repo's absence rule (`sanitizeFeatures`, the project digest): a project with no stored `features` means every
+  // function, whatever the settings mirror says (here a lagging mirror that hides Resources).
+  it("a project without stored features counts as every function shown", async () => {
     const spy = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42 }));
     const store = mkStore([mkInsight()]);
-    const settings = { ...mkDeps().settings, features: undefined } as unknown as InsightRecommendationDeps["settings"];
+    const settings = { ...mkDeps().settings, features: ["timelog"] } as unknown as InsightRecommendationDeps["settings"];
     const { result } = renderHook(() =>
-      useInsightRecommendations(mkDeps({ settings, tasks, resourcesById, insights: store.read(), setInsights: store.setInsights })),
+      useInsightRecommendations(mkDeps({ settings, projectFeatures: undefined, tasks, resourcesById, insights: store.read(), setInsights: store.setInsights })),
     );
     await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
     expect(spy.mock.calls[0][0].context.split("## People (assign by name)\n")[1]).toBe("- Dana Ortiz\n- Sam Lee");

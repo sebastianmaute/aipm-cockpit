@@ -245,9 +245,9 @@ longer carries its own changelog comment.
   absences, allocations and contact e-mail look-ups), and the steering committee report draft, Analyze next
   actions, the scheduled job analysis, the insight recommendations and the work breakdown proposal no longer send
   who is away. Insight recommendations name only people already assigned to open tasks and no longer send a
-  person's profile, no AI feature is sent an insight about one person (a Timelog check names a person or their
-  Timelog user number), and the chat's forecast results do not name a person from the directory that a
-  scenario or what-if adds. History search, chat search, the status inquiry and RAID escalation stay available, so a
+  person's profile. No AI feature is sent an insight about one person (a Timelog check names a person or their
+  Timelog user number). The chat's forecast results do not name a person from the directory that a scenario or
+  what-if adds. History search, chat search, the status inquiry and RAID escalation stay available, so a
   project in Simple mode keeps them. The stakeholder tools, and a stakeholder's e-mail look-up, follow the
   Stakeholders function instead. A chat date
   change that lands on an absence is still held for review.

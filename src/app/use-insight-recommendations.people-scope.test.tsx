@@ -53,9 +53,11 @@ function mkDeps(insights: readonly Insight[], background: boolean, features: str
   const consent = newConsent(new Date(0));
   return {
     isPopout: false, loadPending: false, getScopeEpoch: () => 0, guides: [], guidesReady: true,
+    // The project's own functions decide (§810); the settings mirror below shows every function, as a mirror that
+    // lags a project switch would, so a test that hides Resources here fails if the hook read the mirror.
+    projectFeatures: features as InsightRecommendationDeps["projectFeatures"],
     settings: {
-      // Resources shown: while it is hidden a linked person's profile is withheld whatever protection says (§810).
-      features,
+      features: ["timelog", "resources", "stakeholders"],
       ai: { enabled: true, consent, backgroundConsent: consent, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", insightRecommendations: background },
     } as unknown as InsightRecommendationDeps["settings"],
     lang: "en-US", today: "2026-09-03", project: undefined,
@@ -125,6 +127,17 @@ describe("on request", () => {
     const contexts = await onRequest(8);
     expect(contexts).toHaveLength(1);
     expect(contexts[0]).toContain(TIMELOG_USER);
+  });
+});
+
+describe("in the background, with the Resources function hidden (§810)", () => {
+  it("the runner sends only the project-level insight, and no person's profile or number", async () => {
+    const call = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(REC);
+    renderHook(() => useInsightRecommendations(mkDeps([PERSON_INSIGHT, PROJECT_INSIGHT, UNLINKED_INSIGHT], true, ["timelog"])));
+    for (let i = 0; i < 4; i++) await act(async () => { await Promise.resolve(); });
+    const contexts = call.mock.calls.map((c) => c[0].context);
+    expect(contexts).toHaveLength(1);
+    for (const term of [...PROFILE, TIMELOG_USER, "Dana Ortiz"]) expect(contexts[0]).not.toContain(term);
   });
 });
 

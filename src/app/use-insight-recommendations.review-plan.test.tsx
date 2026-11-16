@@ -38,6 +38,7 @@ function deps(): InsightRecommendationDeps {
   return {
     isPopout: false, loadPending: false, getScopeEpoch: () => 0, guides: [], guidesReady: true, absences: [], holidaySet: new Set(),
     settings: { ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x" } } as unknown as InsightRecommendationDeps["settings"],
+    projectFeatures: undefined,
     lang: "en-US", today: "2026-10-30", project: undefined,
     tasks: [TASK], raid: [], milestones: [], changes: [], stakeholders: [],
     baselineHistory: [], resourcesById: new Map(),
