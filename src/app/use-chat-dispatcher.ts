@@ -27,7 +27,7 @@ import { withReassignFields } from "./person-reassign";
 import { resolveDependencyWrite } from "./task-dependency-write";
 import { useFilters } from "./filters-context";
 import { t, type Lang } from "./i18n";
-import { useOpenProjectPeopleProtected } from "./ai-privacy-context";
+import { useOpenProjectPeopleProtected, useOpenProjectRatesWithheld } from "./ai-privacy-context";
 import { applyTaskPatch, setBlockersText, type BlockerActor } from "./blocker-log";
 import {
   sanitizeAssignee,
@@ -399,6 +399,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
 
   // AI people protection: a STABLE getter over the open project's live setting (the transport's own source).
   const peopleProtectedNow = useOpenProjectPeopleProtected();
+  // §804 — the open project's rates switch (or the `ai-rates` lock), asked when the dashboard figures are read.
+  const ratesWithheldNow = useOpenProjectRatesWithheld();
   // §810 — the project's live functions (`featuresRef`, what `getSnapshot` reports): read at call time.
   const resourcesHiddenNow = useCallback(() => !isModuleEnabled("resources", sanitizeFeatures(featuresRef.current)), []);
   const stakeholdersHiddenNow = useCallback(() => !isModuleEnabled("stakeholders", sanitizeFeatures(featuresRef.current)), []);
@@ -1110,6 +1112,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           getDashboardModelRef.current(),
           getBudgetRollupRef.current(),
           clockRef.current.today,
+          { ratesWithheld: ratesWithheldNow() },
         ),
 
       listAllocations: (scope) => getAllocationsSnapshotRef.current(scope),
@@ -1147,7 +1150,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // ★ `forecastTools` is the same shape again: a useMemo'd object spread in, and read by `getSnapshot`; so is
     // `projectTools`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [args.isReadOnly, documentTools, registerTools, forecastTools, projectTools, setRaid, setAbsences, setShifts, setStakeholders, setProject, setFeatures, peopleProtectedNow, resourcesHiddenNow, stakeholdersHiddenNow],
+    [args.isReadOnly, documentTools, registerTools, forecastTools, projectTools, setRaid, setAbsences, setShifts, setStakeholders, setProject, setFeatures, peopleProtectedNow, resourcesHiddenNow, stakeholdersHiddenNow, ratesWithheldNow],
   );
 
   return dispatcher;

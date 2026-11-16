@@ -1572,13 +1572,13 @@ describe("the Plan with AI data notice names the rates switch (§804)", () => {
   it("says the internal hourly rate is left out when the project keeps rates out, in English", () => {
     const notice = t("en-US", "aiDataAllocPlan");
     expect(notice).toContain("internal hourly rate");
-    expect(notice).toMatch(/left out when the project keeps hourly rates out of Plan with AI and the chat’s forecast/);
+    expect(notice).toMatch(/left out when the project keeps hourly rates out of Plan with AI and the chat’s forecast and dashboard figures/);
   });
 
   it("says it in German too", async () => {
     await loadI18n("de");
     const notice = t("de", "aiDataAllocPlan");
     expect(notice).toContain("interne Stundensatz");
-    expect(notice).toMatch(/entfällt, wenn das Projekt Stundensätze aus Mit KI planen und der Prognose im Chat heraushält/);
+    expect(notice).toMatch(/entfällt, wenn das Projekt Stundensätze aus Mit KI planen, der Prognose im Chat und den Dashboard-Zahlen heraushält/);
   });
 });

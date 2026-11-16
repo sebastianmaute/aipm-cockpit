@@ -48,9 +48,13 @@ export interface DashboardSnapshotForecast {
   eur: BudgetForecast;
   hours: BudgetForecast;
   /** Booked versus planned rate, summarised by the role or discipline driving
-   *  the difference; the per-row table is the Budget report's job. */
-  rateMix: (Pick<RateMix, "triggered" | "direction" | "severity" | "drift" | "bookedRate" | "plannedRate" | "excludedActualHours"> & {
-    driver: Pick<RateMixRow, "kind" | "name" | "plannedRate" | "plannedShare" | "bookedShare" | "difference"> | null;
+   *  the difference; the per-row table is the Budget report's job.
+   *  §804 — the three rates (`bookedRate`, `plannedRate`, `driver.plannedRate`) are absent while the project keeps
+   *  hourly rates out of the AI; the drift, the shares and every total stay. */
+  rateMix: (Pick<RateMix, "triggered" | "direction" | "severity" | "drift" | "excludedActualHours"> &
+    Partial<Pick<RateMix, "bookedRate" | "plannedRate">> & {
+    driver: (Pick<RateMixRow, "kind" | "name" | "plannedShare" | "bookedShare" | "difference"> &
+      Partial<Pick<RateMixRow, "plannedRate">>) | null;
   }) | null;
   /** null before a baseline is recorded; with a baseline and no change yet it
    *  is an object with `changeCount: 0`. */
@@ -64,7 +68,7 @@ export interface DashboardSnapshotForecast {
   } | null;
 }
 
-function snapshotForecast(bundle: ForecastBundle | null | undefined): DashboardSnapshotForecast | null {
+function snapshotForecast(bundle: ForecastBundle | null | undefined, ratesWithheld: boolean): DashboardSnapshotForecast | null {
   if (!bundle) return null;
   const { mix, history } = bundle;
   return {
@@ -72,10 +76,10 @@ function snapshotForecast(bundle: ForecastBundle | null | undefined): DashboardS
     hours: bundle.hours,
     rateMix: mix === null ? null : {
       triggered: mix.triggered, direction: mix.direction, severity: mix.severity,
-      drift: mix.drift, bookedRate: mix.bookedRate, plannedRate: mix.plannedRate,
+      drift: mix.drift, ...(ratesWithheld ? {} : { bookedRate: mix.bookedRate, plannedRate: mix.plannedRate }),
       excludedActualHours: mix.excludedActualHours,
       driver: mix.driver === null ? null : {
-        kind: mix.driver.kind, name: mix.driver.name, plannedRate: mix.driver.plannedRate,
+        kind: mix.driver.kind, name: mix.driver.name, ...(ratesWithheld ? {} : { plannedRate: mix.driver.plannedRate }),
         plannedShare: mix.driver.plannedShare, bookedShare: mix.driver.bookedShare, difference: mix.driver.difference,
       },
     },
@@ -143,6 +147,9 @@ export function buildDashboardSnapshot(
   model: DashboardModel,
   project: ProjectReport | null,
   today: string,
+  /** §804 — the project keeps hourly rates out of the AI (its switch or the `ai-rates` lock), read by the caller at
+   *  call time: the rate mix then carries no rate. */
+  options: { ratesWithheld?: boolean } = {},
 ): DashboardSnapshot {
   const knowable = project !== null && costIsKnowable(project);
   return {
@@ -208,7 +215,7 @@ export function buildDashboardSnapshot(
     // forecast from the raw budgets even with the budget module OFF (the panel
     // hides it by passing no budgets), so without this gate a user who turned
     // the module off would still have the assistant read out € forecasts.
-    forecast: project === null ? null : snapshotForecast(model.forecastBundle),
+    forecast: project === null ? null : snapshotForecast(model.forecastBundle, options.ratesWithheld === true),
     counts: {
       overdueTasks: model.overdue.length,
       dueSoonTasks: model.dueSoon.length,

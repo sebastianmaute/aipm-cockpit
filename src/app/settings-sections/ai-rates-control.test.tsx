@@ -85,15 +85,15 @@ describe("the rates switch wording", () => {
       if (lang === "de") await loadI18n("de");
       const label = t(lang, "aiRatesWithheldLabel");
       const hint = t(lang, "aiRatesWithheldHint");
-      expect(label, lang).toMatch(lang === "de" ? /Mit KI planen.*Prognose/ : /Plan with AI.*forecast/);
-      expect(hint, lang).toMatch(lang === "de" ? /Prognose/ : /forecast/);
+      expect(label, lang).toMatch(lang === "de" ? /Mit KI planen.*Prognose.*Dashboard/ : /Plan with AI.*forecast.*dashboard/);
+      expect(hint, lang).toMatch(lang === "de" ? /Prognose.*Dashboard/ : /forecast.*dashboard/);
       expect(hint, lang).not.toMatch(/only the people|nur die Personen/);
     }
   });
 
   it("the deployment variable does not say the server refuses requests for the safeguard values", async () => {
     const en = t("en-US", "deployVarDisabledIntegrations");
-    expect(en).toMatch(/ai-rates keeps hourly rates out of Plan with AI and the chat’s forecast/);
+    expect(en).toMatch(/ai-rates keeps hourly rates out of Plan with AI and the chat’s forecast and dashboard figures/);
     expect(en).toMatch(/no other route refuses under them/);
     await loadI18n("de");
     expect(t("de", "deployVarDisabledIntegrations")).toMatch(/keine andere Route lehnt dabei ab/);

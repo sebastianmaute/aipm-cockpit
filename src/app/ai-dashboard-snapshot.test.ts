@@ -246,6 +246,18 @@ describe("budget forecast (open-followups §545)", () => {
     expect(JSON.stringify(snap.forecast)).not.toContain("\"Other\"");
   });
 
+  // §804 — while the project keeps hourly rates out of the AI, the planned and booked averages and the driver's
+  // planned rate go; the drift, the shares and every total stay.
+  it("with rates withheld the rate mix keeps its drift and shares but no rate", () => {
+    const snap = buildDashboardSnapshot(model({ forecastBundle: bundle(2) }), report(), "2026-07-25", { ratesWithheld: true });
+    expect(snap.forecast?.rateMix).toEqual({
+      triggered: true, direction: "eur-worse", severity: "warning", drift: 0.05, excludedActualHours: 0,
+      driver: { kind: "role", name: "Consulting Senior", plannedShare: 0.5, bookedShare: 0.7, difference: 0.2 },
+    });
+    expect(JSON.stringify(snap)).not.toMatch(/"(booked|planned)Rate"/);
+    expect(snap.forecast?.eur).toEqual(eurForecast);
+  });
+
   it("caps the budget change history at the latest 20 and says how many there are", () => {
     const snap = buildDashboardSnapshot(model({ forecastBundle: bundle(25) }), report(), "2026-07-25");
     const history = snap.forecast?.budgetHistory;
