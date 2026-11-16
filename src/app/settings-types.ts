@@ -574,7 +574,7 @@ export interface SettingsOverrides {
    *  fields are independent (§502 part 4). */
   forecast?: { showSimulation?: boolean; targetConfidence?: 50 | 95; proposalScenarioId?: number };
   /** AI switches. Every default is stored as ABSENCE; only an explicit `true` is kept. */
-  ai?: { peopleAllowed?: true; reviewAllWrites?: true; ratesWithheld?: true };
+  ai?: { peopleAllowed?: true; reviewAllWrites?: true; ratesWithheld?: true; backgroundOff?: true };
 }
 
 export type LearningStoreKind = "local" | "turso";

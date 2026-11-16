@@ -19,9 +19,10 @@
 // ★ FAIL CLOSED: outside the provider, or before task-manager has registered its source, the getter
 // THROWS. Sending unprotected because a source was missing is the bypass the spec forbids.
 import { createContext, useCallback, useContext, useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { publishBackgroundProjectOff } from "./ai-consent";
 import { isPeopleProtected } from "./ai-people-protection";
 import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
-import { isRatesWithheld, isReviewAllWrites } from "./ai-project-switches";
+import { isBackgroundOff, isRatesWithheld, isReviewAllWrites } from "./ai-project-switches";
 import type { ScopeEpochReader } from "./scope-epoch";
 import type { Workspace } from "./workspace";
 
@@ -99,7 +100,10 @@ export function useAiPrivacySource(key: string, read: () => Workspace, epoch: Sc
   const store = useContext(SourceContext);
   useLayoutEffect(() => {
     store?.set({ key, read, epoch });
+    publishBackgroundProjectOff(isBackgroundOff(read().settingsOverrides));
   });
+  // Fail closed once the source is gone.
+  useLayoutEffect(() => () => publishBackgroundProjectOff(true), []);
 }
 
 /** Read when no source is registered: two reads both outside a provider compare equal (never stale); a

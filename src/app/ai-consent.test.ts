@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setAiDeploymentState } from "./ai-deployment";
 import {
   AI_DISCLOSURE_VERSION,
@@ -7,6 +7,7 @@ import {
   assertAiConsentLive,
   isBackgroundCapReached,
   publishBackgroundCapState,
+  publishBackgroundProjectOff,
   assertBackgroundConsentLive,
   assertInteractiveConsentLive,
   isInteractiveConsentLive,
@@ -16,6 +17,10 @@ import {
   sanitizeConsent,
 } from "./ai-consent";
 import { defaultAiConfig, isAiEnabled } from "./settings-types";
+
+// The pause itself is covered in ai-consent.background-pause.test.ts; here an open project that does not pause.
+beforeEach(() => publishBackgroundProjectOff(false));
+afterEach(() => publishBackgroundProjectOff(false));
 
 const D = new Date(0);
 

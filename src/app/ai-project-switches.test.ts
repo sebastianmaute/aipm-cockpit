@@ -3,6 +3,8 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  isBackgroundOff,
+  isBackgroundOffForced,
   isRatesWithheld,
   isRatesWithheldForced,
   isReviewAllWrites,
@@ -113,5 +115,38 @@ describe("the ai override's key order", () => {
     o = withPeopleAllowed(o, false);
     o = withPeopleAllowed(o, true);
     expect(JSON.stringify(o)).toBe(roundTrip(o));
+  });
+});
+
+describe("backgroundOff", () => {
+  it("is read from the project and forced by the deployment", () => {
+    expect(isBackgroundOff(undefined)).toBe(false);
+    expect(isBackgroundOff({ ai: { backgroundOff: true } })).toBe(true);
+    expect(isBackgroundOffForced()).toBe(false);
+    setDisabledIntegrations(parseDisabledIntegrations("ai-background"));
+    expect(isBackgroundOffForced()).toBe(true);
+    expect(isBackgroundOff(undefined)).toBe(true);
+  });
+
+  it("withAiSwitch off deletes the key and folds an empty override to undefined", () => {
+    const on = withAiSwitch(undefined, "backgroundOff", true);
+    expect(on).toEqual({ ai: { backgroundOff: true } });
+    expect(withAiSwitch(on, "backgroundOff", false)).toBeUndefined();
+  });
+
+  it("keeps key order after mixed toggles, equal to the sanitised round trip", () => {
+    let o = withAiSwitch(undefined, "backgroundOff", true);
+    o = withAiSwitch(o, "ratesWithheld", true);
+    o = withPeopleAllowed(o, true);
+    o = withAiSwitch(o, "reviewAllWrites", true);
+    expect(Object.keys(o?.ai ?? {})).toEqual(["peopleAllowed", "reviewAllWrites", "ratesWithheld", "backgroundOff"]);
+    expect(JSON.stringify(sanitizeSettingsOverrides(JSON.parse(JSON.stringify(o))))).toBe(JSON.stringify(o));
+  });
+
+  it("the sanitiser drops a backgroundOff that is not exactly true", () => {
+    for (const bad of ["yes", false]) {
+      expect(sanitizeSettingsOverrides({ ai: { backgroundOff: bad } })).toEqual({});
+    }
+    expect(sanitizeSettingsOverrides({ ai: { backgroundOff: true } })).toEqual({ ai: { backgroundOff: true } });
   });
 });

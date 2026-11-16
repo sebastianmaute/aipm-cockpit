@@ -27,7 +27,7 @@ import {
   useSettings,
 } from "./use-settings";
 import { __resetConsentFailureForTests, noteConsentRevokeNotSaved } from "./ai-permission-store";
-import { assertBackgroundConsentLive, isInteractiveConsentLive, newConsent, publishAiConsentState } from "./ai-consent";
+import { assertBackgroundConsentLive, isInteractiveConsentLive, newConsent, publishAiConsentState, publishBackgroundProjectOff } from "./ai-consent";
 import type { Settings } from "./settings-types";
 
 const C = newConsent(new Date(0));
@@ -59,6 +59,7 @@ function revoke(settings: Settings): Settings {
 }
 
 beforeEach(() => {
+  publishBackgroundProjectOff(false);
   localStorage.clear();
   gate.hold = false;
   publishAiConsentState(undefined);

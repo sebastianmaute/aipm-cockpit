@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useScheduledJobRunner, type ScheduledJobRunnerArgs } from "./use-scheduled-job-runner";
 import type { ScheduledJob, ScheduledJobRun } from "./scheduled-jobs/types";
-import { newConsent, publishAiConsentState, publishBackgroundCapState } from "./ai-consent";
+import { newConsent, publishAiConsentState, publishBackgroundCapState, publishBackgroundProjectOff } from "./ai-consent";
 import { defaultAiConfig } from "./settings-types";
 
 // The runner builds the run deps itself: the AI call, the portfolio lists, the project load and the report
@@ -114,6 +114,7 @@ function resetStore(): void {
 
 // The hook asks the published background gate before each claim, so every test starts with a live consent.
 beforeEach(() => {
+  publishBackgroundProjectOff(false);
   publishAiConsentState({ ...defaultAiConfig, enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)) });
   publishBackgroundCapState(false);
 });
