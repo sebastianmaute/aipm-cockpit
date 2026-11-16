@@ -119,6 +119,21 @@ describe("AiConsentDialog", () => {
     expect(screen.getByText(t("en-US", "aiConsentBullet2"))).toBeInTheDocument();
   });
 
+  it("the background dialog says a project or the organisation can pause background runs", () => {
+    render(
+      <AiConsentDialog lang="en-US" level="background" policy={resolveAiPolicy({})} onAccept={vi.fn()} onCancel={vi.fn()} />,
+    );
+    expect(screen.getByText(t("en-US", "aiConsentBackgroundPauseNote"))).toBeInTheDocument();
+    expect(t("en-US", "aiConsentBackgroundPauseNote")).toBe(
+      "Your organisation or a project can turn background AI off. That pauses these runs; it does not withdraw this consent.",
+    );
+  });
+
+  it("the interactive dialog does not carry the background pause note", () => {
+    renderDialog({});
+    expect(screen.queryByText(t("en-US", "aiConsentBackgroundPauseNote"))).toBeNull();
+  });
+
   it("the interactive dialog opens with the consent line and its own lead-in", () => {
     renderDialog({});
     expect(screen.getByText(t("en-US", "aiConsentNotAccepted"))).toBeInTheDocument();

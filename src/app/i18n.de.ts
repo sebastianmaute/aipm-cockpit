@@ -1642,6 +1642,7 @@ export const de: Record<TranslationKey, string> = {
   aiConsentBackgroundRunner1: "Geplante Aufträge: wiederkehrende Berichte für die Projekte, die Sie zuweisen.",
   aiConsentBackgroundRunner2: "Automatische Insight-Empfehlungen: für neue Insights wird im eingestellten Intervall eine Empfehlung geschrieben.",
   aiConsentBackgroundRunner3: "Der Text der geplanten Zusammenfassung: die KI-Zusammenfassung, die bei Fälligkeit zur Zusammenfassung hinzukommt.",
+  aiConsentBackgroundPauseNote: "Ihre Organisation oder ein Projekt kann Hintergrund-KI ausschalten. Das pausiert diese Läufe; diese Zustimmung wird dadurch nicht zurückgezogen.",
   aiConsentBackgroundAccept: "Verstanden – Hintergrund-KI erlauben",
   aiPolicyOwnerFallback: "Ihrer Organisation",
   aiPolicyOrgLabel: "Herausgeber der KI-Nutzungsrichtlinie",

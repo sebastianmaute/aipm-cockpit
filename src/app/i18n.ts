@@ -1749,6 +1749,7 @@ const enUS = {
   aiConsentBackgroundRunner1: "Scheduled jobs: recurring reports for the projects you assign.",
   aiConsentBackgroundRunner2: "Automatic insight recommendations: a recommendation is written for new insights at the interval you set.",
   aiConsentBackgroundRunner3: "The scheduled digest narrative: the AI summary added to the digest when it falls due.",
+  aiConsentBackgroundPauseNote: "Your organisation or a project can turn background AI off. That pauses these runs; it does not withdraw this consent.",
   aiConsentBackgroundAccept: "I understand — allow background AI",
   // {0} in the three policy strings above when no owner is configured.
   aiPolicyOwnerFallback: "your organisation",

@@ -83,6 +83,7 @@ export function AiConsentDialog({ lang, level, policy, onAccept, onCancel }: AiC
               ))}
             </ul>
           )}
+          {isBackground && <p data-ai-background-pause-note>{t(lang, "aiConsentBackgroundPauseNote")}</p>}
           <p data-ai-people-protection-notice>{t(lang, "aiConsentPeopleProtection")}</p>
           <p>{t(lang, aiDestinationKey(level))}</p>
           <dl className="space-y-2">
