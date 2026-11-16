@@ -1223,9 +1223,14 @@ describe("shouldStage — review every write (§794)", () => {
     expect(shouldStage([call("set_language"), call("set_filters")], undefined, undefined, true)).toBe(false);
   });
 
-  test("writes an earlier turn of the send already applied count under the flag", () => {
+  test("a read-only turn never stages under the flag, even after an earlier turn applied a write", () => {
     const sent = { appliedWrites: 1, untrusted: false, staged: false };
-    expect(shouldStage([call("list_tasks")], sent, undefined, true)).toBe(true);
+    expect(shouldStage([call("list_tasks")], sent, undefined, true)).toBe(false);
     expect(shouldStage([call("list_tasks")], sent)).toBe(false);
+  });
+
+  test("an applied write plus one new write in this turn stages under the flag", () => {
+    const sent = { appliedWrites: 1, untrusted: false, staged: false };
+    expect(shouldStage([call("create_task")], sent, undefined, true)).toBe(true);
   });
 });

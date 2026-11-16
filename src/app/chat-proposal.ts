@@ -468,7 +468,8 @@ export function shouldStage(
   hasClash?: (c: ProposedCall) => boolean,
   reviewAllWrites?: boolean,
 ): boolean {
-  let writes = send?.appliedWrites ?? 0;
+  const applied = send?.appliedWrites ?? 0;
+  let writes = applied;
   for (const c of calls) {
     if (isDestructiveCall(c)) return true;
     if (sendsInvitations(c)) return true;
@@ -478,7 +479,7 @@ export function shouldStage(
     if (hasClash?.(c) === true) return true;
     writes += 1;
   }
-  return reviewAllWrites === true ? writes > 0 : writes > 1;
+  return reviewAllWrites === true ? writes > applied : writes > 1;
 }
 
 /** True for a tool that MINTS a row rather than addressing an existing one.
