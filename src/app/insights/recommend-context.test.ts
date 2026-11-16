@@ -11,6 +11,8 @@ const BASE = {
   relatedTasks: [],
   absences: [],
   resources: [],
+  // §810 — the AWAY block needs the Resources function shown; the hidden case has its own test.
+  enabledModules: ["resources"],
 } as const;
 
 describe("buildRecommendContext — linked entity", () => {
@@ -203,6 +205,18 @@ describe("buildRecommendContext — who is away (§773)", () => {
     const none = buildRecommendContext(BASE);
     expect(none).not.toContain("AWAY");
     expect(none.endsWith("(none known: do not propose create_task; prefer editing an existing item)")).toBe(true);
+  });
+});
+
+// §810 — while the project hides its Resources function, the digest says nothing about who is away.
+describe("buildRecommendContext — Resources hidden (§810)", () => {
+  it("lists who is away with Resources on and not with it off", () => {
+    const away = [{ id: 1, assignee: "Maya Patel", resourceId: 7, type: "vacation", startDate: "2026-07-22", endDate: "2026-07-24" }];
+    const resources = [{ id: 7, firstName: "Maya", lastName: "Patel" }];
+    expect(buildRecommendContext({ ...BASE, absences: away as never, resources: resources as never })).toContain("AWAY (absent days");
+    const off = buildRecommendContext({ ...BASE, absences: away as never, resources: resources as never, enabledModules: ["raid"] });
+    expect(off).not.toContain("AWAY");
+    expect(off).not.toContain("2026-07-22..2026-07-24");
   });
 });
 

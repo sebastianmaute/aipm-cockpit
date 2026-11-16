@@ -29,7 +29,7 @@ const ws = { tasks: [task], raid: [], milestones: [], changes: [], stakeholders:
 function mkDeps(entity: InlineEntityEditDeps["entity"]): InlineEntityEditDeps {
   return {
     entity,
-    dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }) } as unknown as InlineEntityEditDeps["dispatcher"],
+    dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }), isResourcesHidden: () => false } as unknown as InlineEntityEditDeps["dispatcher"],
     ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
     apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
     isPopout: false, lang: "en-US",
@@ -104,7 +104,7 @@ describe("applying an inline task edit under people protection", () => {
     let stored: Record<string, unknown> = { ...task };
     const dispatcher = {
       getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }),
-      isPeopleProtected: () => peopleProtected,
+      isPeopleProtected: () => peopleProtected, isResourcesHidden: () => false,
       getTask: (id: number) => (id === task.id ? stored : null),
       updateTask: (id: number, patch: Record<string, unknown>) => (id === task.id ? (stored = { ...stored, ...patch }) : null),
     } as unknown as InlineEntityEditDeps["dispatcher"];

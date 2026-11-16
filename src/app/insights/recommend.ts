@@ -6,7 +6,7 @@ import type { GroundingIndex, GroundableView } from "../action-ai";
 import type { InsightRecommendation, InsightToolCall } from "./insight";
 import { INSIGHT_REC_MAX_CALLS, INSIGHT_REC_SUMMARY_MAX, ALLOWED_REC_TOOLS } from "./insight";
 import { REC_CALL_ITEM_SCHEMA, REC_CALL_ITEM_SCHEMA_PEOPLE_PROTECTED } from "./recommend-schema";
-import { peopleToolsLive } from "../chat-tool-defs";
+import { peopleToolsOffered } from "../chat-tool-defs";
 
 // Re-export so existing importers of `./recommend` (tests, call sites) are unchanged.
 export { ALLOWED_REC_TOOLS };
@@ -76,15 +76,16 @@ function recommendTool(items: typeof REC_CALL_ITEM_SCHEMA) {
   } as const;
 }
 
-/** AI people protection (layer 1): the tool as offered for a project that protects its people — no people
- *  tool in its call union. Decided by the executor's own predicate; one constant per answer, so the request's
- *  tool list keeps one identity. */
+/** AI people protection (layer 1): the tool as offered for a project that protects its people, or hides its
+ *  Resources function (§810) — no people tool in its call union. Decided by the executor's own predicate; one
+ *  constant per answer, so the request's tool list keeps one identity. */
 const RECOMMEND_TOOL_PEOPLE_PROTECTED = recommendTool(REC_CALL_ITEM_SCHEMA_PEOPLE_PROTECTED);
 
-/** The tool to offer: every allowed tool, or, when the request's project protects its people, all but the
- *  people tools. The confirm path still refuses a people call at the executor. */
-export function recommendToolFor(peopleProtected: boolean) {
-  return peopleToolsLive(peopleProtected) ? RECOMMEND_TOOL : RECOMMEND_TOOL_PEOPLE_PROTECTED;
+/** The tool to offer: every allowed tool, or, when the request's project protects its people or hides its
+ *  Resources function (§810), all but the people tools (`peopleToolsOffered`, chat's predicate). The confirm
+ *  path still refuses a people call at the executor. */
+export function recommendToolFor(flags: { peopleProtected?: boolean; resourcesHidden?: boolean }) {
+  return peopleToolsOffered(flags) ? RECOMMEND_TOOL : RECOMMEND_TOOL_PEOPLE_PROTECTED;
 }
 
 /** Anthropic tool definition. Forced via tool_choice. */

@@ -256,6 +256,8 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         const live = liveTasks ?? tasksRef.current;
         const context = buildWbsContext({
           tasks: live, scopeIds: runScope.taskIds, milestones, project, absences, resources, today: tableToday,
+          // §810 — the open project's functions (`settings.features` mirrors them): no AWAY block while Resources is hidden.
+          enabledModules: settings.features,
         });
         const parsed = await runWbsProposal(
           context,
@@ -308,7 +310,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         reset();
       }
     },
-    [milestones, project, absences, resources, tableToday, apiKey, settings.ai.model, guideText, aiPrivacy, peopleProtectedNow, lang, showToast, reset, setPhase, getScopeEpoch],
+    [milestones, project, absences, resources, tableToday, apiKey, settings.ai.model, settings.features, guideText, aiPrivacy, peopleProtectedNow, lang, showToast, reset, setPhase, getScopeEpoch],
   );
 
   const onOpen = useCallback(() => {

@@ -17,7 +17,8 @@ import type { RecommendSnapshot } from "./insights/recommend-plan";
 
 export interface UseInsightRecommendArgs {
   insights: readonly Insight[];
-  ai: { apiKey: string; model: string; guideText?: string };
+  /** `resourcesHidden` (§810): the project hides its Resources function, so the request offers no people tool. */
+  ai: { apiKey: string; model: string; guideText?: string; resourcesHidden?: boolean };
   today: string;
   buildIndex: () => GroundingIndex;
   buildContextFor: (insight: Insight) => string;
@@ -88,6 +89,7 @@ export function useInsightRecommend(args: UseInsightRecommendArgs): UseInsightRe
             privacy: aiPrivacy(),
             model: current.ai.model,
             guideText: current.ai.guideText,
+            resourcesHidden: current.ai.resourcesHidden,
             context: current.buildContextFor(insight),
             index: current.buildIndex(),
             today: current.today,

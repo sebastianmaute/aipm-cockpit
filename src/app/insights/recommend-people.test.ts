@@ -19,13 +19,13 @@ const offered = (tool: unknown): string[] =>
 
 describe("the recommendation tool under people protection", () => {
   it("offers no people tool when protected, and every allowed tool when not", () => {
-    expect(offered(recommendToolFor(true)).filter((n) => PEOPLE_TOOLS.has(n))).toEqual([]);
-    expect(offered(recommendToolFor(true)).length).toBeGreaterThan(0);
-    expect(new Set(offered(recommendToolFor(false)))).toEqual(new Set(ALLOWED_REC_TOOLS));
+    expect(offered(recommendToolFor({ peopleProtected: true })).filter((n) => PEOPLE_TOOLS.has(n))).toEqual([]);
+    expect(offered(recommendToolFor({ peopleProtected: true })).length).toBeGreaterThan(0);
+    expect(new Set(offered(recommendToolFor({ peopleProtected: false })))).toEqual(new Set(ALLOWED_REC_TOOLS));
     // The allowlist is not shrunk: it still admits the stakeholder writers.
     expect(ALLOWED_REC_TOOLS.has("update_stakeholder")).toBe(true);
     // One identity per answer: the tool list is part of a cacheable prefix.
-    expect(recommendToolFor(true)).toBe(recommendToolFor(true));
+    expect(recommendToolFor({ peopleProtected: true })).toBe(recommendToolFor({ peopleProtected: true }));
   });
 
   it("the call sends the filtered tool, decided by the request's own privacy", async () => {
@@ -46,6 +46,27 @@ describe("the recommendation tool under people protection", () => {
       index: { "open-points": new Set(), raid: new Set(), milestones: new Set(), changes: new Set(), stakeholders: new Set() },
       today: "2026-10-30",
     }).catch(() => undefined);
+    expect(offered((forced.mock.calls[0]![0] as { tools: unknown[] }).tools[0])).toContain("update_stakeholder");
+  });
+});
+
+// §810 — the open project's Resources function is hidden: the same filtered tool, by chat's predicate.
+describe("the recommendation tool with Resources hidden (§810)", () => {
+  const index = { "open-points": new Set<number>(), raid: new Set<number>(), milestones: new Set<number>(), changes: new Set<number>(), stakeholders: new Set<number>() };
+
+  it("offers no people tool while Resources is hidden", () => {
+    expect(offered(recommendToolFor({ resourcesHidden: true })).filter((n) => PEOPLE_TOOLS.has(n))).toEqual([]);
+    expect(offered(recommendToolFor({ resourcesHidden: true })).length).toBeGreaterThan(0);
+    expect(new Set(offered(recommendToolFor({ resourcesHidden: false })))).toEqual(new Set(ALLOWED_REC_TOOLS));
+  });
+
+  it("the call sends the filtered tool when its args say Resources is hidden", async () => {
+    forced.mockClear();
+    forced.mockResolvedValue({ stopReason: "end_turn", input: {} });
+    await runInsightRecommendation({ apiKey: "k", model: "m", privacy: aiPrivacyFor([]), context: "c", index, today: "2026-10-30", resourcesHidden: true }).catch(() => undefined);
+    expect(offered((forced.mock.calls[0]![0] as { tools: unknown[] }).tools[0])).not.toContain("update_stakeholder");
+    forced.mockClear();
+    await runInsightRecommendation({ apiKey: "k", model: "m", privacy: aiPrivacyFor([]), context: "c", index, today: "2026-10-30", resourcesHidden: false }).catch(() => undefined);
     expect(offered((forced.mock.calls[0]![0] as { tools: unknown[] }).tools[0])).toContain("update_stakeholder");
   });
 });

@@ -130,7 +130,7 @@ describe("applying a staged turn under people protection", () => {
     const base = makeDispatcher() as unknown as Record<string, unknown>;
     const d = {
       ...base,
-      isPeopleProtected: () => peopleProtected,
+      isPeopleProtected: () => peopleProtected, isResourcesHidden: () => false,
       getTask: (id: number) => (id === stored.id ? stored : null),
       updateTask: (id: number, patch: Partial<Task>) => (id === stored.id ? (stored = { ...stored, ...patch }) : null),
       createTask: (input: Partial<Task>) => ({ ...TASK, ...input, id: 2 }),
@@ -205,7 +205,7 @@ describe("a protected lone date move onto the existing owner's absence", () => {
     const ws = { ...emptyWorkspace(), tasks: [OWNED], resources: [MAYA], absences: [AWAY] } as Workspace;
     const d = {
       ...(makeDispatcher() as unknown as Record<string, unknown>),
-      isPeopleProtected: () => true,
+      isPeopleProtected: () => true, isResourcesHidden: () => false,
       getTask: (id: number) => (id === OWNED.id ? OWNED : null),
       updateTask: vi.fn(() => null),
     } as unknown as ToolDispatcher;

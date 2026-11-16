@@ -2,7 +2,8 @@
 // stable cacheable system prompt. The digest is volatile (sent as the user
 // message, never the cached prefix). Mirrors action-ai's cap discipline. Kept
 // i18n-free — the context is model-facing English built from raw type/data.
-import { AWAY_SUMMARY_MAX_CHARS, AWAY_WINDOW_DAYS, buildAwaySummary } from "../absence-clash";
+import { AWAY_SUMMARY_MAX_CHARS, AWAY_WINDOW_DAYS, buildAiAwaySummary } from "../absence-clash";
+import type { FeatureModuleId } from "../feature-modules";
 import { isoAddDays } from "../due-dates";
 import type { Absence, Resource } from "../types";
 
@@ -30,6 +31,9 @@ export interface RecommendContextInput {
   /** §773 — who is away today..today+28 is summarised from these (type and reason never shown). */
   readonly absences: readonly Absence[];
   readonly resources: readonly Resource[];
+  /** §810 — the project's functions: no AWAY block while it hides Resources (`buildAiAwaySummary`). Required, so a
+   *  caller says which project's functions decide. */
+  readonly enabledModules: readonly FeatureModuleId[];
   /** AI people protection (layer 1): the project protects its people, so the digest has no People section
    *  and `people` is ignored. With no one listed the system prompt already forbids create_task. A `resources`
    *  entity (a person's profile digest) is dropped too: the backstop behind `insightReachesAi`, which already
@@ -98,8 +102,8 @@ export function buildRecommendContext(input: RecommendContextInput): string {
     : input.people?.length
       ? input.people.slice(0, PEOPLE_CAP).map((name) => `- ${name.slice(0, 120)}`).join("\n")
       : NO_PEOPLE_LINE;
-  const away = buildAwaySummary({
-    absences: input.absences, resources: input.resources,
+  const away = buildAiAwaySummary({
+    enabledModules: input.enabledModules, absences: input.absences, resources: input.resources,
     from: input.today, to: isoAddDays(input.today, AWAY_WINDOW_DAYS), maxChars: AWAY_SUMMARY_MAX_CHARS,
   });
   return [

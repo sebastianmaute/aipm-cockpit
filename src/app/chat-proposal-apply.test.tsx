@@ -871,6 +871,8 @@ describe("TOKEN_ROW_SOURCE", () => {
             if (member === "absenceClashesFor") return undefined;
             // AI people protection: the executor's gate is a question, not a reader or writer — allowed here.
             if (member === "isPeopleProtected") return () => false;
+            // §810 — the same kind of question: Resources shown.
+            if (member === "isResourcesHidden") return () => false;
             return () => {
               reached.push(member);
               return row;

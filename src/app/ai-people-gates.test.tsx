@@ -21,6 +21,7 @@ import { useAllocPlan } from "./use-alloc-plan";
 import { useRaciSuggest } from "./use-raci-suggest";
 import { useDictationMic } from "./dictation-mic";
 import { buildRecommendContext } from "./insights/recommend-context";
+import { ALL_MODULE_IDS } from "./feature-modules";
 import { buildAnalysisContext } from "./action-ai";
 import { buildProjectAnalysisInput } from "./project-analysis-input";
 import { buildProjectDigest } from "./project-digest";
@@ -72,7 +73,8 @@ describe("chat: protection switched on mid-thread", () => {
     return {
       getSnapshot: vi.fn(() => ({
         today: "2026-06-04", language: "en-US", holidayCountries: [], storageKind: "memory", taskCount: 0,
-        knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: [] as string[],
+        // §810 — Resources shown, so only protection decides the people tools here.
+        knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: ["resources"] as string[],
         currentView: "open-points" as const,
       })),
     } as unknown as ToolDispatcher;
@@ -264,7 +266,7 @@ describe("inline edit: the protection state reaches the call", () => {
   const TASK = { id: 42, taskName: "Fix login", assignee: "Ann", status: "To Do", dueDate: "2026-08-12", priority: "Medium" };
   const deps: InlineEntityEditDeps = {
     entity: "task",
-    dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }) } as unknown as InlineEntityEditDeps["dispatcher"],
+    dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }), isResourcesHidden: () => false } as unknown as InlineEntityEditDeps["dispatcher"],
     ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
     apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
     isPopout: false, lang: "en-US",
@@ -311,7 +313,7 @@ describe("inline edit: the protection state reaches the call", () => {
 describe("context builders under protection", () => {
   const recommendInput = {
     projectName: "P", today: "2026-10-30", insightType: "stalledWork", severity: "high", data: {},
-    relatedTasks: [], people: ["Alice Anderson"], absences: [], resources: [],
+    relatedTasks: [], people: ["Alice Anderson"], absences: [], resources: [], enabledModules: ALL_MODULE_IDS,
   };
 
   it("the insight recommendation context has no People section", () => {

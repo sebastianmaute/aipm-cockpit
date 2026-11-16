@@ -6,10 +6,10 @@
 // at `CONTEXT_CAP_PER_CATEGORY` lines (the rest is counted in a "…(N more)" line), and the whole is bounded
 // by `DIGEST_MAX_CHARS`, dropping whole lines from the END so a cut never splits a line.
 // Lines keep the `view#id: title` grounding format the analysis reply is validated against.
-import { AWAY_SUMMARY_MAX_CHARS, AWAY_WINDOW_DAYS, buildAwaySummary } from "./absence-clash";
+import { AWAY_SUMMARY_MAX_CHARS, AWAY_WINDOW_DAYS, buildAiAwaySummary } from "./absence-clash";
 import { CONTEXT_CAP_PER_CATEGORY } from "./action-ai";
 import { isoAddDays } from "./due-dates";
-import type { AppMode } from "./feature-modules";
+import type { AppMode, FeatureModuleId } from "./feature-modules";
 import { isTerminalChangeStatus } from "./change-log";
 import { isRaidActiveForReview } from "./raid-review";
 import { TEXTAREA_MAX } from "./sanitize-core";
@@ -24,7 +24,8 @@ export interface ProjectDigestInput {
   projectName: string;
   today: string;
   mode: AppMode;
-  enabledModules: readonly string[];
+  /** The project's functions. §810: the AWAY block follows Resources (`buildAiAwaySummary`). */
+  enabledModules: readonly FeatureModuleId[];
   tasks: readonly Task[];
   raid: readonly RaidItem[];
   milestones: readonly Milestone[];
@@ -122,10 +123,11 @@ export function buildProjectDigest(input: ProjectDigestInput, maxChars: number =
     ? input.queue.map((q) => `- [${q.tier}] ${clip(q.title)} — ${clip(q.why)}`)
     : ["(none)"];
   const openTasks = taskLines(input.tasks, input.today);
-  const on = (id: string): boolean => input.enabledModules.includes(id);
+  const on = (id: FeatureModuleId): boolean => input.enabledModules.includes(id);
   const instruction = input.instruction?.slice(0, TEXTAREA_MAX);
-  const away = buildAwaySummary({
-    absences: input.absences, resources: input.resources,
+  // §810 — nothing about who is away while the project hides its Resources function.
+  const away = buildAiAwaySummary({
+    enabledModules: input.enabledModules, absences: input.absences, resources: input.resources,
     from: input.today, to: isoAddDays(input.today, AWAY_WINDOW_DAYS), maxChars: AWAY_SUMMARY_MAX_CHARS,
   });
   const body = [

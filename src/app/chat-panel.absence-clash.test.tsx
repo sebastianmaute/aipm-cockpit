@@ -70,7 +70,7 @@ function makeDispatcher(): ToolDispatcher {
       return row;
     }),
     absenceClashesFor: vi.fn((name: string, input: Readonly<Record<string, unknown>>) => callAbsenceClashes({ name, input }, WORKSPACE, ABSENCE)),
-    isPeopleProtected: () => false, // AI people protection: the executor asks on every write
+    isPeopleProtected: () => false, isResourcesHidden: () => false, // AI people protection: the executor asks on every write
     deleteTask: vi.fn(() => false),
     deleteAllTasks: vi.fn(() => 0),
     sendInquiry: vi.fn(() => ({ sent: false })),

@@ -14,7 +14,7 @@ import { resourceLogName } from "./chat-tool-summaries";
 import { historySearchEnabled } from "./settings-types";
 import { summarizeForRecap } from "./activity-recap";
 import { assertJiraManagedUnchanged, buildTaskCleanPatch } from "./chat-task-patch";
-import { deriveMode, isViewEnabled, sanitizeFeatures } from "./feature-modules";
+import { deriveMode, isModuleEnabled, isViewEnabled, sanitizeFeatures } from "./feature-modules";
 import { computeSettingsPatch } from "./chat-settings-patch";
 import { useViewDigest } from "./use-view-digest";
 import { useChatSearchBindings } from "./use-chat-search-bindings";
@@ -1087,6 +1087,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       isHistorySearchEnabled: () => historySearchEnabled(settingsRef.current.ai.historySearch),
       // ★ LIVE, like the line above: the getter reads the project's setting at call time.
       isPeopleProtected: peopleProtectedNow,
+      // §810 — LIVE too, and from the functions `getSnapshot` reports, which the chat's list is built from.
+      isResourcesHidden: () => !isModuleEnabled("resources", sanitizeFeatures(featuresRef.current)),
       ...chatBindings.tools,
 
       ...forecastTools,

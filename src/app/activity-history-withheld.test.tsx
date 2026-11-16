@@ -37,7 +37,7 @@ async function searchHistoryText(log: readonly ActivityEntry[], input: Record<st
   const d = {
     getActivityLog: () => log,
     isHistorySearchEnabled: () => true,
-    isPeopleProtected: () => false,
+    isPeopleProtected: () => false, isResourcesHidden: () => false,
     getTimezone: () => "UTC",
   } as unknown as ToolDispatcher;
   return stringifyResult(await runTool(d, "search_history", input));

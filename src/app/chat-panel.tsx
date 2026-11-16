@@ -107,6 +107,7 @@ import {
   stagedToolResult,
 } from "./chat-proposal-stage";
 import { peopleToolsLive } from "./chat-tool-defs";
+import { isModuleEnabled } from "./feature-modules";
 import { PERSON_FIELDS_REMOVED_NOTE, stripPersonFields } from "./ai-person-fields";
 import type { UndoBatch } from "./use-undo-batch";
 import { emptyWorkspace, type Workspace } from "./workspace";
@@ -797,6 +798,9 @@ function ChatPanelInner({
       // AI people protection (Review Focus 4): read at SEND time from the transport's own source, so a switch
       // mid-thread drops the people tools on the next send. Once per send: the list must stay one identity.
       peopleProtected: peopleProtectedNow(),
+      // §810 — from the snapshot this send is built from (the dispatcher's live functions, which `runTool`'s
+      // `isResourcesHidden` reads too), so a function hidden mid-thread withdraws the people tools next send.
+      resourcesHidden: !isModuleEnabled("resources", snapshot.enabledModules),
     };
     // Runs one tool, shows it in the transcript and returns its `tool_result`, plus whether it ran without
     // throwing. Used by the ordinary path and by a staging turn's reads, which run in place (AI-02).

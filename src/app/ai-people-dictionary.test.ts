@@ -16,6 +16,7 @@ import { buildProjectAnalysisInput } from "./project-analysis-input";
 import { buildProjectDigest } from "./project-digest";
 import { defaultSettings } from "./settings-types";
 import { buildWbsContext } from "./wbs-plan/wbs-plan";
+import { ALL_MODULE_IDS } from "./feature-modules";
 
 // Partial<T> checks every key against the real type, so a renamed field fails tsc here.
 const task = (p: Partial<Task>) => p as Task;
@@ -331,9 +332,11 @@ describe("R1 through the AWAY lines (§773)", () => {
     "insight recommendation": buildRecommendContext({
       peopleProtected: true, projectName: "Harbour", today: TODAY, insightType: "overdueTasks", severity: "medium", data: {},
       relatedTasks: [], people: recommendPeople([], ws.tasks.map((t) => t.assignee), []), absences: ws.absences, resources: ws.resources,
+      enabledModules: ALL_MODULE_IDS,
     } as Parameters<typeof buildRecommendContext>[0]),
     "WBS proposal": buildWbsContext({
       tasks: ws.tasks, scopeIds: new Set<number>(), milestones: [], project: ws.project, absences: ws.absences, resources: ws.resources, today: TODAY,
+      enabledModules: ALL_MODULE_IDS,
     }),
     "meeting report (use-meeting-report-actions)": buildAwaySummary({
       absences: ws.absences, resources: ws.resources, from: TODAY, to: isoAddDays(TODAY, AWAY_WINDOW_DAYS), maxChars: AWAY_SUMMARY_MAX_CHARS,

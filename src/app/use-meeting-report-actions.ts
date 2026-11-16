@@ -7,7 +7,7 @@ import { flushSync } from "react-dom";
 import { t, type Lang, tPlural } from "./i18n";
 import { aiFailureMessageKey } from "./ai-key-status";
 import type { SteeringCommittee, CommitteeMeeting, Resource, MeetingReport, Absence } from "./types";
-import { AWAY_SUMMARY_MAX_CHARS, AWAY_WINDOW_DAYS, buildAwaySummary } from "./absence-clash";
+import { AWAY_SUMMARY_MAX_CHARS, AWAY_WINDOW_DAYS, buildAiAwaySummary } from "./absence-clash";
 import { isoAddDays } from "./due-dates";
 import type { Settings } from "./settings-types";
 import { isAiEnabled } from "./settings-types";
@@ -348,8 +348,10 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     const startEpoch = deps.getScopeEpoch();
     const startFingerprint = meetingFingerprint(meeting);
     try {
-      const away = buildAwaySummary({
-        absences: deps.absences, resources: deps.resources,
+      // §810 — the project's functions (`settings.features` mirrors the open project): no AWAY lines while
+      // it hides Resources.
+      const away = buildAiAwaySummary({
+        enabledModules: deps.settings.features, absences: deps.absences, resources: deps.resources,
         from: deps.today, to: isoAddDays(deps.today, AWAY_WINDOW_DAYS), maxChars: AWAY_SUMMARY_MAX_CHARS,
       });
       const html = await runMeetingReport(

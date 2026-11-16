@@ -34,7 +34,7 @@ import {
 import type { Insight, InsightActions, InsightRecommendation } from "./insights/insight";
 import { ALLOWED_REC_TOOLS, baselineHistoryDigest, recommendationPredatesSwitch } from "./insights/insight";
 import { insightReachesAi } from "./insights/insight-prompt";
-import { isModuleEnabled } from "./feature-modules";
+import { isModuleEnabled, type FeatureModuleId } from "./feature-modules";
 import type { BaselineEntry } from "./baseline-currency";
 import { metricAtActionPatch } from "./insights/outcome";
 import type { ScopeEpochReader } from "./scope-epoch";
@@ -65,6 +65,7 @@ import { useOpenProjectPeopleProtected, usePeopleProtected } from "./ai-privacy-
 const ENTITY_DIGEST_TEXT_CAP = 200;
 
 const NO_INSIGHTS: readonly Insight[] = [];
+const NO_FEATURES: readonly FeatureModuleId[] = [];
 
 /** §782 round 3 — a refused call's reason in the UI language, for the review
  *  modal. Tool and argument names are identifiers and stay as they are. */
@@ -162,6 +163,10 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // use-insight-lifecycle.ts. `?? []`: a settings object without `features` (the type forbids it; partial test
   // doubles carry one) counts as Timelog off, the direction that sends less.
   const timelogOn = isModuleEnabled("timelog", settings.features ?? []);
+  // §810 — the functions the digest's AWAY block and the offered tools follow (Resources hidden: neither), with
+  // the same `?? []` reading: a settings double without `features` sends less.
+  const enabledModules = settings.features ?? NO_FEATURES;
+  const resourcesHidden = !isModuleEnabled("resources", enabledModules);
   const recommendable = insights ?? NO_INSIGHTS;
 
   // --- Insights → Action Loop (#6B SP2) ---------------------------------
@@ -265,6 +270,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
         // AI people protection: also drops a person's profile digest, even for an insight that reached here
         // without naming a `person` (the backstop lives in `buildRecommendContext`, pinned there).
         peopleProtected: peopleProtectedNow(),
+        enabledModules,
         projectName: project?.name ?? "",
         today,
         insightType: insight.type,
@@ -286,7 +292,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
         ),
       });
     },
-    [project, today, tasks, resolveInsightEntity, resourcesById, absences, peopleProtectedNow],
+    [project, today, tasks, resolveInsightEntity, resourcesById, absences, peopleProtectedNow, enabledModules],
   );
   // ★★ THE SINGLE CHOKE POINT FOR STORING A GENERATED RECOMMENDATION — both the
   // on-demand `useInsightRecommend` and the background
@@ -333,7 +339,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     cancel: cancelInsightRecommendation,
   } = useInsightRecommend({
     insights: recommendable,
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText, resourcesHidden },
     today,
     buildIndex: buildInsightGroundingIndex,
     buildContextFor: buildInsightRecommendContext,
@@ -356,7 +362,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     enabled: isAiBackgroundEnabled(settings.ai) && settings.ai.insightRecommendations === true && !isPopout && !loadPending,
     guidesReady: settings.ai.groundInGuides !== true || guidesReady,
     insights: recommendable,
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText, resourcesHidden },
     today,
     intervalMinutes: settings.ai.insightRecommendationIntervalMinutes ?? DEFAULT_INSIGHT_REC_INTERVAL_MIN,
     buildIndex: buildInsightGroundingIndex,

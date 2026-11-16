@@ -103,6 +103,7 @@ describe("buildRecommendContext / buildRecommendSystemPrompt", () => {
     const out = buildRecommendContext({
       absences: [],
       resources: [],
+      enabledModules: ["resources"],
       projectName: "Demo",
       today: "2026-07-20",
       insightType: "milestoneSlip",
@@ -119,6 +120,7 @@ describe("buildRecommendContext / buildRecommendSystemPrompt", () => {
     const out = buildRecommendContext({
       absences: [],
       resources: [],
+      enabledModules: ["resources"],
       projectName: "Demo",
       today: "2026-07-20",
       insightType: "raidAging",

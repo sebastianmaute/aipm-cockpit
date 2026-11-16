@@ -42,7 +42,7 @@ function deps(): InsightRecommendationDeps {
     tasks: [TASK], raid: [], milestones: [], changes: [], stakeholders: [],
     baselineHistory: [], resourcesById: new Map(),
     insights: [INSIGHT], setInsights: vi.fn() as unknown as InsightRecommendationDeps["setInsights"],
-    dispatcher: { isPeopleProtected: () => protection.state.on } as unknown as InsightRecommendationDeps["dispatcher"],
+    dispatcher: { isPeopleProtected: () => protection.state.on, isResourcesHidden: () => false } as unknown as InsightRecommendationDeps["dispatcher"],
     showToast: vi.fn(), logActivityAs: vi.fn(),
     onAcknowledgeInsight: vi.fn(), onActInsight: vi.fn(), onDismissInsight: vi.fn(),
   };

@@ -223,6 +223,9 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
         entity: deps.entity, item: target, itemLabel: d.titleOf(target),
         instruction, snapshot: deps.dispatcher.getSnapshot(),
         guides: deps.guides, groundInGuides: deps.ai.groundInGuides, guideText: inlineGuideText, peopleProtected,
+        // §810 — asked of the getter the executor's refusal reads (`runTool`), so the tools offered here and
+        // the refusal of a people call at apply cannot disagree.
+        resourcesHidden: deps.dispatcher.isResourcesHidden(),
         // ★ `historySearch` is NOT forwarded: `callInlineEdit` drops
         //   `search_history` unconditionally, because this path is single-shot
         //   and a search here can only yield an empty plan. Its own comment

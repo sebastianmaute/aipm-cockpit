@@ -4,7 +4,7 @@ import { buildProjectDigest } from "./project-digest";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { defaultSettings, type Settings } from "./settings-types";
-import type { Task } from "./types";
+import type { Absence, Resource, Task } from "./types";
 
 const NOW = new Date("2026-10-23T09:00:00Z");
 
@@ -120,5 +120,21 @@ describe("buildProjectAnalysisInput — absences (§773)", () => {
     const resources = [{ id: 7, firstName: "Maya", lastName: "Patel", utilization: {}, utilizationMode: "percent" }] as never;
     const { digestInput } = run(workspace({ absences, resources }));
     expect(buildProjectDigest(digestInput)).toContain('#7|name: "Maya Patel" away 2026-10-26..2026-10-28');
+  });
+});
+
+// §810 — the stored project's own functions decide: the digest both "Analyze next actions" and a scheduled
+// job send lists who is away only while that project shows Resources.
+describe("buildProjectAnalysisInput — Resources hidden (§810)", () => {
+  const maya = { id: 7, firstName: "Maya", lastName: "Patel", roleId: null, utilizationMode: "percent", utilization: {} } as Resource;
+  const leave = { id: 1, assignee: "Maya Patel", resourceId: 7, type: "vacation", startDate: "2026-10-26", endDate: "2026-10-28" } as Absence;
+  const digestOf = (features: Workspace["features"]) =>
+    buildProjectDigest(run(workspace({ absences: [leave], resources: [maya], features })).digestInput);
+
+  test("the away line is there with Resources on and gone with it off", () => {
+    expect(digestOf([...ALL_MODULE_IDS])).toContain("AWAY (absent days");
+    const off = digestOf(ALL_MODULE_IDS.filter((id) => id !== "resources"));
+    expect(off).not.toContain("AWAY (absent days");
+    expect(off).not.toContain("2026-10-26..2026-10-28");
   });
 });

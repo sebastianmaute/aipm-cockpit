@@ -1,8 +1,11 @@
 // AI people protection: the chat's people tools are classified, removed from the
 // request and refused by the executor, with ONE predicate behind both gates.
 import { describe, it, expect, vi } from "vitest";
-import { TOOL_DEFS, PEOPLE_TOOLS, NON_PEOPLE_TOOLS, PEOPLE_TOOL_REFUSAL, peopleToolsLive } from "./chat-tool-defs";
-import { toolNamesFor, toolsFor, buildStableSystemBlocks, buildTurnContext, type ToolFlags } from "./chat-api";
+import {
+  TOOL_DEFS, PEOPLE_TOOLS, NON_PEOPLE_TOOLS, PEOPLE_TOOL_REFUSAL, RESOURCES_HIDDEN_TOOL_REFUSAL, PeopleToolRefusedError,
+  peopleToolsLive, peopleToolsOffered,
+} from "./chat-tool-defs";
+import { RESOURCES_HIDDEN_INSTRUCTION, toolNamesFor, toolsFor, buildStableSystemBlocks, buildTurnContext, type ToolFlags } from "./chat-api";
 import { runTool, type ToolDispatcher } from "./chat-tools";
 
 const SPEC_MINIMUM = [
@@ -152,5 +155,86 @@ describe("executor gate", () => {
     const { d, calls } = spyDispatcher(false);
     await runTool(d, "list_resources", {});
     expect(calls).toContain("listResources");
+  });
+});
+
+// §810 — a project whose Resources function is hidden: the people tools are neither offered nor served, by the
+// same predicate (`peopleToolsOffered`), and nothing else about the list changes (no protected-definition swap).
+describe("Resources hidden (§810)", () => {
+  const OFF_SNAPSHOT = {
+    today: "2026-10-30", language: "en-US", holidayCountries: [], storageKind: "memory", taskCount: 0,
+    knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: [] as string[],
+    currentView: "open-points" as const,
+  } as unknown as ReturnType<ToolDispatcher["getSnapshot"]>;
+
+  it("offers people tools only when neither protection nor a hidden Resources function withholds them", () => {
+    expect(peopleToolsOffered({})).toBe(true);
+    expect(peopleToolsOffered({ peopleProtected: false, resourcesHidden: false })).toBe(true);
+    expect(peopleToolsOffered({ resourcesHidden: true })).toBe(false);
+    expect(peopleToolsOffered({ peopleProtected: true })).toBe(false);
+    expect(peopleToolsOffered({ peopleProtected: true, resourcesHidden: true })).toBe(false);
+  });
+
+  it("a request with Resources hidden carries no people tool and every other definition unchanged", () => {
+    const hidden = toolsFor({ resourcesHidden: true });
+    expect(hidden.map((d) => d.name).filter((n) => PEOPLE_TOOLS.has(n))).toEqual([]);
+    // No swap: each kept tool is the definition the default request sends (the cache breakpoint aside).
+    const strip = (d: object) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== "cache_control"));
+    const plain = toolsFor({}).filter((d) => !PEOPLE_TOOLS.has(d.name));
+    expect(hidden.map(strip)).toEqual(plain.map(strip));
+    expect(hidden.length).toBeGreaterThan(0);
+    expect(toolNamesFor({ resourcesHidden: true }).has("list_resources")).toBe(false);
+  });
+
+  it("only an explicit true withdraws them, and each combination keeps one array identity", () => {
+    expect(toolsFor({ resourcesHidden: false })).toBe(toolsFor({}));
+    expect(toolsFor({ resourcesHidden: true })).toBe(toolsFor({ resourcesHidden: true }));
+    expect(toolsFor({ resourcesHidden: true })).not.toBe(toolsFor({}));
+    // Protection keeps its own meaning: the swap still applies when both are set.
+    const both = toolsFor({ peopleProtected: true, resourcesHidden: true });
+    expect(both.map((d) => d.name).filter((n) => PEOPLE_TOOLS.has(n))).toEqual([]);
+    expect(JSON.stringify(both.find((d) => d.name === "get_task"))).not.toMatch(/\bget_contact_email\b/);
+  });
+
+  it("the system prompt does not advertise the resource tools while Resources is hidden", () => {
+    const text = buildStableSystemBlocks("en-US", OFF_SNAPSHOT, [], false, { ...OPEN, resourcesHidden: true })[0]!.text;
+    expect(text).not.toContain("create_resource");
+    expect(text).not.toContain("protects its people");
+    expect(text).toContain(RESOURCES_HIDDEN_INSTRUCTION);
+  });
+
+  function hiddenDispatcher(resourcesHidden: boolean): { d: ToolDispatcher; calls: string[] } {
+    const calls: string[] = [];
+    const d = new Proxy({} as Record<string, unknown>, {
+      get(_t, prop: string) {
+        if (prop === "isPeopleProtected") return () => false;
+        if (prop === "isResourcesHidden") return () => resourcesHidden;
+        if (prop === "then") return undefined;
+        return vi.fn(() => { calls.push(prop); return []; });
+      },
+    }) as unknown as ToolDispatcher;
+    return { d, calls };
+  }
+
+  it("the executor refuses every people tool while Resources is hidden and touches no state", async () => {
+    for (const name of PEOPLE_TOOLS) {
+      const { d, calls } = hiddenDispatcher(true);
+      await expect(runTool(d, name, { id: 1, firstName: "A", lastName: "B", name: "X" }), name).rejects.toBeInstanceOf(PeopleToolRefusedError);
+      expect(calls, name).toEqual([]);
+    }
+    const { d } = hiddenDispatcher(true);
+    await expect(runTool(d, "list_resources", {})).rejects.toThrow(RESOURCES_HIDDEN_TOOL_REFUSAL);
+  });
+
+  it("CONTROL: the same dispatcher with Resources shown serves a people tool", async () => {
+    const { d, calls } = hiddenDispatcher(false);
+    await runTool(d, "list_resources", {});
+    expect(calls).toContain("listResources");
+  });
+
+  it("a non-people tool is still served while Resources is hidden", async () => {
+    const { d, calls } = hiddenDispatcher(true);
+    await runTool(d, "list_tasks", {});
+    expect(calls).toContain("listTasks");
   });
 });

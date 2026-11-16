@@ -60,7 +60,9 @@ import type { ChatPointer } from "./chat-search";
 import type { PublishedThreads } from "./chat-threads-registry";
 import { clashesForAi, type AbsenceClash, type AbsenceClashForAi } from "./absence-clash";
 export { TOOL_DEFS } from "./chat-tool-defs";
-import { PEOPLE_TOOLS, PeopleToolRefusedError, peopleToolsLive } from "./chat-tool-defs";
+import {
+  PEOPLE_TOOLS, PEOPLE_TOOL_REFUSAL, PeopleToolRefusedError, RESOURCES_HIDDEN_TOOL_REFUSAL, peopleToolsLive, peopleToolsOffered,
+} from "./chat-tool-defs";
 import { PERSON_FIELDS_BY_TOOL, PERSON_FIELDS_REMOVED_NOTE, stripPersonFields, withPersonFieldsNote, type PersonStripContext } from "./ai-person-fields";
 
 type TaskInput = {
@@ -598,6 +600,10 @@ export type ToolDispatcher = {
    *  NAME, and a thread that ran `list_resources` before protection was switched on still carries that
    *  call in its history. Read from the same source as the transport's privacy (`ai-privacy-context`). */
   isPeopleProtected(): boolean;
+  /** §810 — does the open project hide its Resources function? Asked LIVE by the executor for the same
+   *  reason as `isPeopleProtected`, from the same functions `getSnapshot().enabledModules` reports, so the
+   *  list the chat sent and the refusal here cannot disagree. */
+  isResourcesHidden(): boolean;
   /** The project's effective IANA zone — the SAME value behind `getSnapshot().today`,
    *  so a day bound and the `Today is …` date the model is given cannot disagree.
    *  ★ NOT the ephemeral display-tz override the top bar can set: that is a
@@ -719,9 +725,17 @@ export async function runTool(
     unknown
   >;
 
-  // ★★ AI people protection: ENFORCEMENT, not advertisement. `toolsFor` stops offering these under the same
-  //   predicate; this refuses to SERVE them, before any handler can read or write a row.
-  if (PEOPLE_TOOLS.has(name) && !peopleToolsLive(d.isPeopleProtected())) throw new PeopleToolRefusedError();
+  // ★★ AI people protection and a hidden Resources function (§810): ENFORCEMENT, not advertisement. `toolsFor`
+  //   stops offering these under the same predicate (`peopleToolsOffered`); this refuses to SERVE them, before
+  //   any handler can read or write a row. Protection's own reason wins when both apply, so under protection
+  //   the Resources question is not asked at all.
+  if (PEOPLE_TOOLS.has(name)) {
+    const peopleProtected = d.isPeopleProtected();
+    const flags = { peopleProtected, resourcesHidden: peopleToolsLive(peopleProtected) && d.isResourcesHidden() };
+    if (!peopleToolsOffered(flags)) {
+      throw new PeopleToolRefusedError(peopleToolsLive(peopleProtected) ? RESOURCES_HIDDEN_TOOL_REFUSAL : PEOPLE_TOOL_REFUSAL);
+    }
+  }
 
   // ★★ AI people protection, R4: STRIP AND APPLY. A write's person fields (`PERSON_FIELDS_BY_TOOL`) are
   //   removed before any handler sees the call, the rest applies, and the result (or the error) tells the

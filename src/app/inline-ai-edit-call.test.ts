@@ -510,3 +510,43 @@ describe("callInlineEdit under people protection", () => {
     }
   });
 });
+
+// §810 — the open project's Resources function is hidden: the inline editor offers no people tool either, by
+// chat's predicate (`peopleToolsOffered`), and its prompt does not advertise the resource directory.
+describe("callInlineEdit with Resources hidden (§810)", () => {
+  const EMPTY: Awaited<ReturnType<typeof chatApi.callClaude>> = {
+    content: [], stop_reason: "end_turn",
+    usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+  };
+  async function send(resourcesHidden: boolean) {
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(EMPTY);
+    await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "task", item, itemLabel: "x", instruction: "x", snapshot, guides: [], groundInGuides: false, peopleProtected: false, resourcesHidden });
+    const call = spy.mock.calls[0];
+    spy.mockRestore();
+    return {
+      text: call[2].map((b) => b.text).join(" "),
+      flags: call[4],
+      tools: call[7] as ReadonlyArray<{ name: string; description: string }>,
+    };
+  }
+
+  it("offers no people tool, sends the hidden flag and does not advertise the directory", async () => {
+    const r = await send(true);
+    expect(r.tools.length).toBeGreaterThan(0);
+    expect(r.tools.filter((d) => PEOPLE_TOOLS.has(d.name))).toEqual([]);
+    expect(r.flags.resourcesHidden).toBe(true);
+    expect(r.text).not.toContain("You can also manage the resource directory");
+    expect(r.text).not.toContain("create_stakeholder");
+  });
+
+  it("CONTROL: with Resources shown the same call keeps the people tools", async () => {
+    const r = await send(false);
+    expect(r.tools.some((d) => PEOPLE_TOOLS.has(d.name))).toBe(true);
+  });
+
+  it("follows each call's state rather than the first one cached", async () => {
+    for (const hidden of [true, false, true]) {
+      expect((await send(hidden)).tools.some((d) => PEOPLE_TOOLS.has(d.name))).toBe(!hidden);
+    }
+  });
+});
