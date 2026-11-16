@@ -16,6 +16,7 @@ import { NotificationsSection } from "./settings-sections/notifications-section"
 import { AiSection } from "./settings-sections/ai-section";
 import { AiPeopleProtectionControl } from "./settings-sections/ai-people-protection-control";
 import { AiReviewWritesControl } from "./settings-sections/ai-review-writes-control";
+import { AiBackgroundControl } from "./settings-sections/ai-background-control";
 import { AiRatesControl } from "./settings-sections/ai-rates-control";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { TemplatesSection } from "./settings-sections/templates-section";
@@ -106,6 +107,7 @@ export function SettingsMenu({
           <AiPeopleProtectionControl lang={lang} />
           <AiReviewWritesControl lang={lang} />
           <AiRatesControl lang={lang} />
+          <AiBackgroundControl lang={lang} />
 
           <hr className="my-4 border-line" />
 

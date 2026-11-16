@@ -581,6 +581,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/** The open project's overrides, or undefined outside a provider (settings sections render in isolation too). */
+export function useOptionalSettingsOverrides(): SettingsOverrides | undefined {
+  return useContext(WorkspaceContext)?.settingsOverrides;
+}
+
 export function useWorkspace(): WorkspaceValue {
   const ctx = useContext(WorkspaceContext);
   if (!ctx) throw new Error("useWorkspace must be used within WorkspaceProvider");

@@ -127,6 +127,9 @@ export type ActivityKind =
   | "ai.reviewAllWritesOn"
   | "ai.ratesWithheldOff"
   | "ai.ratesWithheldOn"
+  // §795 — a project's background AI was paused / allowed again in Settings → AI (no args; actor user).
+  | "ai.backgroundPaused"
+  | "ai.backgroundResumed"
   | "undo"
   | "redo";
 
@@ -427,6 +430,8 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "ai.reviewAllWritesOn": "activityAiReviewAllWritesOn",
   "ai.ratesWithheldOff": "activityAiRatesWithheldOff",
   "ai.ratesWithheldOn": "activityAiRatesWithheldOn",
+  "ai.backgroundPaused": "activityAiBackgroundPaused",
+  "ai.backgroundResumed": "activityAiBackgroundResumed",
   "undo": "activityUndo",
   "redo": "activityRedo",
 };

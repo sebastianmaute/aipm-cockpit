@@ -1,5 +1,6 @@
 "use client";
 
+import { AiBackgroundPausedNotice } from "./ai-background-paused-notice";
 import { useEffect, useId, useRef, useState } from "react";
 import { CheckIcon } from "../icons";
 import { type Lang, t } from "../i18n";
@@ -449,6 +450,12 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       <span className="text-xs text-foreground">{t(lang, "aiBackgroundConsentToggle")}</span>
     </label>
   );
+  const backgroundConsentBlock = (
+    <>
+      {backgroundConsentToggle}
+      <AiBackgroundPausedNotice lang={lang} />
+    </>
+  );
   const removeKeyButton = keyStored && (
     <Button
       size="xs"
@@ -517,7 +524,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       {!keyFieldsShown && removeKeyButton && <div>{removeKeyButton}</div>}
       {/* Blocked: a current consent can still be withdrawn (never accepted), so it does not revive unseen. */}
       {deploymentBlocked && consentCurrent && consentGrantedRow}
-      {deploymentBlocked && backgroundOk && backgroundConsentToggle}
+      {deploymentBlocked && backgroundOk && backgroundConsentBlock}
       {consentOpen && (
         <AiConsentDialog
           lang={lang}
@@ -848,7 +855,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         </FieldHint>
 
         {/* Background consent (AI-10): the unattended runners call the AI without a click, so they need their own consent. */}
-        {backgroundConsentToggle}
+        {backgroundConsentBlock}
         <FieldHint className="mt-1">{t(lang, "aiBackgroundConsentHelp")}</FieldHint>
         {backgroundConsentOpen && (
           <AiConsentDialog
@@ -887,6 +894,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         <FieldHint className="mt-1">
           {t(lang, "aiInsightRecommendationsDesc")}
         </FieldHint>
+        <AiBackgroundPausedNotice lang={lang} />
         {!backgroundOk && (
           <FieldHint id={recBackgroundHintId} className="mt-1">{t(lang, "aiBackgroundConsentNeeded")}</FieldHint>
         )}
