@@ -34,7 +34,7 @@ import {
 import type { Insight, InsightActions, InsightRecommendation } from "./insights/insight";
 import { ALLOWED_REC_TOOLS, baselineHistoryDigest, recommendationPredatesSwitch } from "./insights/insight";
 import { insightReachesAi } from "./insights/insight-prompt";
-import { isModuleEnabled, type FeatureModuleId } from "./feature-modules";
+import { isModuleEnabled, sanitizeFeatures } from "./feature-modules";
 import type { BaselineEntry } from "./baseline-currency";
 import { metricAtActionPatch } from "./insights/outcome";
 import type { ScopeEpochReader } from "./scope-epoch";
@@ -65,7 +65,6 @@ import { useOpenProjectPeopleProtected, usePeopleProtected } from "./ai-privacy-
 const ENTITY_DIGEST_TEXT_CAP = 200;
 
 const NO_INSIGHTS: readonly Insight[] = [];
-const NO_FEATURES: readonly FeatureModuleId[] = [];
 
 /** §782 round 3 — a refused call's reason in the UI language, for the review
  *  modal. Tool and argument names are identifiers and stay as they are. */
@@ -160,13 +159,13 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // Timelog working-time insight names its person, their Timelog user number and the dates), so neither its
   // figures nor its person's profile digest reach the AI. Timelog switched off (the function hidden, or the
   // integration disabled): no TimeLog guardrail row either; the same condition stops the checks in
-  // use-insight-lifecycle.ts. `?? []`: a settings object without `features` (the type forbids it; partial test
-  // doubles carry one) counts as Timelog off, the direction that sends less.
-  const timelogOn = isModuleEnabled("timelog", settings.features ?? []);
-  // §810 — the functions the digest and the offered tools follow, with the same `?? []` reading: a settings double
-  // without `features` sends less. Resources hidden: no AWAY block, no directory names, no linked profile;
-  // Stakeholders hidden: no stakeholder tool offered.
-  const enabledModules = settings.features ?? NO_FEATURES;
+  // use-insight-lifecycle.ts.
+  // §810 — the functions the digest and the offered tools follow. Resources hidden: no AWAY block, no directory
+  // names, no linked profile; Stakeholders hidden: no stakeholder tool offered. Read through `sanitizeFeatures`,
+  // the repo's absence rule (the project digest's `ws.features ?? ALL_MODULE_IDS` agrees): no `features` means every
+  // function, junk means none. The type makes `features` required; this keeps the two readings from drifting.
+  const enabledModules = useMemo(() => sanitizeFeatures(settings.features), [settings.features]);
+  const timelogOn = isModuleEnabled("timelog", enabledModules);
   const resourcesHidden = !isModuleEnabled("resources", enabledModules);
   const stakeholdersHidden = !isModuleEnabled("stakeholders", enabledModules);
   const recommendable = insights ?? NO_INSIGHTS;

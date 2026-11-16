@@ -994,6 +994,19 @@ describe("§810 — insight recommendations while Resources is hidden", () => {
     expect(ctx).toContain("(no linked entity)");
   });
 
+  // The repo's absence rule (`sanitizeFeatures`, the project digest): no stored `features` means every function.
+  it("settings without features count as every function shown", async () => {
+    const spy = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42 }));
+    const store = mkStore([mkInsight()]);
+    const settings = { ...mkDeps().settings, features: undefined } as unknown as InsightRecommendationDeps["settings"];
+    const { result } = renderHook(() =>
+      useInsightRecommendations(mkDeps({ settings, tasks, resourcesById, insights: store.read(), setInsights: store.setInsights })),
+    );
+    await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
+    expect(spy.mock.calls[0][0].context.split("## People (assign by name)\n")[1]).toBe("- Dana Ortiz\n- Sam Lee");
+    spy.mockRestore();
+  });
+
   it("CONTROL: shown, the linked person's profile is sent", async () => {
     const ctx = await contextWith(["raid", "resources"], { entityRef: { view: "resources", id: 7 } } as Partial<Insight>);
     expect(ctx).toContain("jobTitle: Data Engineer");
