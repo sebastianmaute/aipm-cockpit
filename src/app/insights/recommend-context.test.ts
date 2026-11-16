@@ -257,3 +257,24 @@ describe("buildRecommendContext — a person's profile under people protection",
     expect(buildRecommendContext({ ...BASE, entity: milestone, peopleProtected: true })).toContain("Linked milestones#42: Go-live");
   });
 });
+
+// §810 — while the project hides its Resources function, a person's profile (a `resources` entity) is not sent
+// either, whatever reaches the builder. Other linked entities are kept.
+describe("buildRecommendContext — a person's profile while Resources is hidden (§810)", () => {
+  const person = { view: "resources", id: 7, title: "Dana Ortiz", fields: ["jobTitle: Data Engineer", "department: Analytics", "company: Acme"].join("\n") };
+  const milestone = { view: "milestones", id: 42, title: "Go-live", fields: "achieved: no" };
+
+  it("drops the resources entity while Resources is hidden", () => {
+    const out = buildRecommendContext({ ...BASE, entity: person, enabledModules: ["raid"] });
+    for (const term of ["resources#7", "Dana Ortiz", "Data Engineer", "Analytics", "Acme"]) expect(out).not.toContain(term);
+    expect(out).toContain("(no linked entity)");
+  });
+
+  it("CONTROL: keeps it while Resources is shown", () => {
+    expect(buildRecommendContext({ ...BASE, entity: person })).toContain("jobTitle: Data Engineer");
+  });
+
+  it("keeps any other linked entity while Resources is hidden", () => {
+    expect(buildRecommendContext({ ...BASE, entity: milestone, enabledModules: [] })).toContain("Linked milestones#42: Go-live");
+  });
+});

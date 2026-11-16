@@ -9,7 +9,7 @@ import { withPeopleAllowed } from "./ai-people-protection";
 import { newConsent } from "./ai-consent";
 import { defaultAiConfig } from "./settings-types";
 import { emptyWorkspace } from "./workspace";
-import { PEOPLE_TOOLS } from "./chat-tool-defs";
+import { PEOPLE_TOOLS, RESOURCES_TOOLS, STAKEHOLDER_TOOLS } from "./chat-tool-defs";
 import type { ToolDispatcher } from "./chat-tools";
 
 // §810 — the chat decides at SEND time, from the snapshot it sends, whether the open project shows its
@@ -74,14 +74,30 @@ async function sentToolNames(enabledModules: string[]): Promise<string[]> {
 afterEach(() => vi.restoreAllMocks());
 
 describe("chat with the Resources function hidden (§810)", () => {
-  it("sends no people tool while the project hides Resources", async () => {
-    const names = await sentToolNames(["raid", "milestones"]);
-    expect(names.length).toBeGreaterThan(0);
-    expect(names.filter((n) => PEOPLE_TOOLS.has(n))).toEqual([]);
+  const NEVER_BY_A_FUNCTION = ["search_history", "search_chats", "send_inquiry", "escalate_raid_item"];
+
+  it("sends none of the Resources tools while the project hides Resources, and keeps the stakeholder tools", async () => {
+    const names = await sentToolNames(["raid", "milestones", "stakeholders"]);
+    expect(names.filter((n) => RESOURCES_TOOLS.has(n))).toEqual([]);
+    expect(names).toContain("list_stakeholders");
+    for (const name of NEVER_BY_A_FUNCTION) expect(names, name).toContain(name);
+  });
+
+  it("Simple mode (no functions) still sends search, chat search, the inquiry and the escalation", async () => {
+    const names = await sentToolNames([]);
+    for (const name of NEVER_BY_A_FUNCTION) expect(names, name).toContain(name);
+    expect(names.filter((n) => RESOURCES_TOOLS.has(n) || STAKEHOLDER_TOOLS.has(n))).toEqual([]);
+  });
+
+  it("sends no stakeholder tool while the project hides Stakeholders, whatever Resources does", async () => {
+    const names = await sentToolNames(["raid", "resources"]);
+    expect(names.filter((n) => STAKEHOLDER_TOOLS.has(n))).toEqual([]);
+    expect(names).toContain("list_resources");
   });
 
   it("CONTROL: sends the people tools while the project shows Resources", async () => {
     const names = await sentToolNames(["raid", "milestones", "resources"]);
     expect(names).toContain("list_resources");
+    expect(names.filter((n) => PEOPLE_TOOLS.has(n)).length).toBeGreaterThan(0);
   });
 });

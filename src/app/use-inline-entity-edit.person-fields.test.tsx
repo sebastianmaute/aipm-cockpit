@@ -15,7 +15,7 @@ import { renderHook, act } from "@testing-library/react";
 import { newConsent } from "./ai-consent";
 import * as call from "./inline-ai-edit-call";
 import { useInlineEntityEdit, type InlineEntityEditDeps } from "./use-inline-entity-edit";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 
 afterEach(() => {
   people.state.on = false;
@@ -29,7 +29,7 @@ const ws = { tasks: [task], raid: [], milestones: [], changes: [], stakeholders:
 function mkDeps(entity: InlineEntityEditDeps["entity"]): InlineEntityEditDeps {
   return {
     entity,
-    dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }), isResourcesHidden: () => false } as unknown as InlineEntityEditDeps["dispatcher"],
+    dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }), isResourcesHidden: () => false, isStakeholdersHidden: () => false } as unknown as InlineEntityEditDeps["dispatcher"],
     ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
     apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
     isPopout: false, lang: "en-US",
@@ -104,7 +104,7 @@ describe("applying an inline task edit under people protection", () => {
     let stored: Record<string, unknown> = { ...task };
     const dispatcher = {
       getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }),
-      isPeopleProtected: () => peopleProtected, isResourcesHidden: () => false,
+      isPeopleProtected: () => peopleProtected, isResourcesHidden: () => false, isStakeholdersHidden: () => false,
       getTask: (id: number) => (id === task.id ? stored : null),
       updateTask: (id: number, patch: Record<string, unknown>) => (id === task.id ? (stored = { ...stored, ...patch }) : null),
     } as unknown as InlineEntityEditDeps["dispatcher"];
@@ -146,5 +146,61 @@ describe("inline edit passes the protection state to the call", () => {
 
   it("submit passes peopleProtected to callInlineEdit", async () => {
     expect((await submitAndGetArgs(false)).peopleProtected).toBe(false);
+  });
+});
+
+// §810 — a hidden function withdraws the tools it owns, and the inline editor stops an edit of such a record
+// before the paid call, by the predicate the executor refuses with (`toolWithheldBy`), naming the right switch.
+describe("inline edit of a person record with a hidden function (§810)", () => {
+  const resource = { id: 7, firstName: "Ann", lastName: "Lee", title: "Dev", department: "IT" };
+  const hiddenWs = { ...ws, resources: [resource] } as unknown as InlineEntityEditDeps["ws"];
+  function hiddenDeps(entity: InlineEntityEditDeps["entity"], hidden: { resources?: boolean; stakeholders?: boolean }): InlineEntityEditDeps {
+    return {
+      ...mkDeps(entity),
+      ws: hiddenWs,
+      dispatcher: {
+        getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }),
+        isResourcesHidden: () => hidden.resources === true,
+        isStakeholdersHidden: () => hidden.stakeholders === true,
+      } as unknown as InlineEntityEditDeps["dispatcher"],
+    };
+  }
+  async function submitOn(entity: InlineEntityEditDeps["entity"], row: Record<string, unknown>, hidden: { resources?: boolean; stakeholders?: boolean }) {
+    const spy = modelProposes({});
+    const { result } = renderHook(() => useInlineEntityEdit(hiddenDeps(entity, hidden)));
+    act(() => result.current.openFor(row as never));
+    await act(async () => { await result.current.submit("change it"); });
+    return { result, spy };
+  }
+
+  it("Stakeholders hidden: a stakeholder edit is stopped before the model is called, naming Stakeholders", async () => {
+    const { result, spy } = await submitOn("stakeholder", stakeholder, { stakeholders: true });
+    expect(spy).not.toHaveBeenCalled();
+    expect(result.current.phase).toBe("error");
+    expect(result.current.errorText).toBe(t("en-US", "inlineAiEditStakeholdersHidden"));
+  });
+
+  it("Resources hidden alone does not stop a stakeholder edit, and the call says Stakeholders is shown", async () => {
+    const { spy } = await submitOn("stakeholder", stakeholder, { resources: true });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]![0]).toMatchObject({ resourcesHidden: true, stakeholdersHidden: false });
+  });
+
+  it("Resources hidden: a resource edit is stopped before the model is called, naming Resources", async () => {
+    const { result, spy } = await submitOn("resource", resource, { resources: true });
+    expect(spy).not.toHaveBeenCalled();
+    expect(result.current.errorText).toBe(t("en-US", "inlineAiEditResourcesHidden"));
+  });
+
+  it("CONTROL: both functions shown, a resource edit reaches the model", async () => {
+    const { spy } = await submitOn("resource", resource, {});
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("the German messages are their own strings", async () => {
+    await loadI18n("de");
+    expect(t("de", "inlineAiEditStakeholdersHidden")).toMatch(/Stakeholder/);
+    expect(t("de", "inlineAiEditResourcesHidden")).toMatch(/Ressourcen/);
+    expect(t("de", "inlineAiEditResourcesHidden")).not.toBe(t("en-US", "inlineAiEditResourcesHidden"));
   });
 });

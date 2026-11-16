@@ -7,7 +7,7 @@ import { VIEW_AI_SCOPE } from "./view-ai-scope";
 import { buildViewScopeBlock } from "./view-ai-scope-block";
 import type { AppView } from "./nav-config";
 import { aiPrivacyFor } from "./ai-privacy";
-import { PEOPLE_PROTECTED_DEFS, PEOPLE_TOOLS, TOOL_DEFS } from "./chat-tool-defs";
+import { PEOPLE_PROTECTED_DEFS, PEOPLE_TOOLS, RESOURCES_TOOLS, STAKEHOLDER_TOOLS, TOOL_DEFS } from "./chat-tool-defs";
 
 /** These tests are about the call mechanics, not people: a request for no project (unprotected). */
 const UNPROTECTED = aiPrivacyFor([]);
@@ -511,16 +511,16 @@ describe("callInlineEdit under people protection", () => {
   });
 });
 
-// §810 — the open project's Resources function is hidden: the inline editor offers no people tool either, by
-// chat's predicate (`peopleToolsOffered`), and its prompt does not advertise the resource directory.
-describe("callInlineEdit with Resources hidden (§810)", () => {
+// §810 — a hidden function withdraws the tools it owns from the inline editor too, by chat's predicate
+// (`toolWithheldBy`): Resources hidden drops its tools and the directory line, Stakeholders hidden the stakeholder tools.
+describe("callInlineEdit with a hidden function (§810)", () => {
   const EMPTY: Awaited<ReturnType<typeof chatApi.callClaude>> = {
     content: [], stop_reason: "end_turn",
     usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
   };
-  async function send(resourcesHidden: boolean) {
+  async function send(hidden: { resources?: boolean; stakeholders?: boolean }) {
     const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(EMPTY);
-    await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "task", item, itemLabel: "x", instruction: "x", snapshot, guides: [], groundInGuides: false, peopleProtected: false, resourcesHidden });
+    await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "task", item, itemLabel: "x", instruction: "x", snapshot, guides: [], groundInGuides: false, peopleProtected: false, resourcesHidden: hidden.resources, stakeholdersHidden: hidden.stakeholders });
     const call = spy.mock.calls[0];
     spy.mockRestore();
     return {
@@ -530,23 +530,34 @@ describe("callInlineEdit with Resources hidden (§810)", () => {
     };
   }
 
-  it("offers no people tool, sends the hidden flag and does not advertise the directory", async () => {
-    const r = await send(true);
+  it("Resources hidden: no Resources tool, the flag is sent and the directory is not advertised; stakeholders stay", async () => {
+    const r = await send({ resources: true });
     expect(r.tools.length).toBeGreaterThan(0);
-    expect(r.tools.filter((d) => PEOPLE_TOOLS.has(d.name))).toEqual([]);
+    expect(r.tools.filter((d) => RESOURCES_TOOLS.has(d.name))).toEqual([]);
     expect(r.flags.resourcesHidden).toBe(true);
     expect(r.text).not.toContain("You can also manage the resource directory");
-    expect(r.text).not.toContain("create_stakeholder");
+    expect(r.tools.some((d) => d.name === "create_stakeholder")).toBe(true);
   });
 
-  it("CONTROL: with Resources shown the same call keeps the people tools", async () => {
-    const r = await send(false);
-    expect(r.tools.some((d) => PEOPLE_TOOLS.has(d.name))).toBe(true);
+  it("Stakeholders hidden: no stakeholder tool, and the scope text does not invite create_stakeholder", async () => {
+    const r = await send({ stakeholders: true });
+    expect(r.tools.filter((d) => STAKEHOLDER_TOOLS.has(d.name))).toEqual([]);
+    expect(r.flags.stakeholdersHidden).toBe(true);
+    expect(r.text).not.toContain("create_stakeholder");
+    expect(r.tools.some((d) => d.name === "create_resource")).toBe(true);
+  });
+
+  it("CONTROL: with both functions shown the same call keeps the people tools", async () => {
+    const r = await send({});
+    expect(r.tools.some((d) => RESOURCES_TOOLS.has(d.name))).toBe(true);
+    expect(r.tools.some((d) => STAKEHOLDER_TOOLS.has(d.name))).toBe(true);
   });
 
   it("follows each call's state rather than the first one cached", async () => {
     for (const hidden of [true, false, true]) {
-      expect((await send(hidden)).tools.some((d) => PEOPLE_TOOLS.has(d.name))).toBe(!hidden);
+      const r = await send({ resources: hidden, stakeholders: !hidden });
+      expect(r.tools.some((d) => RESOURCES_TOOLS.has(d.name))).toBe(!hidden);
+      expect(r.tools.some((d) => STAKEHOLDER_TOOLS.has(d.name))).toBe(hidden);
     }
   });
 });

@@ -61,7 +61,7 @@ import type { PublishedThreads } from "./chat-threads-registry";
 import { clashesForAi, type AbsenceClash, type AbsenceClashForAi } from "./absence-clash";
 export { TOOL_DEFS } from "./chat-tool-defs";
 import {
-  PEOPLE_TOOLS, PEOPLE_TOOL_REFUSAL, PeopleToolRefusedError, RESOURCES_HIDDEN_TOOL_REFUSAL, peopleToolsLive, peopleToolsOffered,
+  PEOPLE_TOOLS, PeopleToolRefusedError, RESOURCES_TOOLS, STAKEHOLDER_TOOLS, TOOL_REFUSAL_BY, peopleToolsLive, toolWithheldBy,
 } from "./chat-tool-defs";
 import { PERSON_FIELDS_BY_TOOL, PERSON_FIELDS_REMOVED_NOTE, stripPersonFields, withPersonFieldsNote, type PersonStripContext } from "./ai-person-fields";
 
@@ -604,6 +604,9 @@ export type ToolDispatcher = {
    *  reason as `isPeopleProtected`, from the same functions `getSnapshot().enabledModules` reports, so the
    *  list the chat sent and the refusal here cannot disagree. */
   isResourcesHidden(): boolean;
+  /** §810 — does the open project hide its Stakeholders function? Asked LIVE like `isResourcesHidden`, from the
+   *  same functions; the stakeholder tools follow it. */
+  isStakeholdersHidden(): boolean;
   /** The project's effective IANA zone — the SAME value behind `getSnapshot().today`,
    *  so a day bound and the `Today is …` date the model is given cannot disagree.
    *  ★ NOT the ephemeral display-tz override the top bar can set: that is a
@@ -725,16 +728,19 @@ export async function runTool(
     unknown
   >;
 
-  // ★★ AI people protection and a hidden Resources function (§810): ENFORCEMENT, not advertisement. `toolsFor`
-  //   stops offering these under the same predicate (`peopleToolsOffered`); this refuses to SERVE them, before
-  //   any handler can read or write a row. Protection's own reason wins when both apply, so under protection
-  //   the Resources question is not asked at all.
+  // ★★ AI people protection and a hidden Resources or Stakeholders function (§810): ENFORCEMENT, not
+  //   advertisement. `toolsFor` stops offering these under the same predicate (`toolWithheldBy`); this refuses to
+  //   SERVE them, before any handler can read or write a row. Protection's own reason wins when it applies, so
+  //   under protection no function is asked about; otherwise only the function that owns the tool is asked.
   if (PEOPLE_TOOLS.has(name)) {
     const peopleProtected = d.isPeopleProtected();
-    const flags = { peopleProtected, resourcesHidden: peopleToolsLive(peopleProtected) && d.isResourcesHidden() };
-    if (!peopleToolsOffered(flags)) {
-      throw new PeopleToolRefusedError(peopleToolsLive(peopleProtected) ? RESOURCES_HIDDEN_TOOL_REFUSAL : PEOPLE_TOOL_REFUSAL);
-    }
+    const live = peopleToolsLive(peopleProtected);
+    const withheld = toolWithheldBy(name, {
+      peopleProtected,
+      resourcesHidden: live && RESOURCES_TOOLS.has(name) && d.isResourcesHidden(),
+      stakeholdersHidden: live && STAKEHOLDER_TOOLS.has(name) && d.isStakeholdersHidden(),
+    });
+    if (withheld !== null) throw new PeopleToolRefusedError(TOOL_REFUSAL_BY[withheld]);
   }
 
   // ★★ AI people protection, R4: STRIP AND APPLY. A write's person fields (`PERSON_FIELDS_BY_TOOL`) are

@@ -400,6 +400,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const peopleProtectedNow = useOpenProjectPeopleProtected();
   // §810 — the project's live functions (`featuresRef`, what `getSnapshot` reports): read at call time.
   const resourcesHiddenNow = useCallback(() => !isModuleEnabled("resources", sanitizeFeatures(featuresRef.current)), []);
+  const stakeholdersHiddenNow = useCallback(() => !isModuleEnabled("stakeholders", sanitizeFeatures(featuresRef.current)), []);
 
   const dispatcher = useMemo<ToolDispatcher>(
     () => ({
@@ -1094,6 +1095,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       isPeopleProtected: peopleProtectedNow,
       // §810 — LIVE too, and from the functions `getSnapshot` reports, which the chat's list is built from.
       isResourcesHidden: resourcesHiddenNow,
+      isStakeholdersHidden: stakeholdersHiddenNow,
       ...chatBindings.tools,
 
       ...forecastTools,
@@ -1144,7 +1146,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // ★ `forecastTools` is the same shape again: a useMemo'd object spread in, and read by `getSnapshot`; so is
     // `projectTools`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [args.isReadOnly, documentTools, registerTools, forecastTools, projectTools, setRaid, setAbsences, setShifts, setStakeholders, setProject, setFeatures, peopleProtectedNow, resourcesHiddenNow],
+    [args.isReadOnly, documentTools, registerTools, forecastTools, projectTools, setRaid, setAbsences, setShifts, setStakeholders, setProject, setFeatures, peopleProtectedNow, resourcesHiddenNow, stakeholdersHiddenNow],
   );
 
   return dispatcher;

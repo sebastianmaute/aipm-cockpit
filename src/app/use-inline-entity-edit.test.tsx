@@ -26,7 +26,7 @@ const ws = { tasks: [task], raid: [], milestones: [], changes: [], stakeholders:
 
 function mkDeps(over: Partial<InlineAiEditDeps> = {}): InlineAiEditDeps {
   return {
-    dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }), isResourcesHidden: () => false } as unknown as InlineAiEditDeps["dispatcher"],
+    dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }), isResourcesHidden: () => false, isStakeholdersHidden: () => false } as unknown as InlineAiEditDeps["dispatcher"],
     ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineAiEditDeps["ai"],
     apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
     isPopout: false, lang: "en-US",
@@ -330,7 +330,7 @@ describe("useInlineEntityEdit — raid", () => {
   function mkEntityDeps(over: Partial<InlineEntityEditDeps> = {}): InlineEntityEditDeps {
     return {
       entity: "raid",
-      dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }), isResourcesHidden: () => false } as unknown as InlineEntityEditDeps["dispatcher"],
+      dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }), isResourcesHidden: () => false, isStakeholdersHidden: () => false } as unknown as InlineEntityEditDeps["dispatcher"],
       ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
       apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
       isPopout: false, lang: "en-US",
@@ -692,7 +692,7 @@ describe("useInlineEntityEdit — a single-FK link (resource.roleId)", () => {
   function mkResourceDeps(): InlineEntityEditDeps {
     return {
       entity: "resource",
-      dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }), isResourcesHidden: () => false } as unknown as InlineEntityEditDeps["dispatcher"],
+      dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }), isResourcesHidden: () => false, isStakeholdersHidden: () => false } as unknown as InlineEntityEditDeps["dispatcher"],
       ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
       apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
       isPopout: false, lang: "en-US",
@@ -778,7 +778,7 @@ describe("optimistic concurrency across the submit → apply window", () => {
         stored = { ...stored, ...patch };
         return stored;
       },
-      isPeopleProtected: () => false, isResourcesHidden: () => false, // AI people protection: the executor asks on every write
+      isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false, // AI people protection: the executor asks on every write
     } as unknown as InlineAiEditDeps["dispatcher"];
     return {
       opened,
@@ -928,7 +928,7 @@ describe("inline task edit withholds assigneeEmail", () => {
         stored = { ...stored, ...patch };
         return stored;
       },
-      isPeopleProtected: () => false, isResourcesHidden: () => false, // AI people protection: the executor asks on every write
+      isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false, // AI people protection: the executor asks on every write
     } as unknown as InlineAiEditDeps["dispatcher"];
     vi.spyOn(call, "callInlineEdit").mockResolvedValue({
       blocks: [{ type: "tool_use", id: "b1", name: "update_task", input: { id: 42, status: "Done", assigneeEmail: "evil@example.com" } }],

@@ -13,6 +13,7 @@ import { actionGuideText, type OperatingGuide } from "./operating-guide";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { InsightRecommendationControls } from "./insight-recommendation-controls";
 import { setDisabledIntegrations } from "./integration-switches";
+import { ALL_MODULE_IDS } from "./feature-modules";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -49,7 +50,7 @@ function mkDispatcher() {
         stored = { ...stored, ...patch };
         return stored;
       },
-      isPeopleProtected: () => false, isResourcesHidden: () => false, // AI people protection: the executor asks on every write
+      isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false, // AI people protection: the executor asks on every write
     } as unknown as InsightRecommendationDeps["dispatcher"],
   };
 }
@@ -61,7 +62,8 @@ function mkDeps(over: Partial<InsightRecommendationDeps> = {}): InsightRecommend
     getScopeEpoch: () => 0,
     guides: [],
     guidesReady: true,
-    settings: { ai: { enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x" } } as unknown as InsightRecommendationDeps["settings"],
+    // A project that shows every function (§810: a hidden Resources function withholds the directory's names).
+    settings: { ai: { enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x" }, features: [...ALL_MODULE_IDS] } as unknown as InsightRecommendationDeps["settings"],
     lang: "en-US",
     today: "2026-09-03",
     project: undefined,
@@ -540,7 +542,7 @@ describe("a pre-switch recommendation carrying money is refused after a currency
     const createTask = vi.fn(() => ({ id: 99 }));
     const deps = mkDeps({
       insights: store.read(), setInsights: store.setInsights, baselineHistory,
-      dispatcher: { createChange, createTask, isPeopleProtected: () => false, isResourcesHidden: () => false } as unknown as InsightRecommendationDeps["dispatcher"],
+      dispatcher: { createChange, createTask, isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false } as unknown as InsightRecommendationDeps["dispatcher"],
     });
     const { result } = renderHook(() => useInsightRecommendations(deps));
     act(() => { result.current.setReviewInsightId(1); });
@@ -950,5 +952,50 @@ describe("TimeLog insights while Timelog is off", () => {
   it("does not ask while the deployment has switched the timelog integration off", async () => {
     setDisabledIntegrations(["timelog"]);
     expect(await generate(["timelog"])).toBe(0);
+  });
+});
+
+// §810 — while the open project hides its Resources function, the recommendation names no one from the directory:
+// the people list holds only the names already used as open-task assignees, and a person's profile is not sent.
+describe("§810 — insight recommendations while Resources is hidden", () => {
+  const dana = { id: 7, firstName: "Dana", lastName: "Ortiz", title: "Data Engineer", department: "Analytics", company: "Acme", active: true };
+  const resourcesById = new Map([[7, dana]]) as unknown as InsightRecommendationDeps["resourcesById"];
+  const tasks = [{ ...task, assignee: "Sam Lee" }] as unknown as InsightRecommendationDeps["tasks"];
+  const withFeatures = (features: string[]) =>
+    ({ ...mkDeps().settings, features }) as unknown as InsightRecommendationDeps["settings"];
+
+  async function contextWith(features: string[], insight: Partial<Insight> = {}) {
+    const spy = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42 }));
+    const store = mkStore([mkInsight(insight)]);
+    const { result } = renderHook(() =>
+      useInsightRecommendations(mkDeps({ settings: withFeatures(features), tasks, resourcesById, insights: store.read(), setInsights: store.setInsights })),
+    );
+    await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
+    expect(spy).toHaveBeenCalledTimes(1);
+    const ctx = spy.mock.calls[0][0].context;
+    spy.mockRestore();
+    return ctx;
+  }
+
+  it("hidden: the people list holds only the task assignees", async () => {
+    const ctx = await contextWith(["raid"]);
+    expect(ctx.split("## People (assign by name)\n")[1]).toBe("- Sam Lee");
+    expect(ctx).not.toContain("Dana Ortiz");
+  });
+
+  it("CONTROL: shown, the directory's names lead the list", async () => {
+    const ctx = await contextWith(["raid", "resources"]);
+    expect(ctx.split("## People (assign by name)\n")[1]).toBe("- Dana Ortiz\n- Sam Lee");
+  });
+
+  it("hidden: a linked person's profile is not sent", async () => {
+    const ctx = await contextWith(["raid"], { entityRef: { view: "resources", id: 7 } } as Partial<Insight>);
+    for (const term of ["resources#7", "Data Engineer", "Analytics", "Acme"]) expect(ctx).not.toContain(term);
+    expect(ctx).toContain("(no linked entity)");
+  });
+
+  it("CONTROL: shown, the linked person's profile is sent", async () => {
+    const ctx = await contextWith(["raid", "resources"], { entityRef: { view: "resources", id: 7 } } as Partial<Insight>);
+    expect(ctx).toContain("jobTitle: Data Engineer");
   });
 });

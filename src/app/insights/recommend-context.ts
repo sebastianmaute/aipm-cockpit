@@ -3,7 +3,7 @@
 // message, never the cached prefix). Mirrors action-ai's cap discipline. Kept
 // i18n-free — the context is model-facing English built from raw type/data.
 import { AWAY_SUMMARY_MAX_CHARS, AWAY_WINDOW_DAYS, buildAiAwaySummary } from "../absence-clash";
-import type { FeatureModuleId } from "../feature-modules";
+import { isModuleEnabled, type FeatureModuleId } from "../feature-modules";
 import { isoAddDays } from "../due-dates";
 import type { Absence, Resource } from "../types";
 
@@ -31,8 +31,9 @@ export interface RecommendContextInput {
   /** §773 — who is away today..today+28 is summarised from these (type and reason never shown). */
   readonly absences: readonly Absence[];
   readonly resources: readonly Resource[];
-  /** §810 — the project's functions: no AWAY block while it hides Resources (`buildAiAwaySummary`). Required, so a
-   *  caller says which project's functions decide. */
+  /** §810 — the project's functions: while it hides Resources there is no AWAY block (`buildAiAwaySummary`) and no
+   *  `resources` entity (a person's profile); the caller also leaves the directory's names out of `people`. Required,
+   *  so a caller says which project's functions decide. */
   readonly enabledModules: readonly FeatureModuleId[];
   /** AI people protection (layer 1): the project protects its people, so the digest has no People section
    *  and `people` is ignored. With no one listed the system prompt already forbids create_task. A `resources`
@@ -87,7 +88,9 @@ const PEOPLE_CAP = 30;
  *  message, never in the cached system block. */
 export function buildRecommendContext(input: RecommendContextInput): string {
   const dataLines = Object.entries(input.data).map(([k, v]) => `- ${k}: ${v}`).join("\n") || "(none)";
-  const linked = input.peopleProtected === true && input.entity?.view === "resources" ? undefined : input.entity;
+  // A person's profile is withheld under protection, and while the project hides its Resources function (§810).
+  const profileWithheld = input.peopleProtected === true || !isModuleEnabled("resources", input.enabledModules);
+  const linked = profileWithheld && input.entity?.view === "resources" ? undefined : input.entity;
   const entity = linked
     ? `Linked ${linked.view}#${linked.id}: ${linked.title}\n${linked.fields}`
     : "(no linked entity)";

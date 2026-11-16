@@ -163,10 +163,12 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // use-insight-lifecycle.ts. `?? []`: a settings object without `features` (the type forbids it; partial test
   // doubles carry one) counts as Timelog off, the direction that sends less.
   const timelogOn = isModuleEnabled("timelog", settings.features ?? []);
-  // §810 — the functions the digest's AWAY block and the offered tools follow (Resources hidden: neither), with
-  // the same `?? []` reading: a settings double without `features` sends less.
+  // §810 — the functions the digest and the offered tools follow, with the same `?? []` reading: a settings double
+  // without `features` sends less. Resources hidden: no AWAY block, no directory names, no linked profile;
+  // Stakeholders hidden: no stakeholder tool offered.
   const enabledModules = settings.features ?? NO_FEATURES;
   const resourcesHidden = !isModuleEnabled("resources", enabledModules);
+  const stakeholdersHidden = !isModuleEnabled("stakeholders", enabledModules);
   const recommendable = insights ?? NO_INSIGHTS;
 
   // --- Insights → Action Loop (#6B SP2) ---------------------------------
@@ -284,15 +286,16 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
         // assignees of OPEN tasks, which are free text — with resources alone a
         // project without a directory could never get a valid create_task. A
         // closed task's assignee is not offered, and an archived resource's
-        // name is dropped even when an open task still carries it.
+        // name is dropped even when an open task still carries it. §810 — while the project hides its Resources
+        // function the directory's names are not offered: only the names its open tasks already carry.
         people: recommendPeople(
-          [...resourcesById.values()].filter((r) => r.active !== false).map(resourceDisplayName),
+          resourcesHidden ? [] : [...resourcesById.values()].filter((r) => r.active !== false).map(resourceDisplayName),
           tasks.filter((tk) => !isTaskClosed(tk)).map((tk) => tk.assignee ?? ""),
           [...resourcesById.values()].filter((r) => r.active === false).map(resourceDisplayName),
         ),
       });
     },
-    [project, today, tasks, resolveInsightEntity, resourcesById, absences, peopleProtectedNow, enabledModules],
+    [project, today, tasks, resolveInsightEntity, resourcesById, absences, peopleProtectedNow, enabledModules, resourcesHidden],
   );
   // ★★ THE SINGLE CHOKE POINT FOR STORING A GENERATED RECOMMENDATION — both the
   // on-demand `useInsightRecommend` and the background
@@ -339,7 +342,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     cancel: cancelInsightRecommendation,
   } = useInsightRecommend({
     insights: recommendable,
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText, resourcesHidden },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText, stakeholdersHidden },
     today,
     buildIndex: buildInsightGroundingIndex,
     buildContextFor: buildInsightRecommendContext,
@@ -362,7 +365,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     enabled: isAiBackgroundEnabled(settings.ai) && settings.ai.insightRecommendations === true && !isPopout && !loadPending,
     guidesReady: settings.ai.groundInGuides !== true || guidesReady,
     insights: recommendable,
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText, resourcesHidden },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText, stakeholdersHidden },
     today,
     intervalMinutes: settings.ai.insightRecommendationIntervalMinutes ?? DEFAULT_INSIGHT_REC_INTERVAL_MIN,
     buildIndex: buildInsightGroundingIndex,

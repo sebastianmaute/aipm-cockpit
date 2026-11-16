@@ -28,9 +28,10 @@ export interface RecommendCallArgs {
   /** Cache the guide prefix: set by the recommendation runner, which works
    *  through several insights in one tick (`runForcedToolCall`'s `cacheGuides`). */
   cacheGuides?: boolean;
-  /** §810 — the project hides its Resources function: the people tools are not offered. Only an explicit true
-   *  withholds them; the confirm path refuses a people call at the executor whatever this says. */
-  resourcesHidden?: boolean;
+  /** §810 — the project hides its Stakeholders function: the stakeholder tools are not offered. Only an explicit
+   *  true withholds them; the confirm path refuses such a call at the executor whatever this says. (A hidden
+   *  Resources function withholds none of the offered tools: no Resources tool is in `ALLOWED_REC_TOOLS`.) */
+  stakeholdersHidden?: boolean;
   /** The consent each request needs: the background runner passes `background`; a click passes nothing
    *  (interactive). */
   level?: AiConsentLevel;
@@ -63,7 +64,7 @@ export async function runInsightRecommendation(
       cacheGuides: args.cacheGuides,
       level: args.level,
       // AI people protection: the request's OWN privacy decides — the same value the transport redacts by.
-      tools: [recommendToolFor({ peopleProtected: args.privacy.protected, resourcesHidden: args.resourcesHidden })],
+      tools: [recommendToolFor({ peopleProtected: args.privacy.protected, stakeholdersHidden: args.stakeholdersHidden })],
       toolName: RECOMMEND_TOOL.name,
       messages: [{ role: "user", content: args.context }],
       maxTokens: MAX_TOKENS,

@@ -799,8 +799,10 @@ function ChatPanelInner({
       // mid-thread drops the people tools on the next send. Once per send: the list must stay one identity.
       peopleProtected: peopleProtectedNow(),
       // §810 — from the snapshot this send is built from (the dispatcher's live functions, which `runTool`'s
-      // `isResourcesHidden` reads too), so a function hidden mid-thread withdraws the people tools next send.
+      // `isResourcesHidden`/`isStakeholdersHidden` read too), so a function hidden mid-thread withdraws the tools
+      // it owns on the next send.
       resourcesHidden: !isModuleEnabled("resources", snapshot.enabledModules),
+      stakeholdersHidden: !isModuleEnabled("stakeholders", snapshot.enabledModules),
     };
     // Runs one tool, shows it in the transcript and returns its `tool_result`, plus whether it ran without
     // throwing. Used by the ordinary path and by a staging turn's reads, which run in place (AI-02).

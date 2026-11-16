@@ -44,7 +44,7 @@ function makeDispatcher(): ToolDispatcher {
       return row;
     }),
     absenceClashesFor: vi.fn(() => []),
-    isPeopleProtected: () => false, isResourcesHidden: () => false,
+    isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false,
     getSnapshot: vi.fn(() => ({
       today: "2026-10-30", language: "en-US", holidayCountries: [], storageKind: "memory", taskCount: 1,
       knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: [] as string[], currentView: "open-points" as const,

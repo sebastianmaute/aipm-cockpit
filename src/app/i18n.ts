@@ -3323,6 +3323,8 @@ const enUS = {
   inlineAiEditApply: "Apply",
   inlineAiEditNoChanges: "No changes to apply.",
   inlineAiEditPeopleRecord: "People protection is on for this project, so Claude cannot edit people records.",
+  inlineAiEditResourcesHidden: "The Resources function is switched off for this project, so Claude cannot edit resources or absences. Switch Resources on in this project's functions.",
+  inlineAiEditStakeholdersHidden: "The Stakeholders function is switched off for this project, so Claude cannot edit stakeholders. Switch Stakeholders on in this project's functions.",
   inlineAiEditPeopleWithheld: "People protection is on for this project, so Claude may not assign or change people; nothing else was proposed.",
   inlineAiEditApplyFailed: "Could not apply the change.",
   inlineAiEditPartial: "Some changes were applied, but a later step failed.",

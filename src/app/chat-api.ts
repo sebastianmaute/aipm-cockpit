@@ -4,7 +4,7 @@
 // them" pattern); `chat-panel.tsx` consumes everything here.
 import { TOOL_DEFS, type ToolDispatcher } from "./chat-tools";
 import { DOCUMENT_TOOL_DEFS_WITHOUT_DECISION } from "./chat-tool-defs-documents";
-import { PEOPLE_PROTECTED_DEFS, PEOPLE_TOOLS, RESOURCES_HIDDEN_DEFS, peopleToolsLive, peopleToolsOffered } from "./chat-tool-defs";
+import { PEOPLE_PROTECTED_DEFS, RESOURCES_HIDDEN_DEFS, peopleToolsLive, toolOffered, type PeopleToolFlags } from "./chat-tool-defs";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import { reportAiKeyResponse } from "./ai-key-status";
 import { assertInteractiveConsentLive } from "./ai-consent";
@@ -174,7 +174,7 @@ export function buildStableSystemBlocks(
   // the prompt must not advertise the resource directory's (AI people protection, layer 1); nor while the
   // project hides its Resources function (§810), by the predicate the tool list uses. The other
   // tool-advertising blocks (view scope / activity recap / chat pointer) live in the volatile half.
-  const peopleLine = peopleToolsOffered(toolFlags)
+  const peopleLine = toolOffered("list_resources", toolFlags)
     ? "You can also manage the resource directory: list_resources, get_resource, create_resource (firstName/lastName), update_resource, and delete_resource. IMPORTANT: assigning a task to a person by name does NOT add them to the directory — when a document describes a team or resource plan, call create_resource for each person so they appear in the directory, not just as task assignees."
     : peopleToolsLive(toolFlags.peopleProtected) ? RESOURCES_HIDDEN_INSTRUCTION : PEOPLE_PROTECTED_INSTRUCTION;
   // STABLE prefix (cached): fixed instructions plus the always-on guides
@@ -189,6 +189,9 @@ export function buildStableSystemBlocks(
     "Use the provided tools to read and modify the app's state. Prefer calling tools over guessing. After modifying state, briefly confirm what changed.",
     "Beyond tasks you can also read and write RAID items (Risks/Assumptions/Issues/Dependencies), change-control items, milestones, and stakeholders via their list_/create_/update_/delete_ tools. RAID category is R/A/I/D; status must match the category. Dates are YYYY-MM-DD.",
     peopleLine,
+    // §810 — only while the Stakeholders function is hidden (and people are not protected, whose line covers it),
+    // so the prompt of a project that shows it is unchanged.
+    ...(peopleToolsLive(toolFlags.peopleProtected) && !toolOffered("list_stakeholders", toolFlags) ? [STAKEHOLDERS_HIDDEN_INSTRUCTION] : []),
     "When the user attaches a document, read it and, when they ask, extract the relevant items (tasks, risks, milestones, stakeholders, people/resources) and create them with the matching create_ tool. Summarise what you created and ask before bulk-creating many records.",
     // ★★★ THIS REPLACED AN INSTRUCTION TO "confirm with the user in chat", and
     //    the replacement is not a rewording — the mechanism changed underneath
@@ -539,7 +542,12 @@ export const PEOPLE_PROTECTED_INSTRUCTION =
 /** §810 — the stable prompt's line in place of the resource-directory one while the project hides its Resources
  *  function (and does not protect its people, whose line says more). */
 export const RESOURCES_HIDDEN_INSTRUCTION =
-  "This project's Resources function is switched off: you have no tools to read or change the resource directory, stakeholders, absences or allocations.";
+  "This project's Resources function is switched off: you have no tools to read or change the resource directory, absences or allocations, or to look up a contact e-mail.";
+
+/** §810 — the stable prompt's extra line while the project hides its Stakeholders function (and does not protect
+ *  its people, whose line says more). */
+export const STAKEHOLDERS_HIDDEN_INSTRUCTION =
+  "This project's Stakeholders function is switched off: you have no tools to read or change stakeholders.";
 
 /** The flags that select a tool-list variant.
  *
@@ -557,16 +565,19 @@ export type ToolFlags = Pick<AiConfig, "historySearch" | "chatSearch"> & {
    *  `PEOPLE_TOOLS`. Read at SEND time (chat-panel), so a switch mid-thread takes effect on the next send.
    *  Only an explicit true removes them (`peopleToolsLive`). */
   peopleProtected?: boolean;
-  /** §810 — the open project hides its Resources function, so the request carries no `PEOPLE_TOOLS` (bit 16:
+  /** §810 — the open project hides its Resources function, so the request carries no `RESOURCES_TOOLS` (bit 16:
    *  dropped, and the hint-carrying definitions swap for `RESOURCES_HIDDEN_DEFS`; person fields are NOT
    *  stripped — that follows `peopleProtected` alone). Read at SEND time like `peopleProtected`. Only an explicit true withdraws
-   *  (`peopleToolsOffered`, which `runTool` asks too). */
+   *  (`toolWithheldBy`, which `runTool` asks too). */
   resourcesHidden?: boolean;
+  /** §810 — the open project hides its Stakeholders function, so the request carries no `STAKEHOLDER_TOOLS` (bit 32,
+   *  no definition swap). Read at SEND time; only an explicit true withdraws (`toolWithheldBy`). */
+  stakeholdersHidden?: boolean;
 };
 
 /** Tool names removed by each bit of the variant key. Bit 8 (people protection) is not listed: its drop and
- *  its definition swap are one step, `selectPeopleTools`, which the inline editor's list shares. Nor is bit 16
- *  (Resources hidden, §810): it drops every `PEOPLE_TOOLS` name, also in `selectPeopleTools`. */
+ *  its definition swap are one step, `selectPeopleTools`, which the inline editor's list shares. Nor are bits 16
+ *  and 32 (Resources and Stakeholders hidden, §810): they drop the tools each function owns, also there. */
 const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
   [1, "search_history"],
   [2, "search_chats"],
@@ -583,17 +594,17 @@ const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
  *  each `PEOPLE_PROTECTED_DEFS` entry replaces its original; otherwise `defs` stay as given. The cache
  *  breakpoint is set AFTER both steps (`withCacheBreakpoint`, on the last tool kept), so neither the drop
  *  nor the swap can lose or duplicate it. `defs` must carry no breakpoint yet. The drop is decided by the
- *  SAME predicate `runTool` enforces (`peopleToolsOffered`). The swap: a hidden Resources function (§810) takes
+ *  SAME predicate `runTool` enforces (`toolWithheldBy`). The swap: a hidden Resources function (§810) takes
  *  `RESOURCES_HIDDEN_DEFS` (protection's hint drops plus the absenceClashes promise, since no clash comes back
  *  then), else protection takes `PEOPLE_PROTECTED_DEFS`. Flags by NAME (§159: two adjacent booleans transpose
  *  silently). */
 export function selectPeopleTools(
   defs: typeof TOOL_DEFS,
-  flags: { peopleProtected?: boolean; resourcesHidden?: boolean },
+  flags: PeopleToolFlags,
 ): ReturnType<typeof withCacheBreakpoint> {
-  if (peopleToolsOffered(flags)) return withCacheBreakpoint(defs);
-  const kept = defs.filter((d) => !PEOPLE_TOOLS.has(d.name));
-  const swap = flags.resourcesHidden === true ? RESOURCES_HIDDEN_DEFS : PEOPLE_PROTECTED_DEFS;
+  const kept = defs.filter((d) => toolOffered(d.name, flags));
+  const swap = flags.resourcesHidden === true ? RESOURCES_HIDDEN_DEFS : !peopleToolsLive(flags.peopleProtected) ? PEOPLE_PROTECTED_DEFS : undefined;
+  if (!swap) return withCacheBreakpoint(kept);
   return withCacheBreakpoint(kept.map((d) => (swap.get(d.name) as typeof d | undefined) ?? d));
 }
 
@@ -618,7 +629,8 @@ function variantKey(flags: ToolFlags): number {
     (chatSearchEnabled(flags.chatSearch) ? 0 : 2) |
     (flags.forecast === true ? 0 : 4) |
     (peopleToolsLive(flags.peopleProtected) ? 0 : 8) |
-    (flags.resourcesHidden === true ? 16 : 0)
+    (flags.resourcesHidden === true ? 16 : 0) |
+    (flags.stakeholdersHidden === true ? 32 : 0)
   );
 }
 
@@ -644,8 +656,9 @@ function variantFor(key: number) {
   const decided = (key & 4) === 0 ? kept : kept.map((d) => (DOCUMENTS_WITHOUT_DECISION.get(d.name) as typeof d | undefined) ?? d);
   // Bit 8 drops the people tools; §773 — it also withholds list_absences, so the date-writing tools swap
   // for variants that stop pointing at it.
-  // Bit 16 (§810, Resources hidden) drops them as well, with its own swap that also drops the clash promise.
-  const built = selectPeopleTools(decided, { peopleProtected: (key & 8) !== 0, resourcesHidden: (key & 16) !== 0 });
+  // Bit 16 (§810, Resources hidden) drops the Resources tools, with its own swap that also drops the clash promise;
+  // bit 32 (Stakeholders hidden) drops the stakeholder tools.
+  const built = selectPeopleTools(decided, { peopleProtected: (key & 8) !== 0, resourcesHidden: (key & 16) !== 0, stakeholdersHidden: (key & 32) !== 0 });
   TOOL_VARIANTS.set(key, built);
   return built;
 }
@@ -687,18 +700,19 @@ const NAMED_VARIANTS = new Map<string, ReturnType<typeof withCacheBreakpoint>>()
  *  single-shot inline edit, where a read tool can never be answered). One array per name set and
  *  protection state, like `toolsFor`, with the cache breakpoint recomputed for the subset. Under people
  *  protection the list is chat's protected selection of those names (`selectPeopleTools`); only an
- *  explicit true protects (`peopleToolsLive`). With Resources hidden (§810) the people tools go as in
- *  `toolsFor`'s bit 16, so the list follows `peopleToolsOffered` like chat's. */
+ *  explicit true protects (`peopleToolsLive`). With Resources or Stakeholders hidden (§810) their tools go as in
+ *  `toolsFor`'s bits 16 and 32, so the list follows `toolWithheldBy` like chat's. */
 export function toolsNamed(
   names: ReadonlySet<string>,
-  flags: { peopleProtected?: boolean; resourcesHidden?: boolean } = {},
+  flags: PeopleToolFlags = {},
 ): ReturnType<typeof withCacheBreakpoint> {
   const withoutPeople = !peopleToolsLive(flags.peopleProtected);
   const hidden = flags.resourcesHidden === true;
-  const key = `${withoutPeople ? "protected" : "people"}:${hidden ? "hidden" : "shown"}:${[...names].sort().join(",")}`;
+  const stakeholdersHidden = flags.stakeholdersHidden === true;
+  const key = `${withoutPeople ? "protected" : "people"}:${hidden ? "hidden" : "shown"}:${stakeholdersHidden ? "hidden" : "shown"}:${[...names].sort().join(",")}`;
   const cached = NAMED_VARIANTS.get(key);
   if (cached) return cached;
-  const built = selectPeopleTools(TOOL_DEFS.filter((d) => names.has(d.name)), { peopleProtected: withoutPeople, resourcesHidden: hidden });
+  const built = selectPeopleTools(TOOL_DEFS.filter((d) => names.has(d.name)), { peopleProtected: withoutPeople, resourcesHidden: hidden, stakeholdersHidden });
   NAMED_VARIANTS.set(key, built);
   return built;
 }

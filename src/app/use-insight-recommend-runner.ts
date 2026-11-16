@@ -24,8 +24,8 @@ export interface InsightRecommendRunnerArgs {
   /** Caller passes isAiEnabled && ai.insightRecommendations===true && !isPopout. */
   enabled: boolean;
   insights: readonly Insight[];
-  /** `resourcesHidden` (§810): the project hides its Resources function, so the request offers no people tool. */
-  ai: { apiKey: string; model: string; guideText?: string; resourcesHidden?: boolean };
+  /** `stakeholdersHidden` (§810): the project hides its Stakeholders function, so the request offers no stakeholder tool. */
+  ai: { apiKey: string; model: string; guideText?: string; stakeholdersHidden?: boolean };
   today: string;
   /** Cadence in minutes. Re-clamped here — this hook drives BILLED calls, so it
    *  never trusts a caller-supplied rate. */
@@ -150,7 +150,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
             privacy: aiPrivacyRef.current(),
             model: aiRef.current.model,
             guideText: aiRef.current.guideText,
-            resourcesHidden: aiRef.current.resourcesHidden,
+            stakeholdersHidden: aiRef.current.stakeholdersHidden,
             // Cache the guide prefix only when this tick sends more than one
             // request: a lone request would pay the cache write and never read it.
             cacheGuides: candidates.length > 1,

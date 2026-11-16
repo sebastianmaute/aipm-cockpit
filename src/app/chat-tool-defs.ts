@@ -1015,8 +1015,8 @@ export const TOOL_DEFS = [
  *  grid, contact addresses, the status-inquiry mail to an assignee, a RAID escalation to a person (review 3,
  *  R5: its required recipient would be stripped and its look-up is gone, so it could never succeed), and the
  *  two searches that can return people (the activity log and past chats). With people protection on they are neither offered
- *  (`toolsFor`) nor served (`runTool`), nor while the project hides its Resources function (§810); both
- *  gates read `peopleToolsOffered`.
+ *  (`toolsFor`) nor served (`runTool`); a hidden Resources or Stakeholders function withholds only the
+ *  subset it owns (§810, `RESOURCES_TOOLS`, `STAKEHOLDER_TOOLS`). Every gate reads `toolWithheldBy`.
  *  ★ Every name in `TOOL_DEFS` is in exactly one of this set and `NON_PEOPLE_TOOLS`, and a test pins it:
  *  a new tool must be classified before it ships. */
 export const PEOPLE_TOOLS: ReadonlySet<string> = new Set([
@@ -1053,13 +1053,46 @@ export function peopleToolsLive(protectedFlag: boolean | undefined): boolean {
   return protectedFlag !== true;
 }
 
-/** §810 — whether a request may carry the people tools at all: not while the project protects its people,
- *  and not while it hides its Resources function. ★★ ONE PREDICATE again: the chat's list (`toolsFor`), the
- *  executor (`runTool`), the inline editor and the insight recommendation all ask this. Only an explicit
- *  `true` withholds, for either flag. Person-field stripping is NOT this question: it follows protection
- *  alone (`peopleToolsLive`), since a hidden function redacts nothing. */
-export function peopleToolsOffered(flags: { peopleProtected?: boolean; resourcesHidden?: boolean }): boolean {
-  return peopleToolsLive(flags.peopleProtected) && flags.resourcesHidden !== true;
+/** §810 — the tools the Resources function owns: the resource directory, absences, the allocation grid and the
+ *  contact e-mail look-up. A project that hides Resources withdraws these and nothing else; search, chat search,
+ *  the inquiry mail and the escalation stay. Every name is also in `PEOPLE_TOOLS` (a test pins it). */
+export const RESOURCES_TOOLS: ReadonlySet<string> = new Set([
+  "list_resources", "get_resource", "create_resource", "update_resource", "delete_resource",
+  "list_absences", "create_absence", "update_absence", "delete_absence",
+  "list_allocations", "get_contact_email",
+]);
+
+/** §810 — the tools the Stakeholders function owns. They follow that function, whatever Resources does. */
+export const STAKEHOLDER_TOOLS: ReadonlySet<string> = new Set([
+  "list_stakeholders", "create_stakeholder", "update_stakeholder", "delete_stakeholder",
+]);
+
+/** The flags that withhold a people tool: people protection, and the two functions that own people tools. */
+export interface PeopleToolFlags {
+  peopleProtected?: boolean;
+  resourcesHidden?: boolean;
+  stakeholdersHidden?: boolean;
+}
+
+/** Which switch withholds this tool, or null when it is offered. Protection wins over a hidden function. */
+export type ToolWithholder = "protected" | "resources" | "stakeholders";
+
+/** §810 — ★★ ONE PREDICATE FOR EVERY GATE: the chat's list (`toolsFor`/`toolNamesFor`/`toolsNamed`), the
+ *  executor (`runTool`), the inline editor's pre-call guard and its tool list, the insight recommendation tool
+ *  and the stable prompt all ask this. Under protection every `PEOPLE_TOOLS` name is withheld; a hidden
+ *  Resources function withholds `RESOURCES_TOOLS`, a hidden Stakeholders function `STAKEHOLDER_TOOLS`. Only an
+ *  explicit `true` withholds, for every flag. Person-field stripping is NOT this question: it follows
+ *  protection alone (`peopleToolsLive`), since a hidden function redacts nothing. */
+export function toolWithheldBy(name: string, flags: PeopleToolFlags): ToolWithholder | null {
+  if (!peopleToolsLive(flags.peopleProtected) && PEOPLE_TOOLS.has(name)) return "protected";
+  if (flags.resourcesHidden === true && RESOURCES_TOOLS.has(name)) return "resources";
+  if (flags.stakeholdersHidden === true && STAKEHOLDER_TOOLS.has(name)) return "stakeholders";
+  return null;
+}
+
+/** Whether a request may carry, and the executor serve, this tool (`toolWithheldBy` found no switch). */
+export function toolOffered(name: string, flags: PeopleToolFlags): boolean {
+  return toolWithheldBy(name, flags) === null;
 }
 
 /** AI people protection follow-up: `get_task`'s pointer at the withheld `get_contact_email`. */
@@ -1090,13 +1123,26 @@ const ABSENCE_CLASHES_PROMISES: readonly string[] = [
   " A result may list absenceClashes to mention to the user.",
 ];
 
+/** §810 — `escalate_raid_item` stays offered while Resources is hidden, but two of its texts point at the
+ *  withdrawn `get_contact_email`; that request sends them without the pointer. (Under protection the
+ *  escalation itself is withheld, so protection needs no such drop.) */
+const ESCALATE_CONTACT_DROPS: ReadonlyArray<readonly [string, string]> = [
+  [" look it up with get_contact_email (stakeholder or resource), or ask.", " ask."],
+  [" (look it up with get_contact_email if the user named only the person)", ""],
+];
+
 /** §810 — the tools as a request sends them while the project hides its Resources function: protection's hint drops
- *  (`PROTECTED_DROPS`: no pointer at the withdrawn `list_absences` or `get_contact_email`) and, unlike under
- *  protection alone, the absenceClashes promise as well. Applied by `toolsFor` on bit 16 (and by `toolsNamed`);
- *  person-field stripping is not part of it. A test checks that no tool text such a request carries names a
- *  withheld people tool or `absenceClashes`. */
+ *  (`PROTECTED_DROPS`: no pointer at the withdrawn `list_absences` or `get_contact_email`), the absenceClashes
+ *  promise as well (unlike under protection alone), and the escalation's pointer at `get_contact_email`
+ *  (`ESCALATE_CONTACT_DROPS`). Applied by `toolsFor` on bit 16 (and by `toolsNamed`); person-field stripping is
+ *  not part of it. A test checks that no tool text such a request carries names a withheld tool or
+ *  `absenceClashes`. */
 export const RESOURCES_HIDDEN_DEFS: ReadonlyMap<string, (typeof TOOL_DEFS)[number]> = new Map(
   TOOL_DEFS.flatMap((d) => {
+    if (d.name === "escalate_raid_item") {
+      const json = ESCALATE_CONTACT_DROPS.reduce((text, [from, to]) => text.replace(from, to), JSON.stringify(d));
+      return [[d.name, JSON.parse(json) as typeof d] as const];
+    }
     const drop = PROTECTED_DROPS[d.name];
     if (!drop) return [];
     const description = ABSENCE_CLASHES_PROMISES.reduce((text, promise) => text.replace(promise, ""), d.description.replace(drop, ""));
@@ -1109,12 +1155,25 @@ export const RESOURCES_HIDDEN_DEFS: ReadonlyMap<string, (typeof TOOL_DEFS)[numbe
 export const PEOPLE_TOOL_REFUSAL =
   "This project protects its people from the AI, so tools that read or change people (resources, stakeholders, absences, allocations, contacts, history and chat search) are switched off. Do not retry; do not assign, move or rate anyone. The user can allow it in Settings for this project.";
 
-/** §810 — what `runTool` answers for a people tool while the project hides its Resources function. */
+/** §810 — what `runTool` answers for a Resources tool (`RESOURCES_TOOLS`) while the project hides its Resources
+ *  function. It names only what Resources owns. */
 export const RESOURCES_HIDDEN_TOOL_REFUSAL =
-  "This project's Resources function is switched off, so tools that read or change people (resources, stakeholders, absences, allocations, contacts, history and chat search) are not available. Do not retry; do not assign, move or rate anyone. The user can switch Resources on in this project's functions.";
+  "This project's Resources function is switched off, so the resource directory, absences, allocations and contact e-mail tools are not available. Do not retry. The user can switch Resources on in this project's functions.";
 
-/** What `runTool` throws for a people tool under protection, or while Resources is hidden (§810, with its own
- *  message). Its own TYPE, so a caller that replays stored calls (an insight recommendation's confirm) can
+/** §810 — what `runTool` answers for a stakeholder tool (`STAKEHOLDER_TOOLS`) while the project hides its
+ *  Stakeholders function. */
+export const STAKEHOLDERS_HIDDEN_TOOL_REFUSAL =
+  "This project's Stakeholders function is switched off, so the stakeholder tools are not available. Do not retry. The user can switch Stakeholders on in this project's functions.";
+
+/** The refusal `runTool` gives for each switch that withholds a tool (`toolWithheldBy`). */
+export const TOOL_REFUSAL_BY: Readonly<Record<ToolWithholder, string>> = {
+  protected: PEOPLE_TOOL_REFUSAL,
+  resources: RESOURCES_HIDDEN_TOOL_REFUSAL,
+  stakeholders: STAKEHOLDERS_HIDDEN_TOOL_REFUSAL,
+};
+
+/** What `runTool` throws for a people tool under protection, or while the function that owns it is hidden (§810,
+ *  with that switch's message). Its own TYPE, so a caller that replays stored calls (an insight recommendation's confirm) can
  *  tell "refused before anything was written" from a hard failure that may have written — matched on the
  *  type, never the message, like `ConcurrencyTokenError`. */
 export class PeopleToolRefusedError extends Error {

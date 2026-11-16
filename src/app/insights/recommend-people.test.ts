@@ -6,7 +6,7 @@ import { describe, it, expect, vi } from "vitest";
 const forced = vi.hoisted(() => vi.fn());
 vi.mock("../ai-forced-call", () => ({ runForcedToolCallWithRetry: forced }));
 
-import { PEOPLE_TOOLS } from "../chat-tool-defs";
+import { PEOPLE_TOOLS, STAKEHOLDER_TOOLS, toolWithheldBy } from "../chat-tool-defs";
 import { ALLOWED_REC_TOOLS } from "./insight";
 import { recommendToolFor } from "./recommend";
 import { runInsightRecommendation } from "./recommend-call";
@@ -50,23 +50,35 @@ describe("the recommendation tool under people protection", () => {
   });
 });
 
-// §810 — the open project's Resources function is hidden: the same filtered tool, by chat's predicate.
-describe("the recommendation tool with Resources hidden (§810)", () => {
+// §810 — a hidden Stakeholders function withdraws the stakeholder writers, by chat's predicate; a hidden Resources
+// function withdraws none of the offered tools (no Resources tool is in ALLOWED_REC_TOOLS).
+describe("the recommendation tool with a hidden function (§810)", () => {
   const index = { "open-points": new Set<number>(), raid: new Set<number>(), milestones: new Set<number>(), changes: new Set<number>(), stakeholders: new Set<number>() };
 
-  it("offers no people tool while Resources is hidden", () => {
-    expect(offered(recommendToolFor({ resourcesHidden: true })).filter((n) => PEOPLE_TOOLS.has(n))).toEqual([]);
-    expect(offered(recommendToolFor({ resourcesHidden: true })).length).toBeGreaterThan(0);
-    expect(new Set(offered(recommendToolFor({ resourcesHidden: false })))).toEqual(new Set(ALLOWED_REC_TOOLS));
+  it("offers no stakeholder tool while Stakeholders is hidden, and every allowed tool while only Resources is", () => {
+    expect(offered(recommendToolFor({ stakeholdersHidden: true })).filter((n) => STAKEHOLDER_TOOLS.has(n))).toEqual([]);
+    expect(offered(recommendToolFor({ stakeholdersHidden: true })).length).toBeGreaterThan(0);
+    expect(new Set(offered(recommendToolFor({ resourcesHidden: true })))).toEqual(new Set(ALLOWED_REC_TOOLS));
+    expect(new Set(offered(recommendToolFor({ stakeholdersHidden: false })))).toEqual(new Set(ALLOWED_REC_TOOLS));
   });
 
-  it("the call sends the filtered tool when its args say Resources is hidden", async () => {
+  // The people-protected union drops exactly the people tools, so it is only the right answer while every allowed
+  // tool a switch can withhold is one of them.
+  it("every allowed tool a switch can withhold is a people tool", () => {
+    for (const name of ALLOWED_REC_TOOLS) {
+      const byAnySwitch = toolWithheldBy(name, { resourcesHidden: true, stakeholdersHidden: true }) !== null;
+      if (byAnySwitch) expect(PEOPLE_TOOLS.has(name), name).toBe(true);
+    }
+    expect([...ALLOWED_REC_TOOLS].filter((n) => toolWithheldBy(n, { stakeholdersHidden: true }) !== null).length).toBeGreaterThan(0);
+  });
+
+  it("the call sends the filtered tool when its args say Stakeholders is hidden", async () => {
     forced.mockClear();
     forced.mockResolvedValue({ stopReason: "end_turn", input: {} });
-    await runInsightRecommendation({ apiKey: "k", model: "m", privacy: aiPrivacyFor([]), context: "c", index, today: "2026-10-30", resourcesHidden: true }).catch(() => undefined);
+    await runInsightRecommendation({ apiKey: "k", model: "m", privacy: aiPrivacyFor([]), context: "c", index, today: "2026-10-30", stakeholdersHidden: true }).catch(() => undefined);
     expect(offered((forced.mock.calls[0]![0] as { tools: unknown[] }).tools[0])).not.toContain("update_stakeholder");
     forced.mockClear();
-    await runInsightRecommendation({ apiKey: "k", model: "m", privacy: aiPrivacyFor([]), context: "c", index, today: "2026-10-30", resourcesHidden: false }).catch(() => undefined);
+    await runInsightRecommendation({ apiKey: "k", model: "m", privacy: aiPrivacyFor([]), context: "c", index, today: "2026-10-30", stakeholdersHidden: false }).catch(() => undefined);
     expect(offered((forced.mock.calls[0]![0] as { tools: unknown[] }).tools[0])).toContain("update_stakeholder");
   });
 });

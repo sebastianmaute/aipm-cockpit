@@ -266,7 +266,7 @@ describe("inline edit: the protection state reaches the call", () => {
   const TASK = { id: 42, taskName: "Fix login", assignee: "Ann", status: "To Do", dueDate: "2026-08-12", priority: "Medium" };
   const deps: InlineEntityEditDeps = {
     entity: "task",
-    dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }), isResourcesHidden: () => false } as unknown as InlineEntityEditDeps["dispatcher"],
+    dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }), isResourcesHidden: () => false, isStakeholdersHidden: () => false } as unknown as InlineEntityEditDeps["dispatcher"],
     ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
     apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
     isPopout: false, lang: "en-US",

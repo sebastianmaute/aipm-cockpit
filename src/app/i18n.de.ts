@@ -3169,6 +3169,8 @@ export const de: Record<TranslationKey, string> = {
   inlineAiEditStale: "Es wurde nichts geändert — dieser Datensatz hat sich geändert, seit Claude ihn gelesen hat. Führen Sie die Bearbeitung erneut aus, um den neuen Stand zu übernehmen.",
   inlineAiEditNoChanges: "Keine Änderungen anzuwenden.",
   inlineAiEditPeopleRecord: "Für dieses Projekt ist der Personenschutz aktiv, daher kann Claude keine Personendatensätze bearbeiten.",
+  inlineAiEditResourcesHidden: "Die Funktion Ressourcen ist für dieses Projekt ausgeschaltet, daher kann Claude keine Ressourcen oder Abwesenheiten bearbeiten. Schalten Sie Ressourcen in den Funktionen dieses Projekts ein.",
+  inlineAiEditStakeholdersHidden: "Die Funktion Stakeholder ist für dieses Projekt ausgeschaltet, daher kann Claude keine Stakeholder bearbeiten. Schalten Sie Stakeholder in den Funktionen dieses Projekts ein.",
   inlineAiEditPeopleWithheld: "Für dieses Projekt ist der Personenschutz aktiv, daher darf Claude keine Personen zuweisen oder ändern; sonst wurde nichts vorgeschlagen.",
   inlineAiEditClarify: "Claude braucht mehr Details:",
   inlineAiEditError: "Claude nicht erreichbar. Bitte erneut versuchen.",

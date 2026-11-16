@@ -41,7 +41,7 @@ async function confirm(peopleProtected: boolean) {
   const store = mkStore([mkInsight()]);
   const updateStakeholder = vi.fn((id: number, patch: Record<string, unknown>) => ({ ...SAM, id, ...patch }));
   const dispatcher = {
-    isPeopleProtected: () => peopleProtected, isResourcesHidden: () => false,
+    isPeopleProtected: () => peopleProtected, isResourcesHidden: () => false, isStakeholdersHidden: () => false,
     getStakeholderRow: (id: number) => (id === 1 ? SAM : null),
     updateStakeholder,
   } as unknown as InsightRecommendationDeps["dispatcher"];

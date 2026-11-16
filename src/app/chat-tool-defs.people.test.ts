@@ -3,9 +3,9 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   TOOL_DEFS, PEOPLE_TOOLS, NON_PEOPLE_TOOLS, PEOPLE_TOOL_REFUSAL, RESOURCES_HIDDEN_DEFS, RESOURCES_HIDDEN_TOOL_REFUSAL, PeopleToolRefusedError,
-  peopleToolsLive, peopleToolsOffered,
+  RESOURCES_TOOLS, STAKEHOLDER_TOOLS, STAKEHOLDERS_HIDDEN_TOOL_REFUSAL, peopleToolsLive, toolOffered, toolWithheldBy,
 } from "./chat-tool-defs";
-import { RESOURCES_HIDDEN_INSTRUCTION, toolNamesFor, toolsFor, buildStableSystemBlocks, buildTurnContext, type ToolFlags } from "./chat-api";
+import { RESOURCES_HIDDEN_INSTRUCTION, STAKEHOLDERS_HIDDEN_INSTRUCTION, toolNamesFor, toolsFor, buildStableSystemBlocks, buildTurnContext, type ToolFlags } from "./chat-api";
 import { runTool, type ToolDispatcher } from "./chat-tools";
 
 const SPEC_MINIMUM = [
@@ -158,105 +158,191 @@ describe("executor gate", () => {
   });
 });
 
-// §810 — a project whose Resources function is hidden: the people tools are neither offered nor served, by the
-// same predicate (`peopleToolsOffered`), and nothing else about the list changes (no protected-definition swap).
-describe("Resources hidden (§810)", () => {
+// §810 — a project whose Resources function is hidden withdraws only the tools Resources owns (the directory,
+// absences, allocations and contact e-mail); the stakeholder tools follow the Stakeholders function. Both are
+// decided by one predicate (`toolWithheldBy`) that the list and the executor ask. Search, chat search, the
+// inquiry mail and the escalation are never withdrawn by a hidden function.
+describe("hidden Resources and Stakeholders functions (§810)", () => {
   const OFF_SNAPSHOT = {
     today: "2026-10-30", language: "en-US", holidayCountries: [], storageKind: "memory", taskCount: 0,
     knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: [] as string[],
     currentView: "open-points" as const,
   } as unknown as ReturnType<ToolDispatcher["getSnapshot"]>;
+  const NEVER_BY_A_FUNCTION = ["search_history", "search_chats", "send_inquiry", "escalate_raid_item"];
 
-  it("offers people tools only when neither protection nor a hidden Resources function withholds them", () => {
-    expect(peopleToolsOffered({})).toBe(true);
-    expect(peopleToolsOffered({ peopleProtected: false, resourcesHidden: false })).toBe(true);
-    expect(peopleToolsOffered({ resourcesHidden: true })).toBe(false);
-    expect(peopleToolsOffered({ peopleProtected: true })).toBe(false);
-    expect(peopleToolsOffered({ peopleProtected: true, resourcesHidden: true })).toBe(false);
+  it("Resources owns the directory, absences, allocations and contact e-mail; Stakeholders owns its four tools", () => {
+    expect([...RESOURCES_TOOLS].sort()).toEqual([
+      "create_absence", "create_resource", "delete_absence", "delete_resource", "get_contact_email", "get_resource",
+      "list_absences", "list_allocations", "list_resources", "update_absence", "update_resource",
+    ]);
+    expect([...STAKEHOLDER_TOOLS].sort()).toEqual(["create_stakeholder", "delete_stakeholder", "list_stakeholders", "update_stakeholder"]);
+    for (const name of [...RESOURCES_TOOLS, ...STAKEHOLDER_TOOLS]) expect(PEOPLE_TOOLS.has(name), name).toBe(true);
+    for (const name of NEVER_BY_A_FUNCTION) {
+      expect(RESOURCES_TOOLS.has(name), name).toBe(false);
+      expect(STAKEHOLDER_TOOLS.has(name), name).toBe(false);
+    }
   });
 
-  it("a request with Resources hidden carries no people tool and every other definition unchanged but the hint-carrying ones", () => {
+  it("the predicate names the switch that withholds a tool, and protection wins", () => {
+    expect(toolWithheldBy("list_resources", {})).toBeNull();
+    expect(toolWithheldBy("list_resources", { resourcesHidden: true })).toBe("resources");
+    expect(toolWithheldBy("list_resources", { stakeholdersHidden: true })).toBeNull();
+    expect(toolWithheldBy("list_stakeholders", { resourcesHidden: true })).toBeNull();
+    expect(toolWithheldBy("list_stakeholders", { stakeholdersHidden: true })).toBe("stakeholders");
+    expect(toolWithheldBy("send_inquiry", { resourcesHidden: true, stakeholdersHidden: true })).toBeNull();
+    expect(toolWithheldBy("send_inquiry", { peopleProtected: true })).toBe("protected");
+    expect(toolWithheldBy("list_resources", { peopleProtected: true, resourcesHidden: true })).toBe("protected");
+    expect(toolWithheldBy("list_tasks", { peopleProtected: true, resourcesHidden: true, stakeholdersHidden: true })).toBeNull();
+    expect(toolOffered("list_resources", { resourcesHidden: false })).toBe(true);
+    expect(toolOffered("list_resources", { resourcesHidden: true })).toBe(false);
+  });
+
+  it("a request with Resources hidden drops only the Resources tools and swaps only the hint-carrying definitions", () => {
     const hidden = toolsFor({ resourcesHidden: true });
-    expect(hidden.map((d) => d.name).filter((n) => PEOPLE_TOOLS.has(n))).toEqual([]);
-    // Only the definitions that point at a withdrawn people tool or promise absence clashes differ.
+    const names = hidden.map((d) => d.name);
+    expect(names.filter((n) => RESOURCES_TOOLS.has(n))).toEqual([]);
+    for (const name of [...STAKEHOLDER_TOOLS, ...NEVER_BY_A_FUNCTION]) expect(names, name).toContain(name);
     const strip = (d: object) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== "cache_control"));
-    const plain = toolsFor({}).filter((d) => !PEOPLE_TOOLS.has(d.name));
-    expect(hidden.map((d) => d.name)).toEqual(plain.map((d) => d.name));
+    const plain = toolsFor({}).filter((d) => !RESOURCES_TOOLS.has(d.name));
+    expect(names).toEqual(plain.map((d) => d.name));
     const changed = hidden.filter((d, i) => JSON.stringify(strip(d)) !== JSON.stringify(strip(plain[i]!))).map((d) => d.name);
     expect(new Set(changed)).toEqual(new Set([...RESOURCES_HIDDEN_DEFS.keys()]));
-    expect(new Set(changed)).toEqual(new Set(["create_task", "update_task", "create_milestone", "update_milestone", "get_task"]));
-    expect(hidden.length).toBeGreaterThan(0);
-    expect(toolNamesFor({ resourcesHidden: true }).has("list_resources")).toBe(false);
+    // The escalation stays offered, so it loses its pointer at the withdrawn get_contact_email.
+    expect(new Set(changed)).toEqual(new Set(["create_task", "update_task", "create_milestone", "update_milestone", "get_task", "escalate_raid_item"]));
+    expect(JSON.stringify(hidden.find((d) => d.name === "escalate_raid_item"))).toContain("toEmail is required: if the user did not give it, ask.");
+  });
+
+  it("a request with Stakeholders hidden drops only the stakeholder tools and changes no other definition", () => {
+    const hidden = toolsFor({ stakeholdersHidden: true });
+    const strip = (d: object) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== "cache_control"));
+    const plain = toolsFor({}).filter((d) => !STAKEHOLDER_TOOLS.has(d.name));
+    expect(hidden.map((d) => d.name)).toEqual(plain.map((d) => d.name));
+    expect(hidden.map((d) => strip(d))).toEqual(plain.map((d) => strip(d)));
+    expect(toolNamesFor({ stakeholdersHidden: true }).has("list_resources")).toBe(true);
+  });
+
+  it("Simple mode (both functions hidden) still carries search, chat search, the inquiry and the escalation", () => {
+    const names = toolNamesFor({ ...OPEN, resourcesHidden: true, stakeholdersHidden: true });
+    for (const name of NEVER_BY_A_FUNCTION) expect(names.has(name), name).toBe(true);
+    for (const name of [...RESOURCES_TOOLS, ...STAKEHOLDER_TOOLS]) expect(names.has(name), name).toBe(false);
   });
 
   // Fix 1 withholds absence clashes while Resources is hidden, so no text may promise them either.
-  it("no tool text a Resources-hidden request advertises names a withheld people tool or promises absenceClashes", () => {
+  it("no tool text a function-hidden request advertises names a withheld tool or (Resources hidden) promises absenceClashes", () => {
     const offenders = new Set<string>();
     let checked = 0;
-    for (const peopleProtected of [false, true]) for (const historySearch of [false, true]) for (const forecast of [false, true]) {
-      const flags: ToolFlags = { historySearch, chatSearch: true, forecast, peopleProtected, resourcesHidden: true };
-      const carried = toolNamesFor(flags);
-      const withheld = [...PEOPLE_TOOLS].filter((n) => !carried.has(n));
-      expect(withheld.length).toBe(PEOPLE_TOOLS.size);
-      for (const def of toolsFor(flags)) {
-        const text = JSON.stringify(def);
-        checked++;
-        for (const name of withheld) if (new RegExp(String.raw`\b${name}\b`).test(text)) offenders.add(`${def.name} -> ${name}`);
-        if (text.includes("absenceClashes")) offenders.add(`${def.name} -> absenceClashes`);
+    for (const peopleProtected of [false, true]) for (const historySearch of [false, true]) for (const forecast of [false, true])
+      for (const [resourcesHidden, stakeholdersHidden] of [[true, false], [false, true], [true, true]] as const) {
+        const flags: ToolFlags = { historySearch, chatSearch: true, forecast, peopleProtected, resourcesHidden, stakeholdersHidden };
+        const carried = toolNamesFor(flags);
+        const withheld = [...PEOPLE_TOOLS].filter((n) => toolWithheldBy(n, flags) !== null);
+        expect(withheld.every((n) => !carried.has(n))).toBe(true);
+        for (const def of toolsFor(flags)) {
+          const text = JSON.stringify(def);
+          checked++;
+          for (const name of withheld) if (new RegExp(String.raw`\b${name}\b`).test(text)) offenders.add(`${def.name} -> ${name}`);
+          if (resourcesHidden && text.includes("absenceClashes")) offenders.add(`${def.name} -> absenceClashes`);
+        }
       }
-    }
-    expect(checked).toBeGreaterThan(100);
+    expect(checked).toBeGreaterThan(300);
     expect([...offenders]).toEqual([]);
   });
 
-  it("only an explicit true withdraws them, and each combination keeps one array identity", () => {
-    expect(toolsFor({ resourcesHidden: false })).toBe(toolsFor({}));
+  it("only an explicit true withdraws, and each combination keeps one array identity", () => {
+    expect(toolsFor({ resourcesHidden: false, stakeholdersHidden: false })).toBe(toolsFor({}));
     expect(toolsFor({ resourcesHidden: true })).toBe(toolsFor({ resourcesHidden: true }));
-    expect(toolsFor({ resourcesHidden: true })).not.toBe(toolsFor({}));
-    // Protection keeps its own meaning: the swap still applies when both are set.
+    expect(toolsFor({ stakeholdersHidden: true })).toBe(toolsFor({ stakeholdersHidden: true }));
+    const distinct = new Set([
+      toolsFor({}), toolsFor({ resourcesHidden: true }), toolsFor({ stakeholdersHidden: true }),
+      toolsFor({ resourcesHidden: true, stakeholdersHidden: true }),
+    ]);
+    expect(distinct.size).toBe(4);
+    // Protection keeps its own meaning: every people tool goes and the swap still applies when both are set.
     const both = toolsFor({ peopleProtected: true, resourcesHidden: true });
     expect(both.map((d) => d.name).filter((n) => PEOPLE_TOOLS.has(n))).toEqual([]);
     expect(JSON.stringify(both.find((d) => d.name === "get_task"))).not.toMatch(/\bget_contact_email\b/);
   });
 
-  it("the system prompt does not advertise the resource tools while Resources is hidden", () => {
-    const text = buildStableSystemBlocks("en-US", OFF_SNAPSHOT, [], false, { ...OPEN, resourcesHidden: true })[0]!.text;
-    expect(text).not.toContain("create_resource");
-    expect(text).not.toContain("protects its people");
-    expect(text).toContain(RESOURCES_HIDDEN_INSTRUCTION);
+  it("the system prompt names the Resources switch for the Resources tools and the Stakeholders switch for stakeholders", () => {
+    const text = (flags: ToolFlags) => buildStableSystemBlocks("en-US", OFF_SNAPSHOT, [], false, { ...OPEN, ...flags })[0]!.text;
+    const res = text({ resourcesHidden: true });
+    expect(res).not.toContain("create_resource");
+    expect(res).not.toContain("protects its people");
+    expect(res).toContain(RESOURCES_HIDDEN_INSTRUCTION);
+    expect(RESOURCES_HIDDEN_INSTRUCTION).not.toMatch(/stakeholder/i);
+    expect(res).not.toContain(STAKEHOLDERS_HIDDEN_INSTRUCTION);
+    const stk = text({ stakeholdersHidden: true });
+    expect(stk).toContain(STAKEHOLDERS_HIDDEN_INSTRUCTION);
+    expect(stk).toContain("create_resource");
+    expect(stk).not.toContain(RESOURCES_HIDDEN_INSTRUCTION);
+    expect(STAKEHOLDERS_HIDDEN_INSTRUCTION).not.toMatch(/Resources/);
+    // Nothing hidden: neither line, so the shown prompt is as before.
+    const open = text({});
+    expect(open).not.toContain(STAKEHOLDERS_HIDDEN_INSTRUCTION);
+    expect(open).not.toContain(RESOURCES_HIDDEN_INSTRUCTION);
   });
 
-  function hiddenDispatcher(resourcesHidden: boolean): { d: ToolDispatcher; calls: string[] } {
+  function hiddenDispatcher(hidden: { resources?: boolean; stakeholders?: boolean }): { d: ToolDispatcher; calls: string[] } {
     const calls: string[] = [];
     const d = new Proxy({} as Record<string, unknown>, {
       get(_t, prop: string) {
         if (prop === "isPeopleProtected") return () => false;
-        if (prop === "isResourcesHidden") return () => resourcesHidden;
+        if (prop === "isResourcesHidden") return () => hidden.resources === true;
+        if (prop === "isStakeholdersHidden") return () => hidden.stakeholders === true;
         if (prop === "then") return undefined;
         return vi.fn(() => { calls.push(prop); return []; });
       },
     }) as unknown as ToolDispatcher;
     return { d, calls };
   }
+  const ARGS = { id: 1, firstName: "A", lastName: "B", name: "X", query: "x", taskId: 1, recipient: "A" };
 
-  it("the executor refuses every people tool while Resources is hidden and touches no state", async () => {
-    for (const name of PEOPLE_TOOLS) {
-      const { d, calls } = hiddenDispatcher(true);
-      await expect(runTool(d, name, { id: 1, firstName: "A", lastName: "B", name: "X" }), name).rejects.toBeInstanceOf(PeopleToolRefusedError);
+  it("the executor refuses every Resources tool while Resources is hidden, naming Resources, and touches no state", async () => {
+    for (const name of RESOURCES_TOOLS) {
+      const { d, calls } = hiddenDispatcher({ resources: true });
+      await expect(runTool(d, name, ARGS), name).rejects.toThrow(RESOURCES_HIDDEN_TOOL_REFUSAL);
       expect(calls, name).toEqual([]);
     }
-    const { d } = hiddenDispatcher(true);
-    await expect(runTool(d, "list_resources", {})).rejects.toThrow(RESOURCES_HIDDEN_TOOL_REFUSAL);
+    expect(RESOURCES_HIDDEN_TOOL_REFUSAL).toMatch(/Resources/);
+    expect(RESOURCES_HIDDEN_TOOL_REFUSAL).not.toMatch(/stakeholder|history|chat search/i);
   });
 
-  it("CONTROL: the same dispatcher with Resources shown serves a people tool", async () => {
-    const { d, calls } = hiddenDispatcher(false);
+  it("the executor refuses every stakeholder tool while Stakeholders is hidden, naming Stakeholders", async () => {
+    for (const name of STAKEHOLDER_TOOLS) {
+      const { d, calls } = hiddenDispatcher({ stakeholders: true });
+      const err = await runTool(d, name, ARGS).then(() => null, (e: unknown) => e);
+      expect(err, name).toBeInstanceOf(PeopleToolRefusedError);
+      expect((err as Error).message, name).toBe(STAKEHOLDERS_HIDDEN_TOOL_REFUSAL);
+      expect(calls, name).toEqual([]);
+    }
+    expect(STAKEHOLDERS_HIDDEN_TOOL_REFUSAL).toMatch(/Stakeholders/);
+    expect(STAKEHOLDERS_HIDDEN_TOOL_REFUSAL).not.toMatch(/Resources/);
+  });
+
+  it("Resources hidden alone does not refuse a stakeholder tool", async () => {
+    const { d, calls } = hiddenDispatcher({ resources: true });
+    await runTool(d, "list_stakeholders", {});
+    expect(calls).toContain("listStakeholders");
+  });
+
+  it("Simple mode (both hidden) still serves search, chat search, the inquiry and the escalation", async () => {
+    for (const name of NEVER_BY_A_FUNCTION) {
+      const { d, calls } = hiddenDispatcher({ resources: true, stakeholders: true });
+      const err = await runTool(d, name, ARGS).then(() => null, (e: unknown) => e);
+      expect(err instanceof PeopleToolRefusedError, name).toBe(false);
+      expect(calls.length, name).toBeGreaterThan(0);
+    }
+  });
+
+  it("CONTROL: the same dispatcher with both functions shown serves a Resources and a stakeholder tool", async () => {
+    const { d, calls } = hiddenDispatcher({});
     await runTool(d, "list_resources", {});
-    expect(calls).toContain("listResources");
+    await runTool(d, "list_stakeholders", {});
+    expect(calls).toEqual(expect.arrayContaining(["listResources", "listStakeholders"]));
   });
 
-  it("a non-people tool is still served while Resources is hidden", async () => {
-    const { d, calls } = hiddenDispatcher(true);
+  it("a non-people tool is still served while both functions are hidden", async () => {
+    const { d, calls } = hiddenDispatcher({ resources: true, stakeholders: true });
     await runTool(d, "list_tasks", {});
     expect(calls).toContain("listTasks");
   });

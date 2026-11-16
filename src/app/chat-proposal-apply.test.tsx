@@ -873,6 +873,7 @@ describe("TOKEN_ROW_SOURCE", () => {
             if (member === "isPeopleProtected") return () => false;
             // §810 — the same kind of question: Resources shown.
             if (member === "isResourcesHidden") return () => false;
+            if (member === "isStakeholdersHidden") return () => false;
             return () => {
               reached.push(member);
               return row;

@@ -43,7 +43,7 @@ function setup(peopleProtected: boolean, input: Record<string, unknown>) {
     list = typeof u === "function" ? (u as (p: readonly Insight[] | undefined) => readonly Insight[])(list) : (u as readonly Insight[]);
   });
   const createTask = vi.fn((i: Record<string, unknown>) => ({ id: 9, ...i }) as unknown as Task);
-  const dispatcher = { isPeopleProtected: () => peopleProtected, isResourcesHidden: () => false, createTask } as unknown as InsightRecommendationDeps["dispatcher"];
+  const dispatcher = { isPeopleProtected: () => peopleProtected, isResourcesHidden: () => false, isStakeholdersHidden: () => false, createTask } as unknown as InsightRecommendationDeps["dispatcher"];
   const deps: InsightRecommendationDeps = {
     isPopout: false, loadPending: false, getScopeEpoch: () => 0, guides: [], guidesReady: true, absences: [], holidaySet: new Set(),
     settings: { ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x" } } as unknown as InsightRecommendationDeps["settings"],

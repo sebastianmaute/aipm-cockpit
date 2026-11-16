@@ -108,4 +108,11 @@ describe("useChatDispatcher — absence clashes while Resources is hidden (§810
     const out = await run(result.current, "create_task", { taskName: "Draft", assignee: "Maya Patel", dueDate: "2026-11-05" });
     expect(out.absenceClashes).toEqual([ON_ABSENCE]);
   });
+
+  // §810 — the stakeholder tools follow the Stakeholders function, read from the same live functions.
+  it("isStakeholdersHidden follows the Stakeholders function alone", () => {
+    expect(renderWith(hidden).result.current.isStakeholdersHidden()).toBe(false);
+    expect(renderWith(ALL_MODULE_IDS.filter((id) => id !== "stakeholders")).result.current.isStakeholdersHidden()).toBe(true);
+    expect(renderWith(ALL_MODULE_IDS.filter((id) => id !== "stakeholders")).result.current.isResourcesHidden()).toBe(false);
+  });
 });

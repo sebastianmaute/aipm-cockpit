@@ -54,7 +54,8 @@ function mkDeps(insights: readonly Insight[], background: boolean): InsightRecom
   return {
     isPopout: false, loadPending: false, getScopeEpoch: () => 0, guides: [], guidesReady: true,
     settings: {
-      features: ["timelog"],
+      // Resources shown: while it is hidden a linked person's profile is withheld whatever protection says (§810).
+      features: ["timelog", "resources"],
       ai: { enabled: true, consent, backgroundConsent: consent, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", insightRecommendations: background },
     } as unknown as InsightRecommendationDeps["settings"],
     lang: "en-US", today: "2026-09-03", project: undefined,
