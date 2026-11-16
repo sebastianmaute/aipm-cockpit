@@ -56,6 +56,9 @@ export function parseTrustedHops(raw: string | undefined): { hops: number; inval
  *  module state on purpose, as `request-limit-config.ts` keeps for the relay and dictation limits. */
 let reportedInvalid = false;
 
+// ★ The warning fires on the first request that reaches `clientKey` (a limited route), not at server start: an
+// operator who never calls a limited route sees nothing. `reportedInvalid` is reset only by a new process (the tests
+// use `vi.resetModules()`).
 function trustedHops(env: Record<string, string | undefined>): number {
   const { hops, invalid } = parseTrustedHops(env[TRUSTED_PROXY_HOPS_ENV]);
   if (invalid && !reportedInvalid) {

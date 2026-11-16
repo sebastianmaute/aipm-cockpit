@@ -1,6 +1,7 @@
 "use client";
 
-// Settings → AI: the per-project switch that keeps hourly rates out of Plan with AI and the chat's forecast (§804).
+// Settings → AI: the per-project switch that keeps hourly rates out of Plan with AI and the chat's forecast and
+// dashboard figures (§804).
 // ★ The choice is stored on the PROJECT (`Workspace.settingsOverrides.ai.ratesWithheld`) through the same
 //   project-override path as the people-protection switch. OFF is the default and is stored as ABSENCE
 //   (`withAiSwitch` deletes the key), so a project that never set it serialises as before.

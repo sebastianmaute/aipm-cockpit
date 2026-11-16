@@ -70,7 +70,6 @@ export function recCallItemSchema(names: readonly string[]) {
 
 export const REC_CALL_ITEM_SCHEMA = recCallItemSchema([...ALLOWED_REC_TOOLS]);
 
-
 /** Required arguments a writer also parses as a date: the dispatcher's
  *  `createTask` (`use-chat-dispatcher.ts`) and `sanitizeMilestone` both read
  *  them with `sanitizeIsoDate` and throw on "". */

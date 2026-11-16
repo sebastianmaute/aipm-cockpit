@@ -77,7 +77,7 @@ describe("AiRatesControl", () => {
   });
 });
 
-// §804 — the switch covers the chat's forecast too, and the hint says what is left out without claiming nothing
+// §804 — the switch covers the chat's forecast and dashboard figures too, and the hint says what is left out without claiming nothing
 // else is sent.
 describe("the rates switch wording", () => {
   it("names Plan with AI and the forecast, and does not say only people, roles and hours are sent", async () => {

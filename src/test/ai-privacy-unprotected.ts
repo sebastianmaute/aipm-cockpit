@@ -32,6 +32,9 @@ export function usePeopleProtected(): boolean {
 }
 
 // §794: no project, so only the deployment lock (`ai-direct-writes`) can ask for every write to be reviewed.
+// ★ Deliberately NOT the real getter's answer: with no project source registered the real
+// `useOpenProjectReviewAllWrites` fails CLOSED (review every write). This stand-in serves feature tests of a lone
+// write's own mechanics, so it answers like an open project that has not switched review on.
 const noReview = (): boolean => isReviewAllWrites(undefined);
 
 export function useOpenProjectReviewAllWrites(): () => boolean {
