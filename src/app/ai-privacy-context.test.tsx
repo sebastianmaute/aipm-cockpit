@@ -159,3 +159,35 @@ describe("the open project publishes its background pause", () => {
     expect(backgroundPauseReason()).toBe("project");
   });
 });
+
+// §795 — fail closed while no real project is loaded: the empty workspace of a load or swap carries no setting, so
+// what the source publishes there must be "paused".
+describe("the background pause while no project is loaded (§795)", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  function useLoadHarness({ loaded, workspace }: { loaded: boolean; workspace: Workspace }) {
+    useAiPrivacySource("p1", () => workspace, () => 0, loaded);
+  }
+  const mountLoad = (initial: { loaded: boolean; workspace: Workspace }) =>
+    renderHook((p: { loaded: boolean; workspace: Workspace }) => useLoadHarness(p), { wrapper, initialProps: initial });
+  const on = (): Workspace => ({ ...emptyWorkspace(), settingsOverrides: { ai: { backgroundOff: true } } });
+
+  it("is paused while the load is pending, whatever the empty workspace says", () => {
+    mountLoad({ loaded: false, workspace: emptyWorkspace() });
+    expect(backgroundPauseReason()).toBe("project");
+  });
+  it("is not paused once a project is loaded and the setting is absent", () => {
+    const view = mountLoad({ loaded: false, workspace: emptyWorkspace() });
+    view.rerender({ loaded: true, workspace: emptyWorkspace() });
+    expect(backgroundPauseReason()).toBeNull();
+  });
+  it("is paused once loaded with the setting on", () => {
+    mountLoad({ loaded: true, workspace: on() });
+    expect(backgroundPauseReason()).toBe("project");
+  });
+  it("is paused again when a swap starts", () => {
+    const view = mountLoad({ loaded: true, workspace: emptyWorkspace() });
+    expect(backgroundPauseReason()).toBeNull();
+    view.rerender({ loaded: false, workspace: emptyWorkspace() });
+    expect(backgroundPauseReason()).toBe("project");
+  });
+});

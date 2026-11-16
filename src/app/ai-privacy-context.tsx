@@ -94,13 +94,16 @@ export function AiPrivacyProvider({ children }: { children: ReactNode }) {
   return <SourceContext.Provider value={store}>{children}</SourceContext.Provider>;
 }
 
-/** Task-manager registers the open project here. A layout effect, so every commit's source is in
+/** Task-manager registers the open project here. `projectLoaded` is false while the app holds no real project (the load
+ *  hold, or a portfolio with none chosen); the background pause is then published as on. A layout effect, so every commit's source is in
  *  place before any passive effect (an unattended run) or event handler can ask for it. */
-export function useAiPrivacySource(key: string, read: () => Workspace, epoch: ScopeEpochReader): void {
+export function useAiPrivacySource(key: string, read: () => Workspace, epoch: ScopeEpochReader, projectLoaded = true): void {
   const store = useContext(SourceContext);
   useLayoutEffect(() => {
     store?.set({ key, read, epoch });
-    publishBackgroundProjectOff(isBackgroundOff(read().settingsOverrides));
+    // ★ FAIL CLOSED while no real project is loaded (the first load, a backend reload, a project swap, a Turso portfolio
+    // with none chosen): the workspace there is the empty one, which carries no setting and would read as "not paused".
+    publishBackgroundProjectOff(!projectLoaded || isBackgroundOff(read().settingsOverrides));
   });
   // Fail closed once the source is gone.
   useLayoutEffect(() => () => publishBackgroundProjectOff(true), []);
