@@ -1203,3 +1203,29 @@ describe("the decision writes name a scenario the plan creates (§502 part 4)", 
     expect(rows[1].dependsOn).toBe(0);
   });
 });
+
+// §794 — a project can send every AI write to the review card, even a lone one.
+describe("shouldStage — review every write (§794)", () => {
+  const lone = [call("update_task", { id: 1 })];
+
+  test("a lone entity write stages when the project reviews every write", () => {
+    expect(shouldStage(lone, undefined, undefined, true)).toBe(true);
+    expect(shouldStage([call("create_task")], undefined, undefined, true)).toBe(true);
+  });
+
+  test("without the flag, or with it false, a lone write still applies at once", () => {
+    expect(shouldStage(lone)).toBe(false);
+    expect(shouldStage(lone, undefined, undefined, false)).toBe(false);
+  });
+
+  test("a read, or a call that is not an entity write, does not stage under the flag", () => {
+    expect(shouldStage([call("list_tasks")], undefined, undefined, true)).toBe(false);
+    expect(shouldStage([call("set_language"), call("set_filters")], undefined, undefined, true)).toBe(false);
+  });
+
+  test("writes an earlier turn of the send already applied count under the flag", () => {
+    const sent = { appliedWrites: 1, untrusted: false, staged: false };
+    expect(shouldStage([call("list_tasks")], sent, undefined, true)).toBe(true);
+    expect(shouldStage([call("list_tasks")], sent)).toBe(false);
+  });
+});

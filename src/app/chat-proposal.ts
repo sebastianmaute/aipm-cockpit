@@ -457,11 +457,16 @@ export function isDestructiveCall(call: ProposedCall): boolean {
  *  ★★ §773 — `hasClash` stages a write it flags, even alone: a date write that lands someone's work on
  *   their absence goes to the card, so the user sees the warning before it is written. It is asked only
  *   about entity writes, and the caller builds it (`callAbsenceClashes`), so this stays a function of the
- *   call list. Without it the rule is exactly the one above. */
+ *   call list. Without it the rule is exactly the one above.
+ *
+ *  ★★ §794 — `reviewAllWrites` (the project's switch, or the deployment's `ai-direct-writes`) lowers the
+ *   threshold from two writes to ONE: a lone entity write goes to the card too. Reads and calls that are
+ *   not entity writes still do not stage, and the caller reads the flag at send time. */
 export function shouldStage(
   calls: readonly ProposedCall[],
   send?: SendRecord,
   hasClash?: (c: ProposedCall) => boolean,
+  reviewAllWrites?: boolean,
 ): boolean {
   let writes = send?.appliedWrites ?? 0;
   for (const c of calls) {
@@ -473,7 +478,7 @@ export function shouldStage(
     if (hasClash?.(c) === true) return true;
     writes += 1;
   }
-  return writes > 1;
+  return reviewAllWrites === true ? writes > 0 : writes > 1;
 }
 
 /** True for a tool that MINTS a row rather than addressing an existing one.

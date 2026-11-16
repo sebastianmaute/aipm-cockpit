@@ -30,6 +30,13 @@ export function usePeopleProtected(): boolean {
   return false;
 }
 
+// §794: no project, so nothing asks for every write to be reviewed.
+const noReview = (): boolean => false;
+
+export function useOpenProjectReviewAllWrites(): () => boolean {
+  return noReview;
+}
+
 // Final review F4: a scope that never moves, so a feature's own tests see every awaited write land.
 const stillScope = (): number => 0;
 

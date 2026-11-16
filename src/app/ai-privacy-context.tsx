@@ -21,6 +21,7 @@
 import { createContext, useCallback, useContext, useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { isPeopleProtected } from "./ai-people-protection";
 import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
+import { isReviewAllWrites } from "./ai-project-switches";
 import type { ScopeEpochReader } from "./scope-epoch";
 import type { Workspace } from "./workspace";
 
@@ -59,6 +60,12 @@ function createSourceStore(): SourceStore {
 function protectedNow(store: SourceStore | null): boolean {
   const source = store?.get() ?? null;
   return source === null || isPeopleProtected(source.read().settingsOverrides);
+}
+
+/** Whether the store's open project sends every AI write to review (§794); the deployment lock counts. */
+function reviewAllWritesNow(store: SourceStore | null): boolean {
+  const source = store?.get() ?? null;
+  return isReviewAllWrites(source?.read().settingsOverrides);
 }
 
 const NO_SUBSCRIPTION = () => () => undefined;
@@ -105,6 +112,13 @@ export function useOpenProjectScopeEpoch(): ScopeEpochReader {
 export function useOpenProjectPeopleProtected(): () => boolean {
   const store = useContext(SourceContext);
   return useCallback(() => protectedNow(store), [store]);
+}
+
+/** §794: a stable getter for whether the open project reviews every AI write, asked at SEND time like the
+ *  people protection above. With no source registered only the deployment lock can say yes. */
+export function useOpenProjectReviewAllWrites(): () => boolean {
+  const store = useContext(SourceContext);
+  return useCallback(() => reviewAllWritesNow(store), [store]);
 }
 
 /** The same answer, render-reactive: for UI that hides a people feature (Plan with AI, RACI suggestions,

@@ -1,7 +1,7 @@
 "use client";
 
 import { AiPeopleProtectedContentError, holdsUnredactableContent } from "./ai-privacy";
-import { useOpenProjectAiPrivacy, useOpenProjectPeopleProtected } from "./ai-privacy-context";
+import { useOpenProjectAiPrivacy, useOpenProjectPeopleProtected, useOpenProjectReviewAllWrites } from "./ai-privacy-context";
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { PaperClipIcon, XMarkIcon } from "./icons";
 import { type ToolDispatcher, personStripContext, runTool } from "./chat-tools";
@@ -487,6 +487,7 @@ function ChatPanelInner({
   const workspaceRef = useRef(workspace);
   const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3): asked per request
   const peopleProtectedNow = useOpenProjectPeopleProtected(); // same source, asked once per send (layer 1)
+  const reviewAllWritesNow = useOpenProjectReviewAllWrites(); // §794: asked when the turn is gated
   useEffect(() => {
     workspaceRef.current = workspace;
   }, [workspace]);
@@ -969,7 +970,7 @@ function ChatPanelInner({
             const { ws, absence } = gateContext();
             return callAbsenceClashes(c, ws, absence).length > 0;
           };
-          if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord, hasClash)) {
+          if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord, hasClash, reviewAllWritesNow())) {
             sendRecord = { ...sendRecord, staged: true };
             const { ws, absence: gateAbsence } = gateContext();
             // AI-02 — a read changes nothing, so it runs in place and gets its real result; so does `optimize_wbs`,

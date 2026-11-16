@@ -20,6 +20,7 @@ import { NotificationsSection } from "./settings-sections/notifications-section"
 import { NextActionsSection } from "./settings-sections/next-actions-section";
 import { ProjectOverridesSection } from "./settings-sections/project-overrides-section";
 import { AiPeopleProtectionControl } from "./settings-sections/ai-people-protection-control";
+import { AiReviewWritesControl } from "./settings-sections/ai-review-writes-control";
 import { type SuggestionScope } from "./next-actions-tuning";
 import { AiSection } from "./settings-sections/ai-section";
 import { AiGuidesSection } from "./settings-sections/ai-guides-section";
@@ -437,6 +438,7 @@ export function SettingsView(props: SettingsViewProps) {
           <>
             <AiSection lang={lang} settings={settings} onChange={onChange} />
             {!props.isPopout && <AiPeopleProtectionControl lang={lang} />}
+            {!props.isPopout && <AiReviewWritesControl lang={lang} />}
           </>
         )}
         {active === "aiGuides" && (
