@@ -41,11 +41,29 @@ function evictElapsed(now: number): void {
   }
 }
 
+/** The hop count a raw setting gives, with no side effect. Unset, empty or `0` is 0 and valid; a value that is set
+ *  but not a whole number from 0 to `MAX_TRUSTED_HOPS` is 0 (every caller shares one count) and `invalid`. */
+export function parseTrustedHops(raw: string | undefined): { hops: number; invalid: boolean } {
+  const value = raw?.trim() ?? "";
+  if (value === "") return { hops: 0, invalid: false };
+  if (!/^\d+$/.test(value)) return { hops: 0, invalid: true };
+  const n = Number(value);
+  if (n === 0) return { hops: 0, invalid: false };
+  return n >= 1 && n <= MAX_TRUSTED_HOPS ? { hops: n, invalid: false } : { hops: 0, invalid: true };
+}
+
+/** Whether this server process already said the setting is invalid: once per process, not on every request. Mutable
+ *  module state on purpose, as `request-limit-config.ts` keeps for the relay and dictation limits. */
+let reportedInvalid = false;
+
 function trustedHops(env: Record<string, string | undefined>): number {
-  const raw = env[TRUSTED_PROXY_HOPS_ENV];
-  if (raw === undefined || !/^\d+$/.test(raw.trim())) return 0;
-  const n = Number(raw.trim());
-  return n >= 1 && n <= MAX_TRUSTED_HOPS ? n : 0;
+  const { hops, invalid } = parseTrustedHops(env[TRUSTED_PROXY_HOPS_ENV]);
+  if (invalid && !reportedInvalid) {
+    reportedInvalid = true;
+    // The setting's name only, never its value; the operator reads this in the server log (RUNBOOK).
+    console.warn(`trusted proxy hops setting invalid, every caller of a route shares one count: ${TRUSTED_PROXY_HOPS_ENV}`);
+  }
+  return hops;
 }
 
 /**

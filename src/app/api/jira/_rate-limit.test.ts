@@ -132,3 +132,39 @@ describe("clientKey", () => {
     expect(clientKey(req("9.9.9.9"), {})).toBe("shared");
   });
 });
+
+// §562 — a set but unusable AIPM_TRUSTED_PROXY_HOPS (not a whole number, or above 10) silently meant 0. It still
+// means 0 (every caller shares one count), and the server now says so once per process, naming the setting only,
+// as the relay and dictation limit settings do.
+describe("an invalid trusted-hops setting", () => {
+  const fresh = async () => {
+    vi.resetModules();
+    return import("./_rate-limit");
+  };
+  it("parses: unset, empty and 0 are valid; out-of-range or non-numeric values are invalid and count as 0", async () => {
+    const { parseTrustedHops } = await fresh();
+    expect(parseTrustedHops(undefined)).toEqual({ hops: 0, invalid: false });
+    expect(parseTrustedHops("")).toEqual({ hops: 0, invalid: false });
+    expect(parseTrustedHops("0")).toEqual({ hops: 0, invalid: false });
+    expect(parseTrustedHops("2")).toEqual({ hops: 2, invalid: false });
+    for (const bad of ["11", "99999", "abc", "-1", "1.5"]) expect(parseTrustedHops(bad), bad).toEqual({ hops: 0, invalid: true });
+  });
+  it("warns once per process, naming the setting and not its value", async () => {
+    const { clientKey } = await fresh();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(clientKey(req("9.9.9.9, 10.0.0.1"), { [TRUSTED_PROXY_HOPS_ENV]: "11" })).toBe("shared");
+    expect(clientKey(req("9.9.9.9, 10.0.0.1"), { [TRUSTED_PROXY_HOPS_ENV]: "11" })).toBe("shared");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]![0])).toContain(TRUSTED_PROXY_HOPS_ENV);
+    expect(String(warn.mock.calls[0]![0])).not.toContain("11");
+    warn.mockRestore();
+  });
+  it("CONTROL: a valid or unset setting warns nothing", async () => {
+    const { clientKey } = await fresh();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    clientKey(req("9.9.9.9"), { [TRUSTED_PROXY_HOPS_ENV]: "1" });
+    clientKey(req("9.9.9.9"), {});
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
