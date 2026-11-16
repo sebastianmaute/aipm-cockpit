@@ -48,8 +48,8 @@ feature on one demo project (E37, *measured*).
   CEO and COO briefs suggest, protection is forced on, which hides allocation and RACI (E18, *tested (unit)*).
 - **Two project settings in Settings → AI, both off until set:** "Review every AI write" sends every change to
   project data the chat proposes to the review card, even a single one, and a read never waits (E71,
-  *tested (unit)*); "Keep hourly rates out of Plan with AI" leaves the internal hourly rates out of that request
-  (E72, *tested (unit)*). The operator can force either on for every project.
+  *tested (unit)*); "Keep hourly rates out of Plan with AI and the chat's forecast" leaves the internal hourly
+  rates out of that request and out of the forecast results the chat reads (E72, *tested (unit)*). The operator can force either on for every project.
 - **Take or leave:** in the allocation, RACI, work breakdown and duplicate proposals you can deselect items, and
   the weight suggestion offers Accept for each weight; the others are applied, accepted or confirmed as a whole
   (E56, *read in code*). The steering committee draft waits under "AI draft – take sections into the report"

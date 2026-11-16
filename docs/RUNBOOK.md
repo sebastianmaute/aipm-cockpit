@@ -511,7 +511,7 @@ section there.
   to a speech service stops at once (`/api/stt` refuses), but a tab left open keeps the browser's
   own speech recognition until its next AI request or a reload (§789), so ask people to reload.
 - **`ai-direct-writes` forces every AI write into review** in every project, whatever a project chose; AI stays available.
-- **`ai-rates` keeps rates out of Plan with AI** in every project, whatever a project chose; AI stays available.
+- **`ai-rates` keeps hourly rates out of Plan with AI and the chat’s forecast** in every project, whatever a project chose; AI stays available.
 - **`ai` switches every AI feature off**, and dictation to a speech service with it
   (`/api/stt` refuses too). To check it took effect, open Settings → AI: it says the
   organisation switched AI off, and the master switch cannot be ticked. Users' keys and
@@ -807,6 +807,14 @@ the quota of everyone else on that route.
   `AIPM_STT_MAX_REQUESTS` (see the AI gateway section above).
 - **Per process.** The counters live in the server process's memory: a restart clears them,
   and with more than one server instance each instance enforces its own limit.
+- **★ Upgrading from a version that keyed on the forwarding header.** Before this change each
+  caller was counted under the address their own header named; now, without
+  `AIPM_TRUSTED_PROXY_HOPS`, a multi-user server with no appending proxy in front of it
+  shares ONE count per route among all its users. Jira, Confluence, Timelog and ECB are
+  fixed at 60 requests a minute with no setting to raise them, and Jira and Confluence
+  share one count (the Confluence route goes through the Jira route's request helpers). Only
+  the AI relay and dictation limits can be raised. If users start hitting the limit after
+  the upgrade, put an appending proxy in front and set `AIPM_TRUSTED_PROXY_HOPS`.
 
 Restart the server to apply a change.
 

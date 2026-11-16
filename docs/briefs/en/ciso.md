@@ -72,8 +72,8 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
 3. **Wildcard hosts by default:** unless the deployment sets `AIPM_CSP_TURSO_HOSTS` and `AIPM_CSP_SHAREPOINT_HOSTS`,
    the policy allows whole host families by wildcard (E34, *read in code*).
 4. **Request limits are shared and per process:** unless the deployment sets `AIPM_TRUSTED_PROXY_HOPS`, all
-   callers of each of the six limited routes, the relay's and dictation's included, share one count, so one
-   caller can use it up for everyone; the count is kept in each server process's memory and starts again at a
+   callers of each of the six limited routes, the relay's and dictation's included, share one count (Jira and
+   Confluence share one between them), so one caller can use it up for everyone; the count is kept in each server process's memory and starts again at a
    restart (E54, *tested (unit)*; the memory store *read in code*).
 
 ## What to check or ask for before saying yes

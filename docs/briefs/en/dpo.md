@@ -22,8 +22,11 @@ with Anthropic, transfers and a works agreement are questions only your organisa
   proposal sends each person's planned and available hours and, unless the project or the deployment keeps
   rates out, their role's internal hourly rate, and Timelog insights name one person with findings about their
   logged working time (E1, *read in code*; E72, *tested (unit)*).
-- **Hidden Resources function:** while a project hides it, no AI feature is offered the tools that read or
-  change people, absences and allocations, and no prompt carries the list of who is away; a chat date write that lands on someone's
+- **Hidden Resources function:** while a project hides it, no AI feature is offered that function's tools (the
+  resource directory, absences, allocations and contact e-mail look-ups), no prompt carries the list of who is
+  away, and insight recommendations name only people already assigned to open tasks; the stakeholder tools
+  follow the Stakeholders function, and history search, chat search, the status inquiry and RAID escalation
+  stay available; a chat date write that lands on someone's
   absence is still held for review, so the model can tell it was held but learns nothing about who is away or
   when. Hiding it does not take names out of tasks and other records; that is people protection's job (E59,
   *tested (unit)*).
@@ -57,9 +60,9 @@ with Anthropic, transfers and a works agreement are questions only your organisa
 - **Protection everywhere:** the deployment's operator, not the DPO, sets `ai-people`, which forces protection
   on in every project (E19, *tested (unit)*) and hides allocation and RACI (E18, *tested (unit)*); lifting it
   returns each project to its stored setting (E43, *read in code*).
-- **Rates:** a project's "Keep hourly rates out of Plan with AI" setting, or `ai-rates` for the whole
-  deployment, keeps the rates out of that request; the people, their roles and their hours are still sent (E72,
-  *tested (unit)*).
+- **Rates:** a project's "Keep hourly rates out of Plan with AI and the chat's forecast" setting, or `ai-rates`
+  for the whole deployment, keeps the rates out of that request and out of the forecast results the chat reads;
+  the people, their roles and their hours are still sent (E72, *tested (unit)*).
 - **Saved chats:** kept only with a Turso database and the operator's recovery key (E28, *read in code*);
   deleted 30 days after their last change (the operator can set 1 to 3650), by the browser and, where set up,
   by the server (E29, *read in code*).
@@ -72,11 +75,8 @@ with Anthropic, transfers and a works agreement are questions only your organisa
 
 1. **§813:** chat erasure is proven live only for its database statements, not for the screens, real sweeps,
    the provider's backups or what the model vendor keeps (E30, *tested (live database)*).
-2. **Rates in forecast results:** when the chat reads a forecast, a what-if scenario that adds a person reports
-   that person's internal hourly rate, whatever the rates setting, which covers Plan with AI only (E72,
-   *read in code*).
-3. **§795:** background AI is consented once, not approved run by run (E32, *tested (unit)*).
-4. **§814:** the refusal of images and PDFs under protection, and the other projects' hours in allocation, have
+2. **§795:** background AI is consented once, not approved run by run (E32, *tested (unit)*).
+3. **§814:** the refusal of images and PDFs under protection, and the other projects' hours in allocation, have
    no observed behaviour from a measured run (E39, *not proven*).
 
 ## What to check or ask for before saying yes

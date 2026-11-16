@@ -103,23 +103,24 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
 - **§802** — Routing AI through an organisation's gateway has been tested against fakes and a local
   server only. How a real gateway behaves with the app has not been confirmed by a run.
 
-Three limits remain that have no open register entry:
+Two limits remain that have no open register entry:
 
 - **Request limits.** The limit on the Jira, Confluence, Timelog, exchange-rate, AI and dictation routes no
   longer trusts a header the caller sets. By default all callers of a route share one count, so one caller
   can use it up for everyone; `AIPM_TRUSTED_PROXY_HOPS`, set behind reverse proxies that append the caller's
-  address to `x-forwarded-for`, counts each caller separately. The count is kept in each server process's
-  memory and starts again from zero when the server restarts. [verified: `clientKey` in
-  `src/app/api/jira/_rate-limit.ts` and its tests in `_rate-limit.test.ts`]
-- **Hourly rates in forecasts.** A project, or the deployment with `ai-rates`, can keep hourly rates out of
-  Plan with AI. That setting covers Plan with AI only: when the AI chat reads a forecast, a what-if scenario
-  that adds a person reports that person's internal hourly rate. [verified: `buildAllocContext` in
-  `src/app/alloc-plan/alloc-plan.ts`; `ratePerHour` in `src/app/forecast-ai-report.ts`]
-- **A hidden Resources function.** While a project hides it, the AI is offered no tool for people, absences
-  or allocations and no prompt lists who is away. A chat date change that lands on someone's absence is still
+  address to `x-forwarded-for`, counts each caller separately. Jira and Confluence share one count. Only the
+  AI and dictation limits can be raised; the others are fixed at 60 a minute. The count is kept in each server
+  process's memory and starts again from zero when the server restarts. [verified: `clientKey` and
+  `rateLimit` in `src/app/api/jira/_rate-limit.ts` and its tests in `_rate-limit.test.ts`; the Confluence
+  route's import of the Jira route's helpers in `src/app/api/confluence/page/route.ts`]
+- **A hidden Resources function.** While a project hides it, the AI is offered none of that function's tools
+  (the resource directory, absences, allocations and contact e-mail look-ups), no prompt lists who is away, and
+  insight recommendations name only people already assigned to open tasks. The stakeholder tools follow the
+  Stakeholders function instead; history search, chat search, the status inquiry and RAID escalation stay
+  available. A chat date change that lands on someone's absence is still
   held on the review card, so the AI can tell that the change was held, but learns nothing about who is away
   or when. Hiding the function does not take people's names out of tasks and other records; people
-  protection does that. [verified: `peopleToolsOffered` in `src/app/chat-tool-defs.ts`;
+  protection does that. [verified: `toolWithheldBy` in `src/app/chat-tool-defs.ts`;
   `buildAiAwaySummary` in `src/app/absence-clash.ts`; `src/app/chat-panel.absence-clash.test.tsx`]
 
 ## How to read the labels

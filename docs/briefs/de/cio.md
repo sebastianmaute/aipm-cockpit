@@ -70,9 +70,10 @@ Schalter und die Beobachtung der Ausgaben: Nichts in der App hält interaktive K
 3. **§814:** Sechs Pfade haben weder gemessene Kosten noch beobachtetes Verhalten, darunter ein abgelehnter
    Schlüssel (E39, *nicht belegt*).
 4. **Anfragegrenzen sind geteilt und gelten je Prozess:** Sofern Sie `AIPM_TRUSTED_PROXY_HOPS` nicht setzen,
-   teilen sich alle Aufrufer jeder der sechs begrenzten Routen, auch des Relays und des Diktats, eine Zählung,
-   sodass ein Aufrufer sie für alle aufbrauchen kann; die Zählung liegt im Speicher jedes Serverprozesses und
-   beginnt bei einem Neustart von vorn (E54, *getestet (Unit)*; der Speicher *im Code gelesen*).
+   teilen sich alle Aufrufer jeder der sechs begrenzten Routen, auch des Relays und des Diktats, eine Zählung
+   (Jira und Confluence teilen sich eine gemeinsame), sodass ein Aufrufer sie für alle aufbrauchen kann; nur die
+   Grenzen des Relays und des Diktats lassen sich erhöhen, die übrigen liegen fest bei 60 pro Minute; die
+   Zählung liegt im Speicher jedes Serverprozesses und beginnt bei einem Neustart von vorn (E54, *getestet (Unit)*; der Speicher *im Code gelesen*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
 

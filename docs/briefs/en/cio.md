@@ -59,8 +59,10 @@ to watch spend: nothing in the app stops interactive AI at a spend limit (E38, *
    (E40, *read in code*).
 3. **§814:** six paths have no measured cost or behaviour, a refused key among them (E39, *not proven*).
 4. **Request limits are shared and per process:** unless you set `AIPM_TRUSTED_PROXY_HOPS`, all callers of each
-   of the six limited routes, the relay's and dictation's included, share one count, so one caller can use it up
-   for everyone; the count is kept in each server process's memory and starts again at a restart (E54,
+   of the six limited routes, the relay's and dictation's included, share one count (Jira and Confluence share
+   one between them), so one caller can use it up for everyone; only the relay's and dictation's limits can be
+   raised, and the others are fixed at 60 a minute; the count is kept in each server process's memory and
+   starts again at a restart (E54,
    *tested (unit)*; the memory store *read in code*).
 
 ## What to check or ask for before saying yes

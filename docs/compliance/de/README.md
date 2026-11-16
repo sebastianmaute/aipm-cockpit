@@ -120,25 +120,26 @@ wo die Einzelheiten stehen. [geprüft: die Registereinträge in `docs/open-follo
   Attrappen und einen lokalen Server getestet. Wie sich ein echtes Gateway mit der App verhält, ist durch
   keinen Lauf bestätigt.
 
-Drei Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
+Zwei Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
 
 - **Anfragegrenzen.** Die Begrenzung der Routen für Jira, Confluence, Timelog, Wechselkurse, KI und Diktat
   vertraut keinem Header mehr, den der Aufrufer setzt. Standardmäßig teilen sich alle Aufrufer einer Route
   eine Zählung, sodass ein Aufrufer sie für alle aufbrauchen kann; `AIPM_TRUSTED_PROXY_HOPS`, gesetzt hinter
   Reverse-Proxys, die die Adresse des Aufrufers an `x-forwarded-for` anhängen, zählt jeden Aufrufer getrennt.
-  Die Zählung liegt im Speicher jedes Serverprozesses und beginnt bei einem Neustart des Servers wieder bei
-  null. [geprüft: `clientKey` in `src/app/api/jira/_rate-limit.ts` und seine Tests in `_rate-limit.test.ts`]
-- **Stundensätze in Prognosen.** Ein Projekt, oder die Bereitstellung mit `ai-rates`, kann Stundensätze aus
-  „Mit KI planen“ heraushalten. Diese Einstellung deckt nur „Mit KI planen“ ab: Liest der KI-Chat eine
-  Prognose, meldet ein Was-wäre-wenn-Szenario, das eine Person hinzufügt, den internen Stundensatz dieser
-  Person. [geprüft: `buildAllocContext` in `src/app/alloc-plan/alloc-plan.ts`; `ratePerHour` in
-  `src/app/forecast-ai-report.ts`]
-- **Eine ausgeblendete Ressourcen-Funktion.** Solange ein Projekt sie ausblendet, bekommt die KI kein
-  Werkzeug für Personen, Abwesenheiten oder Zuteilungen angeboten, und keine Anfrage führt auf, wer abwesend
-  ist. Eine Terminänderung im Chat, die auf die Abwesenheit einer Person fällt, wird weiterhin auf der
+  Jira und Confluence teilen sich eine Zählung. Nur die Grenzen für KI und Diktat lassen sich erhöhen; die
+  übrigen liegen fest bei 60 pro Minute. Die Zählung liegt im Speicher jedes Serverprozesses und beginnt bei
+  einem Neustart des Servers wieder bei null. [geprüft: `clientKey` und `rateLimit` in
+  `src/app/api/jira/_rate-limit.ts` und seine Tests in `_rate-limit.test.ts`; der Import der Hilfsfunktionen
+  der Jira-Route in `src/app/api/confluence/page/route.ts`]
+- **Eine ausgeblendete Ressourcen-Funktion.** Solange ein Projekt sie ausblendet, bekommt die KI keines der
+  Werkzeuge dieser Funktion angeboten (Ressourcenverzeichnis, Abwesenheiten, Zuteilungen und das Nachschlagen
+  einer Kontakt-E-Mail), keine Anfrage führt auf, wer abwesend ist, und Insight-Empfehlungen nennen nur
+  Personen, die bereits offenen Aufgaben zugewiesen sind. Die Stakeholder-Werkzeuge folgen stattdessen der
+  Stakeholder-Funktion; die Suche im Verlauf, die Suche in Chats, die Statusanfrage und die Eskalation eines
+  RAID-Eintrags bleiben verfügbar. Eine Terminänderung im Chat, die auf die Abwesenheit einer Person fällt, wird weiterhin auf der
   Prüfkarte zurückgehalten; die KI kann also erkennen, dass die Änderung zurückgehalten wurde, erfährt aber
   nichts darüber, wer wann abwesend ist. Das Ausblenden nimmt keine Namen von Personen aus Aufgaben und
-  anderen Einträgen heraus; das tut der Personenschutz. [geprüft: `peopleToolsOffered` in
+  anderen Einträgen heraus; das tut der Personenschutz. [geprüft: `toolWithheldBy` in
   `src/app/chat-tool-defs.ts`; `buildAiAwaySummary` in `src/app/absence-clash.ts`;
   `src/app/chat-panel.absence-clash.test.tsx`]
 

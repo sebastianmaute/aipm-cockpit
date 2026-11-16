@@ -81,7 +81,8 @@ der App.
    *im Code gelesen*).
 4. **Anfragegrenzen sind geteilt und gelten je Prozess:** Sofern die Bereitstellung `AIPM_TRUSTED_PROXY_HOPS`
    nicht setzt, teilen sich alle Aufrufer jeder der sechs begrenzten Routen, auch des Relays und des Diktats,
-   eine Zählung, sodass ein Aufrufer sie für alle aufbrauchen kann; die Zählung liegt im Speicher jedes
+   eine Zählung (Jira und Confluence teilen sich eine gemeinsame), sodass ein Aufrufer sie für alle aufbrauchen
+   kann; die Zählung liegt im Speicher jedes
    Serverprozesses und beginnt bei einem Neustart von vorn (E54, *getestet (Unit)*; der Speicher
    *im Code gelesen*).
 
