@@ -66,8 +66,7 @@ der App.
 - **KI im Hintergrund pausiert:** `ai-background` in `AIPM_DISABLED_INTEGRATIONS` pausiert die drei KI-Hintergrundläufe
   in jedem Projekt; die eigene Einstellung eines Projekts tut dasselbe für dieses Projekt. Die App setzt es durch,
   keine Server-Route lehnt ab, und ein Client, der nicht aktualisiert wurde, verwirft die Einstellung des Projekts,
-  wenn er ein gemeinsames Projekt speichert; verwenden Sie bei gemischten Versionen die Kennung (E32,
-  *getestet (Unit)*).
+  wenn er ein gemeinsames Projekt speichert, und ignoriert auch die Kennung `ai-background` (sein Parser verwirft die unbekannte Kennung); die Kennung schützt daher erst vollständig, wenn jeder Client aktualisiert ist (E32, *getestet (Unit)*).
 - **Installationsdatei:** Jede Desktop-Version trägt eine SBOM, mit Herkunftsnachweisen (Attestierungen) nur,
   solange das Repository öffentlich ist (E50, *getestet (Unit)*); die Installationsdatei ist nicht codesigniert
   (E51, *getestet (Unit)*). `AIPM_DISABLE_UPDATE_CHECK` schaltet die Update-Prüfung der Desktop-App ab (E34,

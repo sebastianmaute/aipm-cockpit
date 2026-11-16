@@ -140,11 +140,10 @@ Six limits remain that have no open register entry:
   runs (the scheduled job analysis, the automatic insight recommendations and the scheduled digest summary); AI a
   person starts is not affected, and the pause does not withdraw anyone's background consent. The app enforces it
   in the browser, so a modified client could bypass it; no server route refuses. A client that has not been
-  upgraded drops the project's setting when it saves a shared project, so a team with mixed versions should use
-  the deployment id. A scheduled job decides from its own project, so a paused project's job is tried at most once an hour on
+  upgraded drops the project's setting when it saves a shared project, and also ignores the `ai-background` id (its parser drops the unknown id), so the deployment id protects fully only once every client is upgraded. A scheduled job decides from its own project, so a paused project's job is tried at most once an hour on
   each device and then stops without a report or anything sent to the AI; the scheduled-jobs settings say that a
   job does not run while its project is paused, not which project is. On the device where the switch is turned
-  on, the jobs of the open project pause at once, before the save lands; other devices follow once it is saved.
+  on, the jobs of the open project pause at once, before the save lands; other devices follow once it is saved. Background AI on the open project is also paused until the app has loaded a project, and when the switch is turned back off that device tries the jobs again at the next check and other devices within an hour.
   A run that does start still sends what it always sent, and no one approves it first. [verified:
   `assertBackgroundConsentLive` in `src/app/ai-consent.ts`; `backgroundOff` in `src/app/settings-overrides.ts`]
 

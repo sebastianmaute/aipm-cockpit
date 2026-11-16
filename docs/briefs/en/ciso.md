@@ -60,8 +60,7 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
   the conversation read; a read never waits (E71, *tested (unit)*).
 - **Background AI paused:** `ai-background` in `AIPM_DISABLED_INTEGRATIONS` pauses the three background AI runs in
   every project; a project's own setting does the same for that project. The app enforces it, no server route
-  refuses, and a client that was not upgraded drops the project setting when it saves a shared project, so use the
-  id for mixed-version teams (E32, *tested (unit)*).
+  refuses, and a client that was not upgraded drops the project setting when it saves a shared project and also ignores the `ai-background` id (its parser drops the unknown id), so the id protects fully only once every client is upgraded (E32, *tested (unit)*).
 - **Installer:** each desktop release carries an SBOM, with attestations only while the repository is public
   (E50, *tested (unit)*); the installer is not code-signed (E51, *tested (unit)*). `AIPM_DISABLE_UPDATE_CHECK`
   switches the desktop update check off (E34, *read in code*).

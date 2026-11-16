@@ -163,12 +163,11 @@ Sechs Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
   die geplante Zusammenfassung des Digests); KI, die eine Person startet, bleibt unberührt, und die Pause zieht
   niemandes Hintergrund-Zustimmung zurück. Die App setzt sie im Browser durch, ein veränderter Client könnte sie
   also umgehen; keine Server-Route lehnt ab. Ein Client, der nicht aktualisiert wurde, verwirft die Einstellung
-  des Projekts, wenn er ein gemeinsames Projekt speichert; ein Team mit gemischten Versionen sollte daher die
-  Kennung der Installation verwenden. Ein geplanter Job entscheidet nach seinem eigenen Projekt: Der Job eines pausierten Projekts wird
+  des Projekts, wenn er ein gemeinsames Projekt speichert; er ignoriert auch die Kennung `ai-background` (sein Parser verwirft die unbekannte Kennung); die Kennung der Installation schützt daher erst vollständig, wenn jeder Client aktualisiert ist. Ein geplanter Job entscheidet nach seinem eigenen Projekt: Der Job eines pausierten Projekts wird
   auf jedem Gerät höchstens einmal pro Stunde versucht und hält dann ohne Bericht an, ohne etwas an die KI zu
   senden; die Einstellungen der geplanten Jobs sagen, dass ein Job nicht läuft, solange sein Projekt pausiert ist,
   nicht aber, welches Projekt es ist. Auf dem Gerät, auf dem der Schalter gesetzt wird, pausieren die Jobs des
-  geöffneten Projekts sofort, noch bevor gespeichert ist; andere Geräte folgen, sobald es gespeichert ist.
+  geöffneten Projekts sofort, noch bevor gespeichert ist; andere Geräte folgen, sobald es gespeichert ist. Die Hintergrund-KI des geöffneten Projekts ist außerdem pausiert, bis die App ein Projekt geladen hat; wird der Schalter wieder ausgeschaltet, versucht dieses Gerät die Jobs bei der nächsten Prüfung erneut, andere Geräte innerhalb einer Stunde.
   Ein Lauf, der doch startet, sendet weiter, was
   er immer gesendet hat, und niemand gibt ihn vorher frei. [geprüft: `assertBackgroundConsentLive` in
   `src/app/ai-consent.ts`; `backgroundOff` in `src/app/settings-overrides.ts`]
