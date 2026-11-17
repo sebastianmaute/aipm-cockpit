@@ -8,7 +8,7 @@ import type { DashboardModel } from "./dashboard";
 import type { RaidItem } from "./types";
 import { buildDigest, type DigestModel } from "./digest/digest-model";
 import { loadDigestState, advanceDigestState, isDigestDue } from "./digest/digest-state";
-import { buildDigestEmailHtml, buildDigestEmailSubject } from "./digest/digest-email";
+import { buildDigestEmailHtml, buildDigestEmailSubject, digestHasAiContent } from "./digest/digest-email";
 import { runDigestNarrative } from "./digest/digest-narrative";
 import { useActionGuideText, useActionGuidesReady } from "./action-guides-context";
 import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
@@ -208,7 +208,7 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
           reportCapabilityGap(guardToast, deps.lang, "digest.emailNoAccount", "digestEmailNoAccess");
           return;
         }
-        await deps.sendDigestMail(token, buildDigestEmailSubject(d, deps.lang), buildDigestEmailHtml(d, deps.lang), !!d.narrative);
+        await deps.sendDigestMail(token, buildDigestEmailSubject(d, deps.lang), buildDigestEmailHtml(d, deps.lang), digestHasAiContent(d));
         // Confirm the send: without this a WORKING button was indistinguishable
         // from a broken one (mirrors use-comm-send's commSendSent).
         deps.showToast(t(deps.lang, "digestEmailSent"), "info");

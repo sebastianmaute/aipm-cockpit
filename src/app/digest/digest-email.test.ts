@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { buildDigestEmailHtml, buildDigestEmailSubject } from "./digest-email";
+import { buildDigestEmailHtml, buildDigestEmailSubject, digestHasAiContent } from "./digest-email";
 import { loadI18n, t } from "../i18n";
 import type { DigestModel } from "./digest-model";
 
@@ -40,6 +40,15 @@ describe("digest email", () => {
       expect(html).toContain(line);
       expect(html.indexOf(line)).toBeGreaterThan(html.indexOf("Plan &lt;ok&gt; &amp; stable."));
       expect(html.indexOf(line)).toBeLessThan(html.indexOf("<table"));
+    }
+  });
+
+  it("digestHasAiContent agrees with whether the HTML carries the AI line", () => {
+    const line = t("en-US", "aiContentMarkLine");
+    for (const [narrative, expected] of [["Plan is stable.", true], [undefined, false], ["", false]] as const) {
+      const m = narrative === undefined ? MODEL : { ...MODEL, narrative };
+      expect(digestHasAiContent(m)).toBe(expected);
+      expect(buildDigestEmailHtml(m, "en-US").includes(line)).toBe(expected);
     }
   });
 
