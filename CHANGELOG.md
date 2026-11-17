@@ -10,6 +10,18 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-11-17 "French"
+
+A feature release about control over what the AI sees and does. People protection is on by default and redacts names,
+e-mail addresses, phone numbers and IBANs before a request leaves the browser. Background AI, review of every AI
+write and keeping hourly rates out of the AI can each be switched off or forced on, per project or for a whole
+deployment, which can also switch AI off, route it through an AI gateway or restrict it to its own Anthropic
+organisation's keys. Saved AI chats are private to their writer and deleted after a retention period. Documents the AI
+wrote or changed are marked as AI-generated. Claude respects absences, Plan with AI sees the project, and reassigning
+a task moves its planned hours. Before upgrading, read the notes under Saved AI chats: until the recovery key is set
+no chat is saved, and older chats past the retention period are deleted on the first start. Update every device that
+shares a database, since older versions drop the new settings.
+
 ### Added
 
 - **Project documents the AI wrote or changed are marked as AI-generated, and so is the digest mail with an AI
