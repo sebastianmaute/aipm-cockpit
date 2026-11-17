@@ -18,6 +18,7 @@ import type { DocVersion } from "./document-versions";
 const DOC: ProjectDocument = {
   id: 1,
   title: "Steering deck",
+  aiGenerated: true,
   blocks: [
     { type: "heading", level: 1, text: "Status" },
     { type: "paragraph", html: "<p>Safe body</p>" },
@@ -31,6 +32,7 @@ const VERSION: DocVersion = {
   id: 1,
   documentId: 2,
   title: "Prior deck",
+  aiGenerated: true,
   blocks: [
     { type: "heading", level: 1, text: "Status" },
     { type: "paragraph", html: "<p>Safe body</p>" },

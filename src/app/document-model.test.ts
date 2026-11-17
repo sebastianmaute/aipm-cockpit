@@ -832,3 +832,22 @@ describe("firstCapViolation (§191)", () => {
     }
   });
 });
+
+describe("sanitizeProjectDocuments — aiGenerated", () => {
+  it("keeps aiGenerated: true", () => {
+    const [d] = sanitizeProjectDocuments([doc({ aiGenerated: true })]);
+    expect(d.aiGenerated).toBe(true);
+  });
+
+  it.each([["yes"], [false], [1], [null], ["true"]])("drops %j", (bad) => {
+    const [d] = sanitizeProjectDocuments([{ ...doc(), aiGenerated: bad }]);
+    expect("aiGenerated" in d).toBe(false);
+  });
+
+  it("emits NO aiGenerated key for an unmarked document (byte-identical JSON)", () => {
+    const input = doc();
+    const [d] = sanitizeProjectDocuments([input]);
+    expect(JSON.stringify(d)).toBe(JSON.stringify(input));
+    expect(JSON.stringify(d)).not.toContain("aiGenerated");
+  });
+});

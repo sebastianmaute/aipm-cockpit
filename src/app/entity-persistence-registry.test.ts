@@ -351,6 +351,7 @@ describe("entity persistence registry — documents survive every text backend",
     documents: [{
       id: 1,
       title: "Steering update",
+      aiGenerated: true,
       blocks: [
         { type: "heading", level: 1, text: "Steering update" },
         { type: "paragraph", html: "<p>Delivery is on track.</p>" },
@@ -410,6 +411,7 @@ describe("entity persistence registry — documentVersions survive every text ba
       id: 1,
       documentId: 7,
       title: "Steering update — first cut",
+      aiGenerated: true as const,
       blocks: [
         { type: "heading", level: 2, text: "Steering update" },
         { type: "paragraph", html: "<p>Delivery is on track.</p>" },

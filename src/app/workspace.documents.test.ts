@@ -75,6 +75,7 @@ const EMPTY = {
 const DOC = {
   id: 1,
   title: "Status report",
+  aiGenerated: true,
   blocks: [{ type: "heading", level: 1, text: "March" }],
   createdAt: "2026-08-06T00:00:00.000Z",
   updatedAt: "2026-08-06T00:00:00.000Z",
@@ -318,6 +319,7 @@ const VERSION = {
   id: 1,
   documentId: 7,
   title: "Old title",
+  aiGenerated: true as const,
   blocks: [{ type: "paragraph" as const, html: "<p>before</p>" }],
   savedAt: "2026-08-01T09:00:00.000Z",
   source: "ai" as const,

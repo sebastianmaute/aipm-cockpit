@@ -66,6 +66,10 @@ export type ProjectDocument = {
   /** Project entities this document is about. Sparse — omitted when empty, so
    *  an unlinked document serializes byte-identically. See document-ref.ts. */
   linkedEntities?: readonly DocEntityRef[];
+  /** Set when an AI tool wrote this document. Sparse like `linkedEntities`:
+   *  ABSENT means not marked, and only the literal `true` is ever stored, so an
+   *  unmarked document serializes byte-identically. See ai-content-mark.ts. */
+  aiGenerated?: true;
 };
 
 /** ★★★ READ THE REGISTRY AT CALL TIME, NEVER AT MODULE-EVAL — and do not
@@ -324,6 +328,8 @@ function sanitizeDocument(raw: unknown): ProjectDocument | null {
     updatedAt: isoOr(d.updatedAt, createdAt),
     // Sparse: an empty list is an ABSENT field, not `[]` — the goldens pin bytes.
     ...(linkedEntities.length > 0 ? { linkedEntities } : {}),
+    // Only the literal `true` survives; anything else is an ABSENT key.
+    ...(d.aiGenerated === true ? { aiGenerated: true as const } : {}),
   };
 }
 

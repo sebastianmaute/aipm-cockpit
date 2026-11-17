@@ -27,6 +27,7 @@ const KV_DOCUMENTS_KEY = "documents";
 const DOC: ProjectDocument = {
   id: 1,
   title: "Steering deck",
+  aiGenerated: true,
   blocks: [
     { type: "heading", level: 2, text: "Status" },
     { type: "paragraph", html: "<p>On <strong>track</strong>.</p>" },

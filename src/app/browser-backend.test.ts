@@ -433,6 +433,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
       id: 1,
       documentId: 4,
       title: "Prior",
+      aiGenerated: true as const,
       blocks: [{ type: "heading" as const, level: 2 as const, text: "Old" }],
       savedAt: "2026-08-02T08:00:00.000Z",
       source: "user" as const,
