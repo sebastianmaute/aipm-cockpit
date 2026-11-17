@@ -101,8 +101,9 @@ src/app/
 │                            user-supplied host and are SSRF-guarded via
 │                            api/_shared/proxy-ssrf.ts — reuse it, don't hand-roll.
 │                            ecb is the exception: one hard-coded URL, no user input.
-│                            Plus the AI relay: ai/messages, ai/models, ai/status
-│                            (used only behind a gateway or a key restriction)
+│                            Plus ai/messages and ai/models (the AI relay, used only
+│                            behind a gateway or a key restriction) and ai/status
+│                            (asked before every AI send)
 ├── task-manager.tsx      — orchestrator; owns most client state
 ├── task-form-modal.tsx   — task create/edit form modal (extracted slice 4)
 ├── bulk-edit-modal.tsx   — bulk-edit dialog (extracted slice 4)

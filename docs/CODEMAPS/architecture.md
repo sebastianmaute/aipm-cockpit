@@ -5,8 +5,8 @@
 Single Next.js app (public `next` pinned exactly — read the version from `package.json` — React 19.3.1), **no server database and no backend of
 its own**. All project data lives client-side; the only server code is a set of thin same-origin
 proxies that exist to add auth + SSRF guards to third-party calls the browser cannot make directly,
-the AI relay (`/api/ai/*`, used only when the deployment sends AI through a gateway or restricts keys to
-its organisation), a daily sweep of expired saved chats started from `src/instrumentation.ts`, and
+the AI relay (`/api/ai/messages` and `/api/ai/models`, used only when the deployment sends AI through a
+gateway or restricts keys to its organisation) with `/api/ai/status`, asked before every AI send, a daily sweep of expired saved chats started from `src/instrumentation.ts`, and
 request-time middleware issuing a per-request CSP nonce.
 
 ```
