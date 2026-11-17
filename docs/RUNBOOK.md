@@ -340,7 +340,9 @@ check (`desktop/src/update-signature.ts`): a future signed release whose
 packed `resources/app-update.yml` names a `publisherName` switches it on, and
 from then on every copy installed from that release refuses an update whose
 installer is not validly signed by that publisher. Plan that first signed
-release, and any later change of the certificate's subject, as a one-way step.
+release, and any later change of the certificate's subject, as a one-way step:
+the removed pipeline's automatic guard against an unsigned release following a
+signed one is gone too and would have to be rebuilt with the new provider.
 
 **One-time setup still open.**
 

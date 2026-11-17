@@ -2,7 +2,7 @@
 //
 // Mostly a textual guard over .github/workflows/*.yml: the helpers read the fixed two-space layout
 // these files are written in, and their own tests below pin what they accept and reject. The release
-// sign path's app-tree checks are asserted on PARSED YAML instead (js-yaml, which only
+// workflow's job graph and environments are asserted on PARSED YAML instead (js-yaml, which only
 // desktop/node_modules holds -- see parsedRelease). actionlint (in the static job) is the
 // structural check; this file pins the repository-specific rules actionlint cannot know.
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -437,6 +437,7 @@ describe("release.yml", () => {
   it("publish verifies, attests and publishes the files the build uploaded", () => {
     const pub = jobBlock(RELEASE, "publish").replace(/\r\n/g, "\n");
     expect(pub).toMatch(/uses: actions\/download-artifact@[0-9a-f]{40} # v\S+\n {8}with:\n {10}name: release-files\n {10}path: \$\{\{ runner\.temp \}\}\/release$/m);
+    expect(pub.indexOf("npm run release:verify")).toBeLessThan(pub.indexOf("- name: Attest build provenance"));
     expect(pub.indexOf("npm run release:verify")).toBeLessThan(pub.indexOf("npm run release:publish"));
     // Only the build uploads the release files.
     const uploads = JOBS.filter((id) => (job(id).steps ?? []).some((s) => s.with?.name === "release-files" && /upload-artifact@/.test(s.uses ?? "")));

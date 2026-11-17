@@ -326,8 +326,8 @@ describe("feedRequiresSignature", () => {
   });
 });
 
-// signerMatches must decide exactly as electron-updater does, or CI could call an installer signed
-// that installed copies refuse (or the reverse). The reference is electron-updater's own rule
+// signerMatches must decide exactly as electron-updater does, or a future release check built on it
+// could call an installer signed that installed copies refuse (or the reverse). The reference is electron-updater's own rule
 // (windowsExecutableCodeSignatureVerifier.js) over the parseDn of the builder-util-runtime copy
 // electron-updater itself resolves.
 describe("signerMatches agrees with electron-updater", () => {
