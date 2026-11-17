@@ -42,7 +42,8 @@ export function buildDigestEmailHtml(model: DigestModel, lang: Lang): string {
     .map((m) => `<li>${esc(m.name)} — ${esc(m.date)}</li>`)
     .join("");
   const narrative = model.narrative
-    ? `<p style="margin:0 0 12px 0">${esc(model.narrative)}</p>`
+    ? `<p style="margin:0 0 12px 0">${esc(model.narrative)}</p>` +
+      `<p style="margin:0 0 12px 0;font-size:11px;color:${DARK_BLUE}">${esc(t(lang, "aiContentMarkLine"))}</p>`
     : "";
   return (
     `<div style="font-family:Arial,sans-serif;color:#222;max-width:600px">` +

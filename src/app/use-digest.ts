@@ -33,7 +33,7 @@ export interface UseDigestDeps {
   aiModel: string;
   m365Configured: boolean;
   acquireToken: (scopes: readonly string[], opts?: { interactive?: boolean }) => Promise<string | null>;
-  sendDigestMail: (token: string, subject: string, html: string) => Promise<void>;
+  sendDigestMail: (token: string, subject: string, html: string, aiGenerated?: boolean) => Promise<void>;
   fireNotification: (title: string, body: string) => void;
   showToast: (msg: string, kind: "error" | "info") => void;
   runNarrative?: typeof runDigestNarrative;
@@ -208,7 +208,7 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
           reportCapabilityGap(guardToast, deps.lang, "digest.emailNoAccount", "digestEmailNoAccess");
           return;
         }
-        await deps.sendDigestMail(token, buildDigestEmailSubject(d, deps.lang), buildDigestEmailHtml(d, deps.lang));
+        await deps.sendDigestMail(token, buildDigestEmailSubject(d, deps.lang), buildDigestEmailHtml(d, deps.lang), !!d.narrative);
         // Confirm the send: without this a WORKING button was indistinguishable
         // from a broken one (mirrors use-comm-send's commSendSent).
         deps.showToast(t(deps.lang, "digestEmailSent"), "info");

@@ -3,6 +3,7 @@
 // component is coverage-excluded UI glue and had no test, which is how the
 // false-success bug shipped.
 import { buildGraphMessage, sendMail } from "../graph-mail";
+import { AI_MARK_HEADER, AI_SOURCE_TYPE_URI } from "../ai-content-mark";
 
 /**
  * CONTRACT: resolve ONLY when a mail was actually accepted by Graph; throw on
@@ -19,12 +20,13 @@ export function createDigestMailSender(
   getRecipient: () => string | undefined,
   send: typeof sendMail = sendMail,
 ) {
-  return async (token: string, subject: string, html: string): Promise<void> => {
+  return async (token: string, subject: string, html: string, aiGenerated?: boolean): Promise<void> => {
     // Trim before the emptiness check: `buildGraphMessage` trims and drops empty
     // addresses, so a whitespace-only username would slip past a bare falsy
     // check and POST with an empty `toRecipients`.
     const to = (getRecipient() ?? "").trim();
     if (!to) throw new Error("no-recipient");
-    await send(token, buildGraphMessage(to, subject, html));
+    const headers = aiGenerated ? [{ name: AI_MARK_HEADER, value: AI_SOURCE_TYPE_URI }] : undefined;
+    await send(token, buildGraphMessage(to, subject, html, headers));
   };
 }
