@@ -311,8 +311,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   officially prints. `turso-config.ts` once carried an `isLikelyRegionQualifiedTursoUrl` guard driving a
   settings banner that told users to strip the region segment; that advice was wrong and the helper, banner
   and `tursoUrlRegionWarning` strings were all removed. Do NOT reintroduce it.
-- **CSP allowlist:** every host BROWSER calls (Turso, Anthropic, MS Graph, MSAL, Jira) must be in
-  `src/proxy.ts` `connect-src`/`frame-src` — NOT `next.config`. Missing host fails only at RUNTIME
+- **CSP allowlist:** every host the BROWSER calls directly (Turso, Anthropic, MS Graph/SharePoint, MSAL) must be in
+  `src/proxy.ts` (`CSP_CONNECT_HOSTS`/`CSP_FRAME_HOSTS`) — NOT `next.config`. Proxied services (Jira,
+  Confluence, Timelog, STT, ECB) are same-origin and need no entry. ★ `api.anthropic.com` is `when: "ai-direct"`:
+  it is left out while AI is switched off, gatewayed or key-restricted; and `readCspHostSettings`
+  (`AIPM_CSP_TURSO_HOSTS`/`AIPM_CSP_SHAREPOINT_HOSTS`) can replace a host group's wildcards. Missing host fails only at RUNTIME
   (unit tests mock `fetch`; `next build` passes), so silently slips through CI. CSP edits need dev-server restart.
 - **New Turso table NOT workspace data** (snapshots, version history, comm_templates)
   must stay OUT of `TABLE_NAMES` (guard test enforces) — else workspace save's
