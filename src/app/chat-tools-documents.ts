@@ -233,7 +233,10 @@ export async function runDocumentTool(
       // model-facing plumbing and must not leak into the persisted block type,
       // which is sanitized and written across the six storage paths. Indices
       // line up with `blocks`, which is also how the op `index` is addressed.
-      return { ...doc, blockTokens: doc.blocks.map(blockToken) };
+      // The AI-generated mark is for human readers; the model is never sent it.
+      const { aiGenerated, ...forModel } = doc;
+      void aiGenerated;
+      return { ...forModel, blockTokens: doc.blocks.map(blockToken) };
     }
 
     case "create_document": {
