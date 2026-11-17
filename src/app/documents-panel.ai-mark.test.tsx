@@ -30,6 +30,7 @@ function doc(aiGenerated: boolean): ProjectDocument {
 }
 
 function setup(initial: ProjectDocument, opts: { isReadOnly?: boolean } = {}) {
+  const showToast = vi.fn();
   const box: { docs: readonly ProjectDocument[]; versions: readonly DocVersion[] } = { docs: [initial], versions: [] };
   const mutate = vi.fn((m: DocMutation, source: DocVersionSource): DocResult => {
     const r = applyDocMutation({ documents: box.docs, versions: box.versions }, m, {
@@ -45,7 +46,7 @@ function setup(initial: ProjectDocument, opts: { isReadOnly?: boolean } = {}) {
   const log = vi.fn();
   const wrap = (children: ReactNode) => (
     <WorkspaceTabProvider>
-      <ToastProvider value={{ showToast: vi.fn(), showToastAction: vi.fn() }}>
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
         <ConfirmProvider lang="en-US">
           <ActivityLogProvider value={log}>{children}</ActivityLogProvider>
         </ConfirmProvider>
@@ -61,7 +62,7 @@ function setup(initial: ProjectDocument, opts: { isReadOnly?: boolean } = {}) {
     wrap(
       <DocumentsPanel lang="en-US" documents={docs} mutateDocuments={mutate} documentVersions={[]} ws={emptyWorkspace()} onResetSize={() => {}} isReadOnly={opts.isReadOnly} />,
     );
-  return { box, mutate, log, rerenderWith: (docs: readonly ProjectDocument[]) => view.rerender(panel(docs)) };
+  return { box, mutate, log, showToast, rerenderWith: (docs: readonly ProjectDocument[]) => view.rerender(panel(docs)) };
 }
 
 const removeCalls = (mutate: ReturnType<typeof setup>["mutate"]) => mutate.mock.calls.filter(([m]) => m.kind === "removeAiMark");
@@ -135,7 +136,7 @@ describe("document view AI-generated mark (§801)", () => {
 
   it("does nothing when the document changed while the confirm was open", async () => {
     const user = userEvent.setup();
-    const { mutate, log, rerenderWith } = setup(doc(true));
+    const { mutate, log, showToast, rerenderWith } = setup(doc(true));
     await user.click(screen.getByRole("button", { name: REMOVE }));
     await screen.findByRole("dialog");
     // An AI update lands while the dialog is open: new content, new updatedAt, still marked.
@@ -144,5 +145,6 @@ describe("document view AI-generated mark (§801)", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(removeCalls(mutate)).toHaveLength(0);
     expect(log).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "docAiMarkRemoveChanged"));
   });
 });

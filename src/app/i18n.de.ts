@@ -3796,6 +3796,7 @@ export const de: Record<TranslationKey, string> = {
   documentsLinkedBadgeOne: "In 1 Dokument referenziert",
   docAiMarkBadge: "KI-generiert",
   docAiMarkRemove: "KI-Kennzeichnung entfernen",
+  docAiMarkRemoveChanged: "Das Dokument wurde geändert, während Sie bestätigt haben. Prüfen Sie es und versuchen Sie es erneut.",
   docAiMarkRemoveConfirm: "Downloads weisen dann nicht mehr darauf hin, dass dieses Dokument KI-generierte Inhalte enthält. Entfernen Sie die Kennzeichnung nur, wenn eine Person das Dokument geprüft oder neu geschrieben hat.",
   documentsFilteredBy: "Dokumente verknüpft mit: {0}",
   documentsFilterClear: "Alle Dokumente anzeigen",

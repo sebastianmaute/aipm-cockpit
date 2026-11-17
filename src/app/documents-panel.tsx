@@ -635,9 +635,12 @@ export function DocumentsPanel({
     });
     if (!ok) return;
     // The person confirmed against the content they saw. If the document changed
-    // while the dialog was open (an AI update lands with a new mark), do nothing.
+    // while the dialog was open (an AI update lands with a new mark), change nothing and say why.
     const live = liveDocumentsRef.current.find((d) => d.id === doc.id);
-    if (!live || live.updatedAt !== doc.updatedAt) return;
+    if (!live || live.updatedAt !== doc.updatedAt) {
+      showToast("info", t(lang, "docAiMarkRemoveChanged"));
+      return;
+    }
     // Logged once, and only when the mutation was applied (a refused or no-op remove leaves no row).
     const result = mutate({ kind: "removeAiMark", id: doc.id });
     if (result.changed) logActivityAs?.("user", "document.aiMarkRemoved", doc.title);

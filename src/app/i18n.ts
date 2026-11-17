@@ -3997,6 +3997,7 @@ const enUS = {
   documentsLinkedBadgeOne: "Referenced by 1 document",
   docAiMarkBadge: "AI-generated",
   docAiMarkRemove: "Remove AI-generated mark",
+  docAiMarkRemoveChanged: "The document changed while you were confirming. Review it and try again.",
   docAiMarkRemoveConfirm: "Downloads will no longer say this document contains AI-generated content. Remove the mark only if a person has reviewed or rewritten it.",
   documentsFilteredBy: "Showing documents linked to: {0}",
   documentsFilterClear: "Show all documents",
