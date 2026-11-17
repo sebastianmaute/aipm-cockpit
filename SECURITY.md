@@ -11,8 +11,7 @@ Do not open a public issue. You can expect a first answer within a week.
 
 ## Verifying a download
 
-Windows installers are not code-signed: SignPath Foundation declined the project, and no other
-signing provider has been chosen. Windows SmartScreen therefore warns on first run, and the
+Windows installers are not code-signed: no signing provider has been chosen. Windows SmartScreen therefore warns on first run, and the
 attestations below are how to check a download.
 
 A release that lists `aipm-cockpit-<version>-sbom.cdx.json` among its files carries

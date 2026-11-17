@@ -299,9 +299,8 @@ older release save chats as plain text that every colleague can read, so leave i
    the `release` environment, which pauses for the owner's approval — the only
    one per release: when `build` finishes, open the run's Actions page →
    "Review deployments" → approve `release`. Nothing is published before that
-   approval. The installer is not code-signed (register §487): SignPath
-   Foundation declined the project and no other signing provider has been
-   chosen, so the release notes always carry the unsigned notice. Details in
+   approval. The installer is not code-signed (register §487): no
+   signing provider has been chosen, so the release notes always carry the unsigned notice. Details in
    `docs/AGENTS/ci.md`'s `release.yml`
    section. The required reviewer exists since 2026-09-25. Also standing in
    front of it: only the owner/admin role can create, move or delete a

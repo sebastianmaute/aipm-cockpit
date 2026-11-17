@@ -69,7 +69,7 @@ and the pack's check fails when a listed entry is closed or missing. [verified:
 <!-- PACK:open-gaps:BEGIN -->
 | Register entry | Title |
 |---|---|
-| §487 | The Windows installer is unsigned: SignPath Foundation declined the project and no signing provider is chosen, so every install shows an unknown-publisher warning |
+| §487 | The Windows installer is unsigned: no signing provider is chosen, so every install shows an unknown-publisher warning |
 | §796 | Tasks created by Optimize work breakdown with AI cannot be undone |
 | §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |

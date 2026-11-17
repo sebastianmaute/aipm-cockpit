@@ -168,8 +168,7 @@ a second inventory to keep in sync.
 
 ## Code signing
 
-Windows installers are not code-signed. The project applied to SignPath Foundation's programme for
-open-source projects and was declined, and no other signing provider has been chosen. Windows
+Windows installers are not code-signed: no signing provider has been chosen (register §487). Windows
 therefore shows its **"Windows protected your PC"** box on first run, and names no publisher.
 
 What stands in for a signature:

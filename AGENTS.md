@@ -252,7 +252,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   two demand opposite responses. Releases run from `.github/workflows/release.yml` on a push of a
   `v*` tag (`guard` → `build` → `publish`; `publish` pauses for the owner's one approval, a
   required-reviewer rule on the `release` environment since flip step 10a). The installer is not
-  code-signed (register §487: SignPath Foundation declined, no other provider chosen) — see the
+  code-signed (register §487: no signing provider has been chosen) — see the
   "Releasing" bullet below and
   [`docs/AGENTS/ci.md`](docs/AGENTS/ci.md)'s `release.yml` section. The GitLab pipeline file
   (`.gitlab-ci.yml`) is gone; the GitLab project is a READ-ONLY mirror synced daily by

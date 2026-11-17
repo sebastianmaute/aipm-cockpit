@@ -156,9 +156,8 @@ win:
   # ★ Six sizes up to 256x256 at 32bpp. electron-builder REQUIRES a 256x256
   # entry; without one it refuses the icon rather than downscaling.
   icon: ../public/app.ico
-  # Nothing is code-signed: SignPath Foundation declined the project and no
-  # other signing provider has been chosen (register §487), so code SIGNING
-  # stays off here. But
+  # Nothing is code-signed: no signing provider has been chosen (register
+  # §487), so code SIGNING stays off here. But
   # `signAndEditExecutable: false` skips BOTH signing AND resource editing --
   # the step that stamps the icon above plus the VersionInfo strings into
   # the exe -- which is why every shortcut, the taskbar and the window used

@@ -5,8 +5,8 @@
 #   `release` environment, whose required reviewer (active since flip step 10a, when the repository
 #   went public) pauses it before it starts, so nothing goes live before that approval. No other job
 #   names an environment, so GitHub asks once.
-# ★ The installer is not code-signed (register §487): SignPath Foundation declined the project, and no
-#   other signing provider has been chosen. What stands in front of `publish` -- and so in front of
+# ★ The installer is not code-signed (register §487): no signing provider has been chosen. What
+#   stands in front of `publish` -- and so in front of
 #   every installed copy's auto-update -- is that approval, the tag ruleset (only the owner/admin role
 #   can create, move or delete a `refs/tags/v*`), the `guard` job (the tag must equal APP_VERSION and
 #   name a commit reachable from `main`), and immutable releases.

@@ -78,8 +78,8 @@ der App.
    importierten Datei angelegte Einträge, und eine Änderung, die im selben Schritt wie ein Lesen aus Jira gesendet
    wurde, lösen die Prüfpflicht nicht aus, sofern nicht jede Änderung im Chat geprüft wird (E48,
    *getestet (Unit)*; E71, *getestet (Unit)*).
-2. **§487:** Die Windows-Installationsdatei ist unsigniert: Die SignPath Foundation hat das Projekt abgelehnt,
-   und bisher wurde kein anderer Signaturanbieter gewählt (E51, *getestet (Unit)*).
+2. **§487:** Die Windows-Installationsdatei ist unsigniert: Bisher wurde kein Signaturanbieter gewählt
+   (E51, *getestet (Unit)*).
 3. **Platzhalter-Hosts als Voreinstellung:** Solange die Bereitstellung `AIPM_CSP_TURSO_HOSTS` und
    `AIPM_CSP_SHAREPOINT_HOSTS` nicht setzt, erlaubt die Policy ganze Host-Familien per Platzhalter (E34,
    *im Code gelesen*).

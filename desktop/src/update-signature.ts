@@ -9,9 +9,7 @@
 // Dormant today: no release is code-signed (register §487), so no packed app-update.yml names a
 // publisher, and updater.ts leaves electron-updater's default in place (`feedRequiresSignature`).
 // It is kept, provider-neutral, for a future signing provider: a release whose packed feed lists
-// `publisherName:` (the signer's full certificate subject) turns it on with no change here. The
-// SignPath pipeline that once wrote that key was removed when SignPath Foundation declined the
-// project; git history holds it.
+// `publisherName:` (the signer's full certificate subject) turns it on with no change here.
 //
 // No electron import: the root tsc and vitest reach this file directly.
 import { execFile, type ExecFileOptions } from "node:child_process";
