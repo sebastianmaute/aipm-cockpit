@@ -18,6 +18,7 @@
 import type { DocOp } from "./document-mutations";
 import type { ProjectDocument } from "./document-model";
 import { blockToken } from "./document-block-token";
+import { omitAiMark } from "./ai-content-mark";
 
 export type DocumentSummary = {
   id: number;
@@ -234,9 +235,7 @@ export async function runDocumentTool(
       // which is sanitized and written across the six storage paths. Indices
       // line up with `blocks`, which is also how the op `index` is addressed.
       // The AI-generated mark is for human readers; the model is never sent it.
-      const { aiGenerated, ...forModel } = doc;
-      void aiGenerated;
-      return { ...forModel, blockTokens: doc.blocks.map(blockToken) };
+      return { ...omitAiMark(doc), blockTokens: doc.blocks.map(blockToken) };
     }
 
     case "create_document": {
