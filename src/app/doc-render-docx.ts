@@ -102,10 +102,14 @@ const MAX_IMAGE_HEIGHT_EMU = Math.round(4.5 * EMU_PER_INCH);
 
 /** One paragraph. `docxCellRuns` already maps "\n" to <w:br/> and escapes each
  *  line, so text and table cells cannot diverge on either rule. */
-function para(text: string, style?: string): string {
+function para(text: string, style?: string, runProps = ""): string {
   const pPr = style ? `<w:pPr><w:pStyle w:val="${style}"/></w:pPr>` : "";
-  return `<w:p>${pPr}<w:r>${docxCellRuns(text)}</w:r></w:p>`;
+  const rPr = runProps ? `<w:rPr>${runProps}</w:rPr>` : "";
+  return `<w:p>${pPr}<w:r>${rPr}${docxCellRuns(text)}</w:r></w:p>`;
 }
+
+/** Half-points: 18 = 9pt, matching the small line in the HTML download. */
+const AI_MARK_RUN_PROPS = '<w:sz w:val="18"/>';
 
 // ★★ THE PLACEHOLDER IS THE FALLBACK NOW, NOT THE ONLY PATH. S3c-2 gave this
 // file real media parts, so an asset the caller INLINED becomes a `<w:drawing>`
@@ -473,7 +477,7 @@ export function renderDocumentDocx(
   const body =
     para(doc.title, "Title") +
     doc.blocks.map((b) => renderBlock(b, ws, lang, byId, drawingFor, links, numbering, extras)).join("") +
-    (aiMark ? para(t(lang, "aiContentMarkLine")) : "");
+    (aiMark ? para(t(lang, "aiContentMarkLine"), undefined, AI_MARK_RUN_PROPS) : "");
 
   // ★ `parts` is populated BY the body render above — read it AFTER, never
   //   before. Building the package first ships an empty media list against a

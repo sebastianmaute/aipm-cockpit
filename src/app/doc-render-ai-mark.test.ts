@@ -90,6 +90,12 @@ describe.each(LANGS)("marked document, %s", (lang) => {
     });
   }
 
+  it("docx: the visible line is set as a small run (9pt)", async () => {
+    const m = await unzip(renderDocumentDocx(doc(true), ws, lang));
+    const xml = m.get("word/document.xml") ?? "";
+    expect(xml).toContain(`<w:r><w:rPr><w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">${line()}</w:t></w:r>`);
+  });
+
   it("html: meta in head, visible line at the end of the body, inherits the text colour", () => {
     const html = renderDocumentHtml(doc(true), ws, lang, "standalone");
     const head = html.slice(html.indexOf("<head>"), html.indexOf("</head>"));
