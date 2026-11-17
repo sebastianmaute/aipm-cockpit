@@ -125,7 +125,7 @@ describe("verifyUpdateSignature", () => {
   });
 
   // A feed that names a publisher's full DN, as a signed release's would.
-  it("with the release feed's full DN: accepts exactly that subject, refuses another O, C, L or S, and a CN-only subject", async () => {
+  it("with a full-DN publisher name: accepts exactly that subject, refuses another O, C, L or S, and a CN-only subject", async () => {
     expect(await verifyUpdateSignature([SUBJECT], INSTALLER, answer(json(0, SUBJECT)))).toBeNull();
     for (const subject of [
       SUBJECT.replace("O=Example Publisher", "O=Other"),

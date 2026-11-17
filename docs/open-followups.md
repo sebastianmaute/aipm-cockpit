@@ -46276,7 +46276,6 @@ Size S.
 
 **Earlier:** OPEN 2026-11-02, filed during the signed-installer work (the release workflow's `sign` job). Deferred, not a defect in shipped behaviour: signing is still switched off. Reproduced by reading: `grep -n "signIf(uninstallerPath)" desktop/node_modules/app-builder-lib/out/targets/nsis/NsisTarget.js` prints one hit, in `computeScriptAndSignUninstaller`.
 
-
 **Update 2026-11-06:** the single `sign` job was split so that no job holding the SignPath token runs build tooling: `sign-app` and `sign-installer` hold the token and run only actions, while the `--prepackaged` repackage runs in the token-free `repackage` job ([`docs/AGENTS/ci.md`](AGENTS/ci.md)'s `release.yml` section). A signing hook inside electron-builder would put the token back into a job that runs build code, which `scripts/ci-workflow.test.mjs` (`tokenJobViolations`) now refuses — so the "If yes" path below also needs a design that keeps the token out of the repackage, for example a separate token job between two repackage passes.
 
 When signing is switched on (`vars.SIGNPATH_ENABLED`), the release workflow (`.github/workflows/release.yml`) has SignPath sign the setup exe and, with `SIGNPATH_SIGN_APP_EXE`, the packaged app's own executables. The uninstaller is left unsigned. It is reachable: during the `--prepackaged` repackage, electron-builder's NSIS target writes the uninstaller to a file of its own and calls `packager.signIf(uninstallerPath)` before it builds the setup, so a `win.signtoolOptions.sign` hook would be handed it.
