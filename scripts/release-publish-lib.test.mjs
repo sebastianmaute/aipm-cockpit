@@ -184,7 +184,12 @@ describe("checkSbom", () => {
   const NAME = "aipm-cockpit-1.14.0-sbom.cdx.json";
   const root = (over = {}) => ({ name: "AI PM Cockpit", version: "1.14.0", licenses: [{ expression: "EUPL-1.2" }], ...over });
   const bom = (over = {}, rootOver = {}) => JSON.stringify({
-    bomFormat: "CycloneDX", specVersion: "1.5", metadata: { component: root(rootOver) }, components: [{ name: "react" }], ...over,
+    bomFormat: "CycloneDX", specVersion: "1.5", serialNumber: "urn:uuid:886313e1-3b8a-5372-9b90-0c9aee199e5d",
+    metadata: { component: root(rootOver) }, components: [{ name: "react" }], ...over,
+  });
+  it("names a missing or malformed serialNumber, which GitHub's SBOM attestation requires", () => {
+    expect(checkSbom(bom({ serialNumber: undefined }), "1.14.0")).toEqual([`${NAME} has no urn:uuid serialNumber (GitHub's SBOM attestation requires one)`]);
+    expect(checkSbom(bom({ serialNumber: "1234" }), "1.14.0")).toEqual([`${NAME} has no urn:uuid serialNumber (GitHub's SBOM attestation requires one)`]);
   });
   it("accepts a CycloneDX 1.5+ document whose root is this app, this version, under EUPL-1.2", () => {
     expect(checkSbom(bom(), "1.14.0")).toEqual([]);
