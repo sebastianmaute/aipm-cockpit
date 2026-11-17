@@ -1,11 +1,13 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-10-26 at 816097a87 | App 1.21.0 "French" | Files scanned: 2836 (src/**/*.{ts,tsx}, incl. 1485 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-11-17 at ed6435dd1 | App 1.21.0 "French" | Files scanned: 3106 (src/**/*.{ts,tsx}, incl. 1644 tests; `git ls-tree -r --name-only HEAD src | grep -cE '\.tsx?$'`, tests with `'\.test\.tsx?$'`) | Token estimate: ~950 -->
 
 # Architecture
 
 Single Next.js app (public `next` pinned exactly — read the version from `package.json` — React 19.3.1), **no server database and no backend of
 its own**. All project data lives client-side; the only server code is a set of thin same-origin
 proxies that exist to add auth + SSRF guards to third-party calls the browser cannot make directly,
-plus request-time middleware issuing a per-request CSP nonce.
+the AI relay (`/api/ai/*`, used only when the deployment sends AI through a gateway or restricts keys to
+its organisation), a daily sweep of expired saved chats started from `src/instrumentation.ts`, and
+request-time middleware issuing a per-request CSP nonce.
 
 ```
 ┌─ browser ─────────────────────────────────────────────────────────────┐
@@ -28,7 +30,12 @@ plus request-time middleware issuing a per-request CSP nonce.
  graph.microsoft.com                 /api/timelog → *.timelog.com
  login.microsoftonline.com           /api/stt     → user-supplied BYO host
                                      /api/ecb     → ECB FX rates
+                                     /api/ai/*    → AI gateway or api.anthropic.com
 ```
+
+★ `api.anthropic.com` is in the CSP only while the browser may call it directly: an `ai` switch-off, a
+gateway or a key restriction drops it (`CSP_CONNECT_HOSTS`, `when: "ai-direct"`, `src/proxy.ts`), and
+every AI request goes through `ai-transport.ts`, the one browser module that talks to Anthropic.
 
 ## Boundaries that matter
 
@@ -40,12 +47,15 @@ plus request-time middleware issuing a per-request CSP nonce.
 - **Facade over backends.** Nothing outside `storage.ts` picks a backend. A new persisted
   `Workspace` field must be wired through **six** write paths (JSON · CSV · Markdown · Turso-single ·
   Turso-tenant · IndexedDB) — see `data.md`.
-- **Proxies are guards, not logic.** Every route that takes a user-supplied host (11 of the 12)
+- **Proxies are guards, not logic.** Every route that takes a user-supplied host (11 of the 15; the three
+  `api/ai/` routes take none)
   reuses `api/_shared/proxy-ssrf.ts` for IP-classification + host allowlisting; only normalize/auth/URL
   is per-route. Deliberately *not* factored into one parameterized helper — divergent security guards.
   ★ `ecb` is the exception and needs no guard: one hard-coded URL, no user input, no secret.
 - **A deployment can switch integrations off.** `AIPM_DISABLED_INTEGRATIONS` (§762) names any of
-  `jira` · `confluence` · `timelog` · `ecb` · `stt` · `ai`; every one of the 12 integration routes, and
+  `jira` · `confluence` · `timelog` · `ecb` · `stt` · `ai` (`INTEGRATION_IDS` in `integration-switches.ts`
+  also takes the four AI safeguard locks `ai-people` · `ai-direct-writes` · `ai-rates` · `ai-background`,
+  which the app enforces and no route refuses except `stt` under `ai-people`); every one of the 12 integration routes, and
   the AI relay's `ai/messages` and `ai/models`, asks
   `refuseIfDisabled` (`api/_shared/integration-switch.ts`, reached through the jira/timelog/stt
   `_helpers.ts`, directly in `ecb`, and in the relay's `relay`) and answers 503 before any other work
@@ -60,7 +70,7 @@ plus request-time middleware issuing a per-request CSP nonce.
 
 | Subsystem | Entry | Note |
 |---|---|---|
-| AI assistant | `chat-panel.tsx` + pure `chat-api.ts` | 62 tools (`TOOL_DEFS` in `chat-tool-defs.ts`, which spreads in `DOCUMENT_TOOL_DEFS`, `FORECAST_TOOL_DEFS` and `PROJECT_TOOL_DEFS`; re-count with `grep -hcE '^    name: "' src/app/chat-tool-defs.ts src/app/chat-tool-defs-*.ts` and sum the four per-file counts; the six forecast tools refuse while the simulation is off); browser-direct to Anthropic; prompt-cache prefix ordering is load-bearing |
+| AI assistant | `chat-panel.tsx` + pure `chat-api.ts` | 63 tools (`TOOL_DEFS` in `chat-tool-defs.ts`, which spreads in `DOCUMENT_TOOL_DEFS`, `FORECAST_TOOL_DEFS` and `PROJECT_TOOL_DEFS`; re-count with `grep -hcE '^    name: "' src/app/chat-tool-defs.ts src/app/chat-tool-defs-*.ts` and sum the four per-file counts; the six forecast tools refuse while the simulation is off); browser-direct to Anthropic; prompt-cache prefix ordering is load-bearing |
 | Next actions | `next-actions/` | pure ranking engine + providers → Action Center |
 | Insights loop | `insights/` | detect → reconcile → recommend → measure outcome |
 | Undo/redo | `undo/` | `UNDO_CAP` = 25 entries, in-memory, backend-agnostic |
@@ -68,6 +78,12 @@ plus request-time middleware issuing a per-request CSP nonce.
 | Scheduled jobs | `scheduled-jobs/` + `use-scheduled-job-runner.ts` | Turso-only; one named project per job, each run kept as a report in `scheduled_reports` and shown in the Scheduled reports view (§772) |
 | Unload journal | `unload-journal.ts` + `use-unload-journal.ts` | §629 — a synchronous localStorage copy of an unconfirmed save, written at pagehide and restored on the next load; see `docs/AGENTS/storage.md` |
 | Diagnostics | `diagnostics.ts` | capped per-device ring, two-layer secret redaction |
+| AI people protection | `ai-people-dictionary.ts` → `ai-people-redact.ts`, applied in `ai-transport.ts` via `ai-privacy.ts` | per-project, on by default; known names, e-mails, phones and IBANs become placeholders before a request leaves the browser and are restored in the reply |
+| AI project switches | `ai-project-switches.ts` | review every AI write, withhold rates, background AI off; stored in `settingsOverrides.ai`, forced on by the deployment locks |
+| Saved AI chats | `chat-thread-codec.ts` + `chat-crypto.ts` + `chat-key-vault.ts` | Turso-only; each row encrypted per write, wrapped for its owner and for the operator's recovery key; expired by the browser (`use-chat-retention-sweep.ts`) and the server sweep |
+| Reassigned hours | pure `reassign-hours.ts` + `use-reassign-hours.ts` | §774 — a new owner takes the task's remaining planned hours, one undo step with the owner change |
+| Cross-project people | `cross-project/` + `person-links-store.ts` | §785 — Plan with AI counts a person's hours in other projects of the same Turso database; answers stored in `person_links` |
+| AI-generated mark | `ai-content-mark.ts` | §801 — documents an AI tool wrote, and digest mails with an AI summary, carry the IPTC source type and a visible line |
 
 ## Layouts
 
