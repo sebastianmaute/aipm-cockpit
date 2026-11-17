@@ -1,16 +1,20 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-10-26 at 816097a87 | App 1.20.1 "Indridason" | Files scanned: src/proxy.ts + 12 route.ts + api/_shared + 4 client storage backends | Token estimate: ~900 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-11-17 at ed6435dd1 | App 1.21.0 "French" | Files scanned: src/proxy.ts + 15 route.ts + api/_shared + 4 client storage backends | Token estimate: ~900 -->
 
 # Backend
 
-No application backend in the traditional sense — no database, no auth middleware, no business logic
-on the server. Three server-side concerns only:
+No application backend in the traditional sense — no database of its own, no auth middleware, no business logic
+on the server. Four server-side concerns only:
 
 1. **CSP nonce middleware** (`src/proxy.ts`) — per-request nonce; owns the `connect-src`/`frame-src`
    allowlist. ★ Host allowlisting lives HERE, not in `next.config`. A missing host fails only at
    runtime (unit tests mock `fetch`, `next build` passes), so it slips CI silently.
-2. **12 proxy routes** — CORS/SSRF/auth shims for calls the browser cannot make directly
-   (`find src/app/api -name route.ts | wc -l`).
-3. **Static asset serving.**
+2. **15 routes** — 12 CORS/SSRF/auth shims for calls the browser cannot make directly, plus the three
+   AI relay routes under `api/ai/` (`find src/app/api -name route.ts | wc -l`).
+3. **The saved-chat sweep** — `src/instrumentation.ts` starts `startChatSweepSchedule`
+   (`api/ai/_chat-sweep.ts`) once per Node server: at start and every 24 hours it deletes the chats
+   past the retention period in the database named by `AIPM_CHAT_SWEEP_TURSO_URL` (or the public Turso
+   pair). See `docs/RUNBOOK.md` "Saved AI chats".
+4. **Static asset serving.**
 
 Persistence is entirely client-side (see `data.md`).
 
@@ -23,6 +27,8 @@ Persistence is entirely client-side (see `data.md`).
 | `timelog` | `*.timelog.com` | Bearer | host+tenant normalize; `/v1/`+`/v2/` path allowlist; own rate-limit scope |
 | `stt` | **user-supplied BYO host** | Bearer | no vendor apex to pin — see below |
 | `ecb` | ECB FX endpoint | none | no secret involved |
+| `ai/messages` `ai/models` | the AI gateway (`AIPM_AI_GATEWAY_URL`), else `api.anthropic.com` when keys are restricted (`AIPM_AI_ORGANIZATION_ID`) | the user's own `x-api-key`, passed on, never stored or logged; plus the gateway token | `api/ai/_relay.ts`: same-origin callers only, a header allowlist, no redirects followed; a direct deployment with no restriction answers 404 and the browser calls Anthropic itself. With a restriction, `_key-check.ts` checks the key's organisation and workspace first (403 refused, 503 could not check) |
+| `ai/status` | none | none | what the browser may know about the AI route (switched off, direct or gateway, invalid setting, people protection forced); never a URL or token; always 200 |
 
 ### Shared guard core — `api/_shared/proxy-ssrf.ts`
 
@@ -86,7 +92,8 @@ per-table DELETE, so **any non-workspace table must stay out of that list** (gua
 `snapshot` + `snapshot_series`, `project_versions`, `comm_templates` + `comm_template_versions`,
 `committee_report_versions`, `action_learning`, `operating_guides`, `scheduled_jobs_v2` (and the
 pre-§772 `scheduled_jobs`, read once by a migration), `scheduled_reports`, `chat_threads`,
-`document_asset_data`, `color_schemes`. Enumerate with
+`document_asset_data`, `color_schemes`, `chat_keys` (passphrase-wrapped chat keys) and `person_links` (the
+cross-project same / not-the-same person answers, §785). Enumerate with
 `grep -roE "CREATE TABLE IF NOT EXISTS [a-z_0-9]+" src/app --include=*.ts --exclude=*.test.ts | sed 's/.*EXISTS //' | sort -u` (that lists every created table, workspace ones and the legacy `workspace` blob included; the side tables are those absent from `TABLE_NAMES`)
 plus the `${...}` templated ones (`grep -rn 'CREATE TABLE IF NOT EXISTS ${' src/app`).
 ★ The project-keyed ones are listed in `PROJECT_SCOPED_SIDE_TABLES` (`project-side-tables.ts`), which

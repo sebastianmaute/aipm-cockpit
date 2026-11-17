@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-10-26 at 816097a87 | App 1.20.1 "Indridason" | Files scanned: 451 .tsx + 861 .ts under src/app (excl. 1470 test files) | Token estimate: ~1050 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-11-17 at ed6435dd1 | App 1.21.0 "French" | Files scanned: 468 .tsx + 944 .ts under src/app (excl. 1628 test files) | Token estimate: ~1050 -->
 
 # Frontend
 
@@ -67,6 +67,16 @@ live render-scope values, named `use*`, called unconditionally, returning **non-
 extractions keep the `useCallback`/`useMemo` they had inline on purpose (`use-outlook-imports.ts`,
 `use-portfolio-projects.ts`, `use-next-actions.ts`, `use-task-editor-create.ts`, `use-resource-quick-create.ts`, `use-settings-navigation.ts`, `use-turso-project-list.ts` and `use-version-history-wiring.ts` among them); `use-settings-change-log.ts` has none to
 keep — see AGENTS.md's "task-manager decomposition map".
+
+## AI privacy surfaces
+
+Settings → AI renders one control per project switch in `settings-sections/`:
+`ai-people-protection-control.tsx`, `ai-review-writes-control.tsx`, `ai-rates-control.tsx` and
+`ai-background-control.tsx` (each disabled, with a notice, when the deployment forces it), plus
+`chat-passphrase-section.tsx` on a Turso project. The chat sidebar's erase and find dialogs are
+`chat-erase-dialog.tsx` (`use-chat-erase.ts`); the AI-generated badge and its removal are
+`document-ai-mark.tsx`; the meeting report's AI draft is held as a proposal in
+`meeting-report-proposal.tsx`, its previous version in `meeting-report-previous.tsx`.
 
 ## Design system — use these, do not hand-roll
 

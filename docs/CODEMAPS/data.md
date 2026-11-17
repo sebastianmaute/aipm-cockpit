@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-10-26 at 816097a87 | App 1.20.1 "Indridason" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-11-17 at ed6435dd1 | App 1.21.0 "French" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
 
 # Data
 
@@ -60,7 +60,8 @@ deletion goes undetected.
 ★ Workspace save issues a **per-table DELETE**, so any non-workspace table must stay OUT of
 `TABLE_NAMES` (guard test): snapshots, version history, comm templates, committee report versions,
 Action Center learning, operating guides, scheduled jobs (`scheduled_jobs_v2`) and scheduled reports
-(`scheduled_reports`, §772), chat threads, asset bytes, color schemes — the table names and the
+(`scheduled_reports`, §772), chat threads, chat keys (`chat_keys`), cross-project person answers
+(`person_links`, §785), asset bytes, color schemes — the table names and the
 reproduce command are in [backend.md](backend.md). ★ `SqlArg.value` is
 string-only even for integers.
 
@@ -147,7 +148,10 @@ landing state, search recents, timelog actuals cache, calendar-sync baseline, vi
 diagnostics ring, project appearance, color schemes, the §629 unload journal
 (`aipm-cockpit:unload-journal:<projectKey>`, `unload-journal.ts` — a synchronous copy of an unconfirmed
 save written at pagehide, see `docs/AGENTS/storage.md`), the scheduled-report device label
-(`device-label.ts`). Plus IndexedDB config DBs
+(`device-label.ts`), the per-feature AI usage store (`aipm-cockpit:ai-usage-by-path`, `ai-usage-store.ts`)
+and its weekly hard-cap warning flag, this browser's saved-chat identity per Turso database
+(`aipm-cockpit:chat-identity`, `chat-key-vault.ts` — the chat key sealed under the device key) and the
+permanently deleted projects whose chat cleanup is still owed (`aipm-cockpit:pending-project-sweeps`). Plus IndexedDB config DBs
 `aipm-cockpit-secrets` and `aipm-cockpit-project-handles`.
 
 ★★ The ACTIVITY LOG is no longer one of them. It moved out of localStorage and into the workspace in

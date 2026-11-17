@@ -154,6 +154,7 @@ const HELP_ENTRIES_LITERAL = [
   { id: "feature-ai", group: "features", titleKey: "helpSecAiTitle", bodyKey: "helpSecAiBody" },
   { id: "feature-ai-advanced", group: "features", titleKey: "helpSecAiAdvancedTitle", bodyKey: "helpSecAiAdvancedBody" },
   { id: "feature-ai-people", group: "features", titleKey: "helpSecAiPeopleTitle", bodyKey: "helpSecAiPeopleBody", relatedConcepts: ["feature-ai"] },
+  { id: "feature-ai-safeguards", group: "features", titleKey: "helpSecAiSafeguardsTitle", bodyKey: "helpSecAiSafeguardsBody", relatedViews: ["settings"], relatedConcepts: ["feature-ai-people"] },
   { id: "feature-input-feedback", group: "features", titleKey: "helpSecInputFeedbackTitle", bodyKey: "helpSecInputFeedbackBody" },
   { id: "feature-tour", group: "features", titleKey: "helpSecTourTitle", bodyKey: "helpSecTourBody" },
   { id: "feature-keys", group: "features", titleKey: "helpSecKeysTitle", bodyKey: "helpSecKeysBody" },
