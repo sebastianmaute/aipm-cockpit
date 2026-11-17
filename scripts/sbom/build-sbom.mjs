@@ -21,6 +21,7 @@
 //
 // ★★ What gets published carries no absolute path: bom-refs start at the first
 // node_modules segment, and the notices print names and licence text only.
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
@@ -156,7 +157,7 @@ function toComponent(pkg, type = "library") {
 }
 
 /**
- * No timestamp and no serial number: the same input gives the same bytes.
+ * No timestamp, and a serial number derived from the content: the same input gives the same bytes.
  *
  * @param {object[]} set from shippedSet
  * @param {{ appVersion: string; electron: { name: string; version: string; dir: string } }} options
@@ -166,10 +167,7 @@ export function toCycloneDx(set, { appVersion, electron }) {
   const components = [...set.map((pkg) => toComponent(pkg)), toComponent(electron, "framework")];
   const refs = new Set(components.map((c) => c["bom-ref"]));
   if (refs.size !== components.length) throw new Error("Two SBOM components share a bom-ref");
-  return {
-    bomFormat: "CycloneDX",
-    specVersion: "1.5",
-    version: 1,
+  const body = {
     metadata: {
       component: {
         type: "application",
@@ -181,6 +179,30 @@ export function toCycloneDx(set, { appVersion, electron }) {
     },
     components,
   };
+  // GitHub's SBOM attestation refuses a CycloneDX file without a serialNumber. A random one
+  // would make the file differ on every build, so it is a name-based UUID of the content.
+  const serialNumber = `urn:uuid:${uuidV5(SBOM_SERIAL_NAMESPACE, JSON.stringify(body))}`;
+  return { bomFormat: "CycloneDX", specVersion: "1.5", serialNumber, version: 1, ...body };
+}
+
+/** The RFC 4122 URL namespace; the serialNumber's name is the BOM's own content. */
+const SBOM_SERIAL_NAMESPACE = "6ba7b811-9dad-11d1-80b4-00c04fd430c8";
+
+/**
+ * A version 5 (name-based, SHA-1) UUID, RFC 4122 section 4.3. CycloneDX 1.5's schema accepts
+ * only UUID versions 1 to 5 in serialNumber, so not a SHA-256 based version 8.
+ *
+ * @param {string} namespace a UUID
+ * @param {string} name
+ * @returns {string}
+ */
+export function uuidV5(namespace, name) {
+  const ns = Buffer.from(namespace.replace(/-/g, ""), "hex");
+  const bytes = createHash("sha1").update(ns).update(name, "utf8").digest().subarray(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x50;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 function describePkg(pkg) {

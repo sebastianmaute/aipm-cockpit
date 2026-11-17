@@ -43,7 +43,11 @@ function specAtLeast(spec, [major, minor]) {
   return Number(m[1]) > major || (Number(m[1]) === major && Number(m[2]) >= minor);
 }
 
-/** Problems with the SBOM's text: it must parse as CycloneDX 1.5 or later, describe this app at
+/** CycloneDX 1.5's serialNumber pattern: a urn:uuid of UUID version 1 to 5. */
+const SERIAL_NUMBER = /^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Problems with the SBOM's text: it must parse as CycloneDX 1.5 or later with a urn:uuid
+ *  serialNumber (GitHub's SBOM attestation refuses a file without one), describe this app at
  *  this version under EUPL-1.2 at its root, and list components. An empty list means it is fine. */
 export function checkSbom(text, version) {
   const name = sbomName(version);
@@ -57,6 +61,9 @@ export function checkSbom(text, version) {
   const problems = [];
   if (!specAtLeast(bom.specVersion, MIN_SPEC)) {
     problems.push(`${name} is CycloneDX ${bom.specVersion ?? "(no specVersion)"}, expected ${MIN_SPEC.join(".")} or later`);
+  }
+  if (typeof bom.serialNumber !== "string" || !SERIAL_NUMBER.test(bom.serialNumber)) {
+    problems.push(`${name} has no urn:uuid serialNumber (GitHub's SBOM attestation requires one)`);
   }
   const root = bom.metadata?.component;
   if (root?.name !== SBOM_ROOT_NAME) problems.push(`${name} describes ${root?.name ?? "(no name)"}, expected ${SBOM_ROOT_NAME}`);

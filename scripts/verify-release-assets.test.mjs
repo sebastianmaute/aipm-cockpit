@@ -22,6 +22,7 @@ afterEach(() => {
 const sbom = (version) => JSON.stringify({
   bomFormat: "CycloneDX",
   specVersion: "1.5",
+  serialNumber: "urn:uuid:886313e1-3b8a-5372-9b90-0c9aee199e5d",
   metadata: { component: { name: "AI PM Cockpit", version, licenses: [{ expression: "EUPL-1.2" }] } },
   components: [{ type: "library", name: "react", version: "19.3.1" }],
 });

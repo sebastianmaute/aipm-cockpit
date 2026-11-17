@@ -16,6 +16,7 @@ import {
   toCycloneDx,
   toNotices,
   UNRESOLVED_OWNERS,
+  uuidV5,
 } from "./build-sbom.mjs";
 import { checkSbom, sbomName } from "../release-publish-lib.mjs";
 
@@ -97,6 +98,12 @@ describe("shippedSet", () => {
       vendored: [vendored("react", "19.3.0"), vendored("react", "19.3.0-exp", "react-experimental"), vendored("react", "19.3.0")],
     });
     expect(set.map((p) => p.version)).toEqual(["19.3.0", "19.3.0-exp"]);
+  });
+});
+
+describe("uuidV5", () => {
+  it("matches RFC 4122's name-based SHA-1 UUID (Python's uuid5(NAMESPACE_DNS, 'python.org'))", () => {
+    expect(uuidV5("6ba7b810-9dad-11d1-80b4-00c04fd430c8", "python.org")).toBe("886313e1-3b8a-5372-9b90-0c9aee199e5d");
   });
 });
 
@@ -228,11 +235,24 @@ describe("toCycloneDx", () => {
     expect(json(bom)).not.toContain(tmp.replace(/\\/g, "/"));
   });
 
-  it("is the same bytes for the same input: no timestamp, no random serial", () => {
+  it("is the same bytes for the same input: no timestamp, and a serial derived from the content", () => {
     const again = toCycloneDx([plain, scoped, noLicence], { appVersion: "1.20.1", electron });
     expect(json(again)).toBe(json(bom));
-    expect(bom.serialNumber).toBeUndefined();
     expect(bom.metadata.timestamp).toBeUndefined();
+  });
+
+  // GitHub's SBOM attestation (actions/attest) refuses a CycloneDX file without a serialNumber,
+  // and CycloneDX 1.5's schema allows only a version 1-5 UUID there.
+  it("carries a serialNumber GitHub's attestation and the CycloneDX 1.5 schema accept", () => {
+    expect(bom.serialNumber).toMatch(/^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(checkSbom(json(bom), "1.20.1")).toEqual([]);
+  });
+
+  it("gives a different BOM a different serialNumber", () => {
+    const other = toCycloneDx([plain, scoped, noLicence], { appVersion: "1.20.2", electron });
+    const fewer = toCycloneDx([plain, scoped], { appVersion: "1.20.1", electron });
+    expect(other.serialNumber).not.toBe(bom.serialNumber);
+    expect(fewer.serialNumber).not.toBe(bom.serialNumber);
   });
 
   it("names the same set as the notices", () => {

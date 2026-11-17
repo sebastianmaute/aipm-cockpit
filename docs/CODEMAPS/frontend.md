@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-11-17 at ed6435dd1 | App 1.21.0 "French" | Files scanned: 468 .tsx + 944 .ts under src/app (excl. 1628 test files) | Token estimate: ~1050 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-11-17 at ed6435dd1 | App 1.21.1 "French" | Files scanned: 468 .tsx + 944 .ts under src/app (excl. 1628 test files) | Token estimate: ~1050 -->
 
 # Frontend
 

@@ -10,6 +10,17 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+## [1.21.1] - 2026-11-17 "French"
+
+A release fix. 1.21.0 was tagged but never published: GitHub's SBOM attestation refused the release's SBOM because
+it had no serial number. 1.21.1 carries every change listed under 1.21.0 below; read that section for what is new.
+
+### Fixed
+
+- **The release's SBOM has a serial number.** `aipm-cockpit-<version>-sbom.cdx.json` now carries a `serialNumber`,
+  a UUID derived from the SBOM's own content, so the same build still gives the same file. The release check refuses
+  an SBOM without one before any attestation is made.
+
 ## [1.21.0] - 2026-11-17 "French"
 
 A feature release about control over what the AI sees and does. People protection is on by default and redacts names,

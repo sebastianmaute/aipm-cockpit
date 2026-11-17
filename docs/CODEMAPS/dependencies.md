@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-11-17 at ed6435dd1 | App 1.21.0 "French" | Files scanned: package.json, desktop/package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-11-17 at ed6435dd1 | App 1.21.1 "French" | Files scanned: package.json, desktop/package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
 
 # Dependencies
 

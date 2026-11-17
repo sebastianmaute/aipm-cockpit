@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-11-17 at ed6435dd1 | App 1.21.0 "French" | Files scanned: src/proxy.ts + 15 route.ts + api/_shared + 4 client storage backends | Token estimate: ~900 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-11-17 at ed6435dd1 | App 1.21.1 "French" | Files scanned: src/proxy.ts + 15 route.ts + api/_shared + 4 client storage backends | Token estimate: ~900 -->
 
 # Backend
 
