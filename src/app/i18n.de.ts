@@ -3784,6 +3784,7 @@ export const de: Record<TranslationKey, string> = {
   documentsTitleLabel: "Titel",
   documentsFormat: "Dateiformat",
   documentsActions: "Aktionen",
+  aiContentMarkLine: "Enthält KI-generierte Inhalte.",
   documentsLinkedEntities: "Verknüpfte Einträge",
   documentsLinkedSearch: "Aufgaben, Meilensteine, Risiken und Änderungen suchen",
   documentsLinkedPlaceholder: "Zum Suchen tippen…",

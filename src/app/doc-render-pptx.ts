@@ -52,6 +52,7 @@
 // module must never be reached from a node script.
 
 import type { DocBlock, ProjectDocument } from "./document-model";
+import { isAiMarked } from "./ai-content-mark";
 import {
   type PptxSlide,
   buildPptxPackage,
@@ -420,12 +421,14 @@ export function renderDocumentPptx(
     extras,
   };
   const slideMedia = createDeckMedia(ctx);
+  // §801 — a marked deck states it on the title slide and in its metadata.
+  const aiMark = isAiMarked(doc);
   // ★ The title slide carries no image, so an image-free document still
   //   produces the byte-identical package `buildPptxPackage` promises.
   const deck: PptxSlide[] = [
     {
       xml: wrapPptxSlide(
-        pptxBackgroundRect(COLOR_DARK_BLUE) + pptxTitleSubtitleShapes(doc.title, "", lang),
+        pptxBackgroundRect(COLOR_DARK_BLUE) + pptxTitleSubtitleShapes(doc.title, aiMark ? t(lang, "aiContentMarkLine") : "", lang),
         { text: footer, lang, onDark: true },
       ),
       media: [],
@@ -472,5 +475,5 @@ export function renderDocumentPptx(
     }
   }
 
-  return buildPptxPackage(deck, footer);
+  return buildPptxPackage(deck, footer, aiMark);
 }

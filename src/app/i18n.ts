@@ -3985,6 +3985,7 @@ const enUS = {
   documentsTitleLabel: "Title",
   documentsFormat: "Download format",
   documentsActions: "Actions",
+  aiContentMarkLine: "Contains AI-generated content.",
   documentsLinkedEntities: "Linked items",
   documentsLinkedSearch: "Search tasks, milestones, risks and changes",
   documentsLinkedPlaceholder: "Type to search…",

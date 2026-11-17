@@ -41,6 +41,7 @@ import { LIST_INDENT_TWIPS, NUMBERING_REL_ID, listHeadIndent, type NumberingSink
 // ★ TYPE-ONLY, and it must stay so: the header module imports `docxInlineDrawing`
 // from HERE as a value, so a value import back would be a runtime cycle.
 import type { DocxHeaderFooter } from "./ooxml-docx-header-footer";
+import { AI_MARK_CONTENT_TYPE_OVERRIDES, AI_MARK_ROOT_RELS, AI_MARK_ZIP_ENTRIES } from "./ooxml-ai-mark";
 
 /** The document part's relationships to the branded header and footer (§512 b).
  *  They live here because the document part and its relationships, which use
@@ -690,6 +691,8 @@ export function buildDocxPackage(
   /** §512 b — the branded header and footer parts. ADDITIVE like the ones
    *  above: undefined leaves the package byte-identical. */
   headerFooter?: DocxHeaderFooter,
+  /** §801 — add the AI-generated mark parts. ADDITIVE: false leaves the package byte-identical. */
+  aiMark = false,
 ): Blob {
   // ★★ Relationship ids are minted by the CALLER, because the body XML already
   // references them by the time it gets here. rId1 is the styles part; a media
@@ -764,12 +767,12 @@ export function buildDocxPackage(
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>${numberingXml === undefined ? "" : `
   <Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>`}${headerFooter === undefined ? "" : `
   <Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>
-  <Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>`}
+  <Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>`}${aiMark ? AI_MARK_CONTENT_TYPE_OVERRIDES : ""}
 </Types>`;
 
   const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>${aiMark ? AI_MARK_ROOT_RELS : ""}
 </Relationships>`;
 
   // ★★ The Target is PART-RELATIVE to `word/`, because the relationship part it
@@ -811,6 +814,7 @@ export function buildDocxPackage(
     { path: "word/styles.xml", data: stylesXml },
     ...(numberingXml === undefined ? [] : [{ path: "word/numbering.xml", data: numberingXml }]),
     ...media.map((m) => ({ path: m.path, data: m.data })),
+    ...(aiMark ? AI_MARK_ZIP_ENTRIES : []),
     ...(headerFooter === undefined
       ? []
       : [

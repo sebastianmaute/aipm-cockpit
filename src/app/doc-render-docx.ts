@@ -23,6 +23,7 @@
 // PPTX renderer precisely so the two cannot drift.
 
 import type { DocBlock, ProjectDocument } from "./document-model";
+import { isAiMarked } from "./ai-content-mark";
 import {
   type DocxPageLayout,
   DOC_STYLES,
@@ -467,13 +468,16 @@ export function renderDocumentDocx(
   const links = createLinkSink(2 + mediaIdCeiling(doc));
   const numbering = createNumberingSink();
 
+  const aiMark = isAiMarked(doc);
+  // §801 — the visible line closes the body, after every block.
   const body =
     para(doc.title, "Title") +
-    doc.blocks.map((b) => renderBlock(b, ws, lang, byId, drawingFor, links, numbering, extras)).join("");
+    doc.blocks.map((b) => renderBlock(b, ws, lang, byId, drawingFor, links, numbering, extras)).join("") +
+    (aiMark ? para(t(lang, "aiContentMarkLine")) : "");
 
   // ★ `parts` is populated BY the body render above — read it AFTER, never
   //   before. Building the package first ships an empty media list against a
   //   document.xml full of drawings whose relationships do not exist, which
   //   Word reports as a corrupt file. The same is true of `links.rels()`.
-  return buildDocxPackage(body, DOC_STYLES, PAGE, parts, links.rels(), numbering.partXml(), branding ? buildDocxHeaderFooter(branding) : undefined);
+  return buildDocxPackage(body, DOC_STYLES, PAGE, parts, links.rels(), numbering.partXml(), branding ? buildDocxHeaderFooter(branding) : undefined, aiMark);
 }
