@@ -17,7 +17,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { AI_DATA_PATHS, type AiProtectedState } from "./ai-disclosure";
 import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
 import { isPeopleProtected } from "./ai-people-protection";
-import { newConsent, publishAiConsentState, publishBackgroundCapState } from "./ai-consent";
+import { newConsent, publishAiConsentState, publishBackgroundCapState, publishBackgroundProjectOff } from "./ai-consent";
 import { setDisabledIntegrations } from "./integration-switches";
 import { PERSON_FIELD_PATHS } from "./ai-people-dictionary";
 import { defaultAiConfig, defaultSettings, resolveNextActionsConfig, type Settings } from "./settings-types";
@@ -100,6 +100,9 @@ beforeEach(() => {
   // Published per test: a rendered chat's settings hook republishes the stored consent, and that module state
   // outlives the test that rendered it.
   publishAiConsentState(aiSettings().ai);
+  // The open project's background pause fails closed (§795), and an unmounted privacy source publishes it on again:
+  // these drivers test people protection, so the project here does not pause background AI.
+  publishBackgroundProjectOff(false);
   sent.length = 0;
   script = [];
   vi.stubGlobal("fetch", vi.fn(async (_url: unknown, init?: RequestInit) => {
