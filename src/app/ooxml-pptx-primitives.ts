@@ -352,6 +352,7 @@ export function pptxTitleSubtitleShapes(
   titleText: string,
   subtitleText: string,
   lang: Lang,
+  subtitleSizeHundredths = 2400,
 ): string {
   return (
     pptxTextBox({
@@ -383,7 +384,7 @@ export function pptxTitleSubtitleShapes(
         {
           text: subtitleText,
           italic: true,
-          sizeHundredths: 2400,
+          sizeHundredths: subtitleSizeHundredths,
           colorRgb: COLOR_LIGHT_GREY,
         },
       ],

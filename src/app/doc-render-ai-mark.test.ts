@@ -96,6 +96,14 @@ describe.each(LANGS)("marked document, %s", (lang) => {
     expect(xml).toContain(`<w:r><w:rPr><w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">${line()}</w:t></w:r>`);
   });
 
+  it("pptx: the visible line on the title slide is set in small type (10pt)", async () => {
+    const m = await unzip(renderDocumentPptx(doc(true), ws, lang));
+    const slide = m.get("ppt/slides/slide1.xml") ?? "";
+    const run = slide.split("<a:r>").find((r) => r.includes(line()));
+    expect(run).toBeDefined();
+    expect(run).toContain('sz="1000"');
+  });
+
   it("html: meta in head, visible line at the end of the body, inherits the text colour", () => {
     const html = renderDocumentHtml(doc(true), ws, lang, "standalone");
     const head = html.slice(html.indexOf("<head>"), html.indexOf("</head>"));
