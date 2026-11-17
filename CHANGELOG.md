@@ -12,6 +12,16 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **Project documents the AI wrote or changed are marked as AI-generated, and so is the digest mail with an AI
+  summary.** A marked document shows the badge "AI-generated"; its Word and PowerPoint downloads carry the
+  property `DigitalSourceType` and a description holding the IPTC digital source type, its HTML download a
+  `digital-source-type` meta tag, and each says "Contains AI-generated content." in the visible text (a PDF, the
+  printed HTML, carries only that line). A digest mail with the AI summary has the header `X-AI-Generated` and the
+  same line. Any AI create, change, rename, duplicate or restore marks a document; a person's edit keeps the mark,
+  and only "Remove AI-generated mark", after a confirmation and logged in the activity log, clears it. The app
+  does not check whether AI text remains. Not marked: text copied out of the app, tasks, report text, chat replies,
+  the workspace exports and documents the AI wrote before this release. A client that has not been upgraded drops
+  the mark when it saves a shared project.
 - **A deployment can name the exact Turso and SharePoint hosts its browsers may reach.** `AIPM_CSP_TURSO_HOSTS`
   and `AIPM_CSP_SHAREPOINT_HOSTS` take comma-separated hosts; the page's security policy then lists exactly those
   instead of the `*.turso.io`, loopback, `*.sharepoint.com` and `*.files.1drv.com` wildcards. Every database and

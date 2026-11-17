@@ -84,7 +84,6 @@ Registers.
 | §796 | Tasks created by Optimize work breakdown with AI cannot be undone |
 | §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |
-| §801 | Text the AI writes carries no machine-readable marking |
 | §802 | The AI gateway route has never been run against a real gateway |
 | §811 | The time the AI features save is not measured |
 | §812 | Whether Optimize work breakdown with AI repeats is not measured |
@@ -110,14 +109,11 @@ wo die Einzelheiten stehen. [geprüft: die Registereinträge in `docs/open-follo
 - **§799** — Das Aktivitätsprotokoll zeigt, dass die KI etwas geändert hat und was sich geändert hat,
   aber nicht, welche Chat-Nachricht dies verlangt hat. Wer prüft, kann eine KI-Änderung anhand des
   Protokolls nicht bis zu ihrer Anfrage zurückverfolgen.
-- **§801** — Text, den die KI in Aufgaben, Dokumente und Exporte schreibt, trägt keine maschinenlesbare
-  Markierung. Einmal kopiert oder exportiert, lässt er sich von Text, den eine Person geschrieben hat,
-  nicht mehr unterscheiden.
 - **§802** — Die Weiterleitung von KI-Anfragen über das Gateway einer Organisation wurde nur gegen
   Attrappen und einen lokalen Server getestet. Wie sich ein echtes Gateway mit der App verhält, ist durch
   keinen Lauf bestätigt.
 
-Sechs Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
+Sieben Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
 
 - **Anfragegrenzen.** Die Begrenzung der Routen für Jira, Confluence, Timelog, Wechselkurse, KI und Diktat
   vertraut keinem Header mehr, den der Aufrufer setzt. Standardmäßig teilen sich alle Aufrufer einer Route
@@ -171,6 +167,20 @@ Sechs Grenzen bleiben, zu denen es keinen offenen Registereintrag gibt:
   Ein Lauf, der doch startet, sendet weiter, was
   er immer gesendet hat, und niemand gibt ihn vorher frei. [geprüft: `assertBackgroundConsentLive` in
   `src/app/ai-consent.ts`; `backgroundOff` in `src/app/settings-overrides.ts`]
+
+- **Die Kennzeichnung von KI-Text ist teilweise.** Ein Projektdokument, das ein KI-Werkzeug geschrieben oder
+  geändert hat, trägt eine gespeicherte Kennzeichnung, und seine Downloads tragen sie: Eine Word- oder
+  PowerPoint-Datei hat die Eigenschaft `DigitalSourceType` und eine Beschreibung mit der IPTC-URI für die
+  digitale Quellenart, eine HTML-Datei hat ein Meta-Element `digital-source-type`, und jede nennt im sichtbaren
+  Text „Enthält KI-generierte Inhalte.“ Ein PDF ist das gedruckte HTML und trägt nur diese Zeile. Eine
+  Digest-E-Mail mit der KI-Zusammenfassung hat den Header `X-AI-Generated` und dieselbe Zeile. Sonst ist nichts
+  gekennzeichnet: aus der App kopierter Text, Aufgaben, Berichtstext, Chat-Antworten, die Exporte des
+  Arbeitsbereichs, andere E-Mails und Dokumente, die die KI vor diesem Release geschrieben hat. Ein Client ohne
+  Upgrade verliert die Kennzeichnung, wenn er ein geteiltes Projekt speichert. Eine Person kann die
+  Kennzeichnung entfernen, und die App prüft nicht, ob noch KI-Text im Dokument steht. [geprüft: `aiGenerated`
+  in `src/app/document-model.ts`; `applyDocMutation` in `src/app/document-mutations.ts`; `AI_SOURCE_TYPE_URI`
+  in `src/app/ai-content-mark.ts`; `src/app/ooxml-ai-mark.ts`; `src/app/doc-render-html.ts`;
+  `buildGraphMessage` in `src/app/graph-mail.ts`]
 
 ## So lesen Sie die Kennzeichnungen
 

@@ -57,15 +57,17 @@ app does nothing to make a request give the same answer twice (§812; E27, *not 
   the scheduled digest summary in every project, and each project can pause them in Settings → AI; AI a person
   starts is not affected, and the pause does not withdraw anyone's background consent (E32, *tested (unit)*).
 - **For Article 50 (transparency):** the screens name the AI ("AI Assistant", "Ask Claude", "AI-generated — review
-  before acting.") and the activity log shows its chat changes with the actor "AI assistant"; machine-readable
-  marking of the text it writes is absent (§801; E55, *read in code*).
+  before acting.") and the activity log shows its chat changes with the actor "AI assistant"; project documents the AI
+  wrote and the digest mail with its summary are marked (E73, *tested (unit)*); other text it writes is not (E55,
+  *read in code*).
 - **Article 4 literacy:** see the [AI-literacy material](../../compliance/en/ai-literacy.md) and the
   [model notices](../../compliance/en/model-notices.md) in the compliance pack.
 
 ## Not yet proven / open gaps
 
-1. **§801:** text the AI writes carries no machine-readable marking, so decide how it is labelled once it
-   leaves the app in reports and exports (E55, *read in code*).
+1. **Marking is partial:** only project documents the AI wrote and the digest mail with its summary are marked
+   (E73, *tested (unit)*). Tasks, report text, chat replies, copied text and the workspace exports are not, so
+   decide how they are labelled once they leave the app (E55, *read in code*).
 2. **§812:** whether the work breakdown optimisation repeats its result is not measured (E27, *not proven*).
 3. **Unmarked outside text:** outside text with no mark of its origin does not start the review hold; a
    Jira-synced task does (E48, *tested (unit)*). Only reviewing every write covers it (E71, *tested (unit)*).

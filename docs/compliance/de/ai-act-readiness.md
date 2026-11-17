@@ -109,9 +109,17 @@ entscheiden Sie; die [Musterhinweise](model-notices.md) bieten eine Vorlage. [Fr
 
 ### Kennzeichnung erzeugter Texte
 
-Die App kennzeichnet Text, den die KI schreibt, nicht maschinenlesbar. Steht dieser Text erst einmal in
-einer Aufgabe, einem Dokument, einem Bericht oder einem Export, zeigt nichts darin, dass die KI ihn
-geschrieben hat (§801). [Aussage des Maintainers; Register §801] Ob einige der
+Die App kennzeichnet Projektdokumente, die ein KI-Werkzeug geschrieben oder geändert hat: Das gespeicherte
+Dokument trägt eine Kennzeichnung, eine heruntergeladene Word-, PowerPoint- oder HTML-Datei trägt die IPTC-Angabe
+zur digitalen Quellenart, und jede nennt im sichtbaren Text „Enthält KI-generierte Inhalte.“ Ein PDF ist das
+gedruckte HTML und trägt nur diese Zeile. Eine Digest-E-Mail mit der KI-Zusammenfassung trägt den Header
+`X-AI-Generated` und dieselbe Zeile. [geprüft: `aiGenerated` in `src/app/document-model.ts`;
+`AI_SOURCE_TYPE_URI` in `src/app/ai-content-mark.ts`; `src/app/ooxml-ai-mark.ts`; `src/app/doc-render-html.ts`;
+`buildGraphMessage` in `src/app/graph-mail.ts`] Text, den die KI in Aufgaben, Berichte und Chat-Antworten
+schreibt, aus der App kopierter Text, die Exporte des Arbeitsbereichs und Dokumente aus der Zeit vor diesem
+Release tragen keine Kennzeichnung, und ein Client ohne Upgrade verliert die Kennzeichnung, wenn er ein
+geteiltes Projekt speichert. Eine Person kann die Kennzeichnung entfernen, und die App prüft nicht, ob noch
+KI-Text im Dokument steht. [Aussage des Maintainers] Ob einige der
 KI-Wege der App unterstützende Bearbeitung im Sinne der obigen Ausnahme sind, zum Beispiel eine vom Nutzer
 angeforderte Bearbeitung einer Zeile, ist eine offene Frage; der Maintainer hat sie nicht entschieden.
 [Aussage des Maintainers; Frage an Sie]
