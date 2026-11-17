@@ -21,6 +21,7 @@ import { NextActionsSection } from "./settings-sections/next-actions-section";
 import { ProjectOverridesSection } from "./settings-sections/project-overrides-section";
 import { AiPeopleProtectionControl } from "./settings-sections/ai-people-protection-control";
 import { AiReviewWritesControl } from "./settings-sections/ai-review-writes-control";
+import { AiBackgroundControl } from "./settings-sections/ai-background-control";
 import { AiRatesControl } from "./settings-sections/ai-rates-control";
 import { type SuggestionScope } from "./next-actions-tuning";
 import { AiSection } from "./settings-sections/ai-section";
@@ -441,6 +442,7 @@ export function SettingsView(props: SettingsViewProps) {
             {!props.isPopout && <AiPeopleProtectionControl lang={lang} />}
             {!props.isPopout && <AiReviewWritesControl lang={lang} />}
             {!props.isPopout && <AiRatesControl lang={lang} />}
+            {!props.isPopout && <AiBackgroundControl lang={lang} />}
           </>
         )}
         {active === "aiGuides" && (

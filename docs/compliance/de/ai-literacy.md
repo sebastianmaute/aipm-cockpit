@@ -70,8 +70,10 @@ Kennen Sie die Ausnahmen:
   `resultCarriesExternalText` und `openSendRecord` in `src/app/chat-send-record.ts`]
 - **Läufe im Hintergrund.** Die oben genannten Hintergrundfunktionen senden bei jedem Lauf Daten, ohne
   jedes Mal zu fragen. Ihre Ergebnisse sind nur Ratschläge: Eine Empfehlung ändert nichts, bis eine Person
-  sie bestätigt. [geprüft: `src/app/use-insight-recommendations.ts`, `src/app/scheduled-job-run.ts`;
-  Register §795]
+  sie bestätigt. Ein Projekt, oder die Installation mit `ai-background`, kann alle drei pausieren; ein
+  pausierter Lauf hält leise an, und KI, die eine Person startet, bleibt unberührt. [geprüft:
+  `src/app/use-insight-recommendations.ts`, `src/app/scheduled-job-run.ts`, `assertBackgroundConsentLive` in
+  `src/app/ai-consent.ts`]
 
 Was der Chat ändert, wird im Aktivitätsprotokoll als Änderung der KI festgehalten, und die meisten
 Änderungen lassen sich mit „Rückgängig“ zurücknehmen. Aufgaben, die durch einen von Ihnen übernommenen

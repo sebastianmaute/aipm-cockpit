@@ -57,7 +57,6 @@ Anthropic, transfers and a works agreement are questions only your organisation 
 2. **§802:** the gateway route has never run against a real gateway (E12, *not proven*).
 3. **§814:** six paths have no measured cost or behaviour, among them the weekly hard cap (E39, *not proven*).
 4. **§813:** chat erasure is proven live only for its database statements (E30, *tested (live database)*).
-5. **§795:** background AI is consented once, not approved run by run (E32, *tested (unit)*).
 
 ## What to check or ask for before saying yes
 

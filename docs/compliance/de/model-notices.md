@@ -107,7 +107,7 @@ Anmerkungen zum Hinweis für Beschäftigte: [geprüft wie angegeben]
   ein Projekt ihn ausgeschaltet hat, oder erzwingen Sie ihn mit `AIPM_DISABLED_INTEGRATIONS=ai-people`
   (`src/app/deployment-variables.ts`).
 - Der Satz zum Hintergrund: die drei Zeilen der Tabelle unten, deren Zustimmung „gesondert“ abgefragt
-  wird (`level: "background"` in `src/app/ai-disclosure.ts`); Register §795.
+  wird (`level: "background"` in `src/app/ai-disclosure.ts`); die Pause in `assertBackgroundConsentLive` in `src/app/ai-consent.ts`.
 - Der Satz „Eine Ausnahme“: `shouldStage` in `src/app/chat-proposal.ts`. Ein Projekt, oder die Bereitstellung mit
   `ai-direct-writes`, kann die Ausnahme aufheben, indem es jede KI-Änderung prüfen lässt; tut Ihres das, streichen
   Sie den Satz. Auch andere

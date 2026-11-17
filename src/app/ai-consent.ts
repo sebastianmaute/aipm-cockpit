@@ -1,7 +1,8 @@
 // src/app/ai-consent.ts
 // A versioned record of the AI disclosure the user accepted on THIS device.
 // Device settings only: never in the workspace, exports, Turso or recovery.
-import type { AiConfig } from "./settings-types";
+import type { AiConfig, SettingsOverrides } from "./settings-types";
+import { isIntegrationDisabled } from "./integration-switches";
 import { type AiRoute, currentAiRoute, getAiDeploymentState, isAiDeploymentOn } from "./ai-deployment";
 
 /** Bump when the disclosure text changes materially: every stored consent then reads as stale.
@@ -83,6 +84,19 @@ export class AiWeeklyCapReachedError extends Error {
   }
 }
 
+/** Why background AI is paused: the deployment lock (wins), or the open project's setting. */
+export type BackgroundPauseReason = "deployment" | "project";
+
+/** An unattended request stopped because background AI is paused. The pause never touches the background consent. */
+export class AiBackgroundPausedError extends Error {
+  readonly reason: BackgroundPauseReason;
+  constructor(reason: BackgroundPauseReason) {
+    super("Background AI is paused");
+    this.name = "AiBackgroundPausedError";
+    this.reason = reason;
+  }
+}
+
 /** Which consent a request needs: `interactive` for a request the user started, `background` for an
  *  unattended run (the scheduled-job analysis, the automatic insight recommendation run, the scheduled
  *  digest narrative), which also needs the separate background consent. */
@@ -94,6 +108,49 @@ let interactiveConsentLive = false;
 let backgroundConsentLive = false;
 // Published by the usage provider (the only reader of the week's total): this week's usage reached the hard cap.
 let backgroundCapReached = false;
+
+// Published by the open project's privacy source. FAIL CLOSED: paused until a project publishes.
+let backgroundProjectOff = true;
+
+const projectResumedListeners = new Set<() => void>();
+
+/** Told when the open project's published pause goes from on to off, so a scheduler that remembered a pause can try again. */
+export function onBackgroundProjectResumed(listener: () => void): () => void {
+  projectResumedListeners.add(listener);
+  return () => { projectResumedListeners.delete(listener); };
+}
+
+/** Records whether the open project pauses background AI. */
+export function publishBackgroundProjectOff(off: boolean): void {
+  const resumed = backgroundProjectOff && !off;
+  backgroundProjectOff = off;
+  if (resumed) for (const l of projectResumedListeners) l();
+}
+
+/** The project a background run reads, when it is not the open one (a scheduled job on a stored project). Only its
+ *  overrides matter: the pause is that project's `ai.backgroundOff`. */
+export type BackgroundTarget = {
+  settingsOverrides: SettingsOverrides | undefined;
+  /** True when the target IS the open project: its live (published) setting can be ahead of the stored overrides (the
+   *  save has not landed), so the pause holds when either says off. */
+  openProject?: true;
+};
+
+/** A run whose project is not loaded yet (a scheduled job is checked before its claim, long before its project is
+ *  read): consent, the deployment lock and the cap still decide, but the OPEN project's switch must not, because the
+ *  job belongs to another project. Its own switch is asked once it is loaded, with that project as the target. */
+export const PROJECT_NOT_LOADED: Readonly<BackgroundTarget> = Object.freeze({ settingsOverrides: undefined });
+
+/** Why background AI is paused right now, or null when it may run. The deployment wins over the project. With a
+ *  `target` the project is THAT one (the published open-project flag is ignored, unless the target is marked as the
+ *  open project, when it counts too); without, the open project. */
+export function backgroundPauseReason(target?: BackgroundTarget): BackgroundPauseReason | null {
+  if (isIntegrationDisabled("ai-background")) return "deployment";
+  const projectOff = target
+    ? target.settingsOverrides?.ai?.backgroundOff === true || (target.openProject === true && backgroundProjectOff)
+    : backgroundProjectOff;
+  return projectOff ? "project" : null;
+}
 
 /** Records whether this week's usage has reached the weekly hard cap. It pauses background AI only. */
 export function publishBackgroundCapState(reached: boolean): void {
@@ -129,15 +186,18 @@ export function assertInteractiveConsentLive(): void {
   if (!interactiveConsentLive) throw new AiConsentRevokedError();
 }
 
-/** Throws unless the published settings also carry a current background consent, and while the weekly hard cap is
- *  reached. A missing consent wins over the cap. Call before every unattended send. */
-export function assertBackgroundConsentLive(): void {
+/** Throws unless the published settings also carry a current background consent, while background AI is paused
+ *  (deployment lock or project setting), and while the weekly hard cap is reached. Order: a missing consent, then
+ *  the pause, then the cap. Call before every unattended send. */
+export function assertBackgroundConsentLive(target?: BackgroundTarget): void {
   if (!backgroundConsentLive) throw new AiConsentRevokedError();
+  const paused = backgroundPauseReason(target);
+  if (paused !== null) throw new AiBackgroundPausedError(paused);
   if (backgroundCapReached) throw new AiWeeklyCapReachedError();
 }
 
 /** The assertion for `level`. */
-export function assertAiConsentLive(level: AiConsentLevel): void {
-  if (level === "background") assertBackgroundConsentLive();
+export function assertAiConsentLive(level: AiConsentLevel, target?: BackgroundTarget): void {
+  if (level === "background") assertBackgroundConsentLive(target);
   else assertInteractiveConsentLive();
 }

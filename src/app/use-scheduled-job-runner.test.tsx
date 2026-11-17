@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useScheduledJobRunner, type ScheduledJobRunnerArgs } from "./use-scheduled-job-runner";
 import type { ScheduledJob, ScheduledJobRun } from "./scheduled-jobs/types";
-import { newConsent, publishAiConsentState, publishBackgroundCapState } from "./ai-consent";
+import { newConsent, publishAiConsentState, publishBackgroundCapState, publishBackgroundProjectOff } from "./ai-consent";
 import { defaultAiConfig } from "./settings-types";
+import { addDisabledIntegration, setDisabledIntegrations } from "./integration-switches";
 
 // The runner builds the run deps itself: the AI call, the portfolio lists, the project load and the report
 // store are mocked at their module edge, so the REAL runScheduledJob runs in every test below.
@@ -29,11 +30,12 @@ vi.mock("./scheduled-jobs-store", () => ({
 }));
 const backendState = vi.hoisted(() => ({
   failures: [] as string[], truncated: { entries: 0, blocks: 0 }, onLoad: undefined as undefined | (() => void),
+  overrides: undefined as undefined | { ai?: { backgroundOff?: boolean } },
 }));
 vi.mock("./turso-backend", () => ({
   TursoBackend: vi.fn().mockImplementation(function () {
     return {
-      load: async () => { backendState.onLoad?.(); return emptyWorkspace(); },
+      load: async () => { backendState.onLoad?.(); return { ...emptyWorkspace(), settingsOverrides: backendState.overrides }; },
       get lastDecodeFailures() { return backendState.failures; },
       get lastLoadTruncation() { return backendState.truncated; },
     };
@@ -92,6 +94,7 @@ function baseArgs(overrides: Partial<ScheduledJobRunnerArgs> = {}): ScheduledJob
     ai: { apiKey: "k", model: "m" },
     notify: vi.fn(),
     now: afternoon,
+    openProjectId: null,
     ...overrides,
   };
   storeState.jobs = [...args.jobs];
@@ -108,12 +111,14 @@ function resetStore(): void {
   backendState.failures = [];
   backendState.truncated = { entries: 0, blocks: 0 };
   backendState.onLoad = undefined;
+  backendState.overrides = undefined;
   storeState.fail = false;
   storeState.reads = 0;
 }
 
 // The hook asks the published background gate before each claim, so every test starts with a live consent.
 beforeEach(() => {
+  publishBackgroundProjectOff(false);
   publishAiConsentState({ ...defaultAiConfig, enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)) });
   publishBackgroundCapState(false);
 });
@@ -787,6 +792,168 @@ describe("useScheduledJobRunner: the deployment is confirmed before the claim", 
     renderHook(() => useScheduledJobRunner(baseArgs()));
     await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); });
     expect(vi.mocked(confirmAiDeployment)).toHaveBeenCalled();
+    expect(mClaim).not.toHaveBeenCalled();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+});
+
+describe("useScheduledJobRunner: the background pause is the job's project's (§795)", () => {
+  const settle = async () => act(async () => { for (let i = 0; i < 60; i++) await Promise.resolve(); });
+  beforeEach(() => {
+    mockRun.mockReset().mockResolvedValue({ summary: "s", actions: [] });
+    resetStore();
+  });
+  afterEach(() => {
+    setDisabledIntegrations([]);
+    publishBackgroundProjectOff(false);
+  });
+
+  // KILLED BY: reading the open project's flag in the early gate (a paused open project would stop every job).
+  it("runs a job whose project is not paused while the OPEN project is paused", async () => {
+    publishBackgroundProjectOff(true);
+    backendState.overrides = undefined;
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await settle();
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(mockRun.mock.calls[0][1]).toMatchObject({ level: "background", pauseTarget: { settingsOverrides: undefined } });
+  });
+
+  // KILLED BY: not marking the job's project as the open one (a switch just turned on, its save not landed, would be
+  // ignored: the stored overrides still say on).
+  it("does not send a job on the OPEN project whose live switch is on but whose stored overrides are not yet", async () => {
+    publishBackgroundProjectOff(true);
+    backendState.overrides = undefined;
+    renderHook(() => useScheduledJobRunner(baseArgs({ openProjectId: "p1" })));
+    await settle();
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(vi.mocked(finishReport)).not.toHaveBeenCalled();
+    expect(vi.mocked(releaseClaim)).toHaveBeenCalledTimes(1);
+  });
+
+  // CONTROL: the live flag decides only for the open project's own jobs.
+  it("runs a job on the OPEN project when its live switch is off", async () => {
+    publishBackgroundProjectOff(false);
+    renderHook(() => useScheduledJobRunner(baseArgs({ openProjectId: "p1" })));
+    await settle();
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  // KILLED BY: leaving the post-load gate out (the target project's own switch would be ignored).
+  it("does not send a job whose project is paused while the OPEN project is not", async () => {
+    publishBackgroundProjectOff(false);
+    backendState.overrides = { ai: { backgroundOff: true } };
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await settle();
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(vi.mocked(finishReport)).not.toHaveBeenCalled();
+    expect(vi.mocked(releaseClaim)).toHaveBeenCalledTimes(1);
+  });
+
+  // KILLED BY: dropping the memory (every tick would claim and load the paused project again), a retry time that never
+  // passes (the job would stay silent after the project resumes), or remembering an unpaused job's run.
+  describe("a paused project is claimed once, then left alone for an hour", () => {
+    const HOUR_MS = 60 * 60 * 1000; // PAUSED_RETRY_MS, spelled out so a changed constant is noticed
+    let clock = afternoon().getTime();
+    const tickAgain = async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await settle();
+    };
+    beforeEach(() => { clock = afternoon().getTime(); });
+
+    it("claims once, releases without a report, and does not claim or load on the next ticks within the hour", async () => {
+      backendState.overrides = { ai: { backgroundOff: true } };
+      let loads = 0;
+      backendState.onLoad = () => { loads += 1; };
+      renderHook(() => useScheduledJobRunner(baseArgs({ now: () => new Date(clock) })));
+      await settle();
+      expect(mClaim).toHaveBeenCalledTimes(1);
+      expect(loads).toBe(1);
+      expect(vi.mocked(releaseClaim)).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(finishReport)).not.toHaveBeenCalled();
+      expect(mockRun).not.toHaveBeenCalled();
+
+      clock += HOUR_MS - 1;
+      await tickAgain();
+      await tickAgain();
+      expect(mClaim).toHaveBeenCalledTimes(1);
+      expect(loads).toBe(1);
+    });
+
+    it("tries again once the retry time has passed, and sends when the project has resumed meanwhile", async () => {
+      backendState.overrides = { ai: { backgroundOff: true } };
+      renderHook(() => useScheduledJobRunner(baseArgs({ now: () => new Date(clock) })));
+      await settle();
+      expect(mClaim).toHaveBeenCalledTimes(1);
+
+      backendState.overrides = undefined;
+      clock += HOUR_MS;
+      await tickAgain();
+      expect(mClaim).toHaveBeenCalledTimes(2);
+      expect(mockRun).toHaveBeenCalledTimes(1);
+    });
+
+    // KILLED BY: not clearing the open project's remembered pauses when its switch goes off (the job would wait out
+    // the hour on the device that just resumed).
+    it("the open project resuming clears its remembered pause: the next tick tries the job at once", async () => {
+      publishBackgroundProjectOff(true);
+      renderHook(() => useScheduledJobRunner(baseArgs({ openProjectId: "p1", now: () => new Date(clock) })));
+      await settle();
+      expect(mClaim).toHaveBeenCalledTimes(1);
+      expect(mockRun).not.toHaveBeenCalled();
+
+      clock += 60_000;
+      await tickAgain();
+      expect(mClaim).toHaveBeenCalledTimes(1); // still remembered while paused
+
+      act(() => publishBackgroundProjectOff(false));
+      await tickAgain();
+      expect(mClaim).toHaveBeenCalledTimes(2);
+      expect(mockRun).toHaveBeenCalledTimes(1);
+    });
+
+    // KILLED BY: clearing every remembered pause on a resume (another project's pause would be re-claimed).
+    it("keeps another project's remembered pause when the open project resumes", async () => {
+      publishBackgroundProjectOff(true);
+      backendState.overrides = { ai: { backgroundOff: true } };
+      renderHook(() => useScheduledJobRunner(baseArgs({ openProjectId: "p2", now: () => new Date(clock) })));
+      await settle();
+      expect(mClaim).toHaveBeenCalledTimes(1);
+
+      act(() => publishBackgroundProjectOff(false));
+      clock += 60_000;
+      await tickAgain();
+      expect(mClaim).toHaveBeenCalledTimes(1);
+    });
+
+    // CONTROL: the memory is for paused jobs only.
+    it("leaves a job whose project is not paused unaffected", async () => {
+      renderHook(() => useScheduledJobRunner(baseArgs({ now: () => new Date(clock) })));
+      await settle();
+      expect(mockRun).toHaveBeenCalledTimes(1);
+      expect(mClaim).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // KILLED BY: dropping the tick short-cut (the lock cannot lift without a reload, yet every tick would read the store).
+  it("reads no job store on a tick while the deployment lock is on", async () => {
+    addDisabledIntegration("ai-background");
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await settle();
+    expect(storeState.reads).toBe(0);
+    expect(vi.mocked(slotStatus)).not.toHaveBeenCalled();
+  });
+
+  // CONTROL: without the lock the tick reads the store.
+  it("reads the job store on a tick without the lock", async () => {
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await settle();
+    expect(storeState.reads).toBeGreaterThan(0);
+  });
+
+  it("neither claims nor sends under the ai-background deployment lock", async () => {
+    addDisabledIntegration("ai-background");
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await settle();
     expect(mClaim).not.toHaveBeenCalled();
     expect(mockRun).not.toHaveBeenCalled();
   });

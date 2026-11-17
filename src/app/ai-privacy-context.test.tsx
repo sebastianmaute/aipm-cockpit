@@ -5,6 +5,8 @@ import {
   AiPrivacyProvider, AiPrivacyUnavailableError, useAiPrivacySource, useOpenProjectAiPrivacy, useOpenProjectRatesWithheld, useOpenProjectReviewAllWrites,
 } from "./ai-privacy-context";
 import { withPeopleAllowed } from "./ai-people-protection";
+import { backgroundPauseReason } from "./ai-consent";
+import { withAiSwitch } from "./ai-project-switches";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import type { Stakeholder } from "./types";
 import { setDisabledIntegrations } from "./integration-switches";
@@ -27,7 +29,7 @@ interface Props { projectKey: string; workspace: Workspace }
 
 /** Registers the source as task-manager does, and hands back the getter a feature would hold. */
 function useHarness({ projectKey, workspace }: Props) {
-  useAiPrivacySource(projectKey, () => workspace, () => 0);
+  useAiPrivacySource(projectKey, () => workspace, () => 0, true);
   return useOpenProjectAiPrivacy();
 }
 const wrapper = ({ children }: { children: ReactNode }) => <AiPrivacyProvider>{children}</AiPrivacyProvider>;
@@ -86,7 +88,7 @@ describe("fail closed", () => {
 describe("the open project's rates switch follows the workspace at send time (§804)", () => {
   const withRates = (on: boolean): Workspace => ({ ...emptyWorkspace(), settingsOverrides: on ? { ai: { ratesWithheld: true } } : undefined });
   function useRatesHarness({ projectKey, workspace }: Props) {
-    useAiPrivacySource(projectKey, () => workspace, () => 0);
+    useAiPrivacySource(projectKey, () => workspace, () => 0, true);
     return useOpenProjectRatesWithheld();
   }
   const mountRates = (initial: Props) => renderHook((p: Props) => useRatesHarness(p), { wrapper, initialProps: initial });
@@ -111,7 +113,7 @@ describe("the open project's rates switch follows the workspace at send time (§
 describe("the open project's review switch", () => {
   const withReview = (on: boolean): Workspace => ({ ...emptyWorkspace(), settingsOverrides: on ? { ai: { reviewAllWrites: true } } : undefined });
   function useReviewHarness({ projectKey, workspace }: Props) {
-    useAiPrivacySource(projectKey, () => workspace, () => 0);
+    useAiPrivacySource(projectKey, () => workspace, () => 0, true);
     return useOpenProjectReviewAllWrites();
   }
   it("reviews every write while no source is registered", () => {
@@ -139,5 +141,53 @@ describe("the unprotected stand-in honours the deployment locks", () => {
     setDisabledIntegrations(["ai-direct-writes", "ai-rates"]);
     expect(unprotectedStandIn.useOpenProjectReviewAllWrites()()).toBe(true);
     expect(unprotectedStandIn.useOpenProjectRatesWithheld()()).toBe(true);
+  });
+});
+
+describe("the open project publishes its background pause", () => {
+  const paused = (): Workspace => ({ ...emptyWorkspace(), settingsOverrides: withAiSwitch(undefined, "backgroundOff", true) });
+
+  it("follows the workspace on every commit and fails closed on unmount", () => {
+    const view = mount({ projectKey: "p1", workspace: paused() });
+    expect(backgroundPauseReason()).toBe("project");
+    view.rerender({ projectKey: "p1", workspace: emptyWorkspace() });
+    expect(backgroundPauseReason()).toBeNull();
+    view.rerender({ projectKey: "p1", workspace: paused() });
+    expect(backgroundPauseReason()).toBe("project");
+    view.rerender({ projectKey: "p1", workspace: emptyWorkspace() });
+    view.unmount();
+    expect(backgroundPauseReason()).toBe("project");
+  });
+});
+
+// §795 — fail closed while no real project is loaded: the empty workspace of a load or swap carries no setting, so
+// what the source publishes there must be "paused".
+describe("the background pause while no project is loaded (§795)", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  function useLoadHarness({ loaded, workspace }: { loaded: boolean; workspace: Workspace }) {
+    useAiPrivacySource("p1", () => workspace, () => 0, loaded);
+  }
+  const mountLoad = (initial: { loaded: boolean; workspace: Workspace }) =>
+    renderHook((p: { loaded: boolean; workspace: Workspace }) => useLoadHarness(p), { wrapper, initialProps: initial });
+  const on = (): Workspace => ({ ...emptyWorkspace(), settingsOverrides: { ai: { backgroundOff: true } } });
+
+  it("is paused while the load is pending, whatever the empty workspace says", () => {
+    mountLoad({ loaded: false, workspace: emptyWorkspace() });
+    expect(backgroundPauseReason()).toBe("project");
+  });
+  it("is not paused once a project is loaded and the setting is absent", () => {
+    const view = mountLoad({ loaded: false, workspace: emptyWorkspace() });
+    view.rerender({ loaded: true, workspace: emptyWorkspace() });
+    expect(backgroundPauseReason()).toBeNull();
+  });
+  it("is paused once loaded with the setting on", () => {
+    mountLoad({ loaded: true, workspace: on() });
+    expect(backgroundPauseReason()).toBe("project");
+  });
+  it("is paused again when a swap starts", () => {
+    const view = mountLoad({ loaded: true, workspace: emptyWorkspace() });
+    expect(backgroundPauseReason()).toBeNull();
+    view.rerender({ loaded: false, workspace: emptyWorkspace() });
+    expect(backgroundPauseReason()).toBe("project");
   });
 });

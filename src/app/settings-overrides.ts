@@ -150,7 +150,7 @@ function sanitizeForecastOverride(raw: unknown): SettingsOverrides["forecast"] |
 }
 
 /** The `ai` override's flags in the order the sanitiser emits them. */
-const AI_OVERRIDE_FLAGS = ["peopleAllowed", "reviewAllWrites", "ratesWithheld"] as const;
+const AI_OVERRIDE_FLAGS = ["peopleAllowed", "reviewAllWrites", "ratesWithheld", "backgroundOff"] as const;
 type AiOverrideFlag = (typeof AI_OVERRIDE_FLAGS)[number];
 
 function canonicalAi(isOn: (flag: AiOverrideFlag) => boolean): SettingsOverrides["ai"] | undefined {

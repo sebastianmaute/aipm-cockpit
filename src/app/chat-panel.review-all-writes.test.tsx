@@ -72,7 +72,7 @@ function scriptFetch(turns: unknown[]) {
 function mountAndSend(dispatcher: ToolDispatcher, overrides: Workspace["settingsOverrides"]) {
   const ws: Workspace = { ...emptyWorkspace(), tasks: [TASK], settingsOverrides: overrides };
   function Source({ children }: { children: ReactNode }) {
-    useAiPrivacySource("p1", () => ws, () => 0);
+    useAiPrivacySource("p1", () => ws, () => 0, true);
     return <>{children}</>;
   }
   render(

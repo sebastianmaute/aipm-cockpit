@@ -61,6 +61,10 @@ ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
   Prüfkarte, und `ai-rates` hält Stundensätze aus „Mit KI planen“, der Prognose im Chat und den Dashboard-Zahlen heraus; ohne sie kann jedes Projekt beides in
   Einstellungen → KI festlegen, und beides ist aus, bis es gesetzt wird (E71, *getestet (Unit)*; E72,
   *getestet (Unit)*).
+- **KI im Hintergrund:** `ai-background` pausiert die Analyse durch geplante Aufträge, die automatischen
+  Insight-Empfehlungen und die geplante Zusammenfassung des Digests in jedem Projekt, und jedes Projekt kann sie in
+  Einstellungen → KI pausieren; KI, die eine Person startet, bleibt unberührt, und die Pause zieht niemandes
+  Hintergrund-Zustimmung zurück (E32, *getestet (Unit)*).
 - **Zu Artikel 50 (Transparenz):** Die Oberflächen benennen die KI („KI-Assistent“, „Claude fragen“,
   „KI-generiert – vor dem Handeln prüfen.“), und das Aktivitätsprotokoll zeigt ihre Änderungen im Chat mit dem
   Akteur „KI-Assistent“; eine maschinenlesbare Kennzeichnung des Textes, den sie schreibt, fehlt (§801; E55,
@@ -77,7 +81,6 @@ ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
 3. **Fremder Text ohne Kennzeichnung:** Fremder Text ohne Kennzeichnung seiner Herkunft löst die Prüfpflicht
    nicht aus; eine aus Jira synchronisierte Aufgabe tut es (E48, *getestet (Unit)*). Nur die Prüfung jeder
    Änderung deckt ihn ab (E71, *getestet (Unit)*).
-4. **§795:** Für die Hintergrund-KI wird einmal zugestimmt, nicht für jeden Lauf (E32, *getestet (Unit)*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
 

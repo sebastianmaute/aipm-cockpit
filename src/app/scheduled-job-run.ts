@@ -7,7 +7,7 @@ import {
   AI_KEY_WRONG_ORGANIZATION, AI_KEY_WRONG_WORKSPACE,
   AiDeploymentError, AiGatewayError, AiHttpError, AiKeyCheckUnavailableError, AiKeyRefusedError, classifyAiError,
 } from "./ai-errors";
-import { AiConsentRevokedError, AiWeeklyCapReachedError } from "./ai-consent";
+import { AiBackgroundPausedError, AiConsentRevokedError, AiWeeklyCapReachedError, type BackgroundTarget } from "./ai-consent";
 import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
 import { buildProjectAnalysisInput } from "./project-analysis-input";
 import { periodStartFor } from "./scheduled-jobs/schedule";
@@ -25,7 +25,7 @@ import { StorageNotReadyError, type Workspace } from "./workspace";
 import { isBusyDbError, isTursoServerBlip } from "./storage-transient";
 
 export type RunOutcome =
-  | "skipped" | "claimed-elsewhere" | "project-missing" | "project-archived" | "transient" | "failed" | "done";
+  | "skipped" | "claimed-elsewhere" | "project-missing" | "project-archived" | "transient" | "paused" | "failed" | "done";
 
 export interface RunDeps {
   config: TursoConfig;
@@ -38,15 +38,20 @@ export interface RunDeps {
    *  not. Asked right before the claim, so a tab that cannot send never claims (and fails) the shared slot. */
   confirmDeployment(): Promise<void>;
   /** Throws when an unattended run may not send on this device: the background consent is gone or the weekly hard
-   *  cap is reached. Synchronous and free, so it is asked first, before any server read, and again beside
-   *  `confirmDeployment`, for the same reason: a device that cannot send never claims. */
-  confirmBackgroundGate(): void;
+   *  cap is reached, or background AI is paused. Synchronous and free, so it is asked first, before any server read,
+   *  and again beside `confirmDeployment`, for the same reason: a device that cannot send never claims. Those two
+   *  asks name no project (the job's project is not loaded yet), so the open project's switch does not decide them;
+   *  the third, after the load, names the job's project and decides its pause. */
+  confirmBackgroundGate(target?: BackgroundTarget): void;
   loadWorkspace(projectId: string): Promise<Workspace>;
   /** After a load: true when part of the project failed to decode or was truncated (the report then says so). */
   lastLoadPartial?(): boolean;
   /** `privacy` is the TARGET project's (AI people protection, spec R3): its setting and its people, never the
    *  open project's. */
-  analyse(context: string, privacy: AiPrivacy): Promise<ActionAnalysis>;
+  analyse(context: string, privacy: AiPrivacy, pauseTarget: BackgroundTarget): Promise<ActionAnalysis>;
+  /** Whether a project is the one the app has open right now, read live. Its pause then also holds on the published
+   *  setting, which is ahead of the stored overrides until the save lands. Absent: no project is the open one. */
+  isOpenProject?(projectId: string): boolean;
   deviceSettings: Settings;
   lang: Lang;
   now(): Date;
@@ -194,6 +199,11 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
     return "skipped";
   }
 
+  // The pause is the loaded project's own, whichever project the app has open: the same target goes to the request.
+  const pauseTarget: BackgroundTarget = deps.isOpenProject?.(projectId) === true
+    ? { settingsOverrides: workspace.settingsOverrides, openProject: true }
+    : { settingsOverrides: workspace.settingsOverrides };
+
   const partial = deps.lastLoadPartial?.() === true;
   const reportBase: ReportData = partial ? { ...base, partial: true } : base;
 
@@ -201,6 +211,7 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
   let analysis: ActionAnalysis;
   let actions: ReportData["actions"];
   try {
+    deps.confirmBackgroundGate(pauseTarget);
     const input = buildProjectAnalysisInput({
       workspace, deviceSettings: deps.deviceSettings, lang: deps.lang, now: deps.now(),
     });
@@ -210,7 +221,7 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
     );
     // The request carries THIS project's data, so it carries this project's privacy (spec R3), whichever
     // project the app has open. The key is the project's storage id, as the open project's is.
-    analysis = await deps.analyse(context, aiPrivacyFor([{ key: projectId, ws: workspace }]));
+    analysis = await deps.analyse(context, aiPrivacyFor([{ key: projectId, ws: workspace }]), pauseTarget);
     actions = analysis.actions.map(({ entity, ...rest }) => {
       const grounded = groundEntity(entity, input.grounding);
       return grounded ? { ...rest, entity: { view: grounded.view, id: String(grounded.id) } } : rest;
@@ -218,10 +229,16 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
   } catch (e) {
     // The transport throws `AiDeploymentError` before it sends anything (the setting changed since the check above), and
     // `AiKeyCheckUnavailableError` when the relay could not check the key (nothing was forwarded): nothing was billed, so, as
-    // for the load, the claim is released and the next tick retries. A consent withdrawn or a weekly hard cap reached
-    // since the check above is refused the same way, before a send. With the max-tokens retry the first reply may
+    // for the load, the claim is released and the next tick retries. A consent withdrawn, a weekly hard cap reached or
+    // a pause (the deployment lock, or the job's project switching background AI off) is refused the same way, before a send. With the max-tokens retry the first reply may
     // already have been billed when the second send is refused: that spend stays recorded in the usage store, and the
     // released slot is retried once the gate allows it.
+    // A pause is its own outcome: the claim is released the same way, but the caller remembers the answer and does not
+    // claim and load this job's project again on every tick.
+    if (e instanceof AiBackgroundPausedError) {
+      await settle(releaseClaim(config, reportId));
+      return "paused";
+    }
     if (e instanceof AiDeploymentError || e instanceof AiKeyCheckUnavailableError || e instanceof AiWeeklyCapReachedError || e instanceof AiConsentRevokedError) {
       await settle(releaseClaim(config, reportId));
       return "transient";

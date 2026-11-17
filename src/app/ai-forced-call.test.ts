@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "../test/ai-consent-live";
-import { AiConsentRevokedError, newConsent, publishAiConsentState } from "./ai-consent";
+import { AiBackgroundPausedError, AiConsentRevokedError, newConsent, publishAiConsentState, publishBackgroundProjectOff } from "./ai-consent";
 import { defaultAiConfig } from "./settings-types";
 import { __resetToolChoiceFallbackForTests, runForcedToolCall, runForcedToolCallWithRetry, runForcedToolCallWithStop } from "./ai-forced-call";
 import { AiHttpError } from "./ai-errors";
@@ -528,5 +528,27 @@ describe("runForcedToolCall — the consent gate (AI-01)", () => {
     publishAiConsentState({ ...LIVE, backgroundConsent: undefined });
     await expect(runForcedToolCallWithStop({ ...args(), level: "background" })).rejects.toBeInstanceOf(AiConsentRevokedError);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("runForcedToolCall — the pause target", () => {
+  afterEach(() => publishBackgroundProjectOff(false));
+
+  it("a paused target refuses before any fetch, whatever the open project publishes", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    publishBackgroundProjectOff(false);
+    await expect(
+      runForcedToolCall({ ...args(), level: "background", pauseTarget: { settingsOverrides: { ai: { backgroundOff: true } } } }),
+    ).rejects.toBeInstanceOf(AiBackgroundPausedError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("an unpaused target sends while the open project is paused", async () => {
+    stubReply("tool_use");
+    publishBackgroundProjectOff(true);
+    await expect(
+      runForcedToolCall({ ...args(), level: "background", pauseTarget: { settingsOverrides: undefined } }),
+    ).resolves.toEqual({ a: 1 });
   });
 });

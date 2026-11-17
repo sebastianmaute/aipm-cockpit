@@ -679,7 +679,7 @@ function TaskManagerInner() {
   // The single declaration for "the current project id under whichever portfolio backend is active"
   // (its three inputs are declared earlier in the component, so no TDZ hazard).
   const portfolioCurrentId = portfolioMode === "turso" ? tursoProjectId : currentProjectId;
-  useAiPrivacySource(portfolioCurrentId ?? "default", currentWorkspace, getScopeEpoch); // AI people protection (spec R3): the open project, for every AI request built from it
+  useAiPrivacySource(portfolioCurrentId ?? "default", currentWorkspace, getScopeEpoch, !loadPending && !(portfolioMode === "turso" && tursoProjectId === null)); // AI people protection (spec R3): the open project, for every AI request built from it
   // Suggested next-actions wiring — the workload alerts, the engine run, the
   // grouping, the comms-pending ids, the jump-to-comms link and the group-aware
   // snooze — extracted to useNextActions (use-next-actions.ts, §491).
@@ -735,7 +735,7 @@ function TaskManagerInner() {
     learning,
     trendsActive,
     actionTrends,
-    tursoConfig, loadPending,
+    tursoConfig, openProjectId: portfolioMode === "turso" ? (tursoProjectId ?? null) : null, loadPending,
     requestOpen,
     requestChat,
   });

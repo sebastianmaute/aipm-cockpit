@@ -54,7 +54,7 @@ const job: ScheduledJob = {
 function args(): ScheduledJobRunnerArgs {
   return {
     enabled: true, guidesReady: true, jobs: [job], jobsSource: "https://example.test",
-    recordRun: vi.fn(), config: { httpUrl: "https://example.test", authToken: "t" } as never, available: true,
+    recordRun: vi.fn(), config: { httpUrl: "https://example.test", authToken: "t" } as never, available: true, openProjectId: null,
     deviceSettings: defaultSettings, lang: "en-US",
     clearProject: vi.fn(async () => undefined), disableJob: vi.fn(async () => undefined),
     ai: { apiKey: "sk-test", model: "m" }, notify: vi.fn(), now: () => new Date("2026-10-23T14:00:00.000Z"),
@@ -64,7 +64,7 @@ function args(): ScheduledJobRunnerArgs {
 /** Project A is open: it registers ITS privacy source, as task-manager does. */
 function openProject(ws: Workspace) {
   function Open({ children }: { children: ReactNode }) {
-    useAiPrivacySource("project-A", () => ws, () => 0);
+    useAiPrivacySource("project-A", () => ws, () => 0, true);
     return <>{children}</>;
   }
   return function Wrapper({ children }: { children: ReactNode }) {

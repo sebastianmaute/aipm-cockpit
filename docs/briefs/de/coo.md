@@ -53,7 +53,6 @@ Form einer Telefonnummer im Browser vor dem Senden durch Platzhalter ersetzt (E1
    Zeitlimit. Auf dem Relay-Weg wird eine Antwort abgebrochen, die 15 Minuten lang nichts sendet, und eine
    Antwort mit Ratenlimit oder Überlastung wird den Nutzenden als solche angezeigt und nicht wiederholt (E40,
    *im Code gelesen*).
-5. **§795:** Für Hintergrundläufe wird einmal zugestimmt, nicht für jeden Lauf (E32, *getestet (Unit)*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
 

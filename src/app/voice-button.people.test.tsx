@@ -34,7 +34,7 @@ const protectedWs = (): Workspace => ({ ...emptyWorkspace(), settingsOverrides: 
 const REASON = t("en-US", "voiceCommandUnavailablePeopleProtected");
 
 function Source({ ws, children }: { ws: Workspace; children: ReactNode }) {
-  useAiPrivacySource("p1", () => ws, () => 0);
+  useAiPrivacySource("p1", () => ws, () => 0, true);
   return <>{children}</>;
 }
 

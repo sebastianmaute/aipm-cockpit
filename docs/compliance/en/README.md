@@ -71,7 +71,6 @@ and the pack's check fails when a listed entry is closed or missing. [verified:
 |---|---|
 | §487 | The Windows installer is still unsigned: the signing pipeline exists but is switched off, so every install shows an unknown-publisher warning |
 | §793 | The installer's uninstaller is not code-signed |
-| §795 | Background AI runs are consented once, not approved run by run |
 | §796 | Tasks created by Optimize work breakdown with AI cannot be undone |
 | §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |
@@ -90,8 +89,6 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
   Check each download with the GitHub attestation commands in `SECURITY.md` instead.
 - **§793** — Even once signing is switched on, the uninstaller that setup puts on the computer will not be
   signed, so a tool that checks every program on the machine will flag it.
-- **§795** — The three background AI features send project data on every run under one consent given in
-  advance. Nobody approves each run.
 - **§796** — After a person applies an AI work breakdown, undo reverts the changes to existing tasks but
   not the tasks it created. Those must be deleted by hand.
 - **§798** — Most AI requests wait until the user cancels or the connection fails, and a request refused
@@ -103,7 +100,7 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
 - **§802** — Routing AI through an organisation's gateway has been tested against fakes and a local
   server only. How a real gateway behaves with the app has not been confirmed by a run.
 
-Five limits remain that have no open register entry:
+Six limits remain that have no open register entry:
 
 - **Request limits.** The limit on the Jira, Confluence, Timelog, exchange-rate, AI and dictation routes no
   longer trusts a header the caller sets. By default all callers of a route share one count, so one caller
@@ -139,6 +136,16 @@ Five limits remain that have no open register entry:
   or when. Hiding the function does not take people's names out of tasks and other records; people
   protection does that. [verified: `toolWithheldBy` in `src/app/chat-tool-defs.ts`;
   `buildAiAwaySummary` in `src/app/absence-clash.ts`; `src/app/chat-panel.absence-clash.test.tsx`]
+- **Pausing background AI.** A project, or the deployment with `ai-background`, can pause the three background AI
+  runs (the scheduled job analysis, the automatic insight recommendations and the scheduled digest summary); AI a
+  person starts is not affected, and the pause does not withdraw anyone's background consent. The app enforces it
+  in the browser, so a modified client could bypass it; no server route refuses. A client that has not been
+  upgraded drops the project's setting when it saves a shared project, and also ignores the `ai-background` id (its parser drops the unknown id), so the deployment id protects fully only once every client is upgraded. A scheduled job decides from its own project, so a paused project's job is tried at most once an hour on
+  each device and then stops without a report or anything sent to the AI; the scheduled-jobs settings say that a
+  job does not run while its project is paused, not which project is. On the device where the switch is turned
+  on, the jobs of the open project pause at once, before the save lands; other devices follow once it is saved. Background AI on the open project is also paused until the app has loaded a project, and when the switch is turned back off that device tries the jobs again at the next check and other devices within an hour.
+  A run that does start still sends what it always sent, and no one approves it first. [verified:
+  `assertBackgroundConsentLive` in `src/app/ai-consent.ts`; `backgroundOff` in `src/app/settings-overrides.ts`]
 
 ## How to read the labels
 

@@ -2,9 +2,11 @@
 // callers) with no settings provider: publishes AI switched on with a current interactive AND background consent,
 // as `useSettings` would, so the consent gate (ai-consent.ts) lets a request of either level reach the mocked
 // fetch. A test of the gate itself publishes its own state instead and does not import this.
-import { newConsent, publishAiConsentState } from "../app/ai-consent";
+import { newConsent, publishAiConsentState, publishBackgroundProjectOff } from "../app/ai-consent";
 import { defaultAiConfig } from "../app/settings-types";
 
+// An open project that does not pause background AI (the pause is tested in ai-consent.background-pause.test.ts).
+publishBackgroundProjectOff(false);
 publishAiConsentState({
   ...defaultAiConfig,
   enabled: true,

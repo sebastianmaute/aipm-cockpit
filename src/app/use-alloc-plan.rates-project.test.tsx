@@ -26,7 +26,7 @@ const RATE_CARD: Role[] = [{ id: 7, disciplineId: 1, gradeId: 1, internalRate: 8
 const ALICE: Resource = { id: 1, firstName: "Alice", lastName: "Anderson", roleId: 7, utilizationMode: "hours", utilization: {} };
 
 function Source({ ws, children }: { ws: Workspace; children: ReactNode }) {
-  useAiPrivacySource("p1", () => ws, () => 0);
+  useAiPrivacySource("p1", () => ws, () => 0, true);
   return <>{children}</>;
 }
 

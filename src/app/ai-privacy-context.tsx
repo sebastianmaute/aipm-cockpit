@@ -19,9 +19,10 @@
 // ★ FAIL CLOSED: outside the provider, or before task-manager has registered its source, the getter
 // THROWS. Sending unprotected because a source was missing is the bypass the spec forbids.
 import { createContext, useCallback, useContext, useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { publishBackgroundProjectOff } from "./ai-consent";
 import { isPeopleProtected } from "./ai-people-protection";
 import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
-import { isRatesWithheld, isReviewAllWrites } from "./ai-project-switches";
+import { isBackgroundOff, isRatesWithheld, isReviewAllWrites } from "./ai-project-switches";
 import type { ScopeEpochReader } from "./scope-epoch";
 import type { Workspace } from "./workspace";
 
@@ -93,13 +94,20 @@ export function AiPrivacyProvider({ children }: { children: ReactNode }) {
   return <SourceContext.Provider value={store}>{children}</SourceContext.Provider>;
 }
 
-/** Task-manager registers the open project here. A layout effect, so every commit's source is in
+/** Task-manager registers the open project here. `projectLoaded` is false while the app holds no real project (the load
+ *  hold, or a portfolio with none chosen); the background pause is then published as on. Required, so a new caller
+ *  cannot fail open by leaving it out. A layout effect, so every commit's source is in
  *  place before any passive effect (an unattended run) or event handler can ask for it. */
-export function useAiPrivacySource(key: string, read: () => Workspace, epoch: ScopeEpochReader): void {
+export function useAiPrivacySource(key: string, read: () => Workspace, epoch: ScopeEpochReader, projectLoaded: boolean): void {
   const store = useContext(SourceContext);
   useLayoutEffect(() => {
     store?.set({ key, read, epoch });
+    // ★ FAIL CLOSED while no real project is loaded (the first load, a backend reload, a project swap, a Turso portfolio
+    // with none chosen): the workspace there is the empty one, which carries no setting and would read as "not paused".
+    publishBackgroundProjectOff(!projectLoaded || isBackgroundOff(read().settingsOverrides));
   });
+  // Fail closed once the source is gone.
+  useLayoutEffect(() => () => publishBackgroundProjectOff(true), []);
 }
 
 /** Read when no source is registered: two reads both outside a provider compare equal (never stale); a

@@ -11,6 +11,7 @@
 // follows the OPEN portfolio) so the picker works from any view.
 
 import { useEffect, useId, useMemo, useState } from "react";
+import { isBackgroundOffForced } from "../ai-project-switches";
 import { type Lang, t } from "../i18n";
 import { FieldHint } from "../field-hint";
 import { isAiBackgroundEnabled, isAiEnabled, type Settings } from "../settings-types";
@@ -152,6 +153,8 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
             <span className="text-xs text-foreground">{t(lang, "scheduledJobsToggle")}</span>
           </label>
           {!hasBackgroundConsent && <FieldHint id={backgroundHintId}>{t(lang, "aiBackgroundConsentNeeded")}</FieldHint>}
+          {/* A job decides from its OWN project, not the open one, so only the organisation lock is named; otherwise the rule is stated once. */}
+          <FieldHint>{t(lang, isBackgroundOffForced() ? "aiBackgroundPausedByDeployment" : "scheduledJobsPausedProjectHint")}</FieldHint>
           <FieldHint>{t(lang, "scheduledJobsCostNote")}</FieldHint>
 
           {enabled && (

@@ -66,7 +66,6 @@ nur Ihre Organisation beantworten kann.
    harte Obergrenze (E39, *nicht belegt*).
 4. **§813:** Das Löschen von Chats ist live nur für seine Datenbankanweisungen belegt (E30,
    *getestet (Live-Datenbank)*).
-5. **§795:** Für die Hintergrund-KI wird einmal zugestimmt, nicht für jeden Lauf (E32, *getestet (Unit)*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
 

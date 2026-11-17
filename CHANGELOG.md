@@ -227,6 +227,17 @@ longer carries its own changelog comment.
   it, and a scenario's cost at finish, beside the added person's weekly hours, lets the model roughly work out
   that person's rate. Upgrade every client first: an older client drops the setting when it saves a shared
   project.
+- **Background AI can be switched off for a project or for the whole deployment.** "Turn off background AI for this
+  project" in Settings → AI pauses the three runs that start without a person: the scheduled job analysis, the
+  automatic insight recommendations and the scheduled digest summary. An operator can pause them in every project
+  with `ai-background` in `AIPM_DISABLED_INTEGRATIONS`, which a page reads once when it loads. A paused run stops
+  quietly, with no failure report or error notification, and the digest is produced without its AI summary. AI a
+  person starts is not affected, and the pause never withdraws or changes anyone's background consent. It is off
+  until set; turning it back on asks first, and every change is written to the activity log. A scheduled job
+  follows the setting of the project it analyses, and a paused project's job is tried at most once an hour on each
+  device, with no report. On the device where the switch is turned on, the open project's jobs pause at once, before
+  the save lands; other devices follow once it is saved; the automatic recommendations and the digest summary run on the open project and are paused until a project has loaded (the first load, a reload and a project switch included). Turning the open project's switch back off makes this device try its jobs again at the next check; other devices wait at most an hour. The scheduled-jobs settings say that a job does not run while its project is paused. The app
+  enforces the pause; no server route refuses. Upgrade every client first: an older client drops the setting when it saves a shared project, and it also ignores the `ai-background` lock (its parser drops the unknown id), so the lock protects fully only once every client is upgraded.
 
 ### Changed
 

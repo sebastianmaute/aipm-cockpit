@@ -6,10 +6,17 @@ import { useInsightRecommendRunner, type InsightRecommendRunnerArgs } from "./us
 import { runInsightRecommendation } from "./insights/recommend-call";
 import { MAX_BG_RECS_PER_TICK, type Insight, type InsightRecommendation } from "./insights/insight";
 import type { GroundingIndex } from "./action-ai";
-import { AiWeeklyCapReachedError } from "./ai-consent";
+import { AiBackgroundPausedError, AiWeeklyCapReachedError, newConsent, publishAiConsentState, publishBackgroundProjectOff } from "./ai-consent";
+import { addDisabledIntegration, setDisabledIntegrations } from "./integration-switches";
+import { defaultAiConfig } from "./settings-types";
 import { AiKeyCheckUnavailableError, AiKeyRefusedError } from "./ai-errors";
 
 vi.mock("./insights/recommend-call", () => ({ runInsightRecommendation: vi.fn() }));
+// The deployment status is asked of the server before every send; here it answers "on".
+vi.mock("./ai-transport", async (orig) => ({
+  ...(await orig<typeof import("./ai-transport")>()),
+  confirmAiDeployment: vi.fn(async () => ({ peopleForced: false })),
+}));
 
 const mockRun = vi.mocked(runInsightRecommendation);
 
@@ -477,5 +484,65 @@ describe("useInsightRecommendRunner — guides-ready edge (§701)", () => {
     await act(async () => { await flushMicrotasks(); });
     expect(mockRun).toHaveBeenCalledTimes(1);
     expect(mockRun.mock.calls[0][0].guideText).toBe("GUIDE-LOADED");
+  });
+});
+
+// §795 — the REAL request path under the runner (only the network is stubbed), so "never sent" is measured at the
+// fetch, not at a mock of the runner's own callee.
+describe("useInsightRecommendRunner — the background pause (§795)", () => {
+  const consent = () => newConsent(new Date(0));
+  const failed = () => ({ ok: false, status: 500, json: async () => ({}) }) as unknown as Response;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(async () => {
+    const actual = await vi.importActual<typeof import("./insights/recommend-call")>("./insights/recommend-call");
+    mockRun.mockImplementation((a) => actual.runInsightRecommendation(a));
+    fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => failed());
+    publishBackgroundProjectOff(false);
+    publishAiConsentState({ ...defaultAiConfig, enabled: true, consent: consent(), backgroundConsent: consent() });
+  });
+  afterEach(() => {
+    fetchSpy.mockRestore();
+    setDisabledIntegrations([]);
+    publishBackgroundProjectOff(false);
+    publishAiConsentState(undefined);
+  });
+  const run = async (insights: Insight[]) => {
+    const view = renderRunner({ insights });
+    await act(async () => { await flushMicrotasks(40); });
+    return view;
+  };
+
+  test("runs when nothing pauses", async () => {
+    await run([makeInsight(1)]);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("pauses without sending while the project switches background AI off", async () => {
+    publishBackgroundProjectOff(true);
+    const { applyRecommendation } = await run([makeInsight(1), makeInsight(2)]);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(applyRecommendation).not.toHaveBeenCalled();
+  });
+
+  test("pauses under the ai-background lock", async () => {
+    addDisabledIntegration("ai-background");
+    await run([makeInsight(1)]);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  // The batch `break` itself is pinned by "a pause is not a failure..." below (the runner is called once for three
+  // candidates); this test covers a pause that arrives while a request is in flight.
+  test("stops the batch when a pause arrives mid-batch", async () => {
+    fetchSpy.mockImplementationOnce(async () => { publishBackgroundProjectOff(true); return failed(); });
+    await run([makeInsight(1), makeInsight(2)]);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("a pause is not a failure: it leaves the consent as it was and ends the tick", async () => {
+    publishBackgroundProjectOff(true);
+    mockRun.mockReset().mockRejectedValue(new AiBackgroundPausedError("project"));
+    const { applyRecommendation } = await run([makeInsight(1), makeInsight(2), makeInsight(3)]);
+    expect(mockRun).toHaveBeenCalledTimes(1); // the batch breaks at the first refusal
+    expect(applyRecommendation).not.toHaveBeenCalled();
   });
 });

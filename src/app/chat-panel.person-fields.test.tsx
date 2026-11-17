@@ -42,7 +42,7 @@ function makeDispatcher(): ToolDispatcher {
 
 function renderOpen(ws: Workspace) {
   function Source({ children }: { children: ReactNode }) {
-    useAiPrivacySource("p1", () => ws, () => 0);
+    useAiPrivacySource("p1", () => ws, () => 0, true);
     return <>{children}</>;
   }
   render(
@@ -158,7 +158,7 @@ describe("applying a staged turn under people protection", () => {
       return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
     });
     function Source({ children }: { children: ReactNode }) {
-      useAiPrivacySource("p1", () => ws, () => 0);
+      useAiPrivacySource("p1", () => ws, () => 0, true);
       return <>{children}</>;
     }
     render(
@@ -226,7 +226,7 @@ describe("a protected lone date move onto the existing owner's absence", () => {
       return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
     });
     function Source({ children }: { children: ReactNode }) {
-      useAiPrivacySource("p1", () => ws, () => 0);
+      useAiPrivacySource("p1", () => ws, () => 0, true);
       return <>{children}</>;
     }
     render(

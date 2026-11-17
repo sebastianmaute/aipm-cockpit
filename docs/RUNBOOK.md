@@ -512,19 +512,20 @@ section there.
   own speech recognition until its next AI request or a reload (§789), so ask people to reload.
 - **`ai-direct-writes` forces every AI write into review** in every project, whatever a project chose; AI stays available.
 - **`ai-rates` keeps hourly rates out of Plan with AI and the chat’s forecast and dashboard figures** in every project, whatever a project chose; AI stays available.
-- **`ai-direct-writes` and `ai-rates` are applied by the app,** in the browser: no server route
-  refuses a request under either of them (only `ai-people` also makes `/api/stt` refuse). An
+- **`ai-background` pauses background AI** in every project, whatever a project chose: the scheduled job analysis, the automatic insight recommendations and the scheduled digest summary stop quietly (no failure report, no error notification); the digest is produced without its AI summary. AI the user starts stays available. The pause does not withdraw anyone's background consent, which is per user and per device and is kept while the id is listed. The project's own switch ("Turn off background AI for this project") pauses the open project's scheduled jobs on the device where it is turned on at once, before the save lands; other devices follow once the project is saved. The open project's background AI is also paused until the app has loaded a project, and when the switch is turned back off the device that turned it off tries its scheduled jobs again at the next check (other devices within an hour).
+- **`ai-direct-writes`, `ai-rates` and `ai-background` are applied by the app,** in the browser: no server route
+  refuses a request under any of them (only `ai-people` also makes `/api/stt` refuse). An
   open page reads the deployment's list once, when it loads: after a change (and the server
   restart), a page left open keeps the old locks until it is reloaded, so ask people to reload.
-- **★ Upgrade every client before relying on the per-project switches.** "Review every AI write"
-  and "Keep hourly rates out of Plan with AI and the chat’s forecast and dashboard figures" are stored with the project
-  (`reviewAllWrites`, `ratesWithheld`). A client that has not been upgraded drops both when it
+- **★ Upgrade every client before relying on the per-project switches.** "Review every AI write",
+  "Keep hourly rates out of Plan with AI and the chat’s forecast and dashboard figures" and "Turn off background AI for this project" are stored with the project
+  (`reviewAllWrites`, `ratesWithheld`, `backgroundOff`). A client that has not been upgraded drops all three when it
   saves a shared (Turso) project, which turns them off for everyone. The deployment ids above do
   not depend on that stored choice.
 - **Several clients on one shared project: prefer the deployment locks.** Where people open a shared
-  (Turso) project from clients that are not all upgraded at once, set `ai-direct-writes` and `ai-rates`
+  (Turso) project from clients that are not all upgraded at once, set `ai-direct-writes`, `ai-rates` and `ai-background`
   in `AIPM_DISABLED_INTEGRATIONS` rather than relying on the per-project switches: a lock does not live in
-  the project, so no client's save can turn it off.
+  the project, so no client's save can turn it off. A client that has not been upgraded also ignores the `ai-background` lock (its parser drops the unknown id), so that lock protects fully only once every client is upgraded.
 - **`ai` switches every AI feature off**, and dictation to a speech service with it
   (`/api/stt` refuses too). To check it took effect, open Settings → AI: it says the
   organisation switched AI off, and the master switch cannot be ticked. Users' keys and

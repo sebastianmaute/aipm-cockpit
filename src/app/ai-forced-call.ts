@@ -18,7 +18,7 @@
 import type { ApiMessage, SystemBlock } from "./chat-api";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import { reportAiKeyResponse } from "./ai-key-status";
-import { type AiConsentLevel, assertAiConsentLive } from "./ai-consent";
+import { type AiConsentLevel, assertAiConsentLive, type BackgroundTarget } from "./ai-consent";
 import { matchesSchema, withStrictTool } from "./ai-tool-schema";
 import { postAiMessages } from "./ai-transport";
 import type { AiPrivacy } from "./ai-privacy";
@@ -49,6 +49,8 @@ export interface ForcedToolCallArgs {
   /** The consent every request of this call needs (`assertAiConsentLive`), asked before EACH request, the
    *  fallback and strict retries included. Default `interactive`; the unattended runners pass `background`. */
   level?: AiConsentLevel;
+  /** The project a background call reads when it is not the open one: its `ai.backgroundOff` decides the pause. */
+  pauseTarget?: BackgroundTarget;
   /** Whether the request is redacted for people protection. Required: every caller decides. */
   privacy: AiPrivacy;
 }
@@ -269,7 +271,7 @@ async function postOnce(
   if (system !== undefined) body.system = system;
 
   const level = args.level ?? "interactive";
-  assertAiConsentLive(level);
+  assertAiConsentLive(level, args.pauseTarget);
   const res = await postAiMessages({
     apiKey: args.apiKey,
     body: JSON.stringify(body),
@@ -277,7 +279,7 @@ async function postOnce(
     signal: args.signal,
     privacy: args.privacy,
     // Asked again after the deployment status: consent can be revoked while it is asked.
-    beforeSend: () => assertAiConsentLive(level),
+    beforeSend: () => assertAiConsentLive(level, args.pauseTarget),
   });
 
   if (!res.ok) {

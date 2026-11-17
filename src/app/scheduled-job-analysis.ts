@@ -9,7 +9,7 @@
 import type { AiPrivacy } from "./ai-privacy";
 import { parseAnalysis, ANALYZE_TOOL, buildAnalysisSystemPrompt, type ActionAnalysis } from "./action-ai";
 import { runForcedToolCallWithRetry } from "./ai-forced-call";
-import type { AiConsentLevel } from "./ai-consent";
+import type { AiConsentLevel, BackgroundTarget } from "./ai-consent";
 
 interface AiCreds {
   apiKey: string;
@@ -24,6 +24,8 @@ interface AiCreds {
   /** The consent each request needs: the scheduled-job runner passes `background`; the Action Center's
    *  click passes nothing (interactive). */
   level?: AiConsentLevel;
+  /** The project this request carries when it is not the open one: its background switch decides the pause. */
+  pauseTarget?: BackgroundTarget;
 }
 
 // The output budget, as task dedup and the project proposal use (was 2048), and the one a reply cut at
@@ -47,6 +49,7 @@ export async function runJobAnalysis(context: string, ai: AiCreds, signal?: Abor
       guideText: ai.guideText,
       cacheGuides: ai.cacheGuides,
       level: ai.level,
+      pauseTarget: ai.pauseTarget,
       tools: [ANALYZE_TOOL],
       toolName: "report_analysis",
       messages: [{ role: "user", content: context }],

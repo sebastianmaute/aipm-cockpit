@@ -94,8 +94,7 @@ Fragen, die nur Ihre Organisation beantworten kann.
 1. **§813:** Das Löschen von Chats ist live nur für seine Datenbankanweisungen belegt, nicht für die
    Oberflächen, echte Löschläufe, die Sicherungen des Anbieters oder was der Modellanbieter aufbewahrt (E30,
    *getestet (Live-Datenbank)*).
-2. **§795:** Für die Hintergrund-KI wird einmal zugestimmt, nicht für jeden Lauf (E32, *getestet (Unit)*).
-3. **§814:** Für die Ablehnung von Bildern und PDFs bei Personenschutz und die Stunden anderer Projekte in der
+2. **§814:** Für die Ablehnung von Bildern und PDFs bei Personenschutz und die Stunden anderer Projekte in der
    Ressourcenplanung gibt es kein beobachtetes Verhalten aus einem gemessenen Lauf (E39, *nicht belegt*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten

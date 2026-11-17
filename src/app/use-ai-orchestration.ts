@@ -73,6 +73,8 @@ export interface AiOrchestrationDeps {
   trendsActive: boolean;
   actionTrends: ActionTrends | undefined;
   tursoConfig: TursoConfig | null;
+  /** The open stored project (null when none): a scheduled job on it is paused by its live switch too. */
+  openProjectId: string | null;
   /** §548 — the load hold; the saved-chat retention sweep waits for it. */
   loadPending: boolean;
   requestOpen: (view: AppView, id: number) => void;
@@ -98,6 +100,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     trendsActive,
     actionTrends,
     tursoConfig,
+    openProjectId,
     loadPending,
     requestOpen,
     requestChat,
@@ -261,6 +264,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     jobsSource: scheduledJobs.jobsSource,
     recordRun: scheduledJobs.recordRun,
     config: tursoConfig,
+    openProjectId,
     // A report is about a STORED project, so it needs the Turso portfolio (§772).
     available: tursoConfig !== null && loadPortfolioMode() === "turso",
     deviceSettings: settings,

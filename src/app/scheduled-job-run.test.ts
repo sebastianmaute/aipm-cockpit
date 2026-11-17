@@ -4,7 +4,7 @@ import type { ScheduledJob } from "./scheduled-jobs/types";
 import type { Workspace } from "./workspace";
 import { StorageNotReadyError, emptyWorkspace } from "./workspace";
 import { AiDeploymentError, AiGatewayError, AiHttpError, AiKeyCheckUnavailableError, AiKeyRefusedError } from "./ai-errors";
-import { AiConsentRevokedError, AiWeeklyCapReachedError } from "./ai-consent";
+import { AiBackgroundPausedError, AiConsentRevokedError, AiWeeklyCapReachedError } from "./ai-consent";
 import { TursoHttpError, TursoStepError } from "./turso-pipeline";
 import type { ReportData } from "./scheduled-reports-store";
 import { defaultSettings } from "./settings-types";
@@ -580,6 +580,61 @@ describe("runScheduledJob: a send that never happened spends nothing", () => {
   it("an unavailable organisation key check during analyse releases the claim as transient: nothing is finished or recorded (AI organisation key)", async () => {
     const d = deps({ analyse: vi.fn().mockRejectedValue(new AiKeyCheckUnavailableError()) });
     expect(await runScheduledJob(job(), SLOT, d)).toBe("transient");
+    expect(mRelease).toHaveBeenCalledWith(CONFIG, "report-1");
+    expect(mFinish).not.toHaveBeenCalled();
+    expect(d.recordRun).not.toHaveBeenCalled();
+  });
+});
+
+// §795 — a pause is a pause: the project the job targets decides it, and a paused run is released, not failed.
+describe("runScheduledJob: the background pause (§795)", () => {
+  const targetWs = (): Workspace => ({ ...workspace(), settingsOverrides: { ai: { backgroundOff: true } } });
+
+  // KILLED BY: dropping the second gate call (a paused target project would be analysed), or calling it without the
+  // loaded project's overrides (the open project's flag would decide for a job on another project).
+  it("asks the gate again with the TARGET project's overrides once it is loaded, and refuses before the analysis", async () => {
+    const ws = targetWs();
+    const gate = vi.fn((target?: { settingsOverrides: unknown }) => {
+      if (target && (target.settingsOverrides as { ai?: { backgroundOff?: boolean } } | undefined)?.ai?.backgroundOff) {
+        throw new AiBackgroundPausedError("project");
+      }
+    });
+    const d = deps({ loadWorkspace: vi.fn().mockResolvedValue(ws), confirmBackgroundGate: gate });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("paused");
+    expect(gate).toHaveBeenLastCalledWith({ settingsOverrides: ws.settingsOverrides });
+    expect(d.analyse).not.toHaveBeenCalled();
+    expect(mRelease).toHaveBeenCalledWith(CONFIG, "report-1");
+    expect(mFinish).not.toHaveBeenCalled();
+    expect(d.recordRun).not.toHaveBeenCalled();
+    expect(d.notify).not.toHaveBeenCalled();
+  });
+
+  it("marks the target as the open project when the job's project is the open one", async () => {
+    const ws = workspace();
+    const gate = vi.fn();
+    const d = deps({ loadWorkspace: vi.fn().mockResolvedValue(ws), confirmBackgroundGate: gate, isOpenProject: (id: string) => id === "p1" });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("done");
+    expect(gate).toHaveBeenLastCalledWith({ settingsOverrides: ws.settingsOverrides, openProject: true });
+    expect(vi.mocked(d.analyse).mock.calls[0][2]).toEqual({ settingsOverrides: ws.settingsOverrides, openProject: true });
+  });
+
+  it("does not mark it when another project is open", async () => {
+    const gate = vi.fn();
+    const d = deps({ confirmBackgroundGate: gate, isOpenProject: (id: string) => id === "other" });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("done");
+    expect(gate).toHaveBeenLastCalledWith({ settingsOverrides: workspace().settingsOverrides });
+  });
+
+  it("hands the same target to the analysis request", async () => {
+    const ws = targetWs();
+    const d = deps({ loadWorkspace: vi.fn().mockResolvedValue(ws) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("done");
+    expect(vi.mocked(d.analyse).mock.calls[0][2]).toEqual({ settingsOverrides: ws.settingsOverrides });
+  });
+
+  it("a pause that arrives during the analysis releases the claim as paused: no failure report", async () => {
+    const d = deps({ analyse: vi.fn().mockRejectedValue(new AiBackgroundPausedError("deployment")) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("paused");
     expect(mRelease).toHaveBeenCalledWith(CONFIG, "report-1");
     expect(mFinish).not.toHaveBeenCalled();
     expect(d.recordRun).not.toHaveBeenCalled();
