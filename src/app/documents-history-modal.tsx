@@ -31,6 +31,7 @@ import { type Lang, t, tPlural, type TranslationKey } from "./i18n";
 import type { ProjectDocument } from "./document-model";
 import type { DocumentAsset } from "./document-asset";
 import type { TursoConfig } from "./turso-config";
+import { isAiMarked } from "./ai-content-mark";
 import { RESTORED_MARKER_OP, type DocVersion, type DocVersionOp } from "./document-versions";
 import { renderDocumentHtml } from "./doc-render-html";
 import { usePreviewExportExtras } from "./use-preview-export-extras";
@@ -387,6 +388,13 @@ function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws, assetAccess }
           <span className="text-muted-foreground">{t(lang, VERSION_OP_LABEL[v.op])}</span>
           {" · "}
           <span className="text-muted-foreground">{blockCount}</span>
+          {/* §801 — part of the row's text, not a control and not colour alone. */}
+          {isAiMarked(v) && (
+            <>
+              {" · "}
+              <span className="text-muted-foreground">{t(lang, "docAiMarkBadge")}</span>
+            </>
+          )}
         </span>
         <span className="flex shrink-0 items-center gap-2">
           <button

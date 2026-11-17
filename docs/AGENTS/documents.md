@@ -266,6 +266,11 @@ someone who can edit, a confirmed "Remove AI-generated mark" (`document-ai-mark.
 `document.aiMarkRemoved`. A digest mail with an AI narrative carries the `X-AI-Generated` header through
 `buildGraphMessage` and the same visible line.
 
+★ Removing the mark writes an ordinary `update` before-image identical to the document as it stands, so history
+shows a no-change edit; there is deliberately no new `DocVersionOp` (older clients choke on an unknown op).
+The history modal shows "AI-generated" on every version row whose `aiGenerated` is set, and restoring such a
+version marks the document again.
+
 ★ Limits: copy-paste carries no mark; documents the AI wrote before this release are unmarked; an
 un-upgraded client drops the flag when it saves a shared project.
 
