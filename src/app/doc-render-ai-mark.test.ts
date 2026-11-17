@@ -54,6 +54,42 @@ describe("unmarked documents are unchanged", () => {
   it("pptx", async () => {
     expect(packageDigest(await unzip(renderDocumentPptx(doc(false), ws, "en-US")))).toBe("868e09715567253f");
   });
+
+// A branded, richer document: header/footer branding with a logo, an ordered
+// list, a link, a table and a heading. Digests captured from the renderer at the
+// commit before the mark existed (ff881baf8), NOT from this code.
+const PIXEL_PNG =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+const BRANDING = { projectName: "Apollo <Programme>", logo: PIXEL_PNG, pageLabel: "Page {0} of {1}" };
+const RICH_BLOCKS: DocBlock[] = [
+  { type: "heading", level: 1, text: "Status" },
+  { type: "paragraph", html: '<p>See <a href="https://example.com/plan">the plan</a> and <strong>act</strong>.</p>' },
+  { type: "bullets", ordered: true, items: ["First", "Second", "Third"] },
+  { type: "table", caption: "Risks", columns: ["Risk", "Owner"], rows: [["Delay", "Ann"], ["Cost", "Bob"]] },
+];
+const richDoc: ProjectDocument = {
+  id: 2,
+  title: "Branded report",
+  blocks: RICH_BLOCKS,
+  createdAt: "2026-08-06T00:00:00.000Z",
+  updatedAt: "2026-08-06T00:00:00.000Z",
+};
+const partDigests = (m: Map<string, string>) => Object.fromEntries([...m].map(([p, v]) => [p, sha(v)]).sort());
+  it("branded docx: every part, per part", async () => {
+    const m = await unzip(renderDocumentDocx(richDoc, ws, "en-US", undefined, undefined, BRANDING));
+    expect(partDigests(m)).toEqual({
+      "[Content_Types].xml": "d892464d30cd7ed1",
+      "_rels/.rels": "e9369a2425724259",
+      "word/_rels/document.xml.rels": "763588ad23adcdbb",
+      "word/_rels/header1.xml.rels": "c55f6335b678716f",
+      "word/document.xml": "512d095239839b71",
+      "word/footer1.xml": "580699748b5f459a",
+      "word/header1.xml": "31425fea19f184c2",
+      "word/media/brand-logo.png": "389d4abf83fdf070",
+      "word/numbering.xml": "bd4aee8d597478f3",
+      "word/styles.xml": "171427e9da6ff3f2"
+    });
+  });
   it("html", () => {
     expect(sha(renderDocumentHtml(doc(false), ws, "en-US", "standalone"))).toBe("f69f0b9edfbfa868");
   });
