@@ -219,6 +219,35 @@ and a dev server started with `DEMO_RECORDER=1` (hides the Next.js dev indicator
 It clears the throwaway database before every take, so never point it at a database holding real
 projects, and never run it while an `e2e:live-*` run uses the same database.
 
+## Upgrading to 1.21.0
+
+1.21.0 changes what happens on the first start, so the order matters. Each step links
+the section that owns its detail.
+
+1. **Before deploying, set the saved-chat settings.** Generate a recovery key pair and set
+   `AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY`; set `AIPM_AI_CHAT_RETENTION_DAYS` if 30 days is not
+   what you want. On the first server start or page load after the upgrade, every chat not
+   changed for the retention period is deleted, older shared chats included, and until the
+   key is set no chat is saved
+   ([Saved AI chats](#saved-ai-chats-recovery-key-retention-and-erasure-run-time)).
+2. **Decide the deployment locks and the AI route.** `AIPM_DISABLED_INTEGRATIONS` takes
+   `ai`, `ai-people`, `ai-direct-writes`, `ai-rates` and `ai-background`
+   ([Switching integrations off](#switching-integrations-off-for-a-deployment-run-time-optional));
+   the gateway and the organisation-key restriction have sections of their own below. On a
+   shared Turso project, prefer the locks over the per-project switches while clients are
+   upgraded one by one.
+3. **Deploy and restart**, then check Settings → AI and `/api/ai/status`, and, when the
+   server sweeps a database, the `chat sweep:` line in the server log.
+4. **Ask everyone to reload every open tab, and update every desktop install that shares
+   the database** (desktop installs update separately). A client still on 1.20.x drops the
+   new per-project AI switches and a document's AI-generated mark when it saves a shared
+   project, ignores the `ai-background` lock, and can no longer save chats once the
+   database carries the owner guard.
+5. **Expect everyone to be asked again**: the AI data disclosure changed, so each user
+   accepts it again, and ticks the separate background AI consent again. Until both are
+   given, scheduled jobs and automatic insight recommendations do not run and a scheduled
+   digest comes without its AI summary.
+
 ## Rollback
 
 Because the server tier is stateless and user data lives in the browser:
@@ -241,6 +270,14 @@ deployment, unset the gateway settings before rolling back (users are then
 asked to accept the direct-route disclosure), or accept that users' requests
 go direct. That older release also ignores the `ai` value of
 `AIPM_DISABLED_INTEGRATIONS`, so it cannot be used to keep AI off.
+
+Rolling back from 1.21.0 to a 1.20.x release gives up its AI controls: the older
+release ignores `AIPM_AI_ORGANIZATION_ID`, the `ai-people`, `ai-direct-writes`,
+`ai-rates` and `ai-background` locks and the per-project AI switches (and drops those
+switches when it saves a shared project), and does not redact people. It also cannot
+save chats in a Turso database that 1.21.0 has touched: the `chat_threads_owner_required`
+trigger refuses every chat saved without an owner. Dropping that trigger would let the
+older release save chats as plain text that every colleague can read, so leave it in place.
 
 ## Publishing a desktop release (GitHub)
 
@@ -488,6 +525,12 @@ ID, Turso database URL and auth token, the AI-usage policy owner and link, the e
 footer, the default Timelog tenant) and their caveats are documented in
 [security.md → Environment variables](security.md#environment-variables), which
 owns that list.
+
+Every run-time `AIPM_*` variable a deployer sets is listed, with what it does, in
+`src/app/deployment-variables.ts` (`DEPLOYMENT_VARIABLES`); the compliance pack's tables are
+generated from it. For the desktop app, `AIPM_DISABLE_UPDATE_CHECK=1` in the Windows
+environment stops every update check and the update dialog, for a machine that is updated
+by other means.
 
 ### Switching integrations off for a deployment (run-time, optional)
 
