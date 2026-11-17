@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { buildDigestEmailHtml, buildDigestEmailSubject } from "./digest-email";
-import { loadI18n } from "../i18n";
+import { buildDigestEmailHtml, buildDigestEmailSubject, digestHasAiContent } from "./digest-email";
+import { loadI18n, t } from "../i18n";
 import type { DigestModel } from "./digest-model";
 
 const MODEL: DigestModel = {
@@ -31,5 +31,29 @@ describe("digest email", () => {
   it("renders German labels when lang=de", () => {
     const html = buildDigestEmailHtml(MODEL, "de");
     expect(html.length).toBeGreaterThan(50);
+  });
+  it("marks a digest with a narrative, escaped, right after it, in the digest language", () => {
+    const m = { ...MODEL, narrative: "Plan <ok> & stable." };
+    for (const lang of ["en-US", "de"] as const) {
+      const html = buildDigestEmailHtml(m, lang);
+      const line = t(lang, "aiContentMarkLine");
+      expect(html).toContain(line);
+      expect(html.indexOf(line)).toBeGreaterThan(html.indexOf("Plan &lt;ok&gt; &amp; stable."));
+      expect(html.indexOf(line)).toBeLessThan(html.indexOf("<table"));
+    }
+  });
+
+  it("digestHasAiContent agrees with whether the HTML carries the AI line", () => {
+    const line = t("en-US", "aiContentMarkLine");
+    for (const [narrative, expected] of [["Plan is stable.", true], [undefined, false], ["", false]] as const) {
+      const m = narrative === undefined ? MODEL : { ...MODEL, narrative };
+      expect(digestHasAiContent(m)).toBe(expected);
+      expect(buildDigestEmailHtml(m, "en-US").includes(line)).toBe(expected);
+    }
+  });
+
+  it("leaves a digest without a narrative unmarked", () => {
+    const html = buildDigestEmailHtml(MODEL, "en-US");
+    expect(html).not.toContain(t("en-US", "aiContentMarkLine"));
   });
 });

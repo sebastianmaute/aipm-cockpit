@@ -55,6 +55,7 @@
 // export-sections, settings-types, workspace and i18n.
 
 import type { DocBlock, ProjectDocument } from "./document-model";
+import { AI_SOURCE_TYPE_URI, isAiMarked } from "./ai-content-mark";
 import { resolveDataSection } from "./doc-data-section";
 import type { ExportExtras } from "./export-forecast-section";
 import { NO_EXPORT_ASSETS, type ExportAssets } from "./document-export-assets";
@@ -345,6 +346,11 @@ function inlineDocumentImages(
   });
 }
 
+/** §801 — emitted only for a marked document, so an unmarked file is unchanged.
+ *  No colour: the line inherits the body text colour, which is AA on white. */
+const AI_MARK_STYLES = `
+    .ai-content-mark { margin-top: 18px; font-size: 9pt; }`;
+
 export function renderDocumentHtml(
   doc: ProjectDocument,
   ws: Workspace,
@@ -386,6 +392,8 @@ export function renderDocumentHtml(
     lang,
   );
 
+  const aiMark = isAiMarked(doc);
+
   // ★★ lang comes from the ARGUMENT, never a hardcoded "en". Every member of
   // Lang ("en-US" | "en-GB" | "de") is already a valid BCP-47 tag. A German
   // document declaring lang="en" is a WCAG 3.1.1 (Language of Page) failure and
@@ -395,13 +403,15 @@ export function renderDocumentHtml(
 <html lang="${htmlEscape(lang)}">
 <head>
   <meta charset="utf-8"/>
-  <title>${htmlEscape(doc.title)}</title>
-  <style>${PRINT_STYLES}${DOCUMENT_PAGE_STYLES}
+  <title>${htmlEscape(doc.title)}</title>${aiMark ? `
+  <meta name="digital-source-type" content="${AI_SOURCE_TYPE_URI}"/>` : ""}
+  <style>${PRINT_STYLES}${DOCUMENT_PAGE_STYLES}${aiMark ? AI_MARK_STYLES : ""}
   </style>
 </head>
 <body>
   <header><h1>${htmlEscape(doc.title)}</h1></header>
-  ${inlinedBody}
+  ${inlinedBody}${aiMark ? `
+  <p class="ai-content-mark">${htmlEscape(t(lang, "aiContentMarkLine"))}</p>` : ""}
   <footer>${htmlEscape(footer)}</footer>
 </body>
 </html>`;

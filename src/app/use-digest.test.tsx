@@ -272,6 +272,33 @@ describe("useDigest", () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
+  it("asks for the AI-generated header when the emailed digest has a narrative", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useDigest(deps({
+      m365Configured: true,
+      aiKey: "sk-ant-test",
+      runNarrative: vi.fn().mockResolvedValue("Narrative line."),
+      sendDigestMail: send,
+      acquireToken: vi.fn().mockResolvedValue("tok"),
+    })));
+    await act(async () => { await result.current.emailDigest(); });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][3]).toBe(true);
+  });
+
+  it("does not ask for the AI-generated header when the emailed digest has no narrative", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useDigest(deps({
+      m365Configured: true,
+      aiKey: null,
+      sendDigestMail: send,
+      acquireToken: vi.fn().mockResolvedValue("tok"),
+    })));
+    await act(async () => { await result.current.emailDigest(); });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][3]).toBeFalsy();
+  });
+
   // A NOT-DUE remount auto-generates display-only (narrative:false), caching a
   // digest with no narrative. Emailing then reused that cached value and the
   // narrative:true branch never ran — so the email went out thinner than the

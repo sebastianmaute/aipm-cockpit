@@ -10,6 +10,7 @@ import { type ZipEntry, buildZip } from "./zip";
 // into the OOXML graph, only the union of valid BCP-47 tags the app can produce.
 import type { Lang } from "./i18n";
 import { DEFAULT_EXPORT_FOOTER } from "./export-footer";
+import { AI_MARK_CONTENT_TYPE_OVERRIDES, AI_MARK_ROOT_RELS, AI_MARK_ZIP_ENTRIES } from "./ooxml-ai-mark";
 import {
   COLOR_DARK_BLUE,
   COLOR_GREEN,
@@ -351,6 +352,7 @@ export function pptxTitleSubtitleShapes(
   titleText: string,
   subtitleText: string,
   lang: Lang,
+  subtitleSizeHundredths = 2400,
 ): string {
   return (
     pptxTextBox({
@@ -382,7 +384,7 @@ export function pptxTitleSubtitleShapes(
         {
           text: subtitleText,
           italic: true,
-          sizeHundredths: 2400,
+          sizeHundredths: subtitleSizeHundredths,
           colorRgb: COLOR_LIGHT_GREY,
         },
       ],
@@ -666,6 +668,8 @@ export function buildPptxPackage(
   slides: readonly PptxSlide[],
   /** Names the theme and its schemes; the same export footer the slides carry. */
   themeName: string = DEFAULT_EXPORT_FOOTER,
+  /** §801 — add the AI-generated mark parts. ADDITIVE: false leaves the package byte-identical. */
+  aiMark = false,
 ): Blob {
   // ★★ Relationship ids are minted by the CALLER, because the slide XML
   // already references them by the time it gets here. rId1 is the slide
@@ -731,7 +735,7 @@ export function buildPptxPackage(
   <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
   <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
   <Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
-  ${slideOverrides}
+  ${slideOverrides}${aiMark ? AI_MARK_CONTENT_TYPE_OVERRIDES : ""}
 </Types>`;
 
   // presentation.xml — sldIdList with sequential IDs starting at 256.
@@ -764,7 +768,7 @@ export function buildPptxPackage(
 
   const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>${aiMark ? AI_MARK_ROOT_RELS : ""}
 </Relationships>`;
 
   const slideMasterXml = buildPptxSlideMaster();
@@ -829,6 +833,7 @@ export function buildPptxPackage(
   }
   // Media parts are deck-wide and written ONCE each — see `PptxSlide`.
   for (const part of allMedia) entries.push({ path: part.path, data: part.data });
+  if (aiMark) entries.push(...AI_MARK_ZIP_ENTRIES);
 
   return buildZip(
     entries,

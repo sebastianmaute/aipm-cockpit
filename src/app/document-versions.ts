@@ -68,6 +68,9 @@ export type DocVersion = {
   savedAt: string;
   source: DocVersionSource;
   op: DocVersionOp;
+  /** Copy of the replaced document's AI mark, so a restore keeps it. Sparse:
+   *  absent means not marked; only the literal `true` is stored. */
+  aiGenerated?: true;
 };
 
 function isPositiveInt(value: unknown): value is number {
@@ -172,6 +175,7 @@ export function sanitizeDocumentVersionsWithDiag(
       savedAt: r.savedAt,
       source: SOURCES.includes(r.source as DocVersionSource) ? (r.source as DocVersionSource) : "user",
       op: OPS.includes(r.op as DocVersionOp) ? (r.op as DocVersionOp) : "update",
+      ...(r.aiGenerated === true ? { aiGenerated: true as const } : {}),
     });
   }
   return out;

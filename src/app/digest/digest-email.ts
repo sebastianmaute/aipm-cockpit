@@ -20,6 +20,12 @@ function ragLabel(lang: Lang, h: Health): string {
   return t(lang, h === "R" ? "healthRed" : h === "A" ? "healthAmber" : "healthGreen");
 }
 
+/** §801 — the one check for "this digest carries AI-written text": it decides both the
+ *  visible AI line in the HTML and the `X-AI-Generated` header on the sent mail. */
+export function digestHasAiContent(model: Pick<DigestModel, "narrative">): boolean {
+  return !!model.narrative;
+}
+
 export function buildDigestEmailSubject(model: DigestModel, lang: Lang): string {
   return t(lang, "digestEmailSubject", ragLabel(lang, model.rag));
 }
@@ -41,8 +47,9 @@ export function buildDigestEmailHtml(model: DigestModel, lang: Lang): string {
   const ms = model.milestonesDueSoon
     .map((m) => `<li>${esc(m.name)} — ${esc(m.date)}</li>`)
     .join("");
-  const narrative = model.narrative
-    ? `<p style="margin:0 0 12px 0">${esc(model.narrative)}</p>`
+  const narrative = digestHasAiContent(model)
+    ? `<p style="margin:0 0 12px 0">${esc(model.narrative ?? "")}</p>` +
+      `<p style="margin:0 0 12px 0;font-size:11px;color:${DARK_BLUE}">${esc(t(lang, "aiContentMarkLine"))}</p>`
     : "";
   return (
     `<div style="font-family:Arial,sans-serif;color:#222;max-width:600px">` +

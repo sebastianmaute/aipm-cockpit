@@ -16,6 +16,8 @@ export interface GraphMessage {
   subject: string;
   body: { contentType: "HTML"; content: string };
   toRecipients: { emailAddress: { address: string } }[];
+  /** Custom `x-` headers; the key is absent unless a header was passed. */
+  internetMessageHeaders?: { name: string; value: string }[];
 }
 
 export class GraphMailError extends Error {
@@ -29,6 +31,7 @@ export function buildGraphMessage(
   to: string | readonly string[],
   subject: string,
   htmlBody: string,
+  headers?: readonly { name: string; value: string }[],
 ): GraphMessage {
   const addresses = (typeof to === "string" ? [to] : to)
     .map((a) => a.trim())
@@ -37,6 +40,7 @@ export function buildGraphMessage(
     subject,
     body: { contentType: "HTML", content: htmlBody },
     toRecipients: addresses.map((address) => ({ emailAddress: { address } })),
+    ...(headers && headers.length > 0 ? { internetMessageHeaders: headers.map((h) => ({ ...h })) } : {}),
   };
 }
 

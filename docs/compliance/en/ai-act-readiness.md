@@ -96,8 +96,15 @@ a template. [question for you]
 
 ### Marking of generated text
 
-The app does not mark text the AI writes in a machine-readable way. Once that text is in a task, a
-document, a report or an export, nothing in it shows that the AI wrote it (§801). [vendor statement; register §801] Whether some of the app's AI paths are assistive editing in the
+The app marks project documents an AI tool wrote or changed: the stored document carries a mark, a downloaded
+Word, PowerPoint or HTML file carries the IPTC digital source type, and each says "Contains AI-generated
+content." in its visible text. A PDF is the printed HTML and carries only that line. A digest e-mail with the AI
+summary carries the header `X-AI-Generated` and the same line. [verified: `aiGenerated` in
+`src/app/document-model.ts`; `AI_SOURCE_TYPE_URI` in `src/app/ai-content-mark.ts`; `src/app/ooxml-ai-mark.ts`;
+`src/app/doc-render-html.ts`; `buildGraphMessage` in `src/app/graph-mail.ts`] Text the AI writes into tasks,
+reports and chat replies, text copied out of the app, the workspace exports and documents written before this
+release carry no mark, and a client that has not been upgraded drops the mark when it saves a shared project. A
+person can remove the mark, and the app does not check whether AI text remains. [vendor statement] Whether some of the app's AI paths are assistive editing in the
 sense of the exception above, for example a one-row edit the user asked for, is an open question; the
 maintainer has not settled it. [vendor statement; question for you]
 

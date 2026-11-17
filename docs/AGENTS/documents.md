@@ -243,6 +243,37 @@ Count them rather than trust this line (it was **four** non-test modules on 2026
 `use-document-editor.ts` was the one this slice added):
 `grep -rln "import type {[^}]*DocOp" src/app --include="*.ts" | grep -v ".test."`
 
+## The AI-generated mark (§801)
+
+`ProjectDocument.aiGenerated` and `DocVersion.aiGenerated` are the optional literal `true`: absent means not
+marked, and the sanitisers keep only `true`, so an unmarked document serialises byte-identically. The constants
+and the predicate are in `ai-content-mark.ts` (`AI_SOURCE_TYPE_URI`, `AI_MARK_HEADER`, `isAiMarked`).
+
+★★ **`applyDocMutation` is the one place the mark is decided** (`resultMark` in `document-mutations.ts`); no
+tool layer sets it. Only create, ops, rename, duplicate and restore ask `resultMark`: an AI one marks the
+result. `link` and `unlink` are references, spread the target and never ask it; a person's write keeps the
+flag and never clears it. A duplicate copies its
+source's flag, every before-image carries the replaced document's flag, and restoring a marked version marks
+the document. The only way to clear it is the person-only mutation `removeAiMark`, which an AI source and an
+unmarked document both refuse and which writes one before-image. The app does not check whether AI text remains.
+
+Output: a marked docx or pptx gains `docProps/custom.xml` (property `DigitalSourceType`) and a
+`docProps/core.xml` description holding the IPTC URI (`ooxml-ai-mark.ts`); marked HTML gains a
+`digital-source-type` meta tag; all three also state `aiContentMarkLine` visibly (docx closing paragraph, pptx
+title-slide subtitle, HTML paragraph after the blocks). PDF is the printed HTML, so it carries only the visible
+line. Unmarked output is unchanged, and the workspace exports are not marked. The view shows a badge and, to
+someone who can edit, a confirmed "Remove AI-generated mark" (`document-ai-mark.tsx`), logged as the user kind
+`document.aiMarkRemoved`. A digest mail with an AI narrative carries the `X-AI-Generated` header through
+`buildGraphMessage` and the same visible line.
+
+★ Removing the mark writes an ordinary `update` before-image identical to the document as it stands, so history
+shows a no-change edit; there is deliberately no new `DocVersionOp` (older clients choke on an unknown op).
+The history modal shows "AI-generated" on every version row whose `aiGenerated` is set, and restoring such a
+version marks the document again.
+
+★ Limits: copy-paste carries no mark; documents the AI wrote before this release are unmarked; an
+un-upgraded client drops the flag when it saves a shared project.
+
 ## Coalescing before-images for hand edits (`document-editor-commit.ts`)
 
 ★★★ **THE RUN IS ANCHORED BY IDENTITY, NOT CONTENT.** `shouldCoalesce(versions, documentId, now, anchor)`

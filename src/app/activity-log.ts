@@ -87,6 +87,8 @@ export type ActivityKind =
   | "settings.updated"
   | "doc.linkAdded"
   | "doc.linkRemoved"
+  // §801 — a person removed the AI-generated mark from a document (arg: the title; actor user).
+  | "document.aiMarkRemoved"
   | "history.restore"
   | "calendar.autoPulled"
   /** ★★★ NO LONGER WRITTEN — historical only, and it must STAY in this union.
@@ -413,6 +415,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "settings.updated": "activitySettingsUpdated", // no args — no {0}/{1} placeholder
   "doc.linkAdded": "activityDocLinkAdded",
   "doc.linkRemoved": "activityDocLinkRemoved",
+  "document.aiMarkRemoved": "activityDocAiMarkRemoved",
   "history.restore": "activityHistoryRestore",
   "calendar.autoPulled": "activityCalendarAutoPulled",
   "ai.inlineEdit": "activityAiInlineEdit",

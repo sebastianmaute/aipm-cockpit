@@ -67,15 +67,17 @@ ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
   Hintergrund-Zustimmung zurück (E32, *getestet (Unit)*).
 - **Zu Artikel 50 (Transparenz):** Die Oberflächen benennen die KI („KI-Assistent“, „Claude fragen“,
   „KI-generiert – vor dem Handeln prüfen.“), und das Aktivitätsprotokoll zeigt ihre Änderungen im Chat mit dem
-  Akteur „KI-Assistent“; eine maschinenlesbare Kennzeichnung des Textes, den sie schreibt, fehlt (§801; E55,
-  *im Code gelesen*).
+  Akteur „KI-Assistent“; Projektdokumente, die die KI schreibt, und die Digest-Mail mit ihrer Zusammenfassung sind
+  gekennzeichnet (E73, *getestet (Unit)*); anderer Text, den sie schreibt, nicht (E55, *im Code gelesen*).
 - **KI-Kompetenz nach Artikel 4:** Siehe das [Material zur KI-Kompetenz](../../compliance/de/ai-literacy.md) und
   die [Musterhinweise](../../compliance/de/model-notices.md) im Compliance-Paket.
 
 ## Noch nicht belegt / offene Lücken
 
-1. **§801:** Text, den die KI schreibt, trägt keine maschinenlesbare Kennzeichnung; legen Sie also fest, wie er
-   gekennzeichnet wird, sobald er die App in Berichten und Exporten verlässt (E55, *im Code gelesen*).
+1. **Die Kennzeichnung ist teilweise:** Nur Projektdokumente, die die KI schreibt, und die Digest-Mail mit ihrer
+   Zusammenfassung sind gekennzeichnet (E73, *getestet (Unit)*). Aufgaben, Berichtstext, Chat-Antworten,
+   kopierter Text und die Exporte des Arbeitsbereichs sind es nicht; legen Sie also fest, wie sie
+   gekennzeichnet werden, sobald sie die App verlassen (E55, *im Code gelesen*).
 2. **§812:** Ob die Optimierung der Arbeitspakete ihr Ergebnis wiederholt, ist nicht gemessen (E27,
    *nicht belegt*).
 3. **Fremder Text ohne Kennzeichnung:** Fremder Text ohne Kennzeichnung seiner Herkunft löst die Prüfpflicht

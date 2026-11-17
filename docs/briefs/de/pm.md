@@ -84,7 +84,9 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
 1. **§812:** Ob die Optimierung der Arbeitspakete gleich ausfällt, wurde nicht gemessen (E27, *nicht belegt*).
 2. **§814:** Für die Stunden aus anderen Projekten im Vorschlag für die Ressourcenplanung gibt es kein
    beobachtetes Verhalten aus einem gemessenen Lauf (E39, *nicht belegt*).
-3. **§801:** Text, den die KI schreibt, trägt keine maschinenlesbare Kennzeichnung (E55, *im Code gelesen*).
+3. **Die Kennzeichnung ist teilweise:** Nur Projektdokumente, die die KI schreibt, und die Digest-Mail mit ihrer
+   Zusammenfassung sind gekennzeichnet (E73, *getestet (Unit)*); Aufgaben, Berichtstext, Chat-Antworten und die
+   Exporte des Arbeitsbereichs nicht (E55, *im Code gelesen*).
 4. **§796:** Aufgaben, die ein übernommener Projektstrukturplan anlegt, lassen sich nicht rückgängig machen (E56,
    *im Code gelesen*).
 

@@ -412,6 +412,16 @@ describe("the read and create routes", () => {
   // ★★ A PARALLEL ARRAY, never a field on DocBlock — the token is model-facing
   // plumbing, and a field on the block would be sanitized away on some write
   // paths and persisted on others.
+  // The AI-generated mark is for people reading the document, never for the model.
+  it("does not send a document's aiGenerated mark to the model", async () => {
+    const marked = { ...doc, aiGenerated: true as const };
+    const res = (await runDocumentTool(makeDispatcher({ getDocument: () => marked }), "get_document", {
+      id: 1,
+    })) as Record<string, unknown>;
+    expect("aiGenerated" in res).toBe(false);
+    expect(res.title).toBe("Status");
+  });
+
   it("returns one blockToken per block, in block order", async () => {
     const twoBlocks = {
       ...doc,

@@ -576,3 +576,21 @@ describe("orphanedDocumentVersions", () => {
     expect(orphanedDocumentVersions([deleted, later], []).map((k) => k.id)).toEqual([2]);
   });
 });
+
+describe("sanitizeDocumentVersions — aiGenerated", () => {
+  it("keeps aiGenerated: true", () => {
+    const [x] = sanitizeDocumentVersions([v({ aiGenerated: true })]);
+    expect(x.aiGenerated).toBe(true);
+  });
+
+  it.each([["yes"], [false], [1], [null], ["true"]])("drops %j", (bad) => {
+    const [x] = sanitizeDocumentVersions([{ ...v(), aiGenerated: bad }]);
+    expect("aiGenerated" in x).toBe(false);
+  });
+
+  it("emits NO aiGenerated key for an unmarked version (byte-identical JSON)", () => {
+    const input = v();
+    const [x] = sanitizeDocumentVersions([input]);
+    expect(JSON.stringify(x)).toBe(JSON.stringify(input));
+  });
+});

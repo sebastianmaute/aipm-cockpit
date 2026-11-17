@@ -88,6 +88,14 @@ describe("DocumentsHistoryModal", () => {
     expect(rows[1]).toHaveTextContent("You");
   });
 
+  it("marks only the versions that carry the AI-generated mark (§801)", () => {
+    const marked: readonly DocVersion[] = [{ ...VERSIONS[0]!, aiGenerated: true }, VERSIONS[1]!];
+    renderModal({ versions: marked });
+    const rows = within(screen.getByRole("list")).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("AI-generated");
+    expect(rows[1]).not.toHaveTextContent("AI-generated");
+  });
+
   it("renders the timestamp locale-free, to the minute", () => {
     renderModal();
     const rows = within(screen.getByRole("list")).getAllByRole("listitem");

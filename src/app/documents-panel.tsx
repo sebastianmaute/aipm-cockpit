@@ -32,6 +32,8 @@ import { DocumentsRenameModal } from "./documents-rename-modal";
 import { DocumentEntityFilterBanner } from "./document-entity-filter-banner";
 import { buildDocLinkCandidates, buildDocRefLookups } from "./document-link-sources";
 import { DocumentLinksSection } from "./document-links-section";
+import { DocumentAiMark } from "./document-ai-mark";
+import { useActivityLogger } from "./activity-log-context";
 import { resolveDocRef } from "./document-ref";
 import { displayRejected } from "./document-refusal-text";
 import { useDocumentEntityFilter } from "./use-document-entity-filter";
@@ -285,6 +287,7 @@ export function DocumentsPanel({
   // silently skipped.
   const [restoreRejected, setRestoreRejected] = useState<readonly string[]>([]);
   const confirm = useConfirm();
+  const logActivityAs = useActivityLogger();
   // Ambient, exactly like every other panel's — `useToastContext` defaults to a
   // no-op when no provider is above, so this adds no required wiring anywhere.
   const showToast = useToastContext();
@@ -480,6 +483,14 @@ export function DocumentsPanel({
   // on every mutation for a value nothing renders.
   const freshRef = useRef<{ from: readonly ProjectDocument[]; latest: readonly ProjectDocument[] } | null>(null);
 
+  // The newest `documents` prop, for handlers that await (a confirm) and so
+  // outlive the render they were created in. Written in an effect, read only
+  // in handlers.
+  const liveDocumentsRef = useRef(documents);
+  useEffect(() => {
+    liveDocumentsRef.current = documents;
+  }, [documents]);
+
   function freshDocuments(): readonly ProjectDocument[] {
     const seen = freshRef.current;
     return seen && seen.from === documents ? seen.latest : documents;
@@ -614,6 +625,27 @@ export function DocumentsPanel({
     mutate({ kind: "rename", id, title });
   }
 
+  async function handleRemoveAiMark(doc: ProjectDocument) {
+    // The consequential tier: downloads stop disclosing AI content, so ask first, and never `window.confirm`.
+    const ok = await confirm({
+      message: t(lang, "docAiMarkRemoveConfirm"),
+      title: t(lang, "docAiMarkRemove"),
+      confirmLabel: t(lang, "docAiMarkRemove"),
+      tone: "default",
+    });
+    if (!ok) return;
+    // The person confirmed against the content they saw. If the document changed
+    // while the dialog was open (an AI update lands with a new mark), change nothing and say why.
+    const live = liveDocumentsRef.current.find((d) => d.id === doc.id);
+    if (!live || live.updatedAt !== doc.updatedAt) {
+      showToast("info", t(lang, "docAiMarkRemoveChanged"));
+      return;
+    }
+    // Logged once, and only when the mutation was applied (a refused or no-op remove leaves no row).
+    const result = mutate({ kind: "removeAiMark", id: doc.id });
+    if (result.changed) logActivityAs?.("user", "document.aiMarkRemoved", doc.title);
+  }
+
   async function handleDelete(doc: ProjectDocument) {
     // The lighter destructive tier: one row, so the branded confirm dialog
     // rather than TypeToConfirmDialog — and never `window.confirm`.
@@ -740,6 +772,7 @@ export function DocumentsPanel({
             {displayRejected(lang, restoreRejected).join("; ")}
           </p>
         )}
+        <DocumentAiMark lang={lang} doc={selected} isReadOnly={isReadOnly} onRemove={(d) => void handleRemoveAiMark(d)} />
         <DocumentLinksSection
           lang={lang}
           doc={selected}

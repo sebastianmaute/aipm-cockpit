@@ -74,7 +74,6 @@ and the pack's check fails when a listed entry is closed or missing. [verified:
 | §796 | Tasks created by Optimize work breakdown with AI cannot be undone |
 | §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |
-| §801 | Text the AI writes carries no machine-readable marking |
 | §802 | The AI gateway route has never been run against a real gateway |
 | §811 | The time the AI features save is not measured |
 | §812 | Whether Optimize work breakdown with AI repeats is not measured |
@@ -95,12 +94,10 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
   because the service is busy is not tried again. Users see a failure or a long wait.
 - **§799** — The activity log shows that the AI changed something and what changed, but not which chat
   message asked for it. A reviewer cannot trace an AI change back to its request from the log.
-- **§801** — Text the AI writes into tasks, documents and exports carries no marker a machine can read.
-  Once copied or exported, it cannot be told apart from text a person wrote.
 - **§802** — Routing AI through an organisation's gateway has been tested against fakes and a local
   server only. How a real gateway behaves with the app has not been confirmed by a run.
 
-Six limits remain that have no open register entry:
+Seven limits remain that have no open register entry:
 
 - **Request limits.** The limit on the Jira, Confluence, Timelog, exchange-rate, AI and dictation routes no
   longer trusts a header the caller sets. By default all callers of a route share one count, so one caller
@@ -146,6 +143,18 @@ Six limits remain that have no open register entry:
   on, the jobs of the open project pause at once, before the save lands; other devices follow once it is saved. Background AI on the open project is also paused until the app has loaded a project, and when the switch is turned back off that device tries the jobs again at the next check and other devices within an hour.
   A run that does start still sends what it always sent, and no one approves it first. [verified:
   `assertBackgroundConsentLive` in `src/app/ai-consent.ts`; `backgroundOff` in `src/app/settings-overrides.ts`]
+
+- **Marking of AI text is partial.** A project document an AI tool wrote or changed carries a stored mark, and its
+  downloads carry it: a Word or PowerPoint file has the property `DigitalSourceType` and a description holding the
+  IPTC digital source type URI, an HTML file has a `digital-source-type` meta tag, and each says "Contains
+  AI-generated content." in its visible text. A PDF is the printed HTML and carries only that line. A digest
+  e-mail with the AI summary has the header `X-AI-Generated` and the same line. Nothing else is marked: text copied
+  out of the app, tasks, report text, chat replies, the workspace exports, other e-mails and documents the AI wrote
+  before this release. A client that has not been upgraded drops the mark when it saves a shared project. A person
+  can remove the mark, and the app does not check whether AI text remains. [verified: `aiGenerated` in
+  `src/app/document-model.ts`; `applyDocMutation` in `src/app/document-mutations.ts`; `AI_SOURCE_TYPE_URI` in
+  `src/app/ai-content-mark.ts`; `src/app/ooxml-ai-mark.ts`; `src/app/doc-render-html.ts`; `buildGraphMessage` in
+  `src/app/graph-mail.ts`]
 
 ## How to read the labels
 

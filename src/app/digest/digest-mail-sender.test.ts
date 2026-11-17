@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createDigestMailSender } from "./digest-mail-sender";
+import { AI_MARK_HEADER, AI_SOURCE_TYPE_URI } from "../ai-content-mark";
 
 // This is the contract behind the digest card's "Email digest" button. The hook
 // treats a RESOLVED promise as "the mail was sent" and confirms it to the user,
@@ -71,5 +72,20 @@ describe("createDigestMailSender", () => {
     const message = (err as Error).message;
     expect(message).not.toContain("tok");
     expect(message).not.toMatch(/@/);
+  });
+  it("adds the AI-generated header only when the digest carries AI content", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    await createDigestMailSender(() => "a@example.com", send)("tok", SUBJECT, HTML, true);
+    expect(send.mock.calls[0][1].internetMessageHeaders).toEqual([
+      { name: AI_MARK_HEADER, value: AI_SOURCE_TYPE_URI },
+    ]);
+  });
+
+  it("sends no internetMessageHeaders key without AI content", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const sender = createDigestMailSender(() => "a@example.com", send);
+    await sender("tok", SUBJECT, HTML);
+    await sender("tok", SUBJECT, HTML, false);
+    for (const call of send.mock.calls) expect("internetMessageHeaders" in call[1]).toBe(false);
   });
 });

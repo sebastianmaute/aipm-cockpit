@@ -2,6 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildGraphMessage, createDraft, sendMail, GraphMailError, MAIL_READWRITE_SCOPE, MAIL_SEND_SCOPE } from "./graph-mail";
 
 describe("buildGraphMessage", () => {
+  it("adds internetMessageHeaders only for a non-empty list", () => {
+    const h = [{ name: "X-AI-Generated", value: "v" }];
+    expect(buildGraphMessage("a@b.com", "S", "<p>x</p>", h).internetMessageHeaders).toEqual(h);
+    expect("internetMessageHeaders" in buildGraphMessage("a@b.com", "S", "<p>x</p>", [])).toBe(false);
+    expect("internetMessageHeaders" in buildGraphMessage("a@b.com", "S", "<p>x</p>")).toBe(false);
+  });
+
   it("builds an HTML Graph message", () => {
     expect(buildGraphMessage("a@b.com", "Hi", "<p>x</p>")).toEqual({
       subject: "Hi",
