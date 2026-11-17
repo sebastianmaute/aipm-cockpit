@@ -17,7 +17,7 @@ export function isAiMarked(doc: { aiGenerated?: true } | undefined): boolean {
 /** A copy of `doc` without the mark. The mark is for human readers: a document
  *  handed to the model is passed through here first, so the model never sees it. */
 export function omitAiMark<T extends object>(doc: T): Omit<T, "aiGenerated"> {
-  const rest: Record<string, unknown> = { ...doc };
+  const rest = { ...doc } as Record<string, unknown>;
   delete rest.aiGenerated;
   return rest as Omit<T, "aiGenerated">;
 }
