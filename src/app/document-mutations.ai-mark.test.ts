@@ -107,4 +107,25 @@ describe("AI mark — the one rule", () => {
     const again = applyDocMutation({ documents: removed.documents, versions: removed.versions }, OPS, ctx("ai"));
     expect(marked(again.documents[0])).toBe(true);
   });
+  it("deleting a marked document then restoring it recreates it marked, with a marked marker row", () => {
+    const del = applyDocMutation(st(MARKED), { kind: "delete", id: 1 }, ctx("user"));
+    expect(del.versions[0].aiGenerated).toBe(true);
+    const r = applyDocMutation({ documents: del.documents, versions: del.versions }, { kind: "restore", versionId: del.versions[0].id }, ctx("user"));
+    expect(r.changed).toBe(true);
+    expect(marked(r.documents[0])).toBe(true);
+    const markerRow = r.versions.find((v) => v.op === "restored");
+    expect(markerRow?.aiGenerated).toBe(true);
+  });
+  it("an AI restore of an unmarked version onto an unmarked document marks it", () => {
+    const old: DocVersion = { id: 7, documentId: 1, title: "Old", blocks: [], savedAt: "2026-08-02T00:00:00.000Z", source: "user", op: "update" };
+    const r = applyDocMutation(st(PLAIN, [old]), { kind: "restore", versionId: 7 }, ctx("ai"));
+    expect(r.changed).toBe(true);
+    expect(marked(r.documents[0])).toBe(true);
+  });
+  it("duplicate and delete before-images of a marked document carry the flag", () => {
+    const dup = applyDocMutation(st(MARKED), { kind: "duplicate", id: 1, title: "Copy" }, ctx("user"));
+    expect(dup.versions[0]).toMatchObject({ op: "duplicate", aiGenerated: true });
+    const del = applyDocMutation(st(MARKED), { kind: "delete", id: 1 }, ctx("user"));
+    expect(del.versions[0]).toMatchObject({ op: "delete", aiGenerated: true });
+  });
 });
