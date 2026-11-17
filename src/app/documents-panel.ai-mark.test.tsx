@@ -52,12 +52,16 @@ function setup(initial: ProjectDocument, opts: { isReadOnly?: boolean } = {}) {
       </ToastProvider>
     </WorkspaceTabProvider>
   );
-  render(
+  const view = render(
     wrap(
       <DocumentsPanel lang="en-US" documents={[initial]} mutateDocuments={mutate} documentVersions={[]} ws={emptyWorkspace()} onResetSize={() => {}} isReadOnly={opts.isReadOnly} />,
     ),
   );
-  return { box, mutate, log };
+  const panel = (docs: readonly ProjectDocument[]) =>
+    wrap(
+      <DocumentsPanel lang="en-US" documents={docs} mutateDocuments={mutate} documentVersions={[]} ws={emptyWorkspace()} onResetSize={() => {}} isReadOnly={opts.isReadOnly} />,
+    );
+  return { box, mutate, log, rerenderWith: (docs: readonly ProjectDocument[]) => view.rerender(panel(docs)) };
 }
 
 const removeCalls = (mutate: ReturnType<typeof setup>["mutate"]) => mutate.mock.calls.filter(([m]) => m.kind === "removeAiMark");
@@ -126,6 +130,19 @@ describe("document view AI-generated mark (§801)", () => {
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: REMOVE }));
     await waitFor(() => expect(removeCalls(mutate)).toHaveLength(1));
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when the document changed while the confirm was open", async () => {
+    const user = userEvent.setup();
+    const { mutate, log, rerenderWith } = setup(doc(true));
+    await user.click(screen.getByRole("button", { name: REMOVE }));
+    await screen.findByRole("dialog");
+    // An AI update lands while the dialog is open: new content, new updatedAt, still marked.
+    rerenderWith([{ ...doc(true), updatedAt: "2026-11-17T00:05:00.000Z" }]);
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: REMOVE }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(removeCalls(mutate)).toHaveLength(0);
     expect(log).not.toHaveBeenCalled();
   });
 });

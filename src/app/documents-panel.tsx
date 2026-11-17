@@ -483,6 +483,14 @@ export function DocumentsPanel({
   // on every mutation for a value nothing renders.
   const freshRef = useRef<{ from: readonly ProjectDocument[]; latest: readonly ProjectDocument[] } | null>(null);
 
+  // The newest `documents` prop, for handlers that await (a confirm) and so
+  // outlive the render they were created in. Written in an effect, read only
+  // in handlers.
+  const liveDocumentsRef = useRef(documents);
+  useEffect(() => {
+    liveDocumentsRef.current = documents;
+  }, [documents]);
+
   function freshDocuments(): readonly ProjectDocument[] {
     const seen = freshRef.current;
     return seen && seen.from === documents ? seen.latest : documents;
@@ -626,6 +634,10 @@ export function DocumentsPanel({
       tone: "default",
     });
     if (!ok) return;
+    // The person confirmed against the content they saw. If the document changed
+    // while the dialog was open (an AI update lands with a new mark), do nothing.
+    const live = liveDocumentsRef.current.find((d) => d.id === doc.id);
+    if (!live || live.updatedAt !== doc.updatedAt) return;
     // Logged once, and only when the mutation was applied (a refused or no-op remove leaves no row).
     const result = mutate({ kind: "removeAiMark", id: doc.id });
     if (result.changed) logActivityAs?.("user", "document.aiMarkRemoved", doc.title);
