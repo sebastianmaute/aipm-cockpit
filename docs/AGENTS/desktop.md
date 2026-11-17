@@ -202,18 +202,18 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   license page's RichEdit shows each line break). ★ A new external host, proxy route or Graph
   permission therefore needs a line in the statement too.
   The page itself is seen only in a real release build.
-- The feed is the public GitHub Releases `latest.yml`. The installer is code-signed through SignPath
-  Foundation only from the first release the signing jobs sign; before that it is unsigned, and what
-  stands in for signing is recorded beside `RELEASES_URL` in `lib/constants.ts` and in §487/§563. Each
-  release's notes say which (the `attest-signature` job's `signed` output, [`ci.md`](ci.md)). The uninstaller is
-  not signed (§793). ★★ Two transition gaps, both by design of electron-updater, not of this code: a
+- The feed is the public GitHub Releases `latest.yml`. The installer is not code-signed: SignPath
+  Foundation declined the project and no other signing provider has been chosen (§487/§563). What
+  stands in for signing is recorded beside `RELEASES_URL` in `lib/constants.ts`. ★★ Should a signed
+  release ever ship, two transition gaps follow, both by design of electron-updater, not of this code: a
   copy installed from an unsigned release has no `publisherName`, so it takes the first signed update
   unchecked; and an installer already downloaded into the updater's cache is installed from there
   without the signature hook running (the cached-file branch of electron-updater's own AppUpdater compares only its
   sha512 with the feed's; the hook sits in `NsisUpdater`'s download task, which that branch skips), so
   one cached by an unsigned build is installed unchecked once.
-  The README's "Code signing policy" states both.
-- ★★ **A signed build refuses any update it cannot verify.** electron-updater's `NsisUpdater` reads
+- ★★ **A signed build would refuse any update it cannot verify — dormant today.** No release writes a
+  `publisherName`, so this check never runs; it is kept, provider-neutral, for a future signing provider.
+  electron-updater's `NsisUpdater` reads
   `publisherName` from the packaged `resources/app-update.yml` and, only when it is there, passes each
   downloaded installer to its `verifyUpdateCodeSignature` hook. Its default verifier resolves `null`
   (valid) when PowerShell fails, so `createUpdater` replaces it with `verifyUpdateSignature`
@@ -238,16 +238,15 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   (`decideOnAvailable`'s `refused` argument): a later automatic check neither offers nor downloads it again, a
   manual one shows the same box, and a newer version is offered as usual. A restart forgets it. The updater also sets
   `disableWebInstaller`, and the signature query may take `SIGNATURE_TIMEOUT_MS` (60 s, against electron-updater's
-  20 s). Only the release workflow's `repackage` job writes the `publisherName`
-  ([`ci.md`](ci.md), the `repackage` job), so no local or `build`-job package is a signed build. ★ Not run
+  20 s). No release step writes the `publisherName` any more (the SignPath `repackage` job that did was
+  removed with the rest of the SignPath pipeline, [`ci.md`](ci.md) "No code signing"), so no build is a
+  signed build. ★ Not run
   against a real signed update yet: the unit tests fake electron-updater, and the one real-PowerShell
   test (Windows only) checks an unsigned file.
 
 ## Open register entries
 
-§462 (no Linux installer) · §487 and §563 (unsigned installer; open until the first signed
-release) · §629 (the unload journal on a packaged desktop close) · §728 (the splash's German text on a
-packaged build) · §793 (unsigned uninstaller). Re-list them with
-`grep -nE "^## [0-9]+\..*(desktop|Electron|installer)" docs/open-followups.md | grep -v CLOSED`
-(six lines on 2026-11-06). Not every open heading carries the word OPEN (§793's does not), so the
-command drops CLOSED ones instead of matching OPEN.
+§462 (no Linux installer) · §487 and §563 (unsigned installer; no signing provider) · §629 (the unload
+journal on a packaged desktop close) · §728 (the splash's German text on a packaged build). Re-list them with
+`grep -nE "^## [0-9]+\..*(desktop|Electron|installer)" docs/open-followups.md | grep -v CLOSED`.
+Not every open heading carries the word OPEN, so the command drops CLOSED ones instead of matching OPEN.

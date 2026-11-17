@@ -51,10 +51,10 @@ an den Maintainer. [geprüft: `desktop/src/updater.ts`]
   ihn als Zahl je Datei bereit (`download_count`). [extern: GitHub REST API, „Release assets“,
   https://docs.github.com/en/rest/releases/assets, gelesen am 2026-11-13] Darüber hinaus erhält der
   Maintainer nichts darüber, wer geprüft oder heruntergeladen hat. [Aussage des Maintainers]
-- **Signaturprüfung.** Eine aus einem signierten Release installierte Kopie lehnt ein Update ab, dessen
-  Installer nicht von der SignPath Foundation signiert ist. Bisher ist kein Release signiert (§487), daher
-  schützt diese Prüfung noch keine installierte Kopie. [geprüft: `README.md`, Abschnitt „Code signing
-  policy“; `.github/workflows/release.yml`]
+- **Signaturprüfung.** Keine. Kein Installer ist code-signiert (§487), daher prüft eine installierte Kopie
+  ein Update nur gegen den SHA-512 in der `latest.yml` des Releases; das erkennt einen beschädigten
+  Download, aber kein untergeschobenes Release. [geprüft: `README.md`, Abschnitt „Code signing“;
+  `.github/workflows/release.yml`]
 
 Eine Web-Bereitstellung der App hat keinen Updater. Neue Versionen stellt Ihre Organisation selbst bereit.
 [geprüft: `src/app/outbound-destinations.ts` führt den Updater nur für `desktop/src/updater.ts` auf]

@@ -106,10 +106,9 @@ installer from the [Releases page](https://github.com/sebastianmaute/aipm-cockpi
 
 Two things surprise people on a first run, and both are expected:
 
-- For an installer that is not code-signed, Windows shows a **"Windows
-  protected your PC"** box. Choose **More info → Run anyway**. Each release's
-  notes say whether its installer is signed (see
-  [Code signing policy](#code-signing-policy)).
+- The installer is not code-signed, so Windows shows a **"Windows protected
+  your PC"** box. Choose **More info → Run anyway** (see
+  [Code signing](#code-signing)).
 - The app **starts empty even if you have used it in your browser**. The
   desktop build keeps its own data store; nothing has been lost, and the
   browser version still has its own copy.
@@ -167,45 +166,30 @@ a second inventory to keep in sync.
 - **Optional storage**: Turso (libSQL), Microsoft Graph / SharePoint
 - **Desktop**: Electron (Windows installer, per-user)
 
-## Code signing policy
+## Code signing
 
-Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/)
+Windows installers are not code-signed. The project applied to SignPath Foundation's programme for
+open-source projects and was declined, and no other signing provider has been chosen. Windows
+therefore shows its **"Windows protected your PC"** box on first run, and names no publisher.
 
-Windows installers are signed through SignPath Foundation's programme for open-source projects once
-the maintainer switches signing on; until then, and so for every release published so far, they are
-not. Releases published before the first signed one stay unsigned, and each release's notes say
-whether its installer is signed. On a signed installer, Windows shows the publisher as
-**SignPath Foundation**.
+What stands in for a signature:
 
-- **What is signed:** the setup program (`aipm-cockpit-<version>-setup.exe`) on every signed
-  release. The app's own executables inside it (`AI PM Cockpit.exe` among them) are signed too
-  when the maintainer has switched that on as well; to see whether a release's are, check the
-  installed `AI PM Cockpit.exe` the same way as the installer below. The uninstaller that setup
-  installs is not signed yet ([#951](https://github.com/sebastianmaute/aipm-cockpit/issues/951)).
 - **How it is built:** only by this repository's [release workflow](.github/workflows/release.yml) on
-  GitHub Actions, from a version tag on `main`. The workflow submits the files to SignPath and checks the
-  returned signature before anything is published; once a signed release has shipped, it refuses to
-  publish an unsigned one.
+  GitHub Actions, from a version tag on `main` that only the owner can create. The workflow checks
+  that the tag matches the app's version and names a commit on `main`, and published releases are
+  immutable.
 - **Roles:** committer, reviewer and approver is the repository owner,
   [sebastianmaute](https://github.com/sebastianmaute). Outside contributions arrive as pull requests,
   which the owner reviews before merging. The owner approves each release in the workflow's
-  `release` environment and each signing request in SignPath.
-- **Updates:** a copy installed from a signed release installs an update only when its installer is
-  validly signed by SignPath Foundation; otherwise it refuses and points you to the
-  [Releases page](https://github.com/sebastianmaute/aipm-cockpit/releases) to download by hand. Two
-  limits apply while releases move to signing. A copy installed from a release before the first signed
-  one takes the first signed update without a signature check, because that check is part of the
-  signed release. And an installer that such a copy had already downloaded and cached is installed
-  without a check, once, because the updater does not re-check a cached download.
-
-**Verifying a download.** In Explorer, open the installer's **Properties → Digital Signatures**: the
-signer must be *SignPath Foundation*. In PowerShell,
-`Get-AuthenticodeSignature .\aipm-cockpit-<version>-setup.exe` must report `Valid` with
-`CN=SignPath Foundation` in the signer.
+  `release` environment before anything is published.
+- **Updates:** installed copies check the
+  [Releases page](https://github.com/sebastianmaute/aipm-cockpit/releases) for updates and install
+  one only after you agree. They compare the download with the SHA-512 in the release's
+  `latest.yml`, which guards against a corrupted download, not against a substituted release.
 
 A release that lists an SBOM, `aipm-cockpit-<version>-sbom.cdx.json` (the list of every third-party
-package the app ships), among its files also carries GitHub attestations made by the release workflow,
-signed or not: build provenance for each of its files, the SBOM included, and an SBOM attestation for
+package the app ships), among its files also carries GitHub attestations made by the release workflow:
+build provenance for each of its files, the SBOM included, and an SBOM attestation for
 the installer. Check the installer's provenance, the installer's SBOM attestation, and the SBOM file
 you downloaded:
 

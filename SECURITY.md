@@ -11,12 +11,11 @@ Do not open a public issue. You can expect a first answer within a week.
 
 ## Verifying a download
 
-Windows installers are being moved to code signing through SignPath Foundation; each release's notes
-say whether its installer is signed. A signed installer's publisher is **SignPath Foundation**, and
-`Get-AuthenticodeSignature .\aipm-cockpit-<version>-setup.exe` reports `Valid` with
-`CN=SignPath Foundation` in the signer. The uninstaller is not signed yet (#951).
+Windows installers are not code-signed: SignPath Foundation declined the project, and no other
+signing provider has been chosen. Windows SmartScreen therefore warns on first run, and the
+attestations below are how to check a download.
 
-A release that lists `aipm-cockpit-<version>-sbom.cdx.json` among its files, signed or not, carries
+A release that lists `aipm-cockpit-<version>-sbom.cdx.json` among its files carries
 attestations made by this repository's release workflow: build provenance for each of its files, the
 SBOM included, and an SBOM attestation for the installer. Verify a download with:
 
@@ -25,6 +24,4 @@ SBOM included, and an SBOM attestation for the installer. Verify a download with
     gh attestation verify aipm-cockpit-<version>-sbom.cdx.json --repo sebastianmaute/aipm-cockpit
 
 Installed copies check this repository's releases for updates and install one only after you agree.
-A copy installed from a signed release also refuses an update whose installer is not signed by
-SignPath Foundation. The README's [Code signing policy](README.md#code-signing-policy) lists the
-limits while releases move to signing.
+The README's [Code signing](README.md#code-signing) section says what stands in for a signature.

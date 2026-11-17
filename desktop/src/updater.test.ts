@@ -303,7 +303,7 @@ describe("the Update available window", () => {
 // default. A refused update says to download the release by hand and is never installed.
 describe("a signed build's update check", () => {
   const DEFAULT_VERIFY = vi.fn(() => Promise.resolve(null));
-  const SIGNED_FEED = "owner: sebastianmaute\nrepo: aipm-cockpit\nprovider: github\nupdaterCacheDirName: x\npublisherName:\n  - SignPath Foundation\n";
+  const SIGNED_FEED = "owner: sebastianmaute\nrepo: aipm-cockpit\nprovider: github\nupdaterCacheDirName: x\npublisherName:\n  - Example Publisher\n";
   const UNSIGNED_FEED = "owner: sebastianmaute\nrepo: aipm-cockpit\nprovider: github\nupdaterCacheDirName: x\n";
   let resources: string;
   const had = Object.getOwnPropertyDescriptor(process, "resourcesPath");

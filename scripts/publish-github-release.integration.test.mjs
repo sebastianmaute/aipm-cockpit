@@ -65,7 +65,7 @@ function setup(state = {}) {
   writeFileSync(stateFile, JSON.stringify({ calls: [], releases: [], ...state }));
   const run = (env = {}) => spawnSync(process.execPath, [CLI, dir, TAG], {
     encoding: "utf8",
-    env: { ...process.env, VITEST: "1", GITHUB_REPOSITORY: "o/r", GH_TOKEN: "t", RELEASE_SIGNED: "false", PUBLISH_RELEASE_TEST_GH: gh, FAKE_GH_STATE: stateFile, ...env },
+    env: { ...process.env, VITEST: "1", GITHUB_REPOSITORY: "o/r", GH_TOKEN: "t", PUBLISH_RELEASE_TEST_GH: gh, FAKE_GH_STATE: stateFile, ...env },
   });
   const read = () => JSON.parse(readFileSync(stateFile, "utf8"));
   const digest = (name) => "sha256:" + createHash("sha256").update(readFileSync(join(dir, name))).digest("hex");
@@ -103,7 +103,7 @@ function setupPrerelease(state = {}) {
   const run = (env = {}) => spawnSync(process.execPath, [CLI, dir, tag], {
     encoding: "utf8",
     cwd: projectDir,
-    env: { ...process.env, VITEST: "1", GITHUB_REPOSITORY: "o/r", GH_TOKEN: "t", RELEASE_SIGNED: "false", PUBLISH_RELEASE_TEST_GH: gh, FAKE_GH_STATE: stateFile, ...env },
+    env: { ...process.env, VITEST: "1", GITHUB_REPOSITORY: "o/r", GH_TOKEN: "t", PUBLISH_RELEASE_TEST_GH: gh, FAKE_GH_STATE: stateFile, ...env },
   });
   const read = () => JSON.parse(readFileSync(stateFile, "utf8"));
   return { run, read, tag, exe, version };
@@ -203,27 +203,11 @@ describe("publish-github-release.mjs against a fake gh", () => {
     expect(s.releases[0].draft).toBe(false); // the edit succeeded; only the confirming list blew up
   });
 
-  it("writes the unsigned notice when the finalize job says unsigned, and the SignPath line when it says signed", () => {
+  it("writes the unsigned-installer notice into the release notes", () => {
     const off = setup();
     const r0 = off.run();
     expect(r0.status, r0.stderr).toBe(0);
     expect(off.read().releases[0].notes).toMatch(/not code-signed/);
-    const on = setup();
-    const r1 = on.run({ RELEASE_SIGNED: "true" });
-    expect(r1.status, r1.stderr).toBe(0);
-    const notes = on.read().releases[0].notes;
-    expect(notes).toContain("Free code signing provided by SignPath.io, certificate by SignPath Foundation");
-    expect(notes).not.toMatch(/not code-signed/);
-  });
-
-  it("refuses (exit 2) without a readable RELEASE_SIGNED, calling gh not at all", () => {
-    for (const v of ["", "yes"]) {
-      const t = setup();
-      const r = t.run({ RELEASE_SIGNED: v });
-      expect(r.status, v).toBe(2);
-      expect(r.stderr).toMatch(/RELEASE_SIGNED/);
-      expect(t.read().calls).toEqual([]);
-    }
   });
 
   it("refuses the fake-gh hook outside vitest (exit 2), calling gh not at all", () => {

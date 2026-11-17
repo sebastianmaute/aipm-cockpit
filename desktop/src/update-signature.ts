@@ -6,10 +6,12 @@
 // install anything. This one fails CLOSED: every outcome other than a readable `Valid` verdict, for
 // this very file, from a listed publisher, is a refusal string.
 //
-// The release workflow's `repackage` job writes `publisherName:` with SignPath Foundation's full
-// certificate subject into the packed app's app-update.yml (scripts/release-update-feed.mjs); an
-// unsigned build's feed has none, so
-// updater.ts leaves electron-updater's default in place there (`feedRequiresSignature`).
+// Dormant today: no release is code-signed (register §487), so no packed app-update.yml names a
+// publisher, and updater.ts leaves electron-updater's default in place (`feedRequiresSignature`).
+// It is kept, provider-neutral, for a future signing provider: a release whose packed feed lists
+// `publisherName:` (the signer's full certificate subject) turns it on with no change here. The
+// SignPath pipeline that once wrote that key was removed when SignPath Foundation declined the
+// project; git history holds it.
 //
 // No electron import: the root tsc and vitest reach this file directly.
 import { execFile, type ExecFileOptions } from "node:child_process";
@@ -186,11 +188,8 @@ function parseDn(dn: string): Map<string, string> {
 /** electron-updater's rule (windowsExecutableCodeSignatureVerifier.js): a name that parses to any
  *  attribute is a DN and must match the subject on every key it names; any other name must equal
  *  the subject's CN exactly. One deliberate difference: an empty name matches nothing here, where
- *  electron-updater would accept it against a subject with an empty CN. The release feed names the
- *  full DN (PUBLISHER in scripts/release-update-feed.mjs). The release workflow's signature checks
- *  (scripts/release-verify-signature.mjs) and its one-way guard (scripts/release-signing-guard.mjs)
- *  use this very function, so CI calls an installer signed only by the rule the installed app
- *  applies to it. */
+ *  electron-updater would accept it against a subject with an empty CN. A signed release's feed
+ *  should name the signer's full DN, so every attribute of it must match. */
 export function signerMatches(subject: string, publisherNames: string[]): boolean {
   const s = parseDn(subject);
   return publisherNames.some((name) => {
