@@ -90,7 +90,7 @@ Components never reference a scheme's hex values directly — use the role.
 
 Also declared in `globals.css :root` (and, for the colours, mapped in `@theme`); a scheme or an imported
 theme file may override each. Reproduce with
-`grep -n -E "^\s*--(rag|table-head|shadow|gradient|delta|segment)[a-z-]*:" src/app/globals.css`.
+`grep -n -E "^\s*--(rag|table-head|shadow|gradient|delta|segment|control-state|count-badge)[a-z-]*:" src/app/globals.css`.
 
 | Token | Fallback | Role |
 |---|---|---|
@@ -102,6 +102,11 @@ theme file may override each. Reproduce with
 | `--gradient-kpi` | `var(--ui-green)` | the completion-% "more = better" bar only |
 | `--rag-red-chip` / `--rag-green-chip`, `--delta-chip-pad` | `transparent`, `0` | KPI trend-pill background and padding (invisible in the fallback) |
 | `--segment-track-bg` / `--segment-active-bg` / `--segment-active-fg` | #eef2f6 / `var(--ui-dark-blue)` / #ffffff | `SegmentedControl` track and active pill |
+| `--control-state-border` / `--control-state-border-pink` / `--control-state-border-green` | #153a5c / #c24a76 / #1f8e83 | state borders held to 3:1 against `--line` (WCAG 1.4.11); derived per scheme and mode, so no `dark:` variant is needed. ★ The green one is NOT raw `--ui-green` (1.66:1 against `--line`) |
+| `--count-badge-pink` | #c24a76 | the pink `CountBadge` fill, held to 4.5:1 under its white text (§681) |
+
+The one typeface is `--font-sans` in the `@theme` block: `var(--font-titillium)` (Titillium Web, loaded by
+`next/font` in `layout.tsx`), then Segoe UI and Arial.
 
 ## Rules
 
