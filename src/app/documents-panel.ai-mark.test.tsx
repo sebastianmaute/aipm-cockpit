@@ -94,6 +94,17 @@ describe("document view AI-generated mark (§801)", () => {
     expect(log).not.toHaveBeenCalled();
   });
 
+  it("Escape in the confirm dialog cancels: no mutation, no log", async () => {
+    const user = userEvent.setup();
+    const { mutate, log } = setup(doc(true));
+    await user.click(screen.getByRole("button", { name: REMOVE }));
+    await screen.findByText(t("en-US", "docAiMarkRemoveConfirm"));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByText(t("en-US", "docAiMarkRemoveConfirm"))).toBeNull());
+    expect(removeCalls(mutate)).toHaveLength(0);
+    expect(log).not.toHaveBeenCalled();
+  });
+
   it("confirm removes the mark through mutateDocuments as the user and logs exactly one entry", async () => {
     const user = userEvent.setup();
     const { mutate, box, log } = setup(doc(true));
