@@ -96,11 +96,13 @@ implicitly. To type-check without building: `npx tsc --noEmit`.
 
 ```
 src/app/
-├── api/                  — 12 same-origin proxy routes: jira/* (8), timelog,
+├── api/                  — 15 same-origin routes: 12 proxies — jira/* (8), timelog,
 │                            confluence/page, stt, ecb. The first 11 take a
 │                            user-supplied host and are SSRF-guarded via
 │                            api/_shared/proxy-ssrf.ts — reuse it, don't hand-roll.
-│                            ecb is the exception: one hard-coded URL, no user input
+│                            ecb is the exception: one hard-coded URL, no user input.
+│                            Plus the AI relay: ai/messages, ai/models, ai/status
+│                            (used only behind a gateway or a key restriction)
 ├── task-manager.tsx      — orchestrator; owns most client state
 ├── task-form-modal.tsx   — task create/edit form modal (extracted slice 4)
 ├── bulk-edit-modal.tsx   — bulk-edit dialog (extracted slice 4)
@@ -590,8 +592,9 @@ into a new `## [<version>] - <date> "<milestone>"` section below it, merge to `m
 `.github/workflows/release.yml`: `guard` checks the tag, `build` packages the Windows installer,
 `sign-app` waits for the owner's one approval, then — once signing is switched on — `repackage`,
 `sign-installer` and `finalize` sign the installer and check the signature (no job that can read the
-SignPath token runs any build code), and `publish`
-publishes the GitHub Release (see the RUNBOOK). Full steps, exit codes and withdrawing a bad release:
+SignPath token runs any build code), `attest-signature` checks the final installer's signature again
+with Windows PowerShell alone and decides whether the release notes call it signed, and `publish`
+publishes the GitHub Release with the installer, its update files and the CycloneDX SBOM (see the RUNBOOK). Full steps, exit codes and withdrawing a bad release:
 [`docs/RUNBOOK.md`, "Publishing a desktop release (GitHub)"](docs/RUNBOOK.md#publishing-a-desktop-release-github).
 
 ## Pull request checklist
