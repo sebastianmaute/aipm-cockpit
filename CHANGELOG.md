@@ -10,6 +10,15 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Removed
+
+- **The SignPath code-signing pipeline.** SignPath Foundation declined the project's application, so the release
+  workflow's switched-off signing jobs, their scripts, the one-way signing guard and the signed release-notes text are
+  gone. A release is again `guard` → `build` → `publish`, and the owner's one approval now pauses `publish`. Installers
+  stay unsigned, as every release so far has been (§487); the README's "Code signing" section and `SECURITY.md` say
+  what stands in for a signature. The app's own update-signature check is kept, dormant, for a future signing provider.
+  §793 (the unsigned uninstaller) is closed as moot.
+
 ## [1.21.1] - 2026-11-17 "French"
 
 A release fix. 1.21.0 was tagged but never published: GitHub's SBOM attestation refused the release's SBOM because

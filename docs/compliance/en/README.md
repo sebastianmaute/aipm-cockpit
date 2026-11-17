@@ -11,7 +11,7 @@ This pack is input for your own work. It is not legal advice, and it reaches no 
 the app or about your use of it.
 
 **Who provides it.** AI PM Cockpit is a free, non-commercial open-source project. The person who
-provides this pack is its maintainer, the repository owner named in the README's code signing policy.
+provides this pack is its maintainer, the repository owner named in the README's Code signing section.
 There is no contract between the maintainer and you, no service level and no support period. The one
 duty the maintainer takes on is to handle vulnerability reports as [`SECURITY.md`](../../../SECURITY.md)
 describes: reported privately through GitHub, with a first answer within a week, and fixes only in the
@@ -69,8 +69,7 @@ and the pack's check fails when a listed entry is closed or missing. [verified:
 <!-- PACK:open-gaps:BEGIN -->
 | Register entry | Title |
 |---|---|
-| §487 | The Windows installer is still unsigned: the signing pipeline exists but is switched off, so every install shows an unknown-publisher warning |
-| §793 | The installer's uninstaller is not code-signed |
+| §487 | The Windows installer is unsigned: no signing provider is chosen, so every install shows an unknown-publisher warning |
 | §796 | Tasks created by Optimize work breakdown with AI cannot be undone |
 | §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |
@@ -86,8 +85,6 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
 
 - **§487** — No installer released so far is code-signed, so Windows cannot show you who published it.
   Check each download with the GitHub attestation commands in `SECURITY.md` instead.
-- **§793** — Even once signing is switched on, the uninstaller that setup puts on the computer will not be
-  signed, so a tool that checks every program on the machine will flag it.
 - **§796** — After a person applies an AI work breakdown, undo reverts the changes to existing tasks but
   not the tasks it created. Those must be deleted by hand.
 - **§798** — Most AI requests wait until the user cancels or the connection fails, and a request refused

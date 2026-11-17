@@ -12,8 +12,8 @@ Dieses Paket ist Material für Ihre eigene Arbeit. Es ist keine Rechtsberatung u
 rechtliche Schlussfolgerung über die App oder über Ihre Nutzung der App.
 
 **Wer es bereitstellt.** AI PM Cockpit ist ein kostenloses, nicht kommerzielles Open-Source-Projekt.
-Bereitgestellt wird dieses Paket von seinem Maintainer, dem Eigentümer des Repositorys, der in der
-Richtlinie zur Code-Signierung in der README genannt ist. Zwischen dem Maintainer und Ihnen besteht kein
+Bereitgestellt wird dieses Paket von seinem Maintainer, dem Eigentümer des Repositorys, der im
+Abschnitt „Code signing“ der README genannt ist. Zwischen dem Maintainer und Ihnen besteht kein
 Vertrag, es gibt kein Service-Level und keinen Supportzeitraum. Die einzige Pflicht, die der Maintainer
 übernimmt, ist die Bearbeitung von Schwachstellenmeldungen, wie [`SECURITY.md`](../../../SECURITY.md) sie
 beschreibt: vertraulich über GitHub gemeldet, mit einer ersten Antwort innerhalb einer Woche, und
@@ -79,8 +79,7 @@ Registers.
 <!-- PACK:open-gaps:BEGIN -->
 | Register-Eintrag | Titel |
 |---|---|
-| §487 | The Windows installer is still unsigned: the signing pipeline exists but is switched off, so every install shows an unknown-publisher warning |
-| §793 | The installer's uninstaller is not code-signed |
+| §487 | The Windows installer is unsigned: no signing provider is chosen, so every install shows an unknown-publisher warning |
 | §796 | Tasks created by Optimize work breakdown with AI cannot be undone |
 | §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |
@@ -97,9 +96,6 @@ wo die Einzelheiten stehen. [geprüft: die Registereinträge in `docs/open-follo
 - **§487** — Keiner der bisher veröffentlichten Installer ist code-signiert, daher kann Windows Ihnen
   nicht anzeigen, wer ihn veröffentlicht hat. Prüfen Sie jeden Download stattdessen mit den
   GitHub-Attestierungsbefehlen in `SECURITY.md`.
-- **§793** — Auch wenn die Signierung eingeschaltet ist, wird das Deinstallationsprogramm, das die
-  Installation auf dem Computer ablegt, nicht signiert sein; ein Werkzeug, das jedes Programm auf dem
-  Rechner prüft, wird es daher melden.
 - **§796** — Nachdem eine Person einen KI-Projektstrukturplan übernommen hat, macht „Rückgängig“ die
   Änderungen an bestehenden Aufgaben rückgängig, nicht aber die Aufgaben, die er angelegt hat. Diese
   müssen von Hand gelöscht werden.

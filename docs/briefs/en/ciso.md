@@ -70,8 +70,7 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
 1. **Unmarked outside text and same-turn writes:** text from outside that carries no mark of its origin, such as rows created from an
    imported file, and a change sent in the same turn as a Jira read, do not start the review hold unless every
    chat write is reviewed (E48, *tested (unit)*; E71, *tested (unit)*).
-2. **§487, §793:** the Windows installer is unsigned, and the uninstaller would stay unsigned with signing on
-   (E51, *tested (unit)*).
+2. **§487:** the Windows installer is unsigned: no signing provider has been chosen (E51, *tested (unit)*).
 3. **Wildcard hosts by default:** unless the deployment sets `AIPM_CSP_TURSO_HOSTS` and `AIPM_CSP_SHAREPOINT_HOSTS`,
    the policy allows whole host families by wildcard (E34, *read in code*).
 4. **Request limits are shared and per process:** unless the deployment sets `AIPM_TRUSTED_PROXY_HOPS`, all

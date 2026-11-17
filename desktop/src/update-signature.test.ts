@@ -14,8 +14,8 @@ import {
   powerShellInvocation, refusalKind, signerMatches, verifyUpdateSignature, type PowerShellResult, type RunPowerShell,
 } from "./update-signature";
 
-const SIGNER = "SignPath Foundation";
-const SUBJECT = "CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US";
+const SIGNER = "Example Publisher";
+const SUBJECT = "CN=Example Publisher, O=Example Publisher, L=Springfield, S=Oregon, C=US";
 const INSTALLER = String.raw`C:\Users\me\AppData\Local\aipm-cockpit-desktop-updater\pending\temp-aipm-cockpit-9.9.9-setup.exe`;
 
 // Get-AuthenticodeSignature | ConvertTo-Json -Compress, as Windows PowerShell 5.1 prints it: the
@@ -92,7 +92,7 @@ describe("verifyUpdateSignature", () => {
     // Accepts the enum's name too (PowerShell 7 with -EnumsAsStrings, or a projection).
     expect(await verifyUpdateSignature([SIGNER], INSTALLER, answer(json("Valid", SUBJECT)))).toBeNull();
     // A full distinguished name matches on every key it names.
-    expect(await verifyUpdateSignature(["CN=SignPath Foundation, O=SignPath Foundation"], INSTALLER, run)).toBeNull();
+    expect(await verifyUpdateSignature(["CN=Example Publisher, O=Example Publisher"], INSTALLER, run)).toBeNull();
   });
 
   it("refuses an unsigned installer", async () => {
@@ -111,30 +111,29 @@ describe("verifyUpdateSignature", () => {
   it("refuses a valid signature from another publisher", async () => {
     for (const subject of [
       "CN=Someone Else, O=Someone Else, C=US",
-      "CN=SignPath Foundation Ltd, O=SignPath Foundation, C=US",
-      "CN=Evil, O=SignPath Foundation, C=US",
-      "CN=signpath foundation, C=US",
+      "CN=Example Publisher Ltd, O=Example Publisher, C=US",
+      "CN=Evil, O=Example Publisher, C=US",
+      "CN=example publisher, C=US",
       "",
     ]) {
       const r = await verifyUpdateSignature([SIGNER], INSTALLER, answer(json(0, subject)));
       expect(r, subject).toEqual(expect.any(String));
     }
     // A DN publisher name must match on every key it names.
-    expect(await verifyUpdateSignature(["CN=SignPath Foundation, O=Other"], INSTALLER, answer(json(0, SUBJECT))))
+    expect(await verifyUpdateSignature(["CN=Example Publisher, O=Other"], INSTALLER, answer(json(0, SUBJECT))))
       .toEqual(expect.any(String));
   });
 
-  // The release feed names SignPath Foundation's full DN (PUBLISHER in
-  // scripts/release-update-feed.mjs, which its own test pins to this same string).
-  it("with the release feed's full DN: accepts exactly that subject, refuses another O, C, L or S, and a CN-only subject", async () => {
+  // A feed that names a publisher's full DN, as a signed release's would.
+  it("with a full-DN publisher name: accepts exactly that subject, refuses another O, C, L or S, and a CN-only subject", async () => {
     expect(await verifyUpdateSignature([SUBJECT], INSTALLER, answer(json(0, SUBJECT)))).toBeNull();
     for (const subject of [
-      SUBJECT.replace("O=SignPath Foundation", "O=Other"),
+      SUBJECT.replace("O=Example Publisher", "O=Other"),
       SUBJECT.replace("C=US", "C=DE"),
-      SUBJECT.replace("L=Lewes", "L=Berlin"),
-      SUBJECT.replace("S=Delaware", "S=Bavaria"),
-      "CN=SignPath Foundation",
-      "CN=SignPath Foundation, O=SignPath Foundation, C=US",
+      SUBJECT.replace("L=Springfield", "L=Berlin"),
+      SUBJECT.replace("S=Oregon", "S=Bavaria"),
+      "CN=Example Publisher",
+      "CN=Example Publisher, O=Example Publisher, C=US",
     ]) {
       expect(await verifyUpdateSignature([SUBJECT], INSTALLER, answer(json(0, subject))), subject).toEqual(expect.any(String));
     }
@@ -314,9 +313,9 @@ describe.skipIf(process.platform !== "win32")("defaultRun on Windows", () => {
 
 describe("feedRequiresSignature", () => {
   it("is true when app-update.yml has a publisherName key, in either list or scalar form", () => {
-    expect(feedRequiresSignature("owner: x\npublisherName:\n  - SignPath Foundation\nrepo: y\n")).toBe(true);
-    expect(feedRequiresSignature("publisherName:\r\n  - SignPath Foundation\r\n")).toBe(true);
-    expect(feedRequiresSignature("provider: github\npublisherName: SignPath Foundation\n")).toBe(true);
+    expect(feedRequiresSignature("owner: x\npublisherName:\n  - Example Publisher\nrepo: y\n")).toBe(true);
+    expect(feedRequiresSignature("publisherName:\r\n  - Example Publisher\r\n")).toBe(true);
+    expect(feedRequiresSignature("provider: github\npublisherName: Example Publisher\n")).toBe(true);
   });
 
   it("is false for the unsigned build's feed and for the name elsewhere", () => {
@@ -327,8 +326,8 @@ describe("feedRequiresSignature", () => {
   });
 });
 
-// signerMatches must decide exactly as electron-updater does, or CI could call an installer signed
-// that installed copies refuse (or the reverse). The reference is electron-updater's own rule
+// signerMatches must decide exactly as electron-updater does, or a future release check built on it
+// could call an installer signed that installed copies refuse (or the reverse). The reference is electron-updater's own rule
 // (windowsExecutableCodeSignatureVerifier.js) over the parseDn of the builder-util-runtime copy
 // electron-updater itself resolves.
 describe("signerMatches agrees with electron-updater", () => {
@@ -344,35 +343,35 @@ describe("signerMatches agrees with electron-updater", () => {
   };
   const SUBJECTS = [
     SUBJECT,
-    "O=SignPath Foundation, CN=SignPath Foundation, C=US, S=Delaware, L=Lewes",
-    "CN=SignPath Foundation ,  O=SignPath Foundation , L=Lewes, S=Delaware, C=US",
-    "CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US, OU=Extra",
-    "CN=SignPath Foundation",
-    "CN=SignPath Foundation, O=Other, L=Lewes, S=Delaware, C=US",
-    "CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=DE",
-    "cn=SignPath Foundation, o=SignPath Foundation, l=Lewes, s=Delaware, c=US",
-    'CN="SignPath Foundation", O="SignPath Foundation", L=Lewes, S=Delaware, C=US',
-    'CN="SignPath Foundation, Inc.", O=Other, C=DE',
-    "CN=SignPath Foundation; O=SignPath Foundation; L=Lewes; S=Delaware; C=US",
-    "CN=SignPath Foundation+O=SignPath Foundation, L=Lewes, S=Delaware, C=US",
-    String.raw`CN=SignPath\20Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US`,
-    String.raw`CN=SignPath Foundation\, Inc., O=Other`,
-    "CN=Other, CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US",
-    "CN=SignPath Foundation, CN=Other, O=SignPath Foundation, L=Lewes, S=Delaware, C=US",
-    "CN=SignPath Foundation Ltd, O=SignPath Foundation, C=US",
-    "CN=Someone Else, O=SignPath Foundation, C=US",
+    "O=Example Publisher, CN=Example Publisher, C=US, S=Oregon, L=Springfield",
+    "CN=Example Publisher ,  O=Example Publisher , L=Springfield, S=Oregon, C=US",
+    "CN=Example Publisher, O=Example Publisher, L=Springfield, S=Oregon, C=US, OU=Extra",
+    "CN=Example Publisher",
+    "CN=Example Publisher, O=Other, L=Springfield, S=Oregon, C=US",
+    "CN=Example Publisher, O=Example Publisher, L=Springfield, S=Oregon, C=DE",
+    "cn=Example Publisher, o=Example Publisher, l=Springfield, s=Oregon, c=US",
+    'CN="Example Publisher", O="Example Publisher", L=Springfield, S=Oregon, C=US',
+    'CN="Example Publisher, Inc.", O=Other, C=DE',
+    "CN=Example Publisher; O=Example Publisher; L=Springfield; S=Oregon; C=US",
+    "CN=Example Publisher+O=Example Publisher, L=Springfield, S=Oregon, C=US",
+    String.raw`CN=Example\20Publisher, O=Example Publisher, L=Springfield, S=Oregon, C=US`,
+    String.raw`CN=Example Publisher\, Inc., O=Other`,
+    "CN=Other, CN=Example Publisher, O=Example Publisher, L=Springfield, S=Oregon, C=US",
+    "CN=Example Publisher, CN=Other, O=Example Publisher, L=Springfield, S=Oregon, C=US",
+    "CN=Example Publisher Ltd, O=Example Publisher, C=US",
+    "CN=Someone Else, O=Example Publisher, C=US",
     "CN=",
     "",
   ];
   const NAMES = [
     SUBJECT,
-    "SignPath Foundation",
-    "CN=SignPath Foundation",
-    "CN=SignPath Foundation, O=SignPath Foundation",
-    "C=US, S=Delaware, L=Lewes, O=SignPath Foundation, CN=SignPath Foundation",
-    "cn=SignPath Foundation",
-    "CN=SignPath Foundation, O=Other",
-    "SignPath Foundation, Inc.",
+    "Example Publisher",
+    "CN=Example Publisher",
+    "CN=Example Publisher, O=Example Publisher",
+    "C=US, S=Oregon, L=Springfield, O=Example Publisher, CN=Example Publisher",
+    "cn=Example Publisher",
+    "CN=Example Publisher, O=Other",
+    "Example Publisher, Inc.",
   ];
 
   it("on every subject and publisher name in the corpus, alone and in pairs", () => {

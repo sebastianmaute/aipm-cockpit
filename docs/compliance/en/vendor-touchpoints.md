@@ -47,10 +47,9 @@ maintainer. [verified: `desktop/src/updater.ts`]
   available as a number per file (`download_count`). [external: GitHub REST API, "Release assets",
   https://docs.github.com/en/rest/releases/assets, read 2026-11-13] The maintainer receives nothing else
   about who checked or downloaded. [vendor statement]
-- **Signature check.** A copy installed from a signed release refuses an update whose installer is not
-  signed by SignPath Foundation. No release has been signed so far (§487), so this check does not yet
-  protect any installed copy. [verified: `README.md`, section "Code signing policy";
-  `.github/workflows/release.yml`]
+- **Signature check.** None. No installer is code-signed (§487), so an installed copy checks an update
+  only against the SHA-512 in the release's `latest.yml`, which catches a corrupted download, not a
+  substituted release. [verified: `README.md`, section "Code signing"; `.github/workflows/release.yml`]
 
 A web deployment of the app has no updater. Your organisation deploys new versions itself. [verified:
 `src/app/outbound-destinations.ts` lists the updater only for `desktop/src/updater.ts`]

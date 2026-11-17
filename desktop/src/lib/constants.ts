@@ -19,9 +19,9 @@ export const APP_ORIGIN = `http://${APP_HOST}:${APP_PORT}`;
 // the Version panel links to, for a person to open in their own browser.
 //
 // ★★ The installer is unsigned, so there is no code-signing check behind what
-// the feed hands back. (A build signed by release.yml's signing jobs is the
-// exception: its feed names a publisher, and update-signature.ts then refuses
-// any update it cannot verify, pointing the user here instead.) Shipping
+// the feed hands back. (update-signature.ts holds a dormant, fail-closed check
+// for a future signed build whose feed names a publisher; no release has one
+// today, register §487.) Shipping
 // the updater anyway (rather than requiring this manual page forever) is a
 // deliberate call, not an oversight: integrity comes
 // from HTTPS, GitHub's immutable releases, and the sha512 in `latest.yml` --

@@ -58,8 +58,8 @@ export function unverifiedText(refusal: RefusalKind): { message: string; hint: s
 }
 
 // Whether the packaged resources/app-update.yml names a publisherName -- the file NsisUpdater reads
-// it from (AppUpdater.js `configOnDisk`), written there by the release workflow's repackage job
-// (scripts/release-update-feed.mjs). No file means no signed feed, as electron-updater itself
+// it from (AppUpdater.js `configOnDisk`). No release writes one today: the installer is not
+// code-signed (register §487). No file means no signed feed, as electron-updater itself
 // treats ENOENT; a file that exists but cannot be read counts as signed, so the stricter verifier
 // is the one installed when in doubt (it runs only if electron-updater finds a publisherName).
 function packagedFeedRequiresSignature(): boolean {
