@@ -31,7 +31,8 @@ shares a database, since older versions drop the new settings.
   printed HTML, carries only that line). A digest mail with the AI summary has the header `X-AI-Generated` and the
   same line. Any AI create, change, rename, duplicate or restore marks a document; a person's edit keeps the mark,
   and only "Remove AI-generated mark", after a confirmation and logged in the activity log, clears it. The app
-  does not check whether AI text remains. Not marked: text copied out of the app, tasks, report text, chat replies,
+  does not check whether AI text remains. The document's version history says "AI-generated" on each version
+  that carried the mark. Not marked: text copied out of the app, tasks, report text, chat replies,
   the workspace exports and documents the AI wrote before this release. A client that has not been upgraded drops
   the mark when it saves a shared project.
 - **A deployment can name the exact Turso and SharePoint hosts its browsers may reach.** `AIPM_CSP_TURSO_HOSTS`
@@ -162,7 +163,9 @@ shares a database, since older versions drop the new settings.
   own speech recognition is not affected: it stays available and, in some browsers (for example Chrome and Edge), sends
   the audio to the browser maker's service. No deployment setting switches it off. Browser tabs opened before this
   release keep calling Anthropic directly, under their old consent, until they are reloaded; ask users to reload every
-  open tab when you first set `ai` or the gateway.
+  open tab when you first set `ai` or the gateway. While AI is switched off, sent through a gateway or restricted to
+  the organisation's keys, a newly loaded page's security policy no longer lists `api.anthropic.com`, so the browser
+  cannot call Anthropic directly.
 - **AI requests can go through the organisation's AI gateway.** Two new server settings, `AIPM_AI_GATEWAY_URL` and
   `AIPM_AI_GATEWAY_TOKEN`, send AI requests through this app's server and a Cloudflare AI Gateway instead of straight
   from the browser to Anthropic. Each user still uses their own Anthropic key, which the server passes on without
@@ -432,6 +435,9 @@ shares a database, since older versions drop the new settings.
   a table whose rows and columns a line break or a "|" could break, so a description could be read as belonging to
   the wrong milestone. Every value is now one line of plain text, and long descriptions are shortened. The
   allocation plan and the Action Center's "Analyze with AI" now send names on one line too.
+- **A chat keeps earlier attachments that one request had to leave out (§575).** When a conversation was too large to
+  send in full, the earlier attachments left out of that request were also removed from the conversation the chat
+  keeps. They are now left out of the outgoing request only.
 
 ## [1.20.1] - 2026-10-27 "Indridason"
 
