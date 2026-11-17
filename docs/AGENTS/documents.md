@@ -250,8 +250,9 @@ marked, and the sanitisers keep only `true`, so an unmarked document serialises 
 and the predicate are in `ai-content-mark.ts` (`AI_SOURCE_TYPE_URI`, `AI_MARK_HEADER`, `isAiMarked`).
 
 ★★ **`applyDocMutation` is the one place the mark is decided** (`resultMark` in `document-mutations.ts`); no
-tool layer sets it. An AI create, ops, rename, duplicate or restore marks the result; `link` and `unlink` are
-references and pass the flag through; a person's write keeps it and never clears it. A duplicate copies its
+tool layer sets it. Only create, ops, rename, duplicate and restore ask `resultMark`: an AI one marks the
+result. `link` and `unlink` are references, spread the target and never ask it; a person's write keeps the
+flag and never clears it. A duplicate copies its
 source's flag, every before-image carries the replaced document's flag, and restoring a marked version marks
 the document. The only way to clear it is the person-only mutation `removeAiMark`, which an AI source and an
 unmarked document both refuse and which writes one before-image. The app does not check whether AI text remains.

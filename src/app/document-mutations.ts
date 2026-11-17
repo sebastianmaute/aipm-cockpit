@@ -263,15 +263,18 @@ function mintedOf(v: DocVersion | undefined): DocMintedVersion | null {
   return v ? { id: v.id, savedAt: v.savedAt } : null;
 }
 
-/** ★★★ THE ONE PLACE THE AI MARK IS DECIDED — every case that writes a document
- *  asks here, and no tool layer decides it. `inherited` is the flag the result
- *  starts from: the current document's for an in-place write, the SOURCE's for
- *  a duplicate, the restored version's (or the current document's, whichever is
- *  set) for a restore. An AI write marks; a person's write never clears. Only
- *  `removeAiMark` clears, and it does not come through here. link/unlink are
- *  references, not content, so they pass `inherited` through untouched. */
-function resultMark(kind: DocMutation["kind"], source: DocVersionSource, inherited: boolean): boolean {
-  if (kind === "link" || kind === "unlink") return inherited;
+/** ★★★ THE ONE PLACE A WRITE'S AI MARK IS DECIDED — the cases that change a
+ *  document's content or make a new one ask here: create, ops, rename,
+ *  duplicate and restore. No tool layer decides it. `inherited` is the flag the
+ *  result starts from: the current document's for an in-place write, the
+ *  SOURCE's for a duplicate, the restored version's (or the current document's,
+ *  whichever is set) for a restore. An AI write marks; a person's write never
+ *  clears. The other cases do not come through here and carry the flag
+ *  directly: link and unlink are references, not content, and spread the
+ *  target unchanged; `removeAiMark` is the only case that clears it; and a
+ *  before-image or the "restored" marker row copies the flag of the document
+ *  or version it records (`markField(isAiMarked(...))`). */
+function resultMark(source: DocVersionSource, inherited: boolean): boolean {
   return inherited || source === "ai";
 }
 
@@ -358,7 +361,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         blocks: [...blocks],
         createdAt: ctx.now,
         updatedAt: ctx.now,
-        ...markField(resultMark("create", ctx.source, false)),
+        ...markField(resultMark(ctx.source, false)),
       };
       // Nothing was replaced — a create writes no version. Consistent with
       // restore-of-a-deleted-document below, which is also a create (a new
@@ -405,7 +408,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
             blocks: [...version.blocks],
             updatedAt: ctx.now,
           },
-          resultMark("restore", ctx.source, isAiMarked(liveDoc) || isAiMarked(version)),
+          resultMark(ctx.source, isAiMarked(liveDoc) || isAiMarked(version)),
         );
         const nextDocuments = state.documents.map((d) => (d.id === liveDoc.id ? restoredDoc : d));
         return {
@@ -458,7 +461,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         blocks: [...version.blocks],
         createdAt: ctx.now,
         updatedAt: ctx.now,
-        ...markField(resultMark("restore", ctx.source, isAiMarked(version))),
+        ...markField(resultMark(ctx.source, isAiMarked(version))),
       };
       // ★★★ …but it DOES write a marker against the OLD id, which is the only
       // thing that stops the tombstone becoming permanent. The old id can
@@ -500,7 +503,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       const before = snapshot(target, "rename", ctx);
       const renamed = withMark(
         { ...target, title, updatedAt: ctx.now },
-        resultMark("rename", ctx.source, isAiMarked(target)),
+        resultMark(ctx.source, isAiMarked(target)),
       );
       const nextDocuments = state.documents.map((d) => (d.id === target.id ? renamed : d));
       return {
@@ -577,7 +580,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         // own comment warns — and it dropped `linkedEntities` until it named it.
         // Sparse: an absent list stays absent (the goldens pin those bytes).
         ...(target.linkedEntities ? { linkedEntities: target.linkedEntities } : {}),
-        ...markField(resultMark("duplicate", ctx.source, isAiMarked(target))),
+        ...markField(resultMark(ctx.source, isAiMarked(target))),
       };
       // The version is written AGAINST THE COPY (documentId = the copy's new
       // id), holding the SOURCE's title/blocks. So a revert right after
@@ -681,7 +684,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       const before = m.coalesce ? undefined : snapshot(target, "update", ctx);
       const updated = withMark(
         { ...target, title: nextTitle, blocks: nextBlocks ?? target.blocks, updatedAt: ctx.now },
-        resultMark("ops", ctx.source, isAiMarked(target)),
+        resultMark(ctx.source, isAiMarked(target)),
       );
       const nextDocuments = state.documents.map((d) => (d.id === target.id ? updated : d));
       return {
