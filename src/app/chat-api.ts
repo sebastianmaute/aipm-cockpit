@@ -743,6 +743,8 @@ export async function callClaude(
   tools?: ReturnType<typeof withCacheBreakpoint>,
   /** The usage path the request is recorded under. */
   path: string = CHAT_PATH,
+  /** Called before each rate-limit or overload retry wait, with the wait in ms (§798): the chat shows it. */
+  onRetryWait?: (waitMs: number) => void,
 ): Promise<{
   content: ContentBlock[];
   stop_reason: string;
@@ -763,6 +765,7 @@ export async function callClaude(
     privacy,
     // Asked again after the deployment status: consent can be revoked while it is asked.
     beforeSend: assertInteractiveConsentLive,
+    onRetryWait,
   });
   if (!res.ok) {
     // Parse the RESPONSE body ONCE for two safe reads: the `error.type` token

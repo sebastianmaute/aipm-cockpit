@@ -5,6 +5,7 @@
 // Anthropic.
 import "../test/ai-consent-live";
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { spyAiFetch } from "../test/fetch-real-response";
 import {
   FORECAST_MAPPING_TOOL,
   MAX_CLAUDE_IMPORT_CELLS,
@@ -33,7 +34,7 @@ const SHEET: SheetGrid = {
 };
 
 function mockResponse(input: unknown, stopReason = "tool_use"): ReturnType<typeof vi.spyOn> {
-  return vi.spyOn(globalThis, "fetch").mockResolvedValue({
+  return spyAiFetch().mockResolvedValue({
     ok: true,
     json: async () => ({ stop_reason: stopReason, content: [{ type: "tool_use", name: "propose_forecast_mapping", input }] }),
   } as unknown as Response);
@@ -196,10 +197,18 @@ describe("runForecastImportCall", () => {
   });
 
   it("forwards the abort signal", async () => {
-    const spy = mockResponse(MAPPING);
+    // Since §798 the request carries the transport's own per-attempt signal, which the caller's abort
+    // aborts: the caller's signal reaches the request when aborting the caller aborts the request's signal.
     const controller = new AbortController();
-    await runForecastImportCall(SHEET, AI, controller.signal);
-    expect(((spy.mock.calls[0] as unknown[])[1] as RequestInit).signal).toBe(controller.signal);
+    let abortedWithCaller: boolean | undefined;
+    const spy = spyAiFetch().mockImplementation(async (_url, init) => {
+      controller.abort();
+      abortedWithCaller = init?.signal?.aborted;
+      return { ok: true, json: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "propose_forecast_mapping", input: MAPPING }] }) } as unknown as Response;
+    });
+    await expect(runForecastImportCall(SHEET, AI, controller.signal)).rejects.toThrow();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(abortedWithCaller).toBe(true);
   });
 
   it("refuses a sheet over the cell cap before any request", async () => {

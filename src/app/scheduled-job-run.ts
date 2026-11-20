@@ -5,7 +5,7 @@
 import { groundEntity, type ActionAnalysis } from "./action-ai";
 import {
   AI_KEY_WRONG_ORGANIZATION, AI_KEY_WRONG_WORKSPACE,
-  AiDeploymentError, AiGatewayError, AiHttpError, AiKeyCheckUnavailableError, AiKeyRefusedError, classifyAiError,
+  AiDeploymentError, AiGatewayError, AiHttpError, AiKeyCheckUnavailableError, AiKeyRefusedError, AiTimeoutError, classifyAiError,
 } from "./ai-errors";
 import { AiBackgroundPausedError, AiConsentRevokedError, AiWeeklyCapReachedError, type BackgroundTarget } from "./ai-consent";
 import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
@@ -75,6 +75,8 @@ export function toErrorToken(e: unknown): ReportErrorToken {
     return "error";
   }
   if (e instanceof AiGatewayError) return e.code;
+  // §798 — Claude did not answer within the time limit: a failed run, named as the timeout.
+  if (e instanceof AiTimeoutError) return "ai-timed-out";
   if (e instanceof AiKeyRefusedError) return e.reason === "organization" ? AI_KEY_WRONG_ORGANIZATION : AI_KEY_WRONG_WORKSPACE;
   if (e instanceof StorageNotReadyError) return "storage-unreachable";
   if (e instanceof TursoStepError || e instanceof TursoHttpError) return "turso";

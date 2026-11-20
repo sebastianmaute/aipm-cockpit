@@ -1262,6 +1262,7 @@ const enUS = {
   aiGatewayFailed: "Your organisation's AI gateway could not be reached or returned an error. Try again later.",
   aiGatewayRateLimited: "Your organisation's AI gateway is limiting requests right now. Try again in a little while.",
   aiRelayRateLimited: "This app's server is limiting AI requests from your connection right now. Wait a minute and try again.",
+  aiRequestTimedOut: "Claude did not answer within 5 minutes. Try again.",
   aiEnableHelp: "Turn on to use Claude chat, AI action suggestions and AI project creation; switching on asks you to accept the AI data disclosure first. Scheduled jobs, automatic insight recommendations and the scheduled digest narrative also need the separate “Allow AI to run in the background” acceptance. Off by default.",
   // Shown by the AI sub-sections (guides, views) that are gated on the master
   // switch but do NOT contain it. `aiEnableHelp` is the switch's own field help
@@ -1286,6 +1287,7 @@ const enUS = {
   chatGuidesLoading: "Loading operating guides…",
   chatSend: "Send",
   chatThinking: "Thinking…",
+  chatRetryWait: "Claude is busy, trying again in {0} s…",
   chatConfigureAi: "Configure AI",
   chatNoApiKey:
     "Add your Anthropic API key in Settings to start chatting.",

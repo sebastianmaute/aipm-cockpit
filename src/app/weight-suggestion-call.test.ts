@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { spyAiFetch } from "../test/fetch-real-response";
 import "../test/ai-consent-live";
 import { runWeightSuggestion } from "./weight-suggestion-call";
 import { defaultNextActionsConfig } from "./settings-types";
@@ -26,14 +27,14 @@ describe("runWeightSuggestion output budget (§763)", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("asks for 4096 tokens and reads a reply that was not cut", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(reply("tool_use", WHOLE));
+    const spy = spyAiFetch().mockResolvedValue(reply("tool_use", WHOLE));
     const out = await run();
     expect(out.suggestions.map((s) => s.field)).toEqual(["clarityBonus"]);
     expect(budgets(spy)).toEqual([4096]);
   });
 
   it("asks once more with 8192 tokens when the reply was cut with an empty input, and returns that answer", async () => {
-    const spy = vi.spyOn(globalThis, "fetch")
+    const spy = spyAiFetch()
       .mockResolvedValueOnce(reply("max_tokens", {}))
       .mockResolvedValueOnce(reply("tool_use", WHOLE));
     const out = await run();
@@ -42,7 +43,7 @@ describe("runWeightSuggestion output budget (§763)", () => {
   });
 
   it("never reads a cut reply, even one that parses; a cut retry is the parse error", async () => {
-    const spy = vi.spyOn(globalThis, "fetch")
+    const spy = spyAiFetch()
       .mockResolvedValueOnce(reply("max_tokens", WHOLE))
       .mockResolvedValueOnce(reply("max_tokens", WHOLE));
     await expect(run()).rejects.toThrow(/^parse$/);
@@ -50,7 +51,7 @@ describe("runWeightSuggestion output budget (§763)", () => {
   });
 
   it("does not retry a reply that was not cut", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(reply("tool_use", {}));
+    const spy = spyAiFetch().mockResolvedValue(reply("tool_use", {}));
     const out = await run();
     expect(out.suggestions).toEqual([]);
     expect(spy).toHaveBeenCalledTimes(1);
@@ -74,7 +75,7 @@ describe("runWeightSuggestion on a model that refuses a forced tool_choice (§76
     }) as unknown as Response;
 
   it("asks forced, plain at 4096, then plain at 8192, never strict, and returns that answer (§764)", async () => {
-    const spy = vi.spyOn(globalThis, "fetch")
+    const spy = spyAiFetch()
       .mockResolvedValueOnce(refused())
       .mockResolvedValueOnce(reply("max_tokens", {}))
       .mockResolvedValueOnce(reply("tool_use", WHOLE));

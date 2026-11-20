@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
+import { spyAiFetch } from "../../test/fetch-real-response";
 import { buildDigestNarrativePrompt, parseDigestNarrative, runDigestNarrative } from "./digest-narrative";
 import { AiConsentRevokedError, newConsent, publishAiConsentState } from "../ai-consent";
 import { defaultAiConfig } from "../settings-types";
@@ -48,7 +49,7 @@ describe("runDigestNarrative — the consent level", () => {
   });
 
   it("a background narrative needs the background consent", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(reply());
+    const fetchSpy = spyAiFetch().mockResolvedValue(reply());
     const ctx = { apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US" as const };
     await expect(runDigestNarrative(MODEL, { ...ctx, level: "background" })).rejects.toBeInstanceOf(AiConsentRevokedError);
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -79,13 +80,13 @@ describe("runDigestNarrative — a reply cut at max_tokens (§764)", () => {
   });
 
   it("asks once more at the larger budget and returns the full paragraph", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(cut("The project")).mockResolvedValueOnce(done("The project is on track."));
+    const fetchSpy = spyAiFetch().mockResolvedValueOnce(cut("The project")).mockResolvedValueOnce(done("The project is on track."));
     await expect(runDigestNarrative(MODEL, ctx)).resolves.toBe("The project is on track.");
     expect(budgets(fetchSpy)).toEqual([1024, 2048]);
   });
 
   it("fails with parse when the retry is cut too", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(cut("The project"));
+    spyAiFetch().mockResolvedValue(cut("The project"));
     await expect(runDigestNarrative(MODEL, ctx)).rejects.toThrow("parse");
   });
 });

@@ -80,7 +80,6 @@ Registers.
 | Register-Eintrag | Titel |
 |---|---|
 | §487 | The Windows installer is unsigned: no signing provider is chosen, so every install shows an unknown-publisher warning |
-| §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |
 | §802 | The AI gateway route has never been run against a real gateway |
 | §811 | The time the AI features save is not measured |
@@ -95,9 +94,6 @@ wo die Einzelheiten stehen. [geprüft: die Registereinträge in `docs/open-follo
 - **§487** — Keiner der bisher veröffentlichten Installer ist code-signiert, daher kann Windows Ihnen
   nicht anzeigen, wer ihn veröffentlicht hat. Prüfen Sie jeden Download stattdessen mit den
   GitHub-Attestierungsbefehlen in `SECURITY.md`.
-- **§798** — Die meisten KI-Anfragen warten, bis der Nutzer abbricht oder die Verbindung abreißt, und
-  eine Anfrage, die abgelehnt wird, weil der Dienst ausgelastet ist, wird nicht erneut versucht. Nutzer
-  sehen einen Fehler oder warten lange.
 - **§799** — Das Aktivitätsprotokoll zeigt, dass die KI etwas geändert hat und was sich geändert hat,
   aber nicht, welche Chat-Nachricht dies verlangt hat. Wer prüft, kann eine KI-Änderung anhand des
   Protokolls nicht bis zu ihrer Anfrage zurückverfolgen.

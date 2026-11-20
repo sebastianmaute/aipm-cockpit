@@ -1167,6 +1167,7 @@ export const de: Record<TranslationKey, string> = {
   aiGatewayFailed: "Das KI-Gateway Ihrer Organisation war nicht erreichbar oder hat einen Fehler gemeldet. Versuchen Sie es später erneut.",
   aiGatewayRateLimited: "Das KI-Gateway Ihrer Organisation begrenzt gerade die Anfragen. Versuchen Sie es in Kürze erneut.",
   aiRelayRateLimited: "Der Server dieser App begrenzt gerade die KI-Anfragen Ihrer Verbindung. Warten Sie eine Minute und versuchen Sie es erneut.",
+  aiRequestTimedOut: "Claude hat nicht innerhalb von 5 Minuten geantwortet. Versuchen Sie es erneut.",
   aiEnableHelp: "Aktivieren, um Claude-Chat, KI-Aktionsvorschläge und die KI-Projekterstellung zu nutzen; beim Einschalten werden Sie zuerst gebeten, den KI-Datenhinweis zu akzeptieren. Geplante Jobs, automatische Insight-Empfehlungen und der Text der geplanten Zusammenfassung brauchen zusätzlich die separate Zustimmung „KI darf im Hintergrund laufen“. Standardmäßig aus.",
   aiDisabledSectionHint:
     "Der KI-Assistent ist ausgeschaltet, daher gibt es hier nichts einzustellen. Schalten Sie ihn unter Einstellungen → KI-Assistent ein.",
@@ -1187,6 +1188,7 @@ export const de: Record<TranslationKey, string> = {
   chatGuidesLoading: "Betriebsleitfäden werden geladen…",
   chatSend: "Senden",
   chatThinking: "Denke nach…",
+  chatRetryWait: "Claude ist ausgelastet, neuer Versuch in {0} s…",
   chatConfigureAi: "KI konfigurieren",
   chatNoApiKey:
     "API-Schlüssel in den Einstellungen hinterlegen, um den Chat zu nutzen.",

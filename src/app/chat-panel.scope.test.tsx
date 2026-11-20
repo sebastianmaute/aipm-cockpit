@@ -25,6 +25,7 @@ import "../test/ai-consent-live";
 import { newConsent } from "./ai-consent";
 import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { spyAiFetch } from "../test/fetch-real-response";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { ChatPanel } from "./chat-panel";
@@ -202,7 +203,7 @@ describe("in-flight send vs. the panel's lifetime", () => {
     // the HTTP request is a separate effect from breaking the loop, and a
     // mutant deleting it survives every other assertion here.
     const signals: AbortSignal[] = [];
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
+    const fetchSpy = spyAiFetch().mockImplementation(
       (_url, init?: RequestInit) => {
         if (init?.signal) signals.push(init.signal);
         return new Promise<Response>((res) => { releaseFetch = res; });
@@ -309,7 +310,7 @@ describe("in-flight send vs. the panel's lifetime", () => {
     // because `stale()` short-circuits BEFORE the first `callClaude`.
     //
     // OBSERVABLE: `fetch`. Wedged — 0 calls. Working — 1.
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    const fetchSpy = spyAiFetch().mockResolvedValue({
       ok: true,
       text: () => Promise.resolve(""),
       json: () => Promise.resolve({
@@ -378,7 +379,7 @@ describe("in-flight send vs. the storage scope", () => {
     let epoch = 1;
     let releaseFetch!: (r: Response) => void;
     const jsonSpy = vi.fn(() => Promise.resolve(TOOL_TURN));
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
+    const fetchSpy = spyAiFetch().mockImplementation(
       () => new Promise<Response>((res) => { releaseFetch = res; }),
     );
     const dispatcher = makeDispatcher();
@@ -450,7 +451,7 @@ describe("in-flight send vs. the storage scope", () => {
     // having nothing to do with the guard.
     vi.mocked(dispatcher.listTasks).mockImplementation(() => { epoch = 2; return []; });
 
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    spyAiFetch().mockResolvedValue({
       ok: true,
       text: () => Promise.resolve(""),
       json: () => Promise.resolve({
@@ -503,7 +504,7 @@ describe("in-flight send vs. the storage scope", () => {
     const dispatcher = makeDispatcher();
     vi.mocked(dispatcher.listTasks).mockImplementation(() => { epoch = 2; return []; });
 
-    const fetchSpy = vi.spyOn(globalThis, "fetch")
+    const fetchSpy = spyAiFetch()
       .mockResolvedValueOnce(jsonResponse({
         content: [{ type: "tool_use", id: "t1", name: "list_tasks", input: {} }],
         stop_reason: "tool_use",
@@ -557,7 +558,7 @@ describe("staged plan vs. the storage scope", () => {
     let epoch = 1;
     const dispatcher = makeDispatcher();
     vi.mocked(dispatcher.deleteTask).mockReturnValue(true);
-    vi.spyOn(globalThis, "fetch")
+    spyAiFetch()
       .mockResolvedValueOnce(jsonResponse({
         content: [
           { type: "tool_use", id: "t1", name: "delete_task", input: { id: 1 } },

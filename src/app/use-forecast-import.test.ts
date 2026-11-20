@@ -4,6 +4,7 @@
 // LIVE buckets and refuses rather than writes when the bucket changed under an
 // open preview (Review Focus 5).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { spyAiFetch } from "../test/fetch-real-response";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import "../test/ai-consent-live";
@@ -80,7 +81,7 @@ async function loaded(deps: ForecastImportDeps, text = WIDE_CSV) {
 }
 
 function claudeResponds(input: unknown) {
-  return vi.spyOn(globalThis, "fetch").mockResolvedValue({
+  return spyAiFetch().mockResolvedValue({
     ok: true,
     json: async () => ({ content: [{ type: "tool_use", name: "propose_forecast_mapping", input }] }),
   } as unknown as Response);
@@ -300,7 +301,7 @@ describe("useForecastImport — moving between steps", () => {
   });
 
   it("editing the mapping, previewing, or picking a person clears a stale error", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const fetchSpy = spyAiFetch();
     const header = ["Name", "Jan 2026", "Feb 2026", "Mar 2026"].join(",");
     const lines = Array.from({ length: 5100 }, (_, i) => `P${i},1,2,3`);
     const { result } = await loaded(depsOf(), [header, ...lines].join("\r\n"));
@@ -659,11 +660,11 @@ describe("useForecastImport — the Claude route", () => {
 
   it.each([
     ["a mapping it cannot use", () => claudeResponds({ ...WIDE_MAPPING, periodCols: ["Z"] }), { key: "forecastImportErrorBadMapping" }],
-    ["a reply cut off at the output budget", () => vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    ["a reply cut off at the output budget", () => spyAiFetch().mockResolvedValue({
       ok: true,
       json: async () => ({ stop_reason: "max_tokens", content: [{ type: "tool_use", name: "propose_forecast_mapping", input: WIDE_MAPPING }] }),
     } as unknown as Response), { key: "forecastImportErrorTooLargeForClaude" }],
-    ["an HTTP error", () => vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    ["an HTTP error", () => spyAiFetch().mockResolvedValue({
       ok: false, status: 500, json: async () => ({ error: { type: "api_error", message: "Overloaded" } }),
     } as unknown as Response), { message: "Overloaded" }],
   ])("shows an error for %s and leaves the hand route usable", async (_label, respond, error) => {
@@ -693,7 +694,7 @@ describe("useForecastImport — the Claude route", () => {
 
   it("does nothing when AI is off", async () => {
     stubSettings(AI_OFF);
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const fetchSpy = spyAiFetch();
     const { result } = await loaded(depsOf());
     expect(result.current.aiAvailable).toBe(false);
     await askClaudeNow(result);
@@ -702,7 +703,7 @@ describe("useForecastImport — the Claude route", () => {
   });
 
   it("maps an oversized sheet to the too-large message without a request, and the hand route stays", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const fetchSpy = spyAiFetch();
     const header = ["Name", "Jan 2026", "Feb 2026", "Mar 2026"].join(",");
     const lines = Array.from({ length: 5100 }, (_, i) => `P${i},1,2,3`);
     const { result } = await loaded(depsOf(), [header, ...lines].join("\r\n"));
@@ -716,7 +717,7 @@ describe("useForecastImport — the Claude route", () => {
 
   it("cancel aborts the in-flight call and sets no error", async () => {
     let seenSignal: AbortSignal | undefined;
-    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
+    spyAiFetch().mockImplementation((_url, init) => {
       seenSignal = (init as RequestInit).signal ?? undefined;
       return new Promise((_resolve, reject) => {
         seenSignal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));

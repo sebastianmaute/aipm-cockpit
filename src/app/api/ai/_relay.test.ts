@@ -460,6 +460,33 @@ describe("relay — what comes back", () => {
     expect(await res.json()).toEqual({ error: "ai-gateway-rate-limited" });
   });
 
+  // §798: the browser's retry honours `retry-after`, so a limit answer must carry the upstream one.
+  it.each([429, 529])("an Anthropic %i passed through keeps the upstream retry-after", async (status) => {
+    const body = JSON.stringify({ type: "error", error: { type: "rate_limit_error", message: "m" } });
+    const { send } = fakeSend((call) => call.respond(upstream(status, body, "application/json", { "retry-after": "120" })));
+    const res = await relay(post(), "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(status);
+    expect(res.headers.get("retry-after")).toBe("120");
+  });
+
+  it("the gateway's own 429 → the 502 ai-gateway-rate-limited carries the upstream retry-after", async () => {
+    const { send } = fakeSend((call) => call.respond(upstream(429, "<html>Too many requests</html>", "text/html", { "retry-after": "7" })));
+    const res = await relay(post(), "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "ai-gateway-rate-limited" });
+    expect(res.headers.get("retry-after")).toBe("7");
+  });
+
+  it("no upstream retry-after → none added, on the pass-through and on the gateway's 502", async () => {
+    const anthropic = JSON.stringify({ type: "error", error: { type: "rate_limit_error", message: "m" } });
+    const passed = await relay(post(), "messages", GATEWAY_ENV, fakeSend(respondWith(429, anthropic)).send);
+    expect(passed.status).toBe(429);
+    expect(passed.headers.has("retry-after")).toBe(false);
+    const own = await relay(post(), "messages", GATEWAY_ENV, fakeSend(respondWith(429, "<html>x</html>", "text/html")).send);
+    expect(own.status).toBe(502);
+    expect(own.headers.has("retry-after")).toBe(false);
+  });
+
   it.each([503, 500, 404, 302])("upstream %i with a non-Anthropic body → 502 ai-gateway-error", async (status) => {
     const { send } = fakeSend(respondWith(status, "<html>Bad gateway</html>", "text/html"));
     const res = await relay(post(), "messages", GATEWAY_ENV, send);

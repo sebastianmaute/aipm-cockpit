@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
+import { spyAiFetch } from "../test/fetch-real-response";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { act, renderHook } from "@testing-library/react";
@@ -496,7 +497,7 @@ describe("useInsightRecommendRunner — the background pause (§795)", () => {
   beforeEach(async () => {
     const actual = await vi.importActual<typeof import("./insights/recommend-call")>("./insights/recommend-call");
     mockRun.mockImplementation((a) => actual.runInsightRecommendation(a));
-    fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => failed());
+    fetchSpy = spyAiFetch().mockImplementation(async () => failed());
     publishBackgroundProjectOff(false);
     publishAiConsentState({ ...defaultAiConfig, enabled: true, consent: consent(), backgroundConsent: consent() });
   });

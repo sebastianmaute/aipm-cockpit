@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { stubAiFetch } from "../test/fetch-real-response";
 import "../test/ai-consent-live";
 import { AiConsentRevokedError, newConsent, publishAiConsentState } from "./ai-consent";
 import { defaultAiConfig } from "./settings-types";
@@ -488,7 +489,7 @@ describe("callClaude", () => {
         },
       }),
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     const res = await callClaude("k", "claude-sonnet-5", [], [], {}, { protected: false });
     expect(res.usage.cache_creation_input_tokens).toBe(700);
     expect(res.usage.cache_read_input_tokens).toBe(6000);
@@ -503,7 +504,7 @@ describe("callClaude", () => {
         usage: { input_tokens: 10, output_tokens: 5 },
       }),
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     const res = await callClaude("k", "claude-sonnet-5", [], [], {}, { protected: false });
     expect(res.usage.cache_creation_input_tokens).toBe(0);
     expect(res.usage.cache_read_input_tokens).toBe(0);
@@ -516,7 +517,7 @@ describe("callClaude — §650 reports the key verdict at the envelope", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   function stubStatus(status: number) {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+    stubAiFetch(vi.fn().mockResolvedValue({
       ok: status >= 200 && status < 300,
       status,
       json: async () => (status === 200
@@ -545,7 +546,7 @@ describe("callClaude — §650 reports the key verdict at the envelope", () => {
   it("a network failure leaves the verdict unchanged", async () => {
     stubStatus(401);
     await expect(callClaude(KEY, "claude-sonnet-5", [], [], {}, { protected: false })).rejects.toBeInstanceOf(AiHttpError);
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    stubAiFetch(vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
     await expect(callClaude(KEY, "claude-sonnet-5", [], [], {}, { protected: false })).rejects.toBeInstanceOf(TypeError);
     expect(getAiKeyStatus()).toBe("rejected");
   });
@@ -565,7 +566,7 @@ describe("callClaude — the consent gate (AI-01)", () => {
 
   it("rejects with AiConsentRevokedError and sends nothing when no consent is published", async () => {
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     publishAiConsentState({ ...defaultAiConfig, consent: undefined });
     await expect(callClaude("k", "claude-sonnet-5", [], [], {}, { protected: false })).rejects.toBeInstanceOf(AiConsentRevokedError);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -577,7 +578,7 @@ describe("callClaude — the consent gate (AI-01)", () => {
       publishAiConsentState({ ...LIVE, enabled: false });
       return { ok: true, json: async () => ({ content: [{ type: "text", text: "hi" }], stop_reason: "tool_use" }) };
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     await callClaude("k", "claude-sonnet-5", [], [], {}, { protected: false });
     await expect(callClaude("k", "claude-sonnet-5", [], [], {}, { protected: false })).rejects.toBeInstanceOf(AiConsentRevokedError);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -585,7 +586,7 @@ describe("callClaude — the consent gate (AI-01)", () => {
 
   it("a consent revoked while the deployment status is asked stops the request before it is sent", async () => {
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     __setAiStatusRequestForTests(async () => {
       publishAiConsentState({ ...defaultAiConfig, consent: undefined });
       return aiStatusResponse();

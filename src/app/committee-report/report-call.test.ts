@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { stubAiFetch } from "../../test/fetch-real-response";
 import "../../test/ai-consent-live";
 import { runMeetingReport } from "./report-call";
 import { __resetToolChoiceFallbackForTests } from "../ai-forced-call";
@@ -48,7 +49,7 @@ describe("runMeetingReport", () => {
         ],
       }),
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
 
     const out = await runMeetingReport(MODEL, "Budget review", CTX);
     expect(out).toBe("<h2>Exec</h2><p>All good.</p>");
@@ -65,9 +66,11 @@ describe("runMeetingReport", () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 429,
+      // §798: the transport retries a 429; `retry-after: 0` keeps its retries from waiting.
+      headers: { "retry-after": "0" },
       json: async () => ({ error: "rate limited sk-ant-secret-123" }),
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
 
     await expect(runMeetingReport(MODEL, "Agenda", CTX)).rejects.toThrow(/^429$/);
     try {
@@ -84,7 +87,7 @@ describe("runMeetingReport", () => {
       ok: true,
       json: async () => ({ content: [{ type: "text", text: "nope" }] }),
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
 
     await expect(runMeetingReport(MODEL, "Agenda", CTX)).rejects.toThrow(/^parse$/);
   });
@@ -98,7 +101,7 @@ describe("runMeetingReport guide text", () => {
       ok: true,
       json: async () => ({ content: [{ type: "tool_use", name: "write_status_report", input: { html: "<p>x</p>" } }] }),
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     return fetchMock;
   }
   const sys = (m: ReturnType<typeof stub>) =>
@@ -141,7 +144,7 @@ describe("runMeetingReport output budget (§763)", () => {
 
   it("asks for an output budget of 4096 tokens", async () => {
     const m = vi.fn().mockResolvedValue(reply("tool_use", { html: "<p>whole</p>" }));
-    vi.stubGlobal("fetch", m);
+    stubAiFetch(m);
     await expect(runMeetingReport(MODEL, "Agenda", CTX)).resolves.toBe("<p>whole</p>");
     expect(budgets(m)).toEqual([4096]);
   });
@@ -150,7 +153,7 @@ describe("runMeetingReport output budget (§763)", () => {
     const m = vi.fn()
       .mockResolvedValueOnce(reply("max_tokens", {}))
       .mockResolvedValueOnce(reply("tool_use", { html: "<p>whole</p>" }));
-    vi.stubGlobal("fetch", m);
+    stubAiFetch(m);
     await expect(runMeetingReport(MODEL, "Agenda", CTX)).resolves.toBe("<p>whole</p>");
     expect(budgets(m)).toEqual([4096, 8192]);
   });
@@ -159,24 +162,32 @@ describe("runMeetingReport output budget (§763)", () => {
     const m = vi.fn()
       .mockResolvedValueOnce(reply("max_tokens", { html: "<p>half</p>" }))
       .mockResolvedValueOnce(reply("max_tokens", { html: "<p>half again</p>" }));
-    vi.stubGlobal("fetch", m);
+    stubAiFetch(m);
     await expect(runMeetingReport(MODEL, "Agenda", CTX)).rejects.toThrow(/^parse$/);
     expect(budgets(m)).toEqual([4096, 8192]);
   });
 
-  it("passes the caller's signal to the retry too", async () => {
+  // Since §798 each request carries the transport's own per-attempt signal, which the caller's abort
+  // aborts: the caller's signal reaches a request when aborting the caller aborts that request's signal.
+  it.each([1, 2])("passes the caller's signal to the retry too (aborted during request %i)", async (abortAt) => {
     const controller = new AbortController();
-    const m = vi.fn()
-      .mockResolvedValueOnce(reply("max_tokens", {}))
-      .mockResolvedValueOnce(reply("tool_use", { html: "<p>whole</p>" }));
-    vi.stubGlobal("fetch", m);
-    await runMeetingReport(MODEL, "Agenda", CTX, controller.signal);
-    expect(m.mock.calls.map((c) => (c[1] as RequestInit).signal)).toEqual([controller.signal, controller.signal]);
+    const abortedWithCaller: boolean[] = [];
+    const answers = [reply("max_tokens", {}), reply("tool_use", { html: "<p>whole</p>" })];
+    const m = vi.fn(async (_url: string, init?: RequestInit) => {
+      const n = m.mock.calls.length;
+      if (n === abortAt) controller.abort();
+      abortedWithCaller.push(init?.signal?.aborted === true);
+      return answers[n - 1];
+    });
+    stubAiFetch(m);
+    await expect(runMeetingReport(MODEL, "Agenda", CTX, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+    expect(m).toHaveBeenCalledTimes(abortAt);
+    expect(abortedWithCaller).toEqual([...Array(abortAt - 1).fill(false), true]);
   });
 
   it("does not retry a reply that was not cut", async () => {
     const m = vi.fn().mockResolvedValue(reply("tool_use", {}));
-    vi.stubGlobal("fetch", m);
+    stubAiFetch(m);
     await expect(runMeetingReport(MODEL, "Agenda", CTX)).rejects.toThrow(/^parse$/);
     expect(m).toHaveBeenCalledTimes(1);
   });
@@ -213,7 +224,7 @@ describe("runMeetingReport on a model that refuses a forced tool_choice (§763)"
       .mockResolvedValueOnce(refused())
       .mockResolvedValueOnce(reply("max_tokens", {}))
       .mockResolvedValueOnce(reply("tool_use", { html: "<p>whole</p>" }));
-    vi.stubGlobal("fetch", m);
+    stubAiFetch(m);
     await expect(runMeetingReport(MODEL, "Agenda", CTX)).resolves.toBe("<p>whole</p>");
     expect(shape(m)).toEqual([
       ["tool", false, 4096],
@@ -227,7 +238,7 @@ describe("runMeetingReport on a model that refuses a forced tool_choice (§763)"
       .mockResolvedValueOnce(refused())
       .mockResolvedValueOnce(reply("tool_use", {}))
       .mockResolvedValueOnce(reply("tool_use", { html: "<p>whole</p>" }));
-    vi.stubGlobal("fetch", m);
+    stubAiFetch(m);
     await expect(runMeetingReport(MODEL, "Agenda", CTX)).resolves.toBe("<p>whole</p>");
     expect(shape(m)).toEqual([
       ["tool", false, 4096],
@@ -241,7 +252,7 @@ describe("runMeetingReport on a model that refuses a forced tool_choice (§763)"
       .mockResolvedValueOnce(refused())
       .mockResolvedValueOnce(reply("max_tokens", {}))
       .mockResolvedValueOnce(reply("max_tokens", { html: "<p>half</p>" }));
-    vi.stubGlobal("fetch", m);
+    stubAiFetch(m);
     await expect(runMeetingReport(MODEL, "Agenda", CTX)).rejects.toThrow(/^parse$/);
     expect(m).toHaveBeenCalledTimes(3);
   });

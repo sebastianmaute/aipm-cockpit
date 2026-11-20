@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { spyAiFetch } from "../test/fetch-real-response";
 import "../test/ai-consent-live";
 import { renderHook, act } from "@testing-library/react";
 import { useProjectProposal } from "./use-project-proposal";
@@ -55,7 +56,7 @@ describe("useProjectProposal", () => {
   });
 
   it("sets error and resolves null on an HTTP failure", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false, status: 401, text: async () => "nope" } as Response);
+    spyAiFetch().mockResolvedValue({ ok: false, status: 401, text: async () => "nope" } as Response);
     const { result } = renderHook(() => useProjectProposal(ai));
     let p: unknown = "x";
     await act(async () => { p = await result.current.generate("x"); });
@@ -97,11 +98,19 @@ describe("useProjectProposal", () => {
   });
 
   it("passes the abort signal to fetch", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({ content: [] }), { status: 200 }));
-    const { result } = renderHook(() => useProjectProposal(ai));
+    // Since §798 the request carries the transport's own per-attempt signal, which the caller's abort
+    // aborts: the caller's signal reaches the request when aborting the caller aborts the request's signal.
     const ctrl = new AbortController();
+    let abortedWithCaller: boolean | undefined;
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      ctrl.abort();
+      abortedWithCaller = init?.signal?.aborted;
+      return new Response(JSON.stringify({ content: [] }), { status: 200 });
+    });
+    const { result } = renderHook(() => useProjectProposal(ai));
     await act(async () => { await result.current.generate("hi", ctrl.signal); });
-    expect((spy.mock.calls[0][1] as RequestInit).signal).toBe(ctrl.signal);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(abortedWithCaller).toBe(true);
   });
 
   it("does not set an error when aborted", async () => {

@@ -1,5 +1,6 @@
 import "../test/ai-consent-live";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { spyAiFetch } from "../test/fetch-real-response";
 import { runDedupProposal } from "./task-dedup-call";
 import { aiPrivacyFor } from "./ai-privacy";
 
@@ -13,7 +14,7 @@ describe("runDedupProposal", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("returns the raw parsed groups from a forced tool_use response", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    spyAiFetch().mockResolvedValue(
       ok({
         content: [
           {
@@ -29,7 +30,7 @@ describe("runDedupProposal", () => {
   });
 
   it("sends the forced tool_choice and the propose tool", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    const spy = spyAiFetch().mockResolvedValue(
       ok({ content: [{ type: "tool_use", name: "propose_task_merges", input: { groups: [] } }] }),
     );
     await runDedupProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" });
@@ -41,7 +42,7 @@ describe("runDedupProposal", () => {
   it("throws the HTTP status on a non-OK response, leaking neither key nor body message", async () => {
     const secret = "sk-ant-secret-key";
     const bodyMsg = "internal-error-body-detail";
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    spyAiFetch().mockResolvedValue(
       { ok: false, status: 500, json: async () => ({ error: { message: bodyMsg } }) } as unknown as Response,
     );
     try {
@@ -58,7 +59,7 @@ describe("runDedupProposal", () => {
   });
 
   it("throws 'parse' on malformed tool output (no groups array)", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(ok({ content: [{ type: "text", text: "nope" }] }));
+    spyAiFetch().mockResolvedValue(ok({ content: [{ type: "text", text: "nope" }] }));
     await expect(runDedupProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" })).rejects.toThrow("parse");
   });
 });
@@ -73,13 +74,13 @@ describe("runDedupProposal output budget (§764)", () => {
   const GROUPS = { groups: [{ keepId: 1, mergeIds: [2], rationale: "dup" }] };
 
   it("asks once more at 8192 when the reply was cut at 4096, and returns that answer", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(cutOr("max_tokens", {})).mockResolvedValueOnce(cutOr("tool_use", GROUPS));
+    const spy = spyAiFetch().mockResolvedValueOnce(cutOr("max_tokens", {})).mockResolvedValueOnce(cutOr("tool_use", GROUPS));
     await expect(runDedupProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" })).resolves.toHaveLength(1);
     expect(budgets(spy)).toEqual([4096, 8192]);
   });
 
   it("never reads a reply cut at the retry budget too, even one that parses", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(cutOr("max_tokens", GROUPS));
+    const spy = spyAiFetch().mockResolvedValue(cutOr("max_tokens", GROUPS));
     await expect(runDedupProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" })).rejects.toThrow(/^parse$/);
     expect(budgets(spy)).toEqual([4096, 8192]);
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AiHttpError, classifyAiError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
+import { AiHttpError, AiTimeoutError, aiTransportMessageKey, isAiTransportMessageKey, classifyAiError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 
 describe("classifyAiError", () => {
   it("classifies HTTP 429 as limit", () => {
@@ -103,5 +103,19 @@ describe("AiHttpError", () => {
 
   it("leaves safeMessage undefined when not provided", () => {
     expect(new AiHttpError(500).safeMessage).toBeUndefined();
+  });
+});
+
+describe("AiTimeoutError", () => {
+  it("is named by the aiRequestTimedOut transport key", () => {
+    expect(aiTransportMessageKey(new AiTimeoutError(300000))).toBe("aiRequestTimedOut");
+    expect(isAiTransportMessageKey("aiRequestTimedOut")).toBe(true);
+  });
+
+  it("carries its limit and is never an AbortError", () => {
+    const err = new AiTimeoutError(300000);
+    expect(err.timeoutMs).toBe(300000);
+    expect(err.name).toBe("AiTimeoutError");
+    expect(err).toBeInstanceOf(Error);
   });
 });

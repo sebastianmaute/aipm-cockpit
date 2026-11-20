@@ -30,7 +30,9 @@ export type ReportErrorToken =
   | "ai-relay-rate-limited"
   // The deployment's organisation key check refused the key (AI organisation key). A check that could not run is not
   // recorded: the run treats it as transient and retries on its next check.
-  | "ai-key-wrong-organization" | "ai-key-wrong-workspace";
+  | "ai-key-wrong-organization" | "ai-key-wrong-workspace"
+  // Claude did not answer within the AI request time limit (§798).
+  | "ai-timed-out";
 
 /** The one token -> message map, shared by the reports view and the Settings run history. */
 export const REPORT_ERROR_KEY: Record<ReportErrorToken, TranslationKey> = {
@@ -50,6 +52,7 @@ export const REPORT_ERROR_KEY: Record<ReportErrorToken, TranslationKey> = {
   "ai-relay-rate-limited": "aiRelayRateLimited",
   "ai-key-wrong-organization": "aiKeyWrongOrganization",
   "ai-key-wrong-workspace": "aiKeyWrongWorkspace",
+  "ai-timed-out": "aiRequestTimedOut",
 };
 
 export type ReportData = {

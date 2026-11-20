@@ -120,8 +120,13 @@ change something I did not ask for? Would I make this change if a colleague prop
   synced from Jira; it does not do so for outside text that carries no such mark, such as rows created from
   an imported file. [verified: `stagesWhenUntrusted` and `resultCarriesExternalText` in
   `src/app/chat-send-record.ts`]
-- **Long waits and failures.** Most AI requests have no time limit in the app, and a request refused because
-  the service is busy is not retried. Stop and try again later. [vendor statement; register §798]
+- **Long waits and failures.** Each AI request attempt is limited to 5 minutes, and when the time is up an AI
+  feature says Claude did not answer and you can try again (the model list quietly falls back to the built-in
+  list, and the digest summary keeps its own shorter limit and its existing handling). A request refused because the service is busy or rate-limited
+  is retried up to three attempts in all, after the wait the service names, or otherwise about 2 s and then 4 s
+  (the chat shows the countdown); a requested wait over 60 s is not waited, and the error shows at once. Stop
+  ends the wait. A timeout or a network failure is not retried. [verified:
+  `AI_REQUEST_TIMEOUT_MS` in `src/app/ai-retry.ts`; `postAiMessages` in `src/app/ai-transport.ts`]
 - **Unknown names.** People protection hides names the project knows, not names you type that it does not
   know. [verified: `aiPeopleProtectionHelp` in `src/app/i18n.ts`]
 

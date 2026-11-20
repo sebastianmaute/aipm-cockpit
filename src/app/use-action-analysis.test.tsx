@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { spyAiFetch } from "../test/fetch-real-response";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import "../test/ai-consent-live";
@@ -13,7 +14,7 @@ describe("useActionAnalysis", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("parses a successful tool_use response and stores the result", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    spyAiFetch().mockResolvedValue(
       ok({ content: [{ type: "tool_use", name: "report_analysis", input: { summary: "s", actions: [] } }] }),
     );
     const { result } = renderHook(() => useActionAnalysis({ apiKey: "k", model: "m" }));
@@ -25,7 +26,7 @@ describe("useActionAnalysis", () => {
   });
 
   it("sets a status-only error on HTTP failure (no key or body leaked)", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false, status: 500, json: async () => ({}) } as unknown as Response);
+    spyAiFetch().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) } as unknown as Response);
     const { result } = renderHook(() => useActionAnalysis({ apiKey: "secret-key", model: "m" }));
     await act(async () => { await result.current.analyze("ctx"); });
     expect(result.current.error).toBe("500");
@@ -33,9 +34,11 @@ describe("useActionAnalysis", () => {
   });
 
   it("classifies a 429 as the 'limit' token (Anthropic's own rate/usage limit)", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    spyAiFetch().mockResolvedValue({
       ok: false,
       status: 429,
+      // §798: the transport retries a 429; `retry-after: 0` keeps its retries from waiting.
+      headers: { "retry-after": "0" },
       json: async () => ({ error: { type: "rate_limit_error" } }),
     } as unknown as Response);
     const { result } = renderHook(() => useActionAnalysis({ apiKey: "k", model: "m" }));
@@ -50,14 +53,14 @@ describe("useActionAnalysis", () => {
   });
 
   it("errors 'parse' on malformed tool output", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(ok({ content: [{ type: "text", text: "nope" }] }));
+    spyAiFetch().mockResolvedValue(ok({ content: [{ type: "text", text: "nope" }] }));
     const { result } = renderHook(() => useActionAnalysis({ apiKey: "k", model: "m" }));
     await act(async () => { await result.current.analyze("ctx"); });
     expect(result.current.error).toBe("parse");
   });
 
   it("collapses an arbitrary fetch error to 'network' (no URL leaked)", async () => {
-    vi.spyOn(globalThis, "fetch").mockRejectedValue(
+    spyAiFetch().mockRejectedValue(
       new TypeError("Failed to fetch https://api.anthropic.com/v1/messages"),
     );
     const { result } = renderHook(() => useActionAnalysis({ apiKey: "k", model: "m" }));
@@ -68,7 +71,7 @@ describe("useActionAnalysis", () => {
 
   it("names a switched-off deployment, not a network problem", async () => {
     __setAiStatusRequestForTests(async () => new Response(JSON.stringify({ off: true, invalid: false, route: "direct", keyRestricted: false }), { status: 200 }));
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const fetchSpy = spyAiFetch();
     const { result } = renderHook(() => useActionAnalysis({ apiKey: "k", model: "m" }));
     await act(async () => { await result.current.analyze("ctx"); });
     expect(result.current.error).toBe("aiDeploymentOff");
@@ -76,7 +79,7 @@ describe("useActionAnalysis", () => {
   });
 
   it("clear() resets result and error", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    spyAiFetch().mockResolvedValue(
       ok({ content: [{ type: "tool_use", name: "report_analysis", input: { summary: "s", actions: [] } }] }),
     );
     const { result } = renderHook(() => useActionAnalysis({ apiKey: "k", model: "m" }));

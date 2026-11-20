@@ -84,6 +84,15 @@ export class AiGatewayError extends Error {
   }
 }
 
+/** The AI transport gave up on one request after its time limit (`AI_REQUEST_TIMEOUT_MS`). Never an
+ *  `AbortError`: callers swallow those as the user pressing Stop. */
+export class AiTimeoutError extends Error {
+  constructor(public readonly timeoutMs: number) {
+    super(`AI request timed out after ${timeoutMs} ms`);
+    this.name = "AiTimeoutError";
+  }
+}
+
 export type AiTransportMessageKey =
   | "aiDeploymentOff"
   | "aiDeploymentInvalid"
@@ -93,7 +102,8 @@ export type AiTransportMessageKey =
   | "aiGatewayFailed"
   | "aiGatewayRateLimited"
   | "aiRelayRateLimited"
-  | "aiKeyCheckUnavailable";
+  | "aiKeyCheckUnavailable"
+  | "aiRequestTimedOut";
 
 const DEPLOYMENT_MESSAGE: Record<AiDeploymentErrorReason, AiTransportMessageKey> = {
   off: "aiDeploymentOff",
@@ -114,6 +124,7 @@ export function aiTransportMessageKey(err: unknown): AiTransportMessageKey | nul
   if (err instanceof AiDeploymentError) return DEPLOYMENT_MESSAGE[err.reason];
   if (err instanceof AiGatewayError) return GATEWAY_MESSAGE[err.code];
   if (err instanceof AiKeyCheckUnavailableError) return "aiKeyCheckUnavailable";
+  if (err instanceof AiTimeoutError) return "aiRequestTimedOut";
   return null;
 }
 
@@ -121,6 +132,7 @@ const TRANSPORT_MESSAGE_KEYS: ReadonlySet<string> = new Set<AiTransportMessageKe
   ...Object.values(DEPLOYMENT_MESSAGE),
   ...Object.values(GATEWAY_MESSAGE),
   "aiKeyCheckUnavailable",
+  "aiRequestTimedOut",
 ]);
 
 /** True when a hook's stored error token is a transport message key (the features that keep a

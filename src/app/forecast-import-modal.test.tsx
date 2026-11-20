@@ -3,6 +3,7 @@
 // user SEES and can operate: row-unique pickers, a blocker that disables
 // Apply, the partial-period warning, the AI-off reason, and one commit.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { spyAiFetch } from "../test/fetch-real-response";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import "../test/ai-consent-live";
@@ -235,7 +236,7 @@ describe("ForecastImportModal", () => {
   // Claude sets the mapping (owner decision 2026-10-13): its mapping opens the
   // mapping step with its notes, and Apply waits for the press on any layout.
   it("opens Claude's mapping on the mapping step with its notes; Apply waits for the press, not for an edit", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    spyAiFetch().mockResolvedValue({
       ok: true,
       json: async () => ({
         stop_reason: "tool_use",
@@ -276,7 +277,7 @@ describe("ForecastImportModal", () => {
   });
 
   it("shows a mapping it cannot use as an error and keeps the hand route", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    spyAiFetch().mockResolvedValue({
       ok: true,
       json: async () => ({
         stop_reason: "tool_use",
@@ -665,7 +666,7 @@ describe("ForecastImportModal — one person, rows that differ in a text column 
 // keeps Claude's period columns.
 describe("ForecastImportModal — Claude's choice of one block of a Plan/Ist sheet (final review 2)", () => {
   const PLAN_IST = "Name;E-Mail;Satz;Jan 2026;Feb 2026;Jan 2026;Feb 2026\r\n;;;Plan;Plan;Ist;Ist\r\nAnn Lee;ann@x.de;90;10;20;9;18\r\n";
-  const claudeMaps = (input: Record<string, unknown>) => vi.spyOn(globalThis, "fetch").mockResolvedValue({
+  const claudeMaps = (input: Record<string, unknown>) => spyAiFetch().mockResolvedValue({
     ok: true,
     json: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "propose_forecast_mapping", input }] }),
   } as unknown as Response);

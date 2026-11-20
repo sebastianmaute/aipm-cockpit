@@ -4,6 +4,7 @@ import "fake-indexeddb/auto";
 import "../test/ai-consent-live";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { spyAiFetch } from "../test/fetch-real-response";
 import type { ReactNode } from "react";
 import { ChatPanel } from "./chat-panel";
 import { AiPrivacyProvider, useAiPrivacySource } from "./ai-privacy-context";
@@ -68,7 +69,7 @@ const doneTurn = { content: [{ type: "text", text: "done" }], stop_reason: "end_
 function scriptFetch(turns: unknown[]): string[] {
   let call = 0;
   const bodies: string[] = [];
-  vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+  spyAiFetch().mockImplementation((_url, init?: RequestInit) => {
     bodies.push(String(init?.body ?? ""));
     const body = turns[Math.min(call, turns.length - 1)];
     call += 1;

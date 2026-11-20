@@ -256,7 +256,8 @@ describe("postAiMessages", () => {
 
   it.each(["ai-gateway-rejected", "ai-gateway-error", "ai-gateway-rate-limited"] as const)("relay 502 %s throws AiGatewayError", async (code) => {
     setAiDeploymentState(GATEWAY);
-    stubFetch(GATEWAY, () => json({ error: code }, 502));
+    // §798: the relay's rate limit is retried; `retry-after: 0` keeps the retries from waiting.
+    stubFetch(GATEWAY, () => new Response(JSON.stringify({ error: code }), { status: 502, headers: { "retry-after": "0" } }));
     const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AiGatewayError);
     expect((err as AiGatewayError).code).toBe(code);
@@ -448,13 +449,22 @@ describe("subscribeAiUsage", () => {
 
   it("never holds the send while the usage is read", async () => {
     subscribe(() => {});
-    // A 2xx whose body never finishes: reading the clone never resolves.
-    stubFetch(DIRECT_AI_STATUS, () => new Response(new ReadableStream({ start() {} }), { status: 200 }));
-    const outcome = await Promise.race([
-      postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).then(() => "sent"),
-      new Promise((r) => setTimeout(() => r("held"), 200)),
-    ]);
-    expect(outcome).toBe("sent");
+    // The transport reads the body itself since §798 (a body that never finishes times out there), so
+    // the tap's own read is what never finishes here: every clone is a body that never ends.
+    stubFetch(DIRECT_AI_STATUS, () => json({ content: [] }));
+    const clone = vi
+      .spyOn(Response.prototype, "clone")
+      .mockImplementation(() => new Response(new ReadableStream({ start() {} }), { status: 200 }));
+    try {
+      const outcome = await Promise.race([
+        postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).then(() => "sent"),
+        new Promise((r) => setTimeout(() => r("held"), 200)),
+      ]);
+      expect(outcome).toBe("sent");
+      expect(clone).toHaveBeenCalled();
+    } finally {
+      clone.mockRestore();
+    }
   });
 
   it("does not notify on an error response, nor after unsubscribing", async () => {

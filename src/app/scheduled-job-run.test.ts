@@ -3,7 +3,7 @@ import type { Task } from "./types";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 import type { Workspace } from "./workspace";
 import { StorageNotReadyError, emptyWorkspace } from "./workspace";
-import { AiDeploymentError, AiGatewayError, AiHttpError, AiKeyCheckUnavailableError, AiKeyRefusedError } from "./ai-errors";
+import { AiDeploymentError, AiGatewayError, AiHttpError, AiKeyCheckUnavailableError, AiKeyRefusedError, AiTimeoutError } from "./ai-errors";
 import { AiBackgroundPausedError, AiConsentRevokedError, AiWeeklyCapReachedError } from "./ai-consent";
 import { TursoHttpError, TursoStepError } from "./turso-pipeline";
 import type { ReportData } from "./scheduled-reports-store";
@@ -262,6 +262,17 @@ describe("runScheduledJob (continued)", () => {
     expect(d.recordRun).toHaveBeenCalledTimes(1);
     expect(vi.mocked(d.recordRun).mock.calls[0][1]).toMatchObject({ ok: false, error: "limit" });
     expect(d.notify).not.toHaveBeenCalled();
+  });
+
+  // §798 — a timed-out request is a failed run, recorded with its own token (the reports view names the timeout).
+  it("a timeout finishes the report as failed with its own token, never dropped as transient", async () => {
+    const d = deps({ analyse: vi.fn().mockRejectedValue(new AiTimeoutError(300_000)) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("failed");
+    const [, , , ok, data] = mFinish.mock.calls[0];
+    expect(ok).toBe(false);
+    expect((data as ReportData).error).toBe("ai-timed-out");
+    expect(mRelease).not.toHaveBeenCalled();
+    expect(vi.mocked(d.recordRun).mock.calls[0][1]).toMatchObject({ ok: false, error: "ai-timed-out" });
   });
 
   it("analyse gets a context that contains the job's instruction section exactly once", async () => {
