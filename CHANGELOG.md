@@ -19,6 +19,9 @@ longer carries its own changelog comment.
   service names or about 2 s and then 4 s; a wait over 60 s is not waited. Each retry re-checks the AI setting and
   consent and redacts again, and Stop ends a wait. A timeout or a network failure is never retried. The relay now
   passes an upstream `retry-after` on, and the chat shows "Claude is busy, trying again in N s…" while it waits (§798).
+- **Undoing an "Optimize with AI" work breakdown now removes the tasks it created.** A created task that was changed
+  since, or is linked from another task, a RAID item, a milestone, a change, a budget bucket, a knowledge item or a
+  document, stays, and a notice says how many stayed. Redo puts the removed tasks back and restores the links they had (§796).
 
 ### Removed
 

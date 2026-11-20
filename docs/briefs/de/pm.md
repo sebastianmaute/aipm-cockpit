@@ -68,8 +68,9 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
   Gewichtung; die übrigen werden als Ganzes übernommen, angenommen oder bestätigt (E56, *im Code gelesen*). Der
   Entwurf für den Lenkungsausschuss wartet unter „KI-Entwurf – Abschnitte in den Bericht übernehmen“, bis Sie
   einen Abschnitt oder alle übernehmen (E62, *im Code gelesen*).
-- **Rückgängig machen und wiederfinden:** Aufgaben, die ein übernommener Projektstrukturplan anlegt, lassen sich
-  nicht rückgängig machen und tragen kein KI-Kennzeichen (E66, *im Code gelesen*); der Eintrag im
+- **Rückgängig machen und wiederfinden:** „Rückgängig“ bei einem übernommenen Projektstrukturplan entfernt die
+  angelegten Aufgaben, außer solchen, die seither geändert wurden oder von anderer Stelle verknüpft sind; diese
+  bleiben. Die Aufgaben tragen kein KI-Kennzeichen (E66, *im Code gelesen*); der Eintrag im
   Aktivitätsprotokoll zum Übernehmen nennt jede angelegte Aufgabe mit Nummer und Titel, dort finden Sie sie also
   wieder (E68, *getestet (Unit)*).
 - **Projektübergreifende Ressourcenplanung:** Stunden aus anderen Projekten zählen nur auf einer gemeinsam
@@ -87,8 +88,6 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
 3. **Die Kennzeichnung ist teilweise:** Nur Projektdokumente, die die KI schreibt, und die Digest-Mail mit ihrer
    Zusammenfassung sind gekennzeichnet (E73, *getestet (Unit)*); Aufgaben, Berichtstext, Chat-Antworten und die
    Exporte des Arbeitsbereichs nicht (E55, *im Code gelesen*).
-4. **§796:** Aufgaben, die ein übernommener Projektstrukturplan anlegt, lassen sich nicht rückgängig machen (E56,
-   *im Code gelesen*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
 

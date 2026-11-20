@@ -80,7 +80,6 @@ Registers.
 | Register-Eintrag | Titel |
 |---|---|
 | §487 | The Windows installer is unsigned: no signing provider is chosen, so every install shows an unknown-publisher warning |
-| §796 | Tasks created by Optimize work breakdown with AI cannot be undone |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |
 | §802 | The AI gateway route has never been run against a real gateway |
 | §811 | The time the AI features save is not measured |
@@ -95,9 +94,6 @@ wo die Einzelheiten stehen. [geprüft: die Registereinträge in `docs/open-follo
 - **§487** — Keiner der bisher veröffentlichten Installer ist code-signiert, daher kann Windows Ihnen
   nicht anzeigen, wer ihn veröffentlicht hat. Prüfen Sie jeden Download stattdessen mit den
   GitHub-Attestierungsbefehlen in `SECURITY.md`.
-- **§796** — Nachdem eine Person einen KI-Projektstrukturplan übernommen hat, macht „Rückgängig“ die
-  Änderungen an bestehenden Aufgaben rückgängig, nicht aber die Aufgaben, die er angelegt hat. Diese
-  müssen von Hand gelöscht werden.
 - **§799** — Das Aktivitätsprotokoll zeigt, dass die KI etwas geändert hat und was sich geändert hat,
   aber nicht, welche Chat-Nachricht dies verlangt hat. Wer prüft, kann eine KI-Änderung anhand des
   Protokolls nicht bis zu ihrer Anfrage zurückverfolgen.

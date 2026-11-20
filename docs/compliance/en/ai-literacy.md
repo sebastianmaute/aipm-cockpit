@@ -70,8 +70,9 @@ Know the exceptions:
   `assertBackgroundConsentLive` in `src/app/ai-consent.ts`]
 
 What the chat changes is recorded in the activity log as the AI's change, and most changes can be undone
-with Undo. Tasks created by a work breakdown you applied cannot be undone; delete them by hand.
-[verified: `src/app/activity-log.ts`; register §796]
+with Undo. Undoing a work breakdown you applied also removes the tasks it created, except any you changed
+since or linked from elsewhere, which stay.
+[verified: `src/app/use-wbs-plan.tsx`, `src/app/undo/created-rows.ts`]
 
 You remain responsible for what you apply and for what you send on, such as a report or an e-mail the AI
 drafted. [vendor statement; your organisation's rules: question for you]
