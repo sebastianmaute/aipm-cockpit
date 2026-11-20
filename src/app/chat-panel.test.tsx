@@ -2496,7 +2496,7 @@ describe("ChatPanel — Turso thread persistence", () => {
     // The row must exist and be saved BEFORE the model even replies.
     await waitFor(() => expect(saveThread).toHaveBeenCalledTimes(1));
     const savedFirst = (saveThread as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![1] as ChatThread;
-    expect(savedFirst.display).toEqual([{ kind: "user", text: "first ever message" }]);
+    expect(savedFirst.display).toEqual([{ kind: "user", text: "first ever message", requestId: expect.any(String) }]); // §799 — the send's request id
 
     // Switch away — the "+ New chat" button is not busy-guarded — BEFORE the
     // stale reply lands.
@@ -2556,7 +2556,7 @@ describe("ChatPanel — Turso thread persistence", () => {
     // effect (which fires only once busy flips back to false).
     await waitFor(() => expect(saveThread).toHaveBeenCalledTimes(1));
     const saved = (saveThread as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![1] as ChatThread;
-    expect(saved.display).toEqual([{ kind: "user", text: "early save check" }]);
+    expect(saved.display).toEqual([{ kind: "user", text: "early save check", requestId: expect.any(String) }]); // §799 — the send's request id
 
     resolveFetch({
       ok: true,

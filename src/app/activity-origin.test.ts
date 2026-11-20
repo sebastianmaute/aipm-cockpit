@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AI_FEATURES, aiOrigin, isKnownAiFeature, sanitizeAiOrigin } from "./activity-origin";
+import { AI_FEATURES, aiOrigin, chatSendOrigins, isKnownAiFeature, sanitizeAiOrigin } from "./activity-origin";
 
 describe("aiOrigin", () => {
   it("builds a frozen origin without link keys when no link is given", () => {
@@ -60,5 +60,20 @@ describe("isKnownAiFeature", () => {
   it("is own-property safe", () => {
     expect(isKnownAiFeature("toString")).toBe(false);
     expect(isKnownAiFeature("futureThing")).toBe(false);
+  });
+});
+
+describe("chatSendOrigins (§799)", () => {
+  it("links both origins to the thread and request in Turso mode", () => {
+    const o = chatSendOrigins(true, "th1", "rq1");
+    expect(o.chat).toEqual({ feature: "chat", threadId: "th1", requestId: "rq1" });
+    expect(o.proposal).toEqual({ feature: "chatProposal", threadId: "th1", requestId: "rq1" });
+  });
+
+  it("carries no link in file mode, even with a thread id, nor without a thread", () => {
+    for (const o of [chatSendOrigins(false, "th1", "rq1"), chatSendOrigins(true, null, "rq1")]) {
+      expect(o.chat).toEqual({ feature: "chat" });
+      expect(o.proposal).toEqual({ feature: "chatProposal" });
+    }
   });
 });

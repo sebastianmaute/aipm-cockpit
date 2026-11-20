@@ -37,6 +37,19 @@ export function aiOrigin(feature: AiFeature, link?: { threadId: string; requestI
   return Object.freeze(link ? { feature, threadId: link.threadId, requestId: link.requestId } : { feature });
 }
 
+/** §799 — the two origins of ONE chat send: `chat` for the writes it runs, `proposal` for a plan it stages
+ *  (which keeps it even when applied after a later send). `requestId` is the send's own, minted once on its
+ *  user item (`newRequestId`), so a §798 rate-limit retry inside the send keeps it and no two sends share it.
+ *  The caller captures the result as a local value and passes it along; it is never read back from a ref.
+ *  ★★ The link is gated on `tursoMode`, NOT on `threadId`: `ensureThreadForSend` returns the retained thread
+ *   id in file mode too, and file mode has no saved thread to link to. */
+export function chatSendOrigins(
+  tursoMode: boolean, threadId: string | null, requestId: string,
+): { readonly chat: AiOrigin; readonly proposal: AiOrigin } {
+  const link = tursoMode && threadId && requestId ? { threadId, requestId } : undefined;
+  return { chat: aiOrigin("chat", link), proposal: aiOrigin("chatProposal", link) };
+}
+
 const isNonEmptyString = (x: unknown): x is string => typeof x === "string" && x.length > 0;
 
 /** Load-boundary repair. `null` = drop the origin (the entry survives). A well-formed input is returned

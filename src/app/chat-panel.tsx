@@ -72,7 +72,7 @@ import type { TursoConfig } from "./turso-config";
 import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "./scope-epoch";
 import { useChatThreads } from "./use-chat-threads";
 import { ChatNotSavedNotice, ChatThreadClosedNotice } from "./chat-not-saved-notice";
-import { fitHistoryToBudget } from "./chat-threads";
+import { fitHistoryToBudget, newRequestId } from "./chat-threads";
 import { ChatThreadSidebar } from "./chat-thread-sidebar";
 import {
   buildPlanRows,
@@ -111,7 +111,7 @@ import type { UndoBatch } from "./use-undo-batch";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import { buildRowTokens } from "./row-tokens";
 import { useRetryWait } from "./use-retry-wait";
-import { aiOrigin } from "./activity-origin";
+import { chatSendOrigins, type AiOrigin } from "./activity-origin";
 
 // A staged upload: the Anthropic content blocks plus display metadata.
 // summary is the non-error disclosure of what the tree under this file
@@ -170,6 +170,7 @@ interface PendingProposal {
    *   ID does not (browser/local-* kinds keyed on kind alone, an accepted storage
    *   file, a backend change). */
   readonly scopeEpoch: number;
+  readonly origin: AiOrigin; // §799 — the STAGING request's (`chatSendOrigins`), never a later turn's
 }
 
 /** `runBatched`'s stand-in when no batch was threaded: run the plan, collect
@@ -763,7 +764,7 @@ function ChatPanelInner({
       atts.length > 0
         ? [text, ...atts.map((a) => `📎 ${a.name}`)].filter(Boolean).join("\n")
         : text;
-    const userDisplayItem: DisplayItem = { kind: "user", text: displayText };
+    const userDisplayItem = { kind: "user" as const, text: displayText, requestId: newRequestId() }; // §799
     setDisplay((prev) => [...prev, userDisplayItem]);
     // Insert+save a row for a brand-new thread NOW, not once the turn
     // settles — else a mid-send switch to another thread loses this message
@@ -779,6 +780,7 @@ function ChatPanelInner({
     // would then wrongly see the newly-adopted id as a mismatch and treat
     // this send as already stale (see ensureThreadForSend's own comment).
     const sendThreadId = chatThreads.ensureThreadForSend(newHistory, [...display, userDisplayItem]);
+    const origins = chatSendOrigins(tursoMode, sendThreadId, userDisplayItem.requestId); // §799 — a value, never a ref
     // ★ ONE predicate, so the three existing check sites (before the call, after
     //   it, and after the transcript append) all gain the scope test together —
     //   a fourth, per-TOOL check lives inside the loop below for the case none of
@@ -812,7 +814,7 @@ function ChatPanelInner({
       let resultStr: string;
       let isError = false;
       try {
-        resultStr = stringifyResult(await runTool(toolDispatcher, name, input, aiOrigin("chat")));
+        resultStr = stringifyResult(await runTool(toolDispatcher, name, input, origins.chat));
       } catch (err) {
         isError = true;
         resultStr = err instanceof Error ? err.message : String(err);
@@ -1027,7 +1029,7 @@ function ChatPanelInner({
                 applying: false,
                 failed: new Map<number, ProposalFailureKind>(),
                 applied: null,
-                scopeEpoch: sendEpoch,
+                scopeEpoch: sendEpoch, origin: origins.proposal,
               });
               setDisplay((prev) => [
                 ...prev,
@@ -1411,7 +1413,7 @@ function ChatPanelInner({
         dispatcher,
         rows: p.rows,
         selected: p.selected,
-        origin: aiOrigin("chatProposal"), // §799
+        origin: p.origin, // §799 — the staging request's, not this click's turn
         batch: { runBatched: runBatched ?? RUN_UNBATCHED },
         // ★★ The click-time check above cannot see a swap that lands DURING the
         // replay — `runTool` is awaited per row — so the same epoch is re-read

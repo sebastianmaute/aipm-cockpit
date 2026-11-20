@@ -1,6 +1,6 @@
 // src/app/chat-threads.test.ts
 import { describe, it, expect, vi } from "vitest";
-import { deriveThreadName, stripAttachmentsForPersistence, newThreadId, THREAD_NAME_MAX, fitHistoryToBudget } from "./chat-threads";
+import { deriveThreadName, stripAttachmentsForPersistence, newThreadId, THREAD_NAME_MAX, fitHistoryToBudget, sanitizeDisplayRequestIds } from "./chat-threads";
 import type { ApiMessage, DisplayItem } from "./chat-api";
 
 describe("deriveThreadName", () => {
@@ -136,5 +136,32 @@ describe("newThreadId", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+// §799 — a stored user item may carry the request id of the send that made it. A malformed one is dropped,
+// never the item: the thread must still load.
+describe("sanitizeDisplayRequestIds (§799)", () => {
+  it("keeps a well-formed requestId, drops a malformed one, and keeps every item and every other field", () => {
+    const out = sanitizeDisplayRequestIds([
+      { kind: "user", text: "a", requestId: "r" },
+      { kind: "user", text: "b", requestId: 5 },
+      { kind: "user", text: "c", requestId: "" },
+      { kind: "assistant", text: "d" },
+    ]);
+    expect(out).toEqual([
+      { kind: "user", text: "a", requestId: "r" },
+      { kind: "user", text: "b" },
+      { kind: "user", text: "c" },
+      { kind: "assistant", text: "d" },
+    ]);
+    expect("requestId" in out[1]).toBe(false);
+    expect("requestId" in out[2]).toBe(false);
+  });
+
+  it("returns [] for a non-array input", () => {
+    expect(sanitizeDisplayRequestIds(undefined)).toEqual([]);
+    expect(sanitizeDisplayRequestIds({ kind: "user", text: "a" })).toEqual([]);
+    expect(sanitizeDisplayRequestIds("[]")).toEqual([]);
   });
 });
