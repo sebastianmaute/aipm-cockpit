@@ -643,10 +643,12 @@ export function captureCreatedPart<T extends { id: number }>(part: CreatedPart<T
     _isPrimary: boolean,
     arm?: () => void,
   ): (() => void) => {
-    const base = images;
+    let base = images;
     let removable = 0;
     flushSync(() => {
       setter((prev) => {
+        // Read inside the updater: a redo's update queued ahead of this one has run by now, so `images` is current.
+        base = images;
         removable = undoCreatedRows(prev, base, isReferenced, dropRefs).removed.length;
         return prev;
       });

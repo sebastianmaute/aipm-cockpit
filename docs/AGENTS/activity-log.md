@@ -286,7 +286,9 @@ newest entries until the next save.
   keeps its slot), and like every entry they are storage-only on exports. ★ The FOURTH trend delta shape:
   `BULK_CREATE_KINDS` in `completion-trend.ts` adds +N for the N pairs — not `COUNT_KINDS` (±1) and not
   `BULK_TOTAL_KINDS` (`args[0]`, which here counts edits too). Its edits ride the `bulk.edit` undo capture;
-  creates stay out of the undo images (undo.md "Creates"), so no undo row reverses the pairs.
+  creates stay out of the field images (undo.md "Creates"), but the undo and redo rows append a trailing
+  `task.created` n pair (`createdPairs`, `use-undo-stack.ts`) naming the created tasks the undo removed or the
+  redo re-inserted, and `reversedForwardDelta` reads it, so an undo that kept some tasks reverses only the ones removed.
   `grep -n COUNT_KINDS src/app/completion-trend.ts` prints the set;
   `grep -ohE 'logActivityAs\?\.\("ai", "[a-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts | sort | uniq -c`
   prints the kinds the chat entity writers emit and how often, of which those two intersect the set.

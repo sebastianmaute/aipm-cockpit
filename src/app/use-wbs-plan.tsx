@@ -75,6 +75,7 @@ import { isTaskClosed } from "./task-closed";
 import { resolveTimezone, todayInZone } from "./timezone";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 import { sanitizeText } from "./sanitize-core";
+import { logDiag } from "./diagnostics";
 import {
   composeRemap,
   dropTaskRefs,
@@ -583,8 +584,12 @@ function wbsUndoParts(
       followedAtUndo = followed;
       liveEdits = followEditDeps(edits, followed);
       const part = captureFieldPart({ setter: setTasks, edits: liveEdits });
-      // `followEditDeps` maps edits one to one, so a non-empty `edits` gives a non-empty patch and a fragment.
-      if (part === null) throw new Error("wbsUndoParts: a non-empty edit list built no field fragment");
+      // `followEditDeps` maps edits one to one, so a non-empty `edits` gives a non-empty patch and a fragment. If
+      // that ever fails, log it and skip the field part: an undo click must never throw.
+      if (part === null) {
+        logDiag("warn", "wbsPlan.fieldPartMissing", { edits: liveEdits.length });
+        return () => {};
+      }
       return part.restore(primaryRemap, isPrimary, arm, track);
     },
   };

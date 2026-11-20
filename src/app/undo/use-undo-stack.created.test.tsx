@@ -70,7 +70,7 @@ describe("captureCreatedPart (§796)", () => {
   it("undo removes the created rows and arms once; redo re-inserts and does not arm", () => {
     const created = [T(10, "new A"), T(11, "new B")];
     const { hook, arm } = setup([T(1, "a"), ...created]);
-    act(() => hook.result.current.api.captureComposite({ kind: "ai.wbsPlan", primaryCount: 2, parts: [part(hook, created)] }));
+    act(() => hook.result.current.api.captureComposite({ kind: "bulk.edit", primaryCount: 2, parts: [part(hook, created)] }));
     act(() => hook.result.current.api.undo());
     expect(hook.result.current.tasks.map((t) => t.id)).toEqual([1]);
     expect(arm).toHaveBeenCalledTimes(1);
@@ -89,7 +89,7 @@ describe("captureCreatedPart (§796)", () => {
   it("the arm is set before the save effect sees the removal", () => {
     const created = [T(10, "new A")];
     const { hook, effectSaw } = setup([T(1, "a"), ...created]);
-    act(() => hook.result.current.api.captureComposite({ kind: "ai.wbsPlan", primaryCount: 1, parts: [part(hook, created)] }));
+    act(() => hook.result.current.api.captureComposite({ kind: "bulk.edit", primaryCount: 1, parts: [part(hook, created)] }));
     act(() => hook.result.current.api.undo());
     const sawRemoval = effectSaw.filter((e) => e.ids.join() === "1");
     expect(sawRemoval).toHaveLength(1);
@@ -100,7 +100,7 @@ describe("captureCreatedPart (§796)", () => {
     const created = [T(10, "new A")];
     const onKept = vi.fn();
     const { hook, arm } = setup([T(1, "a"), ...created]);
-    act(() => hook.result.current.api.captureComposite({ kind: "ai.wbsPlan", primaryCount: 1, parts: [part(hook, created, { onKept })] }));
+    act(() => hook.result.current.api.captureComposite({ kind: "bulk.edit", primaryCount: 1, parts: [part(hook, created, { onKept })] }));
     // Someone worked on the created row after the apply.
     act(() => hook.result.current.setTasks((prev) => prev.map((t) => (t.id === 10 ? { ...t, title: "edited" } : t))));
     act(() => hook.result.current.api.undo());
@@ -114,7 +114,7 @@ describe("captureCreatedPart (§796)", () => {
   it("a localModifiedAt stamp alone does not keep a created row", () => {
     const created = [T(10, "new A")];
     const { hook } = setup([T(1, "a"), ...created]);
-    act(() => hook.result.current.api.captureComposite({ kind: "ai.wbsPlan", primaryCount: 1, parts: [part(hook, created)] }));
+    act(() => hook.result.current.api.captureComposite({ kind: "bulk.edit", primaryCount: 1, parts: [part(hook, created)] }));
     act(() => hook.result.current.setTasks((prev) => prev.map((t) => (t.id === 10 ? { ...t, localModifiedAt: "2026-11-20T10:00:00.000Z" } : t))));
     act(() => hook.result.current.api.undo());
     expect(hook.result.current.tasks.map((t) => t.id)).toEqual([1]);
@@ -123,38 +123,38 @@ describe("captureCreatedPart (§796)", () => {
   it("undo row and redo row carry the created pair", () => {
     const created = [T(10, "new A"), T(11, "new B")];
     const { hook, deps } = setup([T(1, "a"), ...created]);
-    act(() => hook.result.current.api.captureComposite({ kind: "ai.wbsPlan", primaryCount: 2, parts: [part(hook, created)] }));
+    act(() => hook.result.current.api.captureComposite({ kind: "bulk.edit", primaryCount: 2, parts: [part(hook, created)] }));
     act(() => hook.result.current.api.undo());
-    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 2, "ai.wbsPlan", 2, "task.created", 2);
+    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 2, "bulk.edit", 2, "task.created", 2);
     act(() => hook.result.current.api.redo());
-    expect(deps.logActivity).toHaveBeenLastCalledWith("redo", 2, "ai.wbsPlan", 2, "task.created", 2);
+    expect(deps.logActivity).toHaveBeenLastCalledWith("redo", 2, "bulk.edit", 2, "task.created", 2);
   });
 
   it("with one created row kept, the pair counts only the removed one", () => {
     const created = [T(10, "new A"), T(11, "new B")];
     const { hook, deps } = setup([T(1, "a"), ...created]);
-    act(() => hook.result.current.api.captureComposite({ kind: "ai.wbsPlan", primaryCount: 2, parts: [part(hook, created)] }));
+    act(() => hook.result.current.api.captureComposite({ kind: "bulk.edit", primaryCount: 2, parts: [part(hook, created)] }));
     act(() => hook.result.current.setTasks((prev) => prev.map((t) => (t.id === 11 ? { ...t, title: "edited" } : t))));
     act(() => hook.result.current.api.undo());
-    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 2, "ai.wbsPlan", 2, "task.created", 1);
+    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 2, "bulk.edit", 2, "task.created", 1);
     act(() => hook.result.current.api.redo());
-    expect(deps.logActivity).toHaveBeenLastCalledWith("redo", 2, "ai.wbsPlan", 2, "task.created", 1);
+    expect(deps.logActivity).toHaveBeenLastCalledWith("redo", 2, "bulk.edit", 2, "task.created", 1);
   });
 
   it("an undo that removes nothing appends no created pair", () => {
     const created = [T(10, "new A")];
     const { hook, deps } = setup([T(1, "a"), ...created]);
-    act(() => hook.result.current.api.captureComposite({ kind: "ai.wbsPlan", primaryCount: 1, parts: [part(hook, created)] }));
+    act(() => hook.result.current.api.captureComposite({ kind: "bulk.edit", primaryCount: 1, parts: [part(hook, created)] }));
     act(() => hook.result.current.setTasks((prev) => prev.map((t) => (t.id === 10 ? { ...t, title: "edited" } : t))));
     act(() => hook.result.current.api.undo());
-    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 1, "ai.wbsPlan", 1);
+    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 1, "bulk.edit", 1);
   });
 
   it("a kept row's links to removed rows are dropped on undo and put back on redo", () => {
     const created = [T(10, "new A"), T(11, "new B", [10])];
     const isRefOutside = (prev: readonly Task[], id: number) => prev.some((r) => r.id !== id && r.id !== 11 && r.deps.includes(id));
     const { hook } = setup([T(1, "a"), ...created]);
-    act(() => hook.result.current.api.captureComposite({ kind: "ai.wbsPlan", primaryCount: 2, parts: [part(hook, created, { isReferenced: isRefOutside })] }));
+    act(() => hook.result.current.api.captureComposite({ kind: "bulk.edit", primaryCount: 2, parts: [part(hook, created, { isReferenced: isRefOutside })] }));
     act(() => hook.result.current.setTasks((prev) => prev.map((t) => (t.id === 11 ? { ...t, title: "edited" } : t))));
     act(() => hook.result.current.api.undo());
     expect(hook.result.current.tasks).toEqual([T(1, "a"), T(11, "edited", [])]);
@@ -166,7 +166,7 @@ describe("captureCreatedPart (§796)", () => {
     const created = [T(10, "new A"), T(11, "new B")];
     const { hook, arm } = setup([T(1, "a", [10]), ...created]);
     act(() => hook.result.current.api.captureComposite({
-      kind: "ai.wbsPlan", primaryCount: 3,
+      kind: "bulk.edit", primaryCount: 3,
       parts: [
         captureFieldPart<Task>({ setter: hook.result.current.setTasks, edits: [{ id: 1, before: { deps: [] }, after: { deps: [10] } }] }),
         part(hook, created),
@@ -187,7 +187,7 @@ describe("captureCreatedPart (§796)", () => {
     const created = [T(10, "new A")];
     const { hook, arm } = setup([T(1, "a", [10]), T(2, "b"), ...created]);
     act(() => hook.result.current.api.captureComposite({
-      kind: "ai.wbsPlan", primaryCount: 2,
+      kind: "bulk.edit", primaryCount: 2,
       parts: [
         captureFieldPart<Task>({ setter: hook.result.current.setTasks, edits: [{ id: 1, before: { deps: [] }, after: { deps: [10] } }] }),
         part(hook, created, { remapScope: [1] }),
@@ -205,7 +205,7 @@ describe("captureCreatedPart (§796)", () => {
   it("a re-undo after a re-minted redo removes the re-minted row, never the row that took the id", () => {
     const created = [T(10, "new A")];
     const { hook, arm } = setup([T(1, "a"), ...created]);
-    act(() => hook.result.current.api.captureComposite({ kind: "ai.wbsPlan", primaryCount: 1, parts: [part(hook, created)] }));
+    act(() => hook.result.current.api.captureComposite({ kind: "bulk.edit", primaryCount: 1, parts: [part(hook, created)] }));
     act(() => hook.result.current.api.undo());
     act(() => hook.result.current.setTasks((prev) => [...prev, T(10, "unrelated")]));
     act(() => hook.result.current.api.redo());
@@ -219,18 +219,18 @@ describe("captureCreatedPart (§796)", () => {
     const first = [T(10, "A"), T(11, "B")];
     const second = [T(12, "C"), T(13, "D")];
     const { hook, deps, arm } = setup([T(1, "a"), ...first, ...second]);
-    act(() => hook.result.current.api.captureComposite({ kind: "ai.wbsPlan", primaryCount: 2, parts: [part(hook, first)] }));
-    act(() => hook.result.current.api.captureComposite({ kind: "ai.wbsPlan", primaryCount: 2, parts: [part(hook, second)] }));
+    act(() => hook.result.current.api.captureComposite({ kind: "bulk.edit", primaryCount: 2, parts: [part(hook, first)] }));
+    act(() => hook.result.current.api.captureComposite({ kind: "bulk.edit", primaryCount: 2, parts: [part(hook, second)] }));
     const firstId = hook.result.current.api.stack[0].id;
     act(() => hook.result.current.api.undoThrough(firstId));
     expect(hook.result.current.tasks.map((t) => t.id)).toEqual([1]);
-    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 4, "ai.wbsPlan", 4, "task.created", 4);
+    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 4, "bulk.edit", 4, "task.created", 4);
     expect(arm).toHaveBeenCalledTimes(2);
     act(() => hook.result.current.api.redoThrough(hook.result.current.api.redoStack[0].id));
     const ids = hook.result.current.tasks.map((t) => t.id);
     expect([...ids].sort((a, b) => a - b)).toEqual([1, 10, 11, 12, 13]);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(deps.logActivity).toHaveBeenLastCalledWith("redo", 4, "ai.wbsPlan", 4, "task.created", 4);
+    expect(deps.logActivity).toHaveBeenLastCalledWith("redo", 4, "bulk.edit", 4, "task.created", 4);
     expect(arm).toHaveBeenCalledTimes(2);
   });
 
@@ -238,7 +238,7 @@ describe("captureCreatedPart (§796)", () => {
     const created = [T(10, "new A")];
     const epoch = { current: 1 };
     const { hook, arm, deps } = setup([T(1, "a"), ...created], epoch);
-    act(() => hook.result.current.api.captureComposite({ kind: "ai.wbsPlan", primaryCount: 1, parts: [part(hook, created)] }));
+    act(() => hook.result.current.api.captureComposite({ kind: "bulk.edit", primaryCount: 1, parts: [part(hook, created)] }));
     epoch.current = 2;
     act(() => hook.result.current.api.undo());
     expect(hook.result.current.tasks.map((t) => t.id)).toEqual([1, 10]);

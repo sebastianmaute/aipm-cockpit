@@ -309,13 +309,13 @@ describe("WbsPlanModal", () => {
   it("says undo removes new tasks unless changed since, in EN and DE", () => {
     render5();
     expect(
-      screen.getByText("Undo reverts the changes and removes the new tasks, except new tasks changed since."),
+      screen.getByText("Undo reverts the changes and removes the new tasks, except new tasks changed or linked since."),
     ).toBeInTheDocument();
     cleanup();
     render5({ lang: "de" });
     expect(
       screen.getByText(
-        "Rückgängig macht die Änderungen rückgängig und entfernt die neuen Aufgaben, außer solchen, die seitdem geändert wurden.",
+        "„Rückgängig“ nimmt die Änderungen zurück und entfernt die neuen Aufgaben, außer solchen, die seitdem geändert oder verknüpft wurden.",
       ),
     ).toBeInTheDocument();
   });

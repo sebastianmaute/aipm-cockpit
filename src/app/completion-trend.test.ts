@@ -724,7 +724,7 @@ describe("a work-breakdown apply counts the tasks it created", () => {
     // Pre-apply total 4; the apply creates 3; the undo removes 1 → live total 6.
     const live = { ...BASE, currentTotal: 6 } as const;
     const apply = evArgs("2026-06-20T09:00:00.000Z", "ai.wbsPlan", [4, 101, "A", 102, "B", 103, "C"]);
-    const undo = evArgs("2026-06-20T10:00:00.000Z", "undo", [4, "ai.wbsPlan", 4, "task.created", 1]);
+    const undo = evArgs("2026-06-20T10:00:00.000Z", "undo", [4, "bulk.edit", 4, "task.created", 1]);
     const withUndo = computeCompletionTrend({ ...live, activity: [...prefix(), apply, undo] }).map((p) => p.percent);
     const netTwoCreates = computeCompletionTrend({
       ...live, activity: [...prefix(), ...[1, 2].map(() => ev("2026-06-20T09:00:00.000Z", "task.created"))],

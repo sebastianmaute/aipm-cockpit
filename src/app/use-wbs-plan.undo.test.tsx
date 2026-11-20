@@ -18,9 +18,18 @@ import { type RaidItem, type Task } from "./types";
 import * as call from "./wbs-plan-call";
 import { type ParsedWbsProposal, type RawWbsItem } from "./wbs-plan/wbs-plan";
 import { t, tPlural } from "./i18n";
+import { readDiagLog } from "./diagnostics";
 import type { OperatingGuide } from "./operating-guide";
 
 vi.mock("./wbs-plan-call");
+
+// Passes through, unless a test sets `fieldPartBroken`: then the field fragment builder reports "no fragment".
+const mocks = vi.hoisted(() => ({ fieldPartBroken: false }));
+vi.mock("./undo/use-undo-stack", async () => {
+  const actual = await vi.importActual<typeof import("./undo/use-undo-stack")>("./undo/use-undo-stack");
+  return { ...actual, captureFieldPart: ((...args: Parameters<typeof actual.captureFieldPart>) =>
+    mocks.fieldPartBroken ? null : actual.captureFieldPart(...args)) as typeof actual.captureFieldPart };
+});
 
 const AI_ON: Settings = {
   ...defaultSettings,
@@ -137,6 +146,18 @@ const SPLIT_LINKED: RawWbsItem[] = [
 describe("useWbsPlan undo (§796)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.fieldPartBroken = false;
+    window.localStorage.clear();
+  });
+
+  it("a field part that builds no fragment logs a diagnostic and does not throw on undo", async () => {
+    const api = renderHarness();
+    await applyProposal(SPLIT_AND_NEW);
+    mocks.fieldPartBroken = true;
+
+    expect(() => act(() => { api().undo.undo(); })).not.toThrow();
+
+    expect(readDiagLog().some((e) => e.code === "wbsPlan.fieldPartMissing")).toBe(true);
   });
 
   it("undo reverts the edits and removes every created task", async () => {
@@ -167,7 +188,7 @@ describe("useWbsPlan undo (§796)", () => {
     expect(named(tasks, "Review docs")).toHaveLength(0);
     expect(byName(tasks, "Task 1")).toBeDefined();
     noDanglingDeps(tasks);
-    expect(showToast).toHaveBeenLastCalledWith("info", "Undone. 1 new task was kept because it changed after the breakdown.");
+    expect(showToast).toHaveBeenLastCalledWith("info", "Undone. 1 new task was kept because it was changed or linked after the breakdown.");
   });
 
   // The kept task is the chain's TAIL: its link to the removed head is dropped, and redo puts it back.
@@ -185,7 +206,7 @@ describe("useWbsPlan undo (§796)", () => {
 
     expect(named(api().ws.tasks, "Write docs")).toHaveLength(0);
     expect(byName(api().ws.tasks, "Review docs")?.dependencies ?? []).toEqual([]);
-    expect(showToast).toHaveBeenLastCalledWith("info", "Undone. 1 new task was kept because it changed after the breakdown.");
+    expect(showToast).toHaveBeenLastCalledWith("info", "Undone. 1 new task was kept because it was changed or linked after the breakdown.");
 
     act(() => { api().undo.redo(); });
 
@@ -208,7 +229,7 @@ describe("useWbsPlan undo (§796)", () => {
 
     const texts = showToast.mock.calls.map((c) => c[1] as string);
     expect(texts.some((x) => x.startsWith("Undone") && !x.includes("kept"))).toBe(true);
-    expect(texts.at(-1)).toBe("Undone. 1 new task was kept because it changed after the breakdown.");
+    expect(texts.at(-1)).toBe("Undone. 1 new task was kept because it was changed or linked after the breakdown.");
   });
 
   // Without an edit there is no field fragment, so the created fragment alone must carry the re-mint map.
@@ -254,7 +275,7 @@ describe("useWbsPlan undo (§796)", () => {
     expect(named(tasks, "Build API")).toHaveLength(0);
     expect(named(tasks, "Review docs")).toHaveLength(0);
     noDanglingDeps(tasks);
-    expect(showToast).toHaveBeenLastCalledWith("info", "Undone. 1 new task was kept because it changed after the breakdown.");
+    expect(showToast).toHaveBeenLastCalledWith("info", "Undone. 1 new task was kept because it was changed or linked after the breakdown.");
   });
 
   it("redo restores edits and created tasks with no duplicate ids", async () => {
