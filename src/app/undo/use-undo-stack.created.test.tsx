@@ -234,30 +234,50 @@ describe("captureCreatedPart (§796)", () => {
     expect(arm).toHaveBeenCalledTimes(2);
   });
 
-  // The arming peek and the write must judge ONE snapshot of the referrers. Here the reader's answer changes after
-  // its first call (as a referrers ref refreshed by the peek's commit would): read per updater, the peek saw the
-  // row linked and did not arm while the write saw it free and removed it unarmed.
-  it("the peek and the write read the referrers once, so the arm and the removal agree", () => {
+  // The arming peek and the write may get different `isReferenced` answers (the peek's commit can refresh what the
+  // caller reads). The removal must be the intersection: removal ⊆ what the peek approved, approved ⇒ armed.
+  // `linkedIn` says in which setter call — 1 = the peek, 2 = the write — the row is linked. Counted per SETTER call,
+  // not per `isReferenced` call, so StrictMode's double-invoked updaters do not shift the phases.
+  function phased(linkedIn: 1 | 2) {
     const created = [T(10, "new A")];
-    const { hook, arm, effectSaw } = setup([T(1, "a"), ...created]);
-    let reads = 0;
-    const readReferrers = vi.fn(() => (reads++ === 0 ? "linked" : "free"));
-    const fragment = captureCreatedPart<Task, string>({
-      setter: hook.result.current.setTasks,
+    const s = setup([T(1, "a"), ...created]);
+    const onKept = vi.fn();
+    let setterCalls = 0;
+    const setter: typeof s.hook.result.current.setTasks = (u) => { setterCalls += 1; s.hook.result.current.setTasks(u); };
+    const fragment = captureCreatedPart<Task>({
+      setter,
       created,
       createdKind: "task.created",
-      readReferrers,
-      isReferenced: (prev, id, refs) => refs === "linked" || isReferenced(prev, id),
+      isReferenced: (prev, id) => setterCalls === linkedIn || isReferenced(prev, id),
       dropRefs,
       remapRefs,
+      onKept,
     });
-    act(() => hook.result.current.api.captureComposite({ kind: "bulk.edit", primaryCount: 1, parts: [fragment] }));
-    act(() => hook.result.current.api.undo());
-    expect(readReferrers).toHaveBeenCalledTimes(1);
-    // The one snapshot said "linked": the row is kept and nothing armed.
+    act(() => s.hook.result.current.api.captureComposite({ kind: "bulk.edit", primaryCount: 1, parts: [fragment] }));
+    act(() => s.hook.result.current.api.undo());
+    return { ...s, onKept };
+  }
+  /** No save effect ever saw row 10 gone without the arm in place. */
+  const noUnarmedRemoval = (effectSaw: { ids: number[]; armed: boolean }[]) =>
+    expect(effectSaw.filter((e) => !e.ids.includes(10) && !e.armed)).toEqual([]);
+
+  it("a row linked at the peek but free at the write is kept, unarmed", async () => {
+    const { hook, arm, effectSaw, onKept } = phased(1);
+    await flushMicrotasks();
     expect(hook.result.current.tasks.map((t) => t.id)).toEqual([1, 10]);
     expect(arm).not.toHaveBeenCalled();
-    expect(effectSaw.filter((e) => !e.ids.includes(10))).toEqual([]);
+    noUnarmedRemoval(effectSaw);
+    expect(onKept).toHaveBeenCalledWith([10]);
+  });
+
+  it("a row free at the peek but linked at the write is kept", async () => {
+    const { hook, effectSaw, onKept, deps } = phased(2);
+    await flushMicrotasks();
+    expect(hook.result.current.tasks.map((t) => t.id)).toEqual([1, 10]);
+    noUnarmedRemoval(effectSaw);
+    expect(onKept).toHaveBeenCalledWith([10]);
+    // Nothing was removed, so the undo row carries no created pair.
+    expect(deps.logActivity).toHaveBeenLastCalledWith("undo", 1, "bulk.edit", 1);
   });
 
   it("an entry captured before a scope change is dropped and removes nothing", () => {

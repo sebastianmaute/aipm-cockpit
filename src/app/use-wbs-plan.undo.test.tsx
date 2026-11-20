@@ -393,6 +393,29 @@ describe("useWbsPlan undo (§796)", () => {
     expect(fields(api().ws.tasks)).toEqual(fields(SEED));
   });
 
+  // The scenario the arming check must not miss: one undoThrough first undoes a RAID delete (re-inserting a
+  // RAID item linked to the created task), then the apply. The referrers the hook reads are refreshed by an
+  // effect, so a read taken before the arming peek still sees no RAID item; the write must see it and keep the task.
+  it("undoThrough that restores a RAID item linked to a created task keeps the task", async () => {
+    const api = renderHarness();
+    await applyProposal([{ kind: "newTask", ref: "n1", taskName: "Write docs", dueDate: "2026-11-15", why: "missing" }]);
+    const docsId = named(api().ws.tasks, "Write docs")[0].id;
+    const applyEntryId = api().undo.stack[api().undo.stack.length - 1].id;
+    const risk = { id: 1, category: "R", title: "Risk", status: "Open", linkedTaskIds: [docsId], raisedDate: "2026-10-01" } as unknown as RaidItem;
+    act(() => { api().ws.setRaid([risk]); });
+    act(() => {
+      api().ws.setRaid([]);
+      api().undo.capture<RaidItem>({ setter: api().ws.setRaid, kind: "raid.deleted", removed: [risk], fromArray: [risk], name: "Risk" });
+    });
+
+    act(() => { api().undo.undoThrough(applyEntryId); });
+    await settle();
+
+    expect(api().ws.raid.map((r) => r.id)).toEqual([1]);
+    expect(ids(named(api().ws.tasks, "Write docs"))).toEqual([docsId]);
+    noDanglingDeps(api().ws.tasks);
+  });
+
   // One proposal item, four tasks: the entry counts the TASKS the apply wrote (1 edited + 3 created), not the item.
   it("the entry for a split into four counts four tasks", async () => {
     const api = renderHarness();

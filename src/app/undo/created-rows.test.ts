@@ -33,6 +33,13 @@ describe("undoCreatedRows", () => {
     expect(r.result.map((x) => x.id)).toEqual([1]);
   });
 
+  it("with an allow-set, removes only allowed rows and reports the rest as kept", () => {
+    const r = undoCreatedRows(base, [row(11), row(12)], never, dropRefs, new Set([12]));
+    expect(r.removed.map((x) => x.id)).toEqual([12]);
+    expect(r.keptIds).toEqual([11]);
+    expect(r.result.map((x) => x.id)).toEqual([1, 11]);
+  });
+
   it("keeps a created row whose title changed", () => {
     const live = [row(1), row(11), row(12, { title: "edited" })];
     const r = undoCreatedRows(live, [row(11), row(12)], never, dropRefs);

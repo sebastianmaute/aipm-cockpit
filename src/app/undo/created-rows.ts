@@ -36,11 +36,14 @@ export function rowChangedSince<T>(live: T, image: T): boolean {
   return !rowsEqualExcept(live, image, ["localModifiedAt"]);
 }
 
+/** With `allowed`, a row whose id is not in it is KEPT even when it would otherwise be removed: the write side
+ *  of `captureCreatedPart` passes the ids its arming peek approved, so it never removes more than that. */
 export function undoCreatedRows<T extends { id: number }>(
   prev: readonly T[],
   created: readonly T[],
   isReferenced: (prev: readonly T[], id: number) => boolean,
   dropRefs: (row: T, removed: ReadonlySet<number>) => T,
+  allowed?: ReadonlySet<number>,
 ): CreatedRowsUndo<T> {
   const liveById = new Map(prev.map((r) => [r.id, r] as const));
   const removed: T[] = [];
@@ -48,7 +51,8 @@ export function undoCreatedRows<T extends { id: number }>(
   for (const image of created) {
     const live = liveById.get(image.id);
     if (live === undefined) continue;
-    if (rowChangedSince(live, image) || isReferenced(prev, image.id)) keptIds.push(image.id);
+    const notAllowed = allowed !== undefined && !allowed.has(image.id);
+    if (notAllowed || rowChangedSince(live, image) || isReferenced(prev, image.id)) keptIds.push(image.id);
     else removed.push(image);
   }
   const removedIds: ReadonlySet<number> = new Set(removed.map((r) => r.id));

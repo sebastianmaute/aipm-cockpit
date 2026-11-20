@@ -585,17 +585,15 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
 
 /** §796 — one array's rows an op CREATED, which its undo removes (see "Creates" in `docs/AGENTS/undo.md` for why
  *  `capturePart` must never be handed a create). */
-export interface CreatedPart<T extends { id: number }, R = undefined> {
+export interface CreatedPart<T extends { id: number }> {
   setter: Dispatch<SetStateAction<readonly T[]>>;
   /** The rows exactly as the op created them. */
   created: readonly T[];
   /** Forward kind the removed rows count as in the undo/redo activity row (e.g. "task.created"). */
   createdKind: ActivityKind;
-  /** Reads what OUTSIDE the array can point at a row (for tasks: RAID, milestones, …). Called ONCE per undo,
-   *  before the peek; the peek and the write both get that one snapshot as `isReferenced`'s `refs`. */
-  readReferrers?: () => R;
-  /** Whether a row OUTSIDE the op's own writes points at `id` — such a created row is kept. */
-  isReferenced: (prev: readonly T[], id: number, refs: R) => boolean;
+  /** Whether a row OUTSIDE the op's own writes points at `id` — such a created row is kept. Asked afresh inside
+   *  both the arming peek and the write (see `captureCreatedPart`). */
+  isReferenced: (prev: readonly T[], id: number) => boolean;
   /** `row` without its references to the removed ids (the same row when it has none). */
   dropRefs: (row: T, removed: ReadonlySet<number>) => T;
   /** `row` with the references this entry wrote followed through a redo's re-mint. */
@@ -621,24 +619,27 @@ export interface CreatedPart<T extends { id: number }, R = undefined> {
  * rows, and the save effect consumes the arm (`consumeArm`) when it runs for the commit that removed them.
  * Whether anything will be removed is only known from `prev`, so the undo runs TWO flushed updates on the setter:
  *  1. a PEEK that computes the removal from `prev` and returns `prev` unchanged (the array keeps its identity,
- *     so no effect over it — the save included — runs), then `arm` iff it found ≥1 row, outside every updater;
- *  2. the real write, computed again from its own `prev`.
+ *     so no effect over it — the save included — runs), records the ids it would remove (`approved`), then
+ *     `arm` iff `approved` is non-empty, outside every updater;
+ *  2. the real write, computed again from its own `prev`, which removes a row only when it is in `approved` AND
+ *     still unchanged and unreferenced now. A row the write declines is reported as kept.
  * ★ Not "write under `flushSync`, then arm": a flushed commit runs its passive effects before `flushSync` returns,
  * so the save would already have run unarmed (pinned by "the arm is set before the save effect sees the removal").
  * The real write is flushed too, so the count the activity row reads (`createdCount`) is final when `restore`
- * returns. The peek and the write read the same `prev` unless something writes the array between them, which
- * nothing does synchronously; and an extra arm would be harmless anyway (see `imagesRemoveRows`).
- * ★★ The referrers are read ONCE, before the peek (`readReferrers`), and both updaters judge against that one
- * snapshot. Read in each updater, they could disagree: the peek's flushed commit can run effects that refresh the
- * caller's referrers (inside an `undoThrough`, a newer entry's undo unlinking a RAID item from a created row), so
- * the peek would see the row referenced (no arm) and the write see it free and remove it UNARMED.
+ * returns.
+ * ★★ The peek's and the write's `isReferenced` answers can differ: the peek's flushed commit can run effects that
+ * refresh what the caller reads (inside an `undoThrough`, a newer entry's undo that unlinks a RAID item from a
+ * created row, or restores one linked to it). Neither answer is trusted alone; the removal is the INTERSECTION of
+ * both. So the removal ⊆ `approved`, and `approved` non-empty ⇒ armed: a read that is stale in either direction can
+ * only KEEP a row, never remove one unarmed or remove one that is linked when the write runs. An arm followed by
+ * no removal is harmless (see `imagesRemoveRows`).
  * The redo never arms: it only re-inserts.
  *
  * ★ StrictMode-safe: every updater recomputes its results from `prev` into variables it OVERWRITES, never
  * accumulates (the redo images, the next undo's images, the count), and `onKept` is queued at most once per undo.
  */
-export function captureCreatedPart<T extends { id: number }, R = undefined>(part: CreatedPart<T, R>): CompositeFragment | null {
-  const { setter, createdKind, readReferrers, isReferenced, dropRefs, remapRefs, onKept } = part;
+export function captureCreatedPart<T extends { id: number }>(part: CreatedPart<T>): CompositeFragment | null {
+  const { setter, createdKind, isReferenced, dropRefs, remapRefs, onKept } = part;
   if (part.created.length === 0) return null;
   const scope: ReadonlySet<number> = new Set(part.remapScope ?? []);
   // The images the NEXT undo removes: the created rows at first, the rows a redo re-inserted (under their new ids)
@@ -651,26 +652,24 @@ export function captureCreatedPart<T extends { id: number }, R = undefined>(part
     arm?: () => void,
   ): (() => void) => {
     let base = images;
-    let removable = 0;
-    // ONE read for the peek and the write, so `removable` (the arm) and the removal always agree.
-    const refs = (readReferrers ? readReferrers() : undefined) as R;
-    const referenced = (prev: readonly T[], id: number) => isReferenced(prev, id, refs);
+    // The ids the peek would remove; the write removes nothing outside them. Overwritten, never accumulated.
+    let approved: ReadonlySet<number> = new Set();
     flushSync(() => {
       setter((prev) => {
         // Read inside the updater: a redo's update queued ahead of this one has run by now, so `images` is current.
         base = images;
-        removable = undoCreatedRows(prev, base, referenced, dropRefs).removed.length;
+        approved = new Set(undoCreatedRows(prev, base, isReferenced, dropRefs).removed.map((r) => r.id));
         return prev;
       });
     });
-    if (removable > 0) arm?.();
+    if (approved.size > 0) arm?.();
     let removed: readonly T[] = [];
     let keptBefore: readonly T[] = [];
     let keptAfter: readonly T[] = [];
     let reported = false;
     flushSync(() => {
       setter((prev) => {
-        const undone = undoCreatedRows(prev, base, referenced, dropRefs);
+        const undone = undoCreatedRows(prev, base, isReferenced, dropRefs, approved);
         removed = undone.removed;
         keptBefore = undone.keptBefore;
         keptAfter = undone.keptAfter;

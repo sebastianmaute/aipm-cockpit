@@ -604,13 +604,12 @@ function wbsUndoParts(
       return part.restore(primaryRemap, isPrimary, arm, track);
     },
   };
-  const createdPart = captureCreatedPart<Task, TaskReferrers>({
+  const createdPart = captureCreatedPart<Task>({
     setter: setTasks,
     created,
     createdKind: "task.created",
-    // Read once per undo, so the arming peek and the write judge the same links (`captureCreatedPart`).
-    readReferrers: referrers,
-    isReferenced: (prev, id, others) => taskReferencedOutsideApply(prev, id, currentImages(), others),
+    // Read fresh on every call: the arming peek and the write each ask, and only a task BOTH find free is removed.
+    isReferenced: (prev, id) => taskReferencedOutsideApply(prev, id, currentImages(), referrers()),
     dropRefs: dropTaskRefs,
     remapRefs: (row, remap) => {
       followed = composeRemap(followedAtUndo, remap, createdIds);
