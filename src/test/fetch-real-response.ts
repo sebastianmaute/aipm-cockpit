@@ -14,7 +14,7 @@ type StandIn = {
   text?: () => unknown;
 };
 
-const NULL_BODY_STATUSES: ReadonlySet<number> = new Set([101, 103, 204, 205, 304]);
+const NULL_BODY_STATUSES: ReadonlySet<number> = new Set([204, 205, 304]);
 
 async function bodyOf(standIn: StandIn): Promise<string> {
   try {

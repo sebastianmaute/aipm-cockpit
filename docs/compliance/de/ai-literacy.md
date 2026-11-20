@@ -137,7 +137,8 @@ Kollegin oder ein Kollege sie vorschlüge? [Aussage des Maintainers]
 - **Lange Wartezeiten und Fehler.** Jeder Versuch einer KI-Anfrage ist auf 5 Minuten begrenzt; läuft die Zeit
   ab, meldet die App, dass Claude nicht geantwortet hat, und Sie können es erneut versuchen. Eine Anfrage, die
   abgelehnt wird, weil der Dienst ausgelastet ist oder ein Ratenlimit greift, wird insgesamt bis zu dreimal
-  versucht, nach der Wartezeit, die der Dienst nennt (höchstens 60 s; der Chat zeigt den Countdown); Abbrechen
+  versucht, nach der Wartezeit, die der Dienst nennt, sonst nach etwa 2 s und dann 4 s (der Chat zeigt den
+  Countdown); eine verlangte Wartezeit über 60 s wird nicht abgewartet, und der Fehler erscheint sofort. Stopp
   beendet die Wartezeit. Ein Zeitlimit oder ein Netzwerkfehler wird nicht wiederholt. [geprüft:
   `AI_REQUEST_TIMEOUT_MS` in `src/app/ai-retry.ts`; `postAiMessages` in `src/app/ai-transport.ts`]
 - **Unbekannte Namen.** Der Personenschutz verbirgt Namen, die das Projekt kennt, nicht aber Namen, die

@@ -75,7 +75,10 @@
   `parseRetryAfterMs`) or about 2 s then 4 s with jitter (`retryWaitMs`); a wait over `AI_RETRY_MAX_WAIT_MS` (60 s) is
   not waited and the answer goes back at once. A timeout, a network failure and any other status are never retried.
   ★ Before EVERY retry the transport re-runs `confirmAiDeployment` and the caller's `beforeSend` and redacts again
-  from the same privacy session, so a consent revoked during a wait stops the send and no raw name goes out; Stop
+  on every attempt, so a consent revoked during a wait stops the send and no raw name goes out. ★★ Not always
+  with the same privacy session: when the server forces people protection on an unprotected caller,
+  `forcedPrivacy` calls `ifForced()`, which builds a new protected session for that attempt, and the reply is
+  restored with the privacy of the FINAL attempt (`sentPrivacy` in `postAiMessages`), never the caller's. Stop
   ends a wait at once (`sleepAbortable`). The relay passes an upstream `retry-after` through (`passThroughHeaders` in
   `_relay.ts`, and on the gateway's own 429 -> 502 `AI_GATEWAY_RATE_LIMITED`). The chat shows the wait as "Claude is
   busy, trying again in N s…" (`onRetryWait` on `postAiMessages` / `callClaude`, countdown in `use-retry-wait.ts`);

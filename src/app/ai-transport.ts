@@ -351,8 +351,9 @@ function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
   });
 }
 
-/** Statuses a `Response` cannot be built with a body for. */
-const NULL_BODY_STATUSES: ReadonlySet<number> = new Set([101, 103, 204, 205, 304]);
+/** Statuses a `Response` cannot be built with a body for. (1xx is absent: `fetch` never answers one,
+ *  and `new Response` refuses those statuses outright.) */
+const NULL_BODY_STATUSES: ReadonlySet<number> = new Set([204, 205, 304]);
 
 /** One sent request, read whole: a fresh Response over the read text (same status, statusText and
  *  headers), the text itself, and whether it came over the relay. */
