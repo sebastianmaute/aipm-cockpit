@@ -44,6 +44,8 @@ import { descriptionText } from "./rich-text-projection";
 import { sortMilestones } from "./milestones";
 import { milestoneStatusBucket, taskStatusBuckets } from "./gantt-status-buckets";
 import { isTaskClosed } from "./task-closed";
+import { ganttSetupSteps, isViewSetupDismissed, setViewSetupDismissed } from "./view-setup";
+import { GanttSetupChecklist } from "./view-setup-checklists";
 import { buildRowTokens } from "./row-tokens";
 import {
   addDays,
@@ -90,6 +92,8 @@ export function GanttPanel({
   holidaySet = EMPTY_HOLIDAY_SET,
   dedupButton,
   forecast = null,
+  setupProjectKey,
+  milestonesApplicable = true,
 }: {
   lang: Lang;
   tasks: readonly Task[];
@@ -121,6 +125,10 @@ export function GanttPanel({
   dedupButton?: ReactNode;
   /** The shared forecast run (§502, workspace-section's `useAppForecast`); null while the simulation is off. */
   forecast?: AppForecast | null;
+  /** §736 — the per-project key the setup checklist's "hide" choice is stored under; absent = not remembered. */
+  setupProjectKey?: string;
+  /** §736 — false when the Milestones function is off: the checklist then has no milestone step. */
+  milestonesApplicable?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const didInitialScroll = useRef(false);
@@ -707,6 +715,18 @@ export function GanttPanel({
   // today marker drawn over an unexplained void.
   const rendersNothing = rows.length === 0;
 
+  // §736 setup checklist, in the Budget checklist's shape (§710): in full while the chart is empty,
+  // then as one collapsed line while a step remains, until hidden. Ticked from the UNFILTERED tasks and
+  // milestones, so a filter never un-ticks a step. The hide choice is read on every render (a try/catch'd
+  // localStorage read), so a project switch never shows another project's choice.
+  const setupSteps = ganttSetupSteps({ tasks, milestones, milestonesApplicable });
+  const [setupHiddenNow, setSetupHiddenNow] = useState(false);
+  const setupDismissed = setupHiddenNow || (setupProjectKey !== undefined && isViewSetupDismissed("gantt", setupProjectKey));
+  const dismissSetup = () => {
+    setSetupHiddenNow(true);
+    if (!isPopout && setupProjectKey !== undefined) setViewSetupDismissed("gantt", setupProjectKey);
+  };
+
   const toolbar = (
     <GanttToolbar
       lang={lang}
@@ -747,6 +767,11 @@ export function GanttPanel({
     return (
       <div ref={ganttRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
         {toolbar}
+        {!filtersActive && (
+          <div className="mb-3">
+            <GanttSetupChecklist lang={lang} steps={setupSteps} collapsed={false} />
+          </div>
+        )}
         {!filtersActive && onAddTask ? (
           // Empty (no tasks) → the whole box is the add affordance, mirroring
           // the budget panel's clickable "+ add bucket" empty state. The
@@ -771,6 +796,11 @@ export function GanttPanel({
         <ViewCallout view="gantt" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
       )}
       {toolbar}
+      {setupSteps.next !== null && !setupDismissed && (
+        <div className="mb-2">
+          <GanttSetupChecklist lang={lang} steps={setupSteps} collapsed onDismiss={dismissSetup} />
+        </div>
+      )}
       <GanttChart
         scrollRef={scrollRef}
         lang={lang}

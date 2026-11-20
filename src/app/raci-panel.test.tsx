@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 // AI people protection: this file tests the feature, not the protection (`ai-people-gates.test.tsx`).
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { newConsent } from "./ai-consent";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RaciPanel } from "./raci-panel";
 import { t } from "./i18n";
@@ -69,6 +69,29 @@ describe("RaciPanel", () => {
   it("shows an empty state when there are no milestones", () => {
     render(<RaciPanel lang="en-US" settings={stubbed} {...NO_EVIDENCE} stakeholders={stakeholders} milestones={[]} onSave={vi.fn()} />);
     expect(screen.getByText(/add milestones/i)).toBeInTheDocument();
+  });
+  it("§734: with neither input, the checklist names BOTH and links to each view", async () => {
+    const onSetupGo = vi.fn();
+    render(<RaciPanel lang="en-US" settings={stubbed} {...NO_EVIDENCE} stakeholders={[]} milestones={[]} onSave={vi.fn()} onSetupGo={onSetupGo} />);
+    const list = screen.getByRole("region", { name: t("en-US", "raciSetupTitle") });
+    expect(within(list).getByText(t("en-US", "raciSetupMilestones"))).toBeInTheDocument();
+    expect(within(list).getByText(t("en-US", "raciSetupStakeholders"))).toBeInTheDocument();
+    await userEvent.click(within(list).getByRole("button", { name: t("en-US", "raciSetupGoStakeholders") }));
+    expect(onSetupGo).toHaveBeenCalledWith("stakeholders");
+  });
+  it("§734: milestones but no stakeholders: the line names stakeholders and step 1 is ticked", () => {
+    render(<RaciPanel lang="en-US" settings={stubbed} {...NO_EVIDENCE} stakeholders={[]} milestones={milestones} onSave={vi.fn()} onSetupGo={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "raciNoStakeholders"))).toBeInTheDocument();
+    const steps = within(screen.getByRole("region", { name: t("en-US", "raciSetupTitle") })).getAllByRole("listitem");
+    expect(within(steps[0]).getByText(t("en-US", "budgetSetupStepDone"))).toBeInTheDocument();
+    expect(steps[1].getAttribute("data-next")).toBe("true");
+  });
+  it("§734: a popout shows the checklist without links, and a filled matrix shows none", () => {
+    const { unmount } = render(<RaciPanel lang="en-US" settings={stubbed} {...NO_EVIDENCE} stakeholders={[]} milestones={[]} onSave={vi.fn()} onSetupGo={vi.fn()} isPopout />);
+    expect(screen.queryByRole("button", { name: t("en-US", "raciSetupGoMilestones") })).toBeNull();
+    unmount();
+    render(<RaciPanel lang="en-US" settings={stubbed} {...NO_EVIDENCE} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} onSetupGo={vi.fn()} />);
+    expect(screen.queryByRole("region", { name: t("en-US", "raciSetupTitle") })).toBeNull();
   });
   it("renders a reset-size button (resizable pane)", () => {
     render(<RaciPanel lang="en-US" settings={stubbed} {...NO_EVIDENCE} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);

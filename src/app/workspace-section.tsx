@@ -424,6 +424,7 @@ export function WorkspaceSection({
     onSetPlanWindow,
     onEditResource,
     onAddResource,
+    onSetupGo: isPopout ? undefined : setActiveTab, // §731
     onImportOutlookCalendar,
     onToggleCalendar: absenceCalendar?.onToggle,
     onPushCalendar: absenceCalendar?.onPush,
@@ -613,6 +614,7 @@ export function WorkspaceSection({
               logActivityChanges={logActivityChanges}
               isSwapInFlight={isSwapInFlight}
               forecast={appForecast}
+              setupProjectKey={currentProjectId ?? "default"}
             />
           </div>
         )}
@@ -697,6 +699,7 @@ export function WorkspaceSection({
               onAddResource={onAddResource}
               onAddAbsence={handleOpenAddAbsence}
               onImportOutlook={onImportOutlook}
+              onSetupGo={isPopout ? undefined : setActiveTab}
             />
           </div>
         )}
@@ -871,6 +874,9 @@ export function WorkspaceSection({
               documents={workspace.documents}
               onSave={handleSaveStakeholder}
               onCaptureBulk={onCaptureStakeholderBulk}
+              onSetupGo={isPopout ? undefined : setActiveTab}
+              features={projectFeatures}
+              onCommitFeatures={isPopout ? undefined : workspace.setFeatures}
               logActivityAs={logActivityAs}
               showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
