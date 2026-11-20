@@ -915,3 +915,17 @@ describe("ResourceDirectory bulk delete on the shared Button", () => {
     );
   });
 });
+
+describe("ResourceDirectory — setup checklist (§731)", () => {
+  it("an empty directory names the setup order; the people step has no link (the toolbar adds people)", () => {
+    const onSetupGo = vi.fn();
+    render(<ResourceDirectory lang="en-US" resources={[]} roles={[]} disciplines={[]} grades={[]} onAssignRoleById={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={vi.fn()} onSetupGo={onSetupGo} />);
+    const list = screen.getByRole("region", { name: t("en-US", "resourcesSetupTitle") });
+    const steps = within(list).getAllByRole("listitem");
+    expect(steps).toHaveLength(3);
+    expect(within(steps[2]).queryByRole("button")).toBeNull();
+    fireEvent.click(within(steps[0]).getByRole("button", { name: t("en-US", "budgetSetupGoRoles") }));
+    expect(onSetupGo).toHaveBeenCalledWith("manage-roles");
+    expect(screen.getAllByRole("button", { name: /add resource/i })).toHaveLength(1);
+  });
+});

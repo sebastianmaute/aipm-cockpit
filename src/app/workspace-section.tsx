@@ -424,6 +424,7 @@ export function WorkspaceSection({
     onSetPlanWindow,
     onEditResource,
     onAddResource,
+    onSetupGo: isPopout ? undefined : setActiveTab, // §731
     onImportOutlookCalendar,
     onToggleCalendar: absenceCalendar?.onToggle,
     onPushCalendar: absenceCalendar?.onPush,
@@ -698,6 +699,7 @@ export function WorkspaceSection({
               onAddResource={onAddResource}
               onAddAbsence={handleOpenAddAbsence}
               onImportOutlook={onImportOutlook}
+              onSetupGo={isPopout ? undefined : setActiveTab}
             />
           </div>
         )}

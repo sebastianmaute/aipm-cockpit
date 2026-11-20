@@ -1141,3 +1141,22 @@ describe("ResourcesPanel rollup toggle on the shared Button", () => {
     );
   });
 });
+
+describe("ResourcesPanel — setup checklist (§731)", () => {
+  test("with no people, names the setup order under the empty title and links to Roles and the directory", async () => {
+    const onSetupGo = vi.fn();
+    render(<ResourcesPanel {...baseProps} view="workload" resources={[]} roles={[]} disciplines={[]} grades={[]} onSetupGo={onSetupGo} />);
+    expect(screen.getByText(t("en-US", "resourcesEmpty"))).toBeInTheDocument();
+    const list = screen.getByRole("region", { name: t("en-US", "resourcesSetupTitle") });
+    expect(list.querySelectorAll("li")).toHaveLength(3);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "budgetSetupGoPeople") }));
+    expect(onSetupGo).toHaveBeenCalledWith("directory");
+  });
+  test("shows no checklist once people exist, and no links in a popout", () => {
+    const { unmount } = render(<ResourcesPanel {...baseProps} view="workload" resources={resources} onSetupGo={vi.fn()} />);
+    expect(screen.queryByRole("region", { name: t("en-US", "resourcesSetupTitle") })).toBeNull();
+    unmount();
+    render(<ResourcesPanel {...baseProps} view="workload" resources={[]} roles={[]} disciplines={[]} grades={[]} onSetupGo={vi.fn()} isPopout />);
+    expect(screen.queryByRole("button", { name: t("en-US", "budgetSetupGoPeople") })).toBeNull();
+  });
+});

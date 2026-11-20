@@ -34,6 +34,9 @@ import { readDeviceJson, writeDeviceJson } from "./device-store";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
 import { CELL_BUTTON } from "./control-classes";
+import type { AppView } from "./nav-config";
+import { resourcesSetupSteps } from "./view-setup";
+import { ResourcesSetupChecklist } from "./view-setup-checklists";
 
 const HIDE_EXTERNAL_KEY = "aipm-cockpit:directory-hide-external";
 
@@ -57,6 +60,8 @@ interface Props {
   onAssignRoleById: (resourceId: number, roleId: number | null) => void;
   onEditResource: (resource: Resource) => void;
   onAddResource: () => void;
+  /** §731 — the setup checklist's link to Roles. Undefined in a popout: no link. */
+  onSetupGo?: (view: AppView) => void;
   onAddAbsence: () => void;
   onImportOutlook?: () => void;
   /** Bulk-apply a patch to selected resources (omitted → no bulk UI). */
@@ -136,6 +141,7 @@ function ResourceDirectoryInner({
   onBulkEditResources,
   onBulkDeleteResources,
   sharesAnswers,
+  onSetupGo,
 }: Props) {
   const showToast = useToastContext();
   const confirm = useConfirm();
@@ -383,7 +389,12 @@ function ResourceDirectoryInner({
         <BulkEditPanel lang={lang} count={sel.count} fields={bulkFields} onApply={applyBulk} onCancel={() => setBulkOpen(false)} />
       )}
       {resources.length === 0 ? (
-        <EmptyState title={t(lang, "resourcesEmpty")} />
+        <>
+          <EmptyState title={t(lang, "resourcesEmpty")} />
+          <div className="mx-auto w-full max-w-xl">
+            <ResourcesSetupChecklist lang={lang} steps={resourcesSetupSteps({ roles, disciplines, grades, resources })} peopleLink={false} onGo={onSetupGo} />
+          </div>
+        </>
       ) : (
         <div ref={containerRef} className={INNER_TABLE_CLASS}>
           <DataTable className="w-full text-left text-sm" head={<>
