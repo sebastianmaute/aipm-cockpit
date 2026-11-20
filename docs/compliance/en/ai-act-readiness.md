@@ -277,7 +277,7 @@ assessment of whether it is enough: question for you]
   reviewed; then every change to project data the chat proposes waits on the review card. [verified:
   `shouldStage` in `src/app/chat-proposal.ts`; `src/app/chat-panel.review-all-writes.test.tsx`]
 - **Logs.** The activity log keeps the newest 500 entries per project, a count rather than a period, and
-  does not link an AI change to the chat message that caused it (§799). Saved AI chats are deleted after
+  records the AI feature behind each AI change and, with Turso storage, links a chat change to the chat request that caused it while that chat exists. Saved AI chats are deleted after
   the retention period the operator sets: 30 days by default, at most 3650. Whether either covers six
   months depends on how busy the project is and on the period you set. [verified: `ACTIVITY_MAX_ENTRIES` in `src/app/activity-log.ts`,
   `src/app/ai-chat-retention-config.ts`]

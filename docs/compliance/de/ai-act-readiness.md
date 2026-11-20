@@ -317,8 +317,8 @@ Bewertung, ob das ausreicht: Frage an Sie]
   vorschlägt, auf der Prüfkarte. [geprüft: `shouldStage` in `src/app/chat-proposal.ts`;
   `src/app/chat-panel.review-all-writes.test.tsx`]
 - **Protokolle.** Das Aktivitätsprotokoll behält je Projekt die neuesten 500 Einträge, eine Anzahl statt
-  eines Zeitraums, und verknüpft eine KI-Änderung nicht mit der Chat-Nachricht, die sie veranlasst hat
-  (§799). Gespeicherte KI-Chats werden nach der Aufbewahrungsdauer gelöscht, die der Administrator
+  eines Zeitraums, und hält zu jeder KI-Änderung die KI-Funktion fest und verknüpft bei Turso-Speicherung eine
+  Änderung aus dem Chat mit der Chat-Anfrage, die sie veranlasst hat, solange dieser Chat besteht. Gespeicherte KI-Chats werden nach der Aufbewahrungsdauer gelöscht, die der Administrator
   festlegt: standardmäßig 30 Tage, höchstens 3650. Ob eines davon sechs Monate abdeckt, hängt davon ab,
   wie viel im Projekt geschieht und welche Dauer Sie festlegen. [geprüft: `ACTIVITY_MAX_ENTRIES` in
   `src/app/activity-log.ts`, `src/app/ai-chat-retention-config.ts`]

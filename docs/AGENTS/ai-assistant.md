@@ -767,6 +767,25 @@
   `grep -ohE 'logActivityAi\?\.\(origin, "[A-Za-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts src/app/use-document-tools.ts | sort | uniq -c`.
   ★★ The coverage caveat therefore came OUT of the tool description in the same release, exactly as the
   ★★ below required. RETENTION (b) is unchanged and stays in.
+  ★★★ **THE ORIGIN OF AN AI ENTRY TRAVELS AS AN ARGUMENT, NEVER AS DISPATCHER STATE (§799).** `runTool` takes a
+  REQUIRED `AiOrigin` and passes it to every handler that logs, and `logActivityAi` (`use-activity-log.ts`) is
+  the only logger that writes an `actor: "ai"` entry. The shared `ToolDispatcher` is one object for every
+  concurrent AI operation, so a "current origin" held on it, in a ref or in a module variable would let a chat
+  turn running tools and an insight recommendation applying at the same moment stamp each other's entries
+  (`use-chat-dispatcher.origin.test.tsx` pins both completion orders). The other AI features
+  (`inlineEdit`, `insightRecommendation`, `allocationPlan`, `wbsPlan`, `taskDedup`, `raciSuggest`,
+  `meetingReport`) build their own `aiOrigin(…)`; no scheduled run logs activity. A chat send makes ONE
+  `chatSendOrigins` pair, `chat` for the writes the send runs and `chatProposal` for a plan it stages (applied
+  later, so it keeps the send's own origin), and it keeps that pair as a local value.
+  ★★ **A LINK NEEDS THE REQUEST, AND ONLY IN TURSO MODE.** `requestId` is minted once per send by
+  `newRequestId` onto the user's display item, so a rate-limit retry inside the send (§798) keeps it and no two
+  sends share one. `chatSendOrigins` stamps `threadId` + `requestId` only when `tursoMode` is true: file mode has
+  a retained thread id (`ensureThreadForSend` returns one) but no saved thread to open. The Activity view links an
+  entry through `resolveOriginLink` only while that user item is still in a loaded thread of the open project, so
+  "Clear chat" cannot send an older entry to the request that replaced it. The click reaches the chat through a
+  request object the parent consumes (`useChatOpenThreadRequest`; `panel-chat` is always mounted, so there is no
+  remount to swallow it). While a send or an Apply runs it does NOT switch thread — `selectThread` would abort the
+  running send — and the panel shows `chatOpenThreadBusy` instead.
   ★★ **`ai.inlineEdit` NO LONGER FIRES FROM ANYWHERE, and the kind is deliberately still in the union.**
   This bullet used to say it "fires from `use-inline-entity-edit.ts`"; `892f0d2b` deleted both writers,
   because an inline "Ask Claude" edit was writing TWO entries — the per-`runTool` entity row this branch
