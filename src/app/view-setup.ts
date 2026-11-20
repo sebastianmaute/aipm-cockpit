@@ -3,6 +3,7 @@
 // project data; nothing new is stored on the Workspace. Only the Gantt checklist can be hidden,
 // and that choice is remembered per device, view and project.
 import { budgetSetupSteps } from "./budget-setup";
+import { parseISO } from "./gantt-engine";
 import type { Discipline, Grade, Milestone, Resource, Role, Stakeholder, Task } from "./types";
 
 /** 1 = a task with a due date, 2 = a dependency, 3 = a milestone (when the function is on). */
@@ -21,7 +22,8 @@ export function ganttSetupSteps(input: {
   milestones: readonly Milestone[];
   milestonesApplicable: boolean;
 }): GanttSetupSteps {
-  const datedDone = input.tasks.some((task) => !!task.dueDate);
+  // The same test `deriveBar` applies: a due date that does not parse draws no bar.
+  const datedDone = input.tasks.some((task) => parseISO(task.dueDate) !== null);
   const depsDone = input.tasks.some((task) => (task.dependencies?.length ?? 0) > 0);
   const milestonesDone = input.milestones.length > 0;
   const { milestonesApplicable } = input;
@@ -43,7 +45,9 @@ export function raciSetupSteps(input: {
 }): RaciSetupSteps {
   const milestonesDone = input.milestones.length > 0;
   const stakeholdersDone = input.stakeholders.length > 0;
-  const assignedDone = input.stakeholders.some((s) => Object.values(s.raci ?? {}).some((role) => !!role));
+  // `raci` is sparse and keeps keys of deleted milestones (filtered at render), so count only live ones.
+  const live = new Set(input.milestones.map((m) => String(m.id)));
+  const assignedDone = input.stakeholders.some((s) => Object.entries(s.raci ?? {}).some(([id, role]) => !!role && live.has(id)));
   const next = !milestonesDone ? 1 : !stakeholdersDone ? 2 : !assignedDone ? 3 : null;
   return { milestonesDone, stakeholdersDone, assignedDone, next };
 }

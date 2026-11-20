@@ -28,6 +28,9 @@ describe("ganttSetupSteps (§736)", () => {
     expect(s.depsDone).toBe(true);
     expect(s.next).toBe(3);
   });
+  it("a due date that does not parse is not a dated task: the chart draws no bar for it", () => {
+    expect(ganttSetupSteps({ tasks: [task({ dueDate: "not-a-date" })], milestones: [], milestonesApplicable: true }).datedDone).toBe(false);
+  });
   it("all three done: next is null", () => {
     const tasks = [task({ dueDate: "2026-12-01", dependencies: [{ taskId: 2, type: "FS" }] } as Partial<Task>)];
     expect(ganttSetupSteps({ tasks, milestones: [milestone], milestonesApplicable: true }).next).toBeNull();
@@ -50,6 +53,10 @@ describe("raciSetupSteps (§734)", () => {
     const s = raciSetupSteps({ milestones: [], stakeholders: [stakeholder()] });
     expect(s.stakeholdersDone).toBe(true);
     expect(s.next).toBe(1);
+  });
+  it("an assignment to a deleted milestone does not tick step 3", () => {
+    expect(raciSetupSteps({ milestones: [milestone], stakeholders: [stakeholder({ "99": "R" })] }).assignedDone).toBe(false);
+    expect(raciSetupSteps({ milestones: [], stakeholders: [stakeholder({ "1": "R" })] }).assignedDone).toBe(false);
   });
   it("an assignment ticks step 3; an empty raci record does not", () => {
     expect(raciSetupSteps({ milestones: [milestone], stakeholders: [stakeholder()] }).next).toBe(3);
