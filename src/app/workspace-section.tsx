@@ -613,6 +613,7 @@ export function WorkspaceSection({
               logActivityChanges={logActivityChanges}
               isSwapInFlight={isSwapInFlight}
               forecast={appForecast}
+              setupProjectKey={currentProjectId ?? "default"}
             />
           </div>
         )}

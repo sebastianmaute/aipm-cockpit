@@ -48,6 +48,8 @@ export interface GanttViewProps {
   isSwapInFlight?: () => boolean;
   /** §502 — workspace-section's shared forecast run; null while the simulation is off. */
   forecast?: AppForecast | null;
+  /** §736 — the per-project key the setup checklist hide choice is stored under. */
+  setupProjectKey?: string;
 }
 
 export function GanttView({
@@ -65,6 +67,7 @@ export function GanttView({
   logActivityChanges,
   isSwapInFlight,
   forecast,
+  setupProjectKey,
 }: GanttViewProps) {
   const { settings, lang } = useSettings();
   const { tasks, setTasks, absences, resources, milestones, setMilestones } = useWorkspace();
@@ -129,6 +132,8 @@ export function GanttView({
         holidaySet={holidaySet}
         dedupButton={dedup.button}
         forecast={forecast}
+        setupProjectKey={setupProjectKey}
+        milestonesApplicable={milestonesEnabled}
       />
       {dedup.modal}
     </>
