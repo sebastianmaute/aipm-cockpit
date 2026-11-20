@@ -114,6 +114,7 @@ import { PERSON_FIELDS_REMOVED_NOTE, stripPersonFields } from "./ai-person-field
 import type { UndoBatch } from "./use-undo-batch";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import { buildRowTokens } from "./row-tokens";
+import { useRetryWait } from "./use-retry-wait";
 
 // A staged upload: the Anthropic content blocks plus display metadata.
 // summary is the non-error disclosure of what the tree under this file
@@ -455,6 +456,8 @@ function ChatPanelInner({
   const attachmentTokens = useMemo(() => buildRowTokens(attachments.map((a) => ({ id: a.id, name: a.name }))), [attachments]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // §798 — a rate-limit retry wait, shown in the busy row in place of Thinking.
+  const retryWait = useRetryWait();
   // Passphrase-unlock state: when the saved Anthropic key is passphrase-wrapped
   // (no plaintext key in settings) the user unlocks it inline here. §717 — the
   // decrypted value lives in the page-only `session-ai-key` store, not in this
@@ -884,7 +887,8 @@ function ChatPanelInner({
           ai.model,
           system,
           buildWireMessages(messages, turnContext).messages,
-          toolFlags, aiPrivacy(), controller.signal,
+          toolFlags, aiPrivacy(), controller.signal, undefined, undefined,
+          (waitMs) => { if (abortRef.current === controller) retryWait.start(waitMs); },
         );
         // §702: the counter takes the request and its cache write together,
         // BEFORE the stale check — a request counted without its write would
@@ -1286,6 +1290,7 @@ function ChatPanelInner({
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
       setBusy(false);
+      retryWait.clear();
       // Refocus the input after the round-trip resolves.
       inputRef.current?.focus();
     }
@@ -1525,6 +1530,7 @@ function ChatPanelInner({
 
   function stopChat() {
     cancelledRef.current = true;
+    retryWait.clear();
     abortRef.current?.abort();
   }
 
@@ -1818,7 +1824,7 @@ function ChatPanelInner({
             {busy && (
               <li className="flex items-center justify-start gap-2">
                 <div className="rounded-lg bg-surface px-3 py-2 text-sm italic text-muted-foreground">
-                  {t(lang, "chatThinking")}
+                  {retryWait.secondsLeft !== null ? t(lang, "chatRetryWait", retryWait.secondsLeft) : t(lang, "chatThinking")}
                 </div>
                 <Button
                   variant="destructive"

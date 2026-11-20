@@ -1171,6 +1171,7 @@ export const de: Record<TranslationKey, string> = {
   chatGuidesLoading: "Betriebsleitfäden werden geladen…",
   chatSend: "Senden",
   chatThinking: "Denke nach…",
+  chatRetryWait: "Claude ist ausgelastet, neuer Versuch in {0} s…",
   chatConfigureAi: "KI konfigurieren",
   chatNoApiKey:
     "API-Schlüssel in den Einstellungen hinterlegen, um den Chat zu nutzen.",

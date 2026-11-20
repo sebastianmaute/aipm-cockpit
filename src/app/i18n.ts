@@ -1270,6 +1270,7 @@ const enUS = {
   chatGuidesLoading: "Loading operating guides…",
   chatSend: "Send",
   chatThinking: "Thinking…",
+  chatRetryWait: "Claude is busy, trying again in {0} s…",
   chatConfigureAi: "Configure AI",
   chatNoApiKey:
     "Add your Anthropic API key in Settings to start chatting.",
