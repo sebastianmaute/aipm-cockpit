@@ -51,9 +51,10 @@ interface Api {
   undo: UndoStackApi;
 }
 
-function Harness({ onApi }: { onApi: (api: Api) => void }) {
+/** `sharedToast`: the stack's toast goes to the same spy as the hook's, as both reach the one slot in the app. */
+function Harness({ onApi, sharedToast }: { onApi: (api: Api) => void; sharedToast: boolean }) {
   const ws = useWorkspace();
-  const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
+  const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: sharedToast ? showToast : stackToast, showToastAction: vi.fn() });
   const wbs = useWbsPlan({
     settings: AI_ON,
     isPopout: false,
@@ -75,14 +76,15 @@ function Harness({ onApi }: { onApi: (api: Api) => void }) {
 }
 
 const showToast = vi.fn();
+const stackToast = vi.fn();
 
-function renderHarness(seed: readonly Task[] = SEED) {
+function renderHarness(seed: readonly Task[] = SEED, sharedToast = false) {
   const box: { api: Api | null } = { api: null };
   render(
     <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
       <FiltersProvider>
         <WorkspaceProvider>
-          <Harness onApi={(a) => { box.api = a; }} />
+          <Harness sharedToast={sharedToast} onApi={(a) => { box.api = a; }} />
         </WorkspaceProvider>
       </FiltersProvider>
     </ToastProvider>,
@@ -164,9 +166,76 @@ describe("useWbsPlan undo (§796)", () => {
     expect(named(tasks, "Build API")).toHaveLength(0);
     expect(named(tasks, "Review docs")).toHaveLength(0);
     expect(byName(tasks, "Task 1")).toBeDefined();
-    // The kept task's chain link to a removed task is dropped, not left dangling.
     noDanglingDeps(tasks);
     expect(showToast).toHaveBeenLastCalledWith("info", "Undone. 1 new task was kept because it changed after the breakdown.");
+  });
+
+  // The kept task is the chain's TAIL: its link to the removed head is dropped, and redo puts it back.
+  it("undo drops a kept task's link to a removed task, and redo restores it", async () => {
+    const api = renderHarness();
+    await applyProposal(SPLIT_AND_NEW);
+    const docsId = named(api().ws.tasks, "Write docs")[0].id;
+    expect(byName(api().ws.tasks, "Review docs")?.dependencies).toEqual([{ taskId: docsId, type: "FS" }]);
+    act(() => {
+      api().ws.setTasks((prev) => prev.map((x) => (x.taskName === "Review docs" ? { ...x, description: "<p>edited</p>" } : x)));
+    });
+
+    act(() => { api().undo.undo(); });
+    await settle();
+
+    expect(named(api().ws.tasks, "Write docs")).toHaveLength(0);
+    expect(byName(api().ws.tasks, "Review docs")?.dependencies ?? []).toEqual([]);
+    expect(showToast).toHaveBeenLastCalledWith("info", "Undone. 1 new task was kept because it changed after the breakdown.");
+
+    act(() => { api().undo.redo(); });
+
+    noDuplicateIds(api().ws.tasks);
+    expect(ids(named(api().ws.tasks, "Write docs"))).toEqual([docsId]);
+    expect(byName(api().ws.tasks, "Review docs")?.dependencies).toEqual([{ taskId: docsId, type: "FS" }]);
+  });
+
+  // The stack's own "Undone" toast and the kept toast share the app's one slot: the kept one must land LAST.
+  it("the kept toast replaces the stack's Undone toast", async () => {
+    const api = renderHarness(SEED, true);
+    await applyProposal(SPLIT_AND_NEW);
+    act(() => {
+      api().ws.setTasks((prev) => prev.map((x) => (x.taskName === "Write docs" ? { ...x, taskName: "Write docs v2" } : x)));
+    });
+    showToast.mockClear();
+
+    act(() => { api().undo.undo(); });
+    await settle();
+
+    const texts = showToast.mock.calls.map((c) => c[1] as string);
+    expect(texts.some((x) => x.startsWith("Undone") && !x.includes("kept"))).toBe(true);
+    expect(texts.at(-1)).toBe("Undone. 1 new task was kept because it changed after the breakdown.");
+  });
+
+  // Without an edit there is no field fragment, so the created fragment alone must carry the re-mint map.
+  it("an apply that only creates survives two re-mints in a row", async () => {
+    const api = renderHarness();
+    await applyProposal([
+      { kind: "newTask", ref: "n1", taskName: "Write docs", dueDate: "2026-11-15", why: "missing" },
+      { kind: "newTask", ref: "n2", taskName: "Review docs", dueDate: "2026-11-16", why: "missing" },
+      { kind: "link", from: { kind: "ref", ref: "n1" }, to: { kind: "ref", ref: "n2" }, why: "order" },
+    ]);
+    const docsId = named(api().ws.tasks, "Write docs")[0].id;
+    act(() => { api().undo.undo(); });
+    act(() => { api().ws.setTasks((prev) => [...prev, task(docsId, { taskName: "Intruder" })]); });
+    const withIntruder = fields(api().ws.tasks);
+    act(() => { api().undo.redo(); });
+    expect(named(api().ws.tasks, "Write docs")[0].id).not.toBe(docsId);
+    act(() => { api().undo.undo(); });
+    expect(fields(api().ws.tasks)).toEqual(withIntruder);
+    act(() => { api().undo.redo(); });
+    const docs = named(api().ws.tasks, "Write docs")[0];
+    expect(byName(api().ws.tasks, "Review docs")?.dependencies).toEqual([{ taskId: docs.id, type: "FS" }]);
+
+    act(() => { api().undo.undo(); });
+    await settle();
+
+    expect(fields(api().ws.tasks)).toEqual(withIntruder);
+    expect(showToast).not.toHaveBeenCalledWith("info", expect.stringContaining("kept"));
   });
 
   it("undo keeps a created task a RAID item links to", async () => {

@@ -582,26 +582,36 @@ function wbsUndoParts(
     restore: (primaryRemap, isPrimary, arm, track) => {
       followedAtUndo = followed;
       liveEdits = followEditDeps(edits, followed);
-      return (captureFieldPart({ setter: setTasks, edits: liveEdits }) as CompositeFragment)
-        .restore(primaryRemap, isPrimary, arm, track);
+      const part = captureFieldPart({ setter: setTasks, edits: liveEdits });
+      // `followEditDeps` maps edits one to one, so a non-empty `edits` gives a non-empty patch and a fragment.
+      if (part === null) throw new Error("wbsUndoParts: a non-empty edit list built no field fragment");
+      return part.restore(primaryRemap, isPrimary, arm, track);
     },
   };
-  return [
-    fieldPart,
-    captureCreatedPart<Task>({
-      setter: setTasks,
-      created,
-      createdKind: "task.created",
-      isReferenced: (prev, id) => taskReferencedOutsideApply(prev, id, currentImages(), referrers()),
-      dropRefs: dropTaskRefs,
-      remapRefs: (row, remap) => {
-        followed = composeRemap(followedAtUndo, remap, createdIds);
-        return remapTaskRefs(row, remap, editedIds.has(row.id) ? afterDeps(row.id) : undefined);
-      },
-      remapScope: [...editedIds],
-      onKept: (kept) => onKept(kept.length),
-    }),
-  ];
+  const createdPart = captureCreatedPart<Task>({
+    setter: setTasks,
+    created,
+    createdKind: "task.created",
+    isReferenced: (prev, id) => taskReferencedOutsideApply(prev, id, currentImages(), referrers()),
+    dropRefs: dropTaskRefs,
+    remapRefs: (row, remap) => {
+      followed = composeRemap(followedAtUndo, remap, createdIds);
+      return remapTaskRefs(row, remap, editedIds.has(row.id) ? afterDeps(row.id) : undefined);
+    },
+    remapScope: [...editedIds],
+    onKept: (kept) => onKept(kept.length),
+  });
+  // ★ The created fragment records the undo's `followed` too: an apply that only creates has no field fragment,
+  // and without this every redo would compose its re-mint onto the EMPTY map and forget an earlier one.
+  // Recording it twice in one undo (field fragment first) stores the same value.
+  const createdFragment: CompositeFragment | null = createdPart === null ? null : {
+    ...createdPart,
+    restore: (primaryRemap, isPrimary, arm, track) => {
+      followedAtUndo = followed;
+      return createdPart.restore(primaryRemap, isPrimary, arm, track);
+    },
+  };
+  return [fieldPart, createdFragment];
 }
 
 /** The optional-instructions step, and the progress state while the call runs.
