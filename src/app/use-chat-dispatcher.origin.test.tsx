@@ -119,24 +119,35 @@ describe("§799 — a chat tool row carries the origin of the call that ran it",
     expect(two[0].origin?.feature).toBe("insightRecommendation");
   });
 
-  // ★★★ THE CASE THE TASK PAIR ABOVE CANNOT SEE. `update_task`'s handler never suspends, so a design
-  //   that parked the origin on the dispatcher at `runTool` entry would pass it too. `update_project`
-  //   AWAITS the project writer before it logs: both calls are in flight at once, and the SECOND to
-  //   start finishes FIRST — a stored "current origin" would stamp both rows with the second's feature.
-  test("two overlapping calls whose handler awaits before it logs: each row carries its own feature", async () => {
+  // ★★★ WHAT THE TASK PAIR ABOVE CANNOT SEE. `update_task`'s handler never suspends: each call runs to its log
+  //   row before the next one starts, so ANY slot written at `runTool` entry and read at log time (never
+  //   cleared, cleared in a `finally`, or saved-and-restored around the call) still holds the right origin there.
+  //   The pair proves the argument reaches the row; it cannot tell an argument from a slot. `update_project` can:
+  //   it AWAITS the project writer before it logs, so both calls are in flight at once. Run in BOTH completion
+  //   orders, because each kills a different slot: second-started-finishes-first kills a never-cleared or
+  //   finally-cleared slot (the slot still holds the later call's feature), and first-started-finishes-first
+  //   kills a save-and-restore slot (`prev = d.cur; d.cur = origin; … finally d.cur = prev`), which still holds
+  //   the second call's feature when the first one logs.
+  test.each([
+    { order: "the second-started call finishes first", first: 1 },
+    { order: "the first-started call finishes first", first: 0 },
+  ])("two overlapping calls whose handler awaits before it logs, $order: each row carries its own feature", async ({ first }) => {
     const resolvers: (() => void)[] = [];
     const { result } = mount(() => new Promise<boolean>((resolve) => { resolvers.push(() => resolve(true)); }));
     const d = result.current.dispatcher;
     const token = entityToken("project", STORED);
     await act(async () => {
-      const byChat = runTool(d, "update_project", { expectedToken: token, customer: "Globex" }, aiOrigin("chat"));
-      const byInsight = runTool(d, "update_project", { expectedToken: token, description: "Lunar programme" }, aiOrigin("insightRecommendation"));
+      const calls = [
+        runTool(d, "update_project", { expectedToken: token, customer: "Globex" }, aiOrigin("chat")),
+        runTool(d, "update_project", { expectedToken: token, description: "Lunar programme" }, aiOrigin("insightRecommendation")),
+      ];
       await Promise.resolve();
       expect(resolvers).toHaveLength(2); // anti-vacuity: both writes are in flight at once
-      resolvers[1](); // the second call's write lands first
-      await byInsight;
-      resolvers[0]();
-      await byChat;
+      const second = 1 - first;
+      resolvers[first]();
+      await calls[first];
+      resolvers[second]();
+      await calls[second];
     });
     const customer = entriesFor(result, "project.updated", "customer");
     const description = entriesFor(result, "project.updated", "description");
