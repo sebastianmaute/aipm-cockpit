@@ -14,8 +14,9 @@ const MS_PER_SECOND = 1_000;
 const RETRYABLE_ERROR_TYPES: ReadonlySet<string> = new Set(["rate_limit_error", "overloaded_error"]);
 const SECONDS_FORM = /^\d+(\.\d+)?$/;
 
-/** True for the answers worth one more try: HTTP 429 / 529, or an Anthropic limit error type at
- *  any status. Never a timeout, a network failure, 400, 401, 403 or a plain 500. */
+/** True for the answers worth one more try: HTTP 429 / 529, or an Anthropic limit error type
+ *  on a non-2xx answer (the transport only ever passes non-2xx answers here; a 2xx is never
+ *  re-sent). Never a timeout, a network failure, 400, 401, 403 or a plain 500. */
 export function isRetryableAiAnswer(status: number, errorType: string | undefined): boolean {
   if (status === 429 || status === 529) return true;
   return errorType !== undefined && RETRYABLE_ERROR_TYPES.has(errorType);
