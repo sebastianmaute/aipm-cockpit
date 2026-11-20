@@ -542,7 +542,7 @@ export const TOOL_DEFS = [
     //      entity writers now log with `actor: "ai"` — verify with
     //      `grep -c 'logActivityAi?.(origin' src/app/use-chat-dispatcher.ts
     //      src/app/use-register-tools.ts`, which returned 12 and 19 — 31 sites — on 2026-11-20 (§799: the
-    //      AI logger, which also stamps the calling feature; it was `logActivityAs?.("ai"` before, and the
+    //      AI logger, which also stamps the calling feature; it was the actor-taking human logger before, and the
     //      11 and 12 once quoted here had already gone stale),
     //      against the 1 a bare `grep -c logActivity` found when this caveat was
     //      written. ★★ TWO CHANGES from that original spelling, both deliberate.

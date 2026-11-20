@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import type { ActivityActor, ActivityKind } from "./activity-log";
+import type { ActivityKind, HumanActor } from "./activity-log";
 import type { AiOrigin } from "./activity-origin";
 
 export type LogActivityFn = (kind: ActivityKind, ...args: (string | number)[]) => void;
@@ -20,7 +20,7 @@ export type LogActivityFn = (kind: ActivityKind, ...args: (string | number)[]) =
  *  entry is `ai.taskDedup`. One actor-less channel served both by naming
  *  neither. Each consumer now names its own. */
 export type LogActivityAsFn = (
-  actor: ActivityActor,
+  actor: HumanActor,
   kind: ActivityKind,
   ...args: (string | number)[]
 ) => void;

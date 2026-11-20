@@ -34,6 +34,18 @@ describe("useActivityLog", () => {
     });
   });
 
+  describe("the human logger cannot write an AI entry (§799)", () => {
+    it("logActivityAs and logActivityChangesAs reject the \"ai\" actor at compile time", () => {
+      const { result } = renderLog();
+      act(() => {
+        // @ts-expect-error "ai" is not a HumanActor; only logActivityAi may write an AI entry
+        result.current.logActivityAs("ai", "task.updated");
+        // @ts-expect-error "ai" is not a HumanActor; only logActivityAi may write an AI entry
+        result.current.logActivityChangesAs("ai", "task.updated", []);
+      });
+    });
+  });
+
   describe("logActivity", () => {
     it("logActivity appends an entry", () => {
       const { result } = renderLog();
@@ -84,12 +96,12 @@ describe("useActivityLog", () => {
     it("logActivityAs stamps the actor, and the plain variant omits the key", () => {
       const { result } = renderLog();
       act(() => {
-        result.current.logActivityAs("ai", "task.created", 1, "Task A");
+        result.current.logActivityAs("integration", "task.created", 1, "Task A");
       });
       act(() => {
         result.current.logActivity("task.created", 2, "Task B");
       });
-      expect(result.current.activityLog[0].actor).toBe("ai");
+      expect(result.current.activityLog[0].actor).toBe("integration");
       // ★ `in` rather than toBeUndefined(): the key must be OMITTED so the ~150
       // untouched call sites keep writing byte-identical entries.
       expect("actor" in result.current.activityLog[1]).toBe(false);
@@ -99,11 +111,11 @@ describe("useActivityLog", () => {
       const { result } = renderLog();
       const changes = [{ field: "status", from: "Open", to: "Closed" }];
       act(() => {
-        result.current.logActivityChangesAs("ai", "raid.updated", changes, 5, "R", "Risk");
+        result.current.logActivityChangesAs("integration", "raid.updated", changes, 5, "R", "Risk");
       });
       expect(result.current.activityLog).toHaveLength(1);
       expect(result.current.activityLog[0].changes).toEqual(changes);
-      expect(result.current.activityLog[0].actor).toBe("ai");
+      expect(result.current.activityLog[0].actor).toBe("integration");
       expect(result.current.activityLog[0].args).toEqual([5, "R", "Risk"]);
     });
 

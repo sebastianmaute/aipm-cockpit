@@ -156,6 +156,10 @@ export interface FieldChange {
  *  actor therefore needs an own-property guard, never a bare index. */
 export type ActivityActor = "user" | "ai" | "integration";
 
+/** §799 — the actors the HUMAN loggers (`logActivityAs`, `logActivityChangesAs`) accept. `"ai"` is excluded so an
+ *  AI write cannot be logged without an origin: it must go through `logActivityAi`, and tsc names any that does not. */
+export type HumanActor = Exclude<ActivityActor, "ai">;
+
 import { sanitizeAiOrigin, type AiOrigin } from "./activity-origin";
 
 export interface ActivityEntry {

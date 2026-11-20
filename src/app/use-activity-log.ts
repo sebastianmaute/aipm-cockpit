@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import {
   appendActivity,
   appendActivityEntry,
-  type ActivityActor,
+  type HumanActor,
   type ActivityEntry,
   type ActivityKind,
   type FieldChange,
@@ -88,12 +88,12 @@ export function useActivityLog(): {
    *  call, an optional call (`args.logActivity?.(`) and a ref indirection
    *  (`logActivityRef.current(`). A grep for the first alone reported 27. */
   logActivityAs: (
-    actor: ActivityActor,
+    actor: HumanActor,
     kind: ActivityKind,
     ...args: (string | number)[]
   ) => void;
   logActivityChangesAs: (
-    actor: ActivityActor,
+    actor: HumanActor,
     kind: ActivityKind,
     changes: readonly FieldChange[],
     ...args: (string | number)[]
@@ -147,7 +147,7 @@ export function useActivityLog(): {
   // Actor-aware variants. Same functional-setter rule as above — an actor
   // changes WHO the entry names, never HOW it is written.
   const logActivityAs = useCallback(
-    (actor: ActivityActor, kind: ActivityKind, ...args: (string | number)[]) => {
+    (actor: HumanActor, kind: ActivityKind, ...args: (string | number)[]) => {
       setActivityLog((prev) => appendActivityEntry(prev, kind, args, undefined, actor));
     },
     [setActivityLog],
@@ -162,7 +162,7 @@ export function useActivityLog(): {
 
   const logActivityChangesAs = useCallback(
     (
-      actor: ActivityActor,
+      actor: HumanActor,
       kind: ActivityKind,
       changes: readonly FieldChange[],
       ...args: (string | number)[]

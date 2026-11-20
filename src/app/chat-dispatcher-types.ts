@@ -105,7 +105,8 @@ export interface ChatDispatcherArgs {
    *  `runTool` call ran the writer. That origin is an ARGUMENT of each writer,
    *  passed by `runToolAsSent` — never stored on the shared dispatcher, in a ref
    *  or in a module variable, because two AI operations can overlap in time.
-   *  Consumed by the 20 entity writers AND by
+   *  Consumed by the entity writers (list them with
+   *  `git grep -lE "logActivityAi" -- src/app ':!*.test.*'`; no count is quoted, since it rots) AND by
    *  `useDocumentTools` for the `ai.documentWrite` row — that one is redundant
    *  with its kind and stamped anyway, since a consumer filtering on ACTOR must
    *  not have to special-case a kind.
