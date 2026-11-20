@@ -58,8 +58,8 @@ feature on one demo project (E37, *measured*).
   the weight suggestion offers Accept for each weight; the others are applied, accepted or confirmed as a whole
   (E56, *read in code*). The steering committee draft waits under "AI draft – take sections into the report"
   until you take a section or all of them (E62, *read in code*).
-- **Undo and find again:** tasks created by an applied work breakdown cannot be undone, and carry no AI mark
-  (E66, *read in code*); the activity log entry for the apply names each task it created by number and title, so
+- **Undo and find again:** undoing an applied work breakdown removes the tasks it created, except any changed since or linked from
+  elsewhere, which stay; the tasks carry no AI mark (E66, *read in code*); the activity log entry for the apply names each task it created by number and title, so
   you can find them there (E68, *tested (unit)*).
 - **Cross-project allocation:** hours from other projects count only on a shared Turso database, for people
   matched by your confirmation or a shared e-mail address, and only from projects that allow people, which by

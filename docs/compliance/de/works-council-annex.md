@@ -261,9 +261,9 @@ aufgeführt. [geprüft je Punkt unten]
   geschrieben, bevor der Nutzer bestätigt. Die Vorschauen für Zuteilung, RACI und Projektstrukturplan
   zeigen jede Änderung mit ihrem aktuellen und ihrem neuen Wert. [geprüft: `src/app/alloc-plan-modal.tsx`,
   `src/app/raci-suggest-modal.tsx`, `src/app/task-dedup-modal.tsx`, `src/app/wbs-plan-modal.tsx`]
-  **Rückgängigmachen:** Das Rückgängigmachen eines
-  übernommenen Projektstrukturplans entfernt auch die Aufgaben, die er angelegt hat, außer solchen, die seither
-  geändert wurden oder von anderer Stelle verknüpft sind; diese bleiben. [geprüft: `src/app/use-wbs-plan.tsx`,
+  **Rückgängig:** Bei einem übernommenen Projektstrukturplan
+  entfernt „Rückgängig“ auch die Aufgaben, die er angelegt hat, außer solchen, die seither geändert wurden oder von
+  anderer Stelle verknüpft sind; diese bleiben. [geprüft: `src/app/use-wbs-plan.tsx`,
   `src/app/undo/created-rows.ts`]
 - **Prognose-Import.** Wird erst nach einer Vorschau ausgeführt und, wo die KI die Zuordnung der Spalten
   vorgeschlagen hat, erst nachdem der Nutzer diese Zuordnung bestätigt hat. [geprüft:
