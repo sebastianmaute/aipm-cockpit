@@ -630,9 +630,14 @@ export interface CreatedPart<T extends { id: number }> {
  * ★★ The peek's and the write's `isReferenced` answers can differ: the peek's flushed commit can run effects that
  * refresh what the caller reads (inside an `undoThrough`, a newer entry's undo that unlinks a RAID item from a
  * created row, or restores one linked to it). Neither answer is trusted alone; the removal is the INTERSECTION of
- * both. So the removal ⊆ `approved`, and `approved` non-empty ⇒ armed: a read that is stale in either direction can
- * only KEEP a row, never remove one unarmed or remove one that is linked when the write runs. An arm followed by
- * no removal is harmless (see `imagesRemoveRows`).
+ * both. So the removal ⊆ `approved`, and `approved` non-empty ⇒ armed: when the two reads DISAGREE, the row is
+ * kept, never removed unarmed. This does not make a read fresher than the caller's source: if both reads miss a
+ * link (the caller's view of it has not refreshed by the write), the row is removed, armed. The work-breakdown
+ * caller's view refreshes in the effects the peek's flushed commit runs, so the write sees a link that a newer
+ * entry's undo in the same `undoThrough` restored ("undoThrough that restores a RAID item linked to a created task
+ * keeps the task").
+ * An arm followed by no removal is spent by the next save effect, which this undo's own activity row triggers;
+ * `consumeArm` is a one-shot, the same over-approximation `imagesRemoveRows` accepts.
  * The redo never arms: it only re-inserts.
  *
  * ★ StrictMode-safe: every updater recomputes its results from `prev` into variables it OVERWRITES, never
