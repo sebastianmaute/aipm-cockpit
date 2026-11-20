@@ -642,7 +642,9 @@ Kept short: `AGENTS.md` owns each rule.
   a malformed answer counts as unanswered, and the failure is named by `TURSO_TEST_FAIL_KEYS`, never raw
   (`refuseConversionIntoProjects`, `storage-convert-guard.ts`; its wording names a way back only when the
   portfolio flag is File, see §791). One switch runs at a time (`switchBusyRef`). It
-  does not depend on `portfolioMode`, which an in-place switch leaves frozen ([§791](../open-followups.md#791-the-portfolio-flag-stays-on-turso-after-an-in-place-storage-switch-and-its-other-readers-are-unaudited)).
+  does not depend on `portfolioMode`, which is read once at startup. Under a Turso portfolio the same handler refuses
+  to leave Turso at all (since [§791](../open-followups.md#791-the-portfolio-flag-stays-on-turso-after-an-in-place-storage-switch-and-its-other-readers-are-unaudited--closed-2026-11-20): the error toast names Settings → Integrations → Portfolio storage),
+  so the flag and the live storage can only disagree on a device that switched before that fix.
   `turso-holds-projects.execute.test.ts` runs the probe, and the commit it prevents, on `node:sqlite`.
 - **`TABLE_NAMES`** is `ENTITY_SPECS` tables plus `plan`, `fx_rates` and `meta`, and a save
   emits `DELETE FROM` for every dirty one. Non-workspace tables (snapshots, version history,

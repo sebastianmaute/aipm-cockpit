@@ -941,6 +941,20 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     if (deps.isPopout) return;
     const current = deps.settingsRef.current.storageConfig;
     if (newKind === current.kind) return;
+    // ★★ §791 — while the PORTFOLIO is on Turso, storage may not leave Turso in place. The portfolio flag is
+    // read once at startup (`task-manager.tsx`) and nothing here moves it, so the switch would leave the
+    // flag on Turso over a local copy: project switch and create would still go to Turso, a rename would
+    // rename the Turso row, and trends would be recorded under the Turso project. The portfolio switch
+    // (`commitPortfolioModeSwitch`) leaves Turso correctly, so refuse and name it. That route also works
+    // after a failed Turso load, so the refusal covers the no-copy branch below too.
+    // (`newKind` cannot be "turso" here: the same-kind return above already left.) A device that reached a local
+    // kind under a Turso flag before this fix may still move between local kinds; only leaving Turso is refused.
+    if (current.kind === "turso" && loadPortfolioMode() === "turso") {
+      const lang = deps.langRef.current;
+      logDiag("info", "storage.switchDropped", { stage: "turso-portfolio" });
+      deps.emitToast("error", t(lang, "storageLeaveTursoPortfolio", t(lang, "settings"), t(lang, "settingsSectionIntegrations"), t(lang, "portfolioModeLabel"), t(lang, "portfolioModeFile")));
+      return;
+    }
     const newConfig: StorageConfig =
       (newKind === "sp-json" || newKind === "sp-csv") && (current.kind === "sp-json" || current.kind === "sp-csv")
         ? { ...current, kind: newKind }
