@@ -74,7 +74,6 @@ feature on one demo project (E37, *measured*).
    measured run (E39, *not proven*).
 3. **Marking is partial:** only project documents the AI wrote and the digest mail with its summary are marked
    (E73, *tested (unit)*); tasks, report text, chat replies and the workspace exports are not (E55, *read in code*).
-4. **§796:** tasks created by an applied work breakdown cannot be undone (E56, *read in code*).
 
 ## What to check or ask for before saying yes
 

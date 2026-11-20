@@ -87,8 +87,6 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
 3. **Die Kennzeichnung ist teilweise:** Nur Projektdokumente, die die KI schreibt, und die Digest-Mail mit ihrer
    Zusammenfassung sind gekennzeichnet (E73, *getestet (Unit)*); Aufgaben, Berichtstext, Chat-Antworten und die
    Exporte des Arbeitsbereichs nicht (E55, *im Code gelesen*).
-4. **§796:** Aufgaben, die ein übernommener Projektstrukturplan anlegt, lassen sich nicht rückgängig machen (E56,
-   *im Code gelesen*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
 

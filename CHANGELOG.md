@@ -10,6 +10,12 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Changed
+
+- **Undoing an "Optimize with AI" work breakdown now removes the tasks it created.** A created task that was changed
+  since, or is linked from another task, a RAID item, a milestone, a change or a budget bucket, stays, and a notice says
+  how many stayed. Redo puts the removed tasks back and restores the links they had (§796).
+
 ### Removed
 
 - **The SignPath code-signing pipeline.** SignPath Foundation declined the project's application, so the release
