@@ -46368,8 +46368,6 @@ Size M.
 
 **Earlier:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -nE "^\s*(actor|changes)\?:" src/app/activity-log.ts` prints the two optional fields an entry carries beyond its kind and arguments (and their uses in the sanitiser and the append helper); neither names a chat thread or message.
 
-**Work item:** #974
-
 The activity log records that the AI made a change, and what changed, but not which conversation or message asked for it. Someone reviewing an AI change cannot get from the log entry to the request behind it. (The 500-entry cap is a separate, accepted limit: §510.)
 
 What it would take: an optional reference on an entry (thread and message id) written by the chat's write paths, carried through the six write paths like the entry itself, and shown as a link in the Activity view when the thread still exists.
