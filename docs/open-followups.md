@@ -46322,8 +46322,6 @@ Size M.
 
 **Earlier:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -c "new tasks stay" src/app/i18n.ts` prints 1, the note the apply dialog shows ("Undo reverts the changes to existing tasks; new tasks stay and can be deleted by hand.").
 
-**Work item:** #971
-
 Applying an AI work breakdown captures an undo entry for the tasks it changes, but not for the tasks it creates, because the undo stack cannot reverse a create without duplicating the row. After an apply, the user removes unwanted new tasks by hand.
 
 What it would take: an undo kind that deletes the rows a create added (by id, checking they are unchanged since), wired into the work-breakdown apply, with a test that undo removes exactly the created tasks and keeps a task edited since.
