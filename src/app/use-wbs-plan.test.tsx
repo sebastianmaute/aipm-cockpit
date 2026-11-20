@@ -108,7 +108,7 @@ function Harness({ settings = AI_ON, guides = NO_GUIDES, isPopout = false, logAc
     settings,
     isPopout,
     lang: "en-US",
-    capture: undo.capture,
+    captureComposite: undo.captureComposite,
     logActivityAs: logActivitySpy as never,
     getScopeEpoch,
     loadPending,
@@ -447,7 +447,8 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     );
   });
 
-  it("undo reverts edits and leaves created rows single", async () => {
+  // §796 — the created row goes too (use-wbs-plan.undo.test.tsx covers the rest).
+  it("undo reverts edits and removes the created row", async () => {
     vi.mocked(call.runWbsProposal).mockResolvedValue(
       proposal([
         { kind: "regroup", taskId: 2, group: "Platform", why: "fits" },
@@ -465,11 +466,11 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     act(() => { api().undo.undo(); });
 
     expect(byId(api().ws.tasks, 2)?.group).toBe("Core");
-    expect(api().ws.tasks.filter((x) => x.taskName === "Write docs")).toHaveLength(1);
+    expect(api().ws.tasks.filter((x) => x.taskName === "Write docs")).toHaveLength(0);
   });
 
-  // The capture holds no image of a created row, so undo leaves a later edit
-  // to that row alone (a whole-row image would roll the rename back).
+  // §796 — a created row edited since is KEPT, and its later edit is left alone
+  // (a whole-row image would roll the rename back).
   it("undo leaves a created row's later edit alone", async () => {
     vi.mocked(call.runWbsProposal).mockResolvedValue(
       proposal([
@@ -493,8 +494,8 @@ describe("useWbsPlan (optimize work breakdown)", () => {
   });
 
   // The one capture whose editedAfter names created rows: links to a split's
-  // piece 2 and to a new task. Undo restores the original row; created rows stay
-  // (undo.md "Creates"). Redo re-applies the rewrite and duplicates nothing.
+  // piece 2 and to a new task. Undo restores the original row and removes the
+  // created rows (§796). Redo re-applies the rewrite and duplicates nothing.
   it("undo after a split and a new task restores the original row, and redo re-applies it without duplicating rows", async () => {
     vi.mocked(call.runWbsProposal).mockResolvedValue(
       proposal([
@@ -541,7 +542,7 @@ describe("useWbsPlan (optimize work breakdown)", () => {
 
     act(() => { api().undo.undo(); });
 
-    expect(api().ws.tasks).toHaveLength(5);
+    expect(api().ws.tasks).toHaveLength(3);
     expect(rewrite(byId(api().ws.tasks, 1))).toEqual({
       taskName: "Task 1",
       description: "<p>Original</p>",
@@ -549,8 +550,8 @@ describe("useWbsPlan (optimize work breakdown)", () => {
       dependencies: [{ taskId: 3, type: "FS" }],
     });
     expect(rewrite(byId(api().ws.tasks, 2)).dependencies).toEqual([]);
-    expect(once("Build API")).toHaveLength(1);
-    expect(once("Write docs")).toHaveLength(1);
+    expect(once("Build API")).toHaveLength(0);
+    expect(once("Write docs")).toHaveLength(0);
 
     act(() => { api().undo.redo(); });
 

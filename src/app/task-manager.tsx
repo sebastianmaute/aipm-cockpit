@@ -1080,7 +1080,7 @@ function TaskManagerInner() {
     [shifts, editingShift],
   );
 
-  const wbsPlan = useWbsPlan({ settings, isPopout, lang, capture: undoApi.capture, logActivityAs, getScopeEpoch, loadPending, today, holidaySet, guides: operatingGuides.guides });
+  const wbsPlan = useWbsPlan({ settings, isPopout, lang, captureComposite: undoApi.captureComposite, logActivityAs, getScopeEpoch, loadPending, today, holidaySet, guides: operatingGuides.guides });
   // The AI assistant's tool dispatcher, with its derived read-tool getters (budget rollup, allocations,
   // dashboard model) — see use-chat-dispatcher-wiring.ts (§491).
   const projectWriterRef = useRef<import("./use-project-tools").ProjectWriter | null>(null); // §715 — the project form's writer, filled below once usePortfolioProjects returns it

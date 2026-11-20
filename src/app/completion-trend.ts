@@ -196,14 +196,15 @@ const BULK_CREATE_KINDS = new Set(["ai.wbsPlan"]);
  *  a first-cut row is `[N, kind]`, and neither carries a pair. Both read as 0 —
  *  the pre-fix behaviour — so no stored row is reinterpreted into a wrong number.
  *
- *  ★ `task.created` and `bulk.delete` are BOTH unreachable today and handled
- *  anyway: no `capture()` call passes either as its kind (`task.deleted` is what
- *  a delete captures, whatever kind the matching activity row uses), so neither
- *  can appear in a pair. They are here because leaving a total-moving kind out of
- *  a reversal table is exactly the asymmetry §163 and §166 each cost a release to
- *  find. `task.created` is pinned by a synthetic-fixture test; a `bulk.delete`
- *  capture kind would be a new writer's choice, and this branch means it would be
- *  correct rather than silent. */
+ *  ★ `task.created` is reachable (§796): the undo/redo row of a work-breakdown apply
+ *  appends a trailing `task.created` n pair (`createdPairs` in `use-undo-stack.ts`)
+ *  counting the created tasks the undo removed or the redo re-inserted. `bulk.delete`
+ *  is NOT reachable today and is handled anyway: no `capture()` call passes it as
+ *  its kind (`task.deleted` is what a delete captures, whatever kind the matching
+ *  activity row uses), so it cannot appear in a pair. It is here because leaving a
+ *  total-moving kind out of a reversal table is exactly the asymmetry §163 and §166
+ *  each cost a release to find; a `bulk.delete` capture kind would be a new
+ *  writer's choice, and this branch means it would be correct rather than silent. */
 function reversedForwardDelta(args: readonly (string | number)[]): number {
   let delta = 0;
   for (let i = 1; i + 1 < args.length; i += 2) {

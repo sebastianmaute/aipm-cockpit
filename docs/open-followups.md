@@ -1033,7 +1033,7 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§793](#793-the-installers-uninstaller-is-not-code-signed--closed-2026-11-17) | The installer's uninstaller is not code-signed | — | — | **CLOSED** 2026-11-17 |
 | [§794](#794-a-single-ai-chat-write-applies-without-the-review-card--closed-2026-11-16) | A single AI chat write applies without the review card | — | — | **CLOSED** 2026-11-16 |
 | [§795](#795-background-ai-runs-are-consented-once-not-approved-run-by-run--closed-2026-11-16) | Background AI runs are consented once, not approved run by run | — | — | **CLOSED** 2026-11-16 |
-| [§796](#796-tasks-created-by-optimize-work-breakdown-with-ai-cannot-be-undone) | Tasks created by Optimize work breakdown with AI cannot be undone | — | — | open |
+| [§796](#796-tasks-created-by-optimize-work-breakdown-with-ai-cannot-be-undone--closed-2026-11-20) | Tasks created by Optimize work breakdown with AI cannot be undone | — | — | **CLOSED** 2026-11-20 |
 | [§797](#797-external-text-that-the-chats-tools-read-does-not-trigger-the-review-hold--closed-2026-11-15) | External text that the chat's tools read does not trigger the review hold | — | — | **CLOSED** 2026-11-15 |
 | [§798](#798-most-ai-requests-have-no-client-time-limit-and-none-is-retried-on-a-rate-limit-or-overload) | Most AI requests have no client time limit, and none is retried on a rate limit or overload | — | — | open |
 | [§799](#799-an-activity-entry-written-by-the-ai-does-not-link-to-the-chat-message-that-caused-it) | An activity entry written by the AI does not link to the chat message that caused it | — | — | open |
@@ -46319,11 +46319,11 @@ Size M.
 
 **Source:** compliance pack gap check, 2026-11-13.
 
-## 796. Tasks created by Optimize work breakdown with AI cannot be undone
+## 796. Tasks created by Optimize work breakdown with AI cannot be undone — CLOSED 2026-11-20
 
-**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -c "new tasks stay" src/app/i18n.ts` prints 1, the note the apply dialog shows ("Undo reverts the changes to existing tasks; new tasks stay and can be deleted by hand.").
+**Status:** CLOSED 2026-11-20. Undoing an applied "Optimize with AI" work breakdown now removes the tasks it created. The apply records ONE `bulk.edit` entry made of a field patch over the edited existing tasks and a created part (`captureCreatedPart` in `src/app/undo/use-undo-stack.ts`, the last fragment; pure core `undoCreatedRows` / `redoCreatedRows` in `src/app/undo/created-rows.ts`), and an apply that only creates now gets an entry too. Undo removes a created task only when it still equals the row the apply wrote (every field but `localModifiedAt`) and nothing outside the apply points at it (`taskReferencedOutsideApply` in `src/app/wbs-plan/wbs-undo-refs.ts`: a dependency the breakdown did not write, or a RAID item, milestone, change, budget bucket, knowledge item or document linking it). A task that changed or is linked stays, its dependencies on removed tasks are dropped, and one toast says how many were kept (`wbsPlanUndoKept`, `wbsPlanUndoKeptOne`); the apply dialog's note now reads `wbsPlanUndoNote`. Redo re-inserts the removed tasks under their original ids when those are free, else under fresh ones, and restores the dropped links. The undo arms the destructive-save bypass itself (§295) and the undo/redo activity rows carry a trailing `task.created` pair with the number removed or re-inserted. Verified with `npx vitest run src/app/undo/created-rows.test.ts`, `npx vitest run src/app/wbs-plan/wbs-undo-refs.test.ts`, `npx vitest run src/app/undo/use-undo-stack.created.test.tsx` and `npx vitest run src/app/use-wbs-plan.undo.test.tsx`, each run alone and passing on 2026-11-20 (the per-file count is what each command prints). Undo of a lone created part costs two `flushSync` commits, so it must never be called from an effect.
 
-**Work item:** #971
+**Earlier:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -c "new tasks stay" src/app/i18n.ts` prints 1, the note the apply dialog shows ("Undo reverts the changes to existing tasks; new tasks stay and can be deleted by hand.").
 
 Applying an AI work breakdown captures an undo entry for the tasks it changes, but not for the tasks it creates, because the undo stack cannot reverse a create without duplicating the row. After an apply, the user removes unwanted new tasks by hand.
 

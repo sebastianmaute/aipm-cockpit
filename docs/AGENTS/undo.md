@@ -12,7 +12,7 @@ RESTORE is one of its five writers), the `undo`/`redo` activity rows and what th
 reads from them (`docs/AGENTS/activity-log.md`), the note-log registers (`docs/AGENTS/rich-text.md`)
 or the load hold (`docs/AGENTS/platform.md`). One fact, one doc.
 
-★★★ **THE ENGINE CANNOT REVERSE A CREATE, AND CAPTURING ONE IS WORSE THAN NOT CAPTURING IT.** See
+★★★ **THE PLAIN CAPTURE CANNOT REVERSE A CREATE, AND CAPTURING ONE THAT WAY IS WORSE THAN NOT CAPTURING IT (§796: `captureCreatedPart` is the supported way).** See
 "Creates" below before adding undo to any write that adds a row.
 
 ## What is undoable
@@ -23,7 +23,7 @@ or the load hold (`docs/AGENTS/platform.md`). One fact, one doc.
 - **Human writes.** Single-row edits, deletes, bulk edits, bulk deletes, clear-all and cascade deletes,
   each through one of the four capture methods on `UndoStackApi` (`capture`, `captureFieldEdit`,
   `captureComposite`, `captureFieldRows`).
-- **AI writes: updates, deletes and the RAID escalation only.** The chat tool handlers that capture
+- **AI writes: updates, deletes, the RAID escalation and the work-breakdown apply.** The chat tool handlers that capture
   do so with one `captureComposite` entry each. Enumerate them by kind, one line per site:
   `grep -n 'kind: "' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts src/app/use-project-tools.ts`.
   ★ `update_project` (§715) is the one whose fragment is NOT a row image: `projectUndoFragment`
@@ -37,6 +37,9 @@ or the load hold (`docs/AGENTS/platform.md`). One fact, one doc.
   (`grep -c captureComposite src/app/use-document-tools.ts` prints 0). An APPLIED staged plan
   collapses all of its captures into ONE entry through `useUndoBatch` / `collapseCaptures`, with a
   `primaryCount` summed from the captures that reversed something.
+  ★ The "Optimize with AI" work-breakdown apply (`useWbsPlan`, logged `ai.wbsPlan`) is ONE `bulk.edit` composite: a
+  `captureFieldPart` over the edited existing tasks, then a `captureCreatedPart` over the tasks it created ("Creates"
+  below). An apply that only creates now gets an entry too; it used to get none.
   ★ The AI allocation plan (`useAllocPlan`, logged `ai.allocationPlan`) is undoable too, but not
   through a chat tool handler: it records one `capture` with `kind: "bulk.edit"` and
   `entityKey: "resource"`.
@@ -46,7 +49,7 @@ or the load hold (`docs/AGENTS/platform.md`). One fact, one doc.
   resources' `utilization`, with the hours notice as `toastText`. A path that already captures its own
   entry folds the resources part in (`prepare`, then `record`); `collapseCaptures` keeps the captures'
   `toastText` (the first two in full, then a count of the rest), so a staged chat plan still shows it.
-- **Not undoable:** creates (below), `send_inquiry` (an AI update: its handler in
+- **Not undoable:** a create captured the plain way (below; the work-breakdown apply is the supported exception), `send_inquiry` (an AI update: its handler in
   `use-chat-dispatcher.ts` bumps `Task.inquiriesSent` with no capture — see the `shouldStage`
   docstring in `chat-proposal.ts`), project delete (`handleDeleteProject` takes no capture — §6 (a)),
   anything done in a popout (below), and anything across a reload — the stack is React state and
@@ -55,7 +58,7 @@ or the load hold (`docs/AGENTS/platform.md`). One fact, one doc.
 
 ## Creates
 
-`UndoOp` is `"delete" | "edit"`, nothing else, and the undo direction never removes a row.
+`UndoOp` is `"delete" | "edit"`, nothing else, and the plain row capture's undo never removes a row.
 ★★★ A create captured as `removed: [newRow]` is still LIVE at undo time, so
 `applyUndoRestoreWithRemap` sees its id as present and takes the id-REUSE branch: it mints
 `max + 1` and splices in a SECOND copy of the row. Read the delete loop in
@@ -70,6 +73,32 @@ only the rows the entry can reverse. `commitBuckets` (`use-budget-buckets.ts`) i
 — its kind can be `budget.created`, but it builds its images from `deleted` and `editedBefore` alone.
 ★ An activity kind ending `.created` is NOT a counter-example: `ActivityKind` and `UndoOp` are
 different vocabularies (the `imagesRemoveRows` docstring says the same).
+
+★★★ **`captureCreatedPart` (§796) IS THE SUPPORTED WAY TO UNDO A CREATE — the `removed: [newRow]` capture above still
+duplicates, so never use it for one.** The part is a composite fragment built by `captureCreatedPart`
+(`use-undo-stack.ts`) over the pure `undoCreatedRows` / `redoCreatedRows` (`created-rows.ts`); the work-breakdown apply
+(`wbsUndoParts` in `use-wbs-plan.tsx`, with `wbs-plan/wbs-undo-refs.ts`) is the one caller.
+- **Keep rule.** Undo removes a created row only when the live row still equals the image the op wrote — every field
+  but `localModifiedAt` (`rowChangedSince`; the write-through keys count, so a note added since keeps the row) — AND the
+  caller's `isReferenced` says nothing outside the op points at it. For tasks that is a dependency from a task the apply
+  did not create (or one a person added to a created task since), or a RAID item, milestone, change, budget bucket,
+  knowledge item (`taskIds`) or document (a `kind: "task"` entry in `linkedEntities`)
+  linking it (`taskReferencedOutsideApply`). A created id already gone from the array counts as neither removed nor kept.
+- **Kept rows.** Their links to removed rows are dropped (`dropRefs`; `keptBefore` / `keptAfter` record the change) and a
+  redo restores them. `onKept` runs once per undo, from a microtask, with the kept ids; the apply shows one toast
+  (`wbsPlanUndoKept`, `wbsPlanUndoKeptOne`).
+- **Redo** re-inserts every removed row under its original id when that is free, else re-mints and follows the new id
+  through the restored rows and the rows in `remapScope` (the edited tasks, whose patch was written naming the original
+  id; `wbsUndoParts` rebuilds that patch's dependencies after a re-mint).
+- **Placement.** The part must be the LAST fragment of its composite and never primary or `followsPrimary`: undo runs
+  fragment 0 first, so an edit patch has reverted the links the op wrote before `isReferenced` looks, and redo runs in
+  index order, so the patch has re-written them before the part re-inserts. ★ `collapseCaptures` (`use-undo-batch.ts`)
+  concatenates the captures' parts in REVERSE order, so a created part must not be collapsed into a staged chat plan
+  without revisiting this; no chat path passes one today.
+- **Cost.** A lone created part's undo runs two `flushSync` commits (the arming peek, then the write; see "The
+  runners"), so never call undo from an effect.
+- **Activity.** The undo and redo rows append a trailing created pair (`task.created`, n) when n > 0 (`createdPairs`),
+  after `reversedKindCounts`' pairs; the completion trend reads it (`activity-log.md`).
 
 ## Two registrations for a new undoable entity
 
@@ -197,9 +226,15 @@ fragment.
 capture toast's Undo button calls it), because that redo can no longer stay coherent.
 ★★★ **A REDO THAT RE-REMOVES ROWS MUST ARM THE DESTRUCTIVE-SAVE BYPASS, OR THE SAVE IS REFUSED (§295).**
 `fragmentUndoRunner` and `capturePart`'s redo call `arm` when `imagesRemoveRows` is true;
-`compositeUndoRunner` only forwards it. `captureFieldEdit`, `fieldRowsRunner` and the undo direction
-never arm, deliberately: none of them can remove a row (the first two map over existing rows; undo
-only re-inserts or reverts), and an arm nobody spends leaks to the next unrelated save. `task-manager.tsx` wires `allowDestructiveSave` through a
+`compositeUndoRunner` only forwards it. `captureFieldEdit`, `fieldRowsRunner` and the undo direction of the
+row-image fragments never arm, deliberately: none of them can remove a row (the first two map over existing rows; undo
+only re-inserts or reverts), and an arm nobody spends leaks to the next unrelated save.
+★★★ **THE ONE UNDO THAT REMOVES ROWS IS `captureCreatedPart`'s, AND IT ARMS BEFORE ITS WRITE.** Whether anything is
+removable is only known from `prev`, so it runs a flushed read-only PEEK updater (returns `prev`, so the array keeps its
+identity and no effect over it runs), then `arm` outside every updater iff it found a row, then the flushed write.
+Arming after the write is too late: the save effect runs inside `flushSync` and would already have been refused. Its
+redo only re-inserts and never arms. The redo images and counts are overwritten from `prev` on every updater call, so
+StrictMode's double invoke is harmless. `task-manager.tsx` wires `allowDestructiveSave` through a
 ref, and it is armed in the same synchronous block as the setter.
 ★★ **Redo removes a row only if it still matches the recovered image** (`rowsEqualExcept`, ignoring
 the write-through keys at the top level only) — so a redo cannot destroy an unrelated row that

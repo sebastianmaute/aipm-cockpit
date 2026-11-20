@@ -18,6 +18,12 @@ longer carries its own changelog comment.
   while a step remains, until you hide it); milestones, stakeholders and assignments for the RACI matrix; roles with a
   rate, disciplines and grades, and people for Resources, with links to the views that do each step (§736, §734, §731).
 
+### Changed
+
+- **Undoing an "Optimize with AI" work breakdown now removes the tasks it created.** A created task that was changed
+  since, or is linked from another task, a RAID item, a milestone, a change, a budget bucket, a knowledge item or a
+  document, stays, and a notice says how many stayed. Redo puts the removed tasks back and restores the links they had (§796).
+
 ### Removed
 
 - **The SignPath code-signing pipeline.** SignPath Foundation declined the project's application, so the release
