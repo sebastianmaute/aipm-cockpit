@@ -1288,10 +1288,8 @@ function ChatPanelInner({
         }
       }
     } finally {
-      // A send superseded by a newer one (project switch, then a new send) must
-      // not clear the newer send's wait line: only clear when no OTHER send owns the ref.
-      // Defensive: a new send cannot start until this `finally` has run (the composer refuses while
-      // `abortRef` is set), so the superseded case cannot occur today.
+      // Defensive: only clear when no OTHER send owns the ref. A new send cannot start before this `finally`
+      // has run (the composer refuses while `abortRef` is set), so the superseded case cannot occur today.
       const ownsRetryWait = abortRef.current === controller || abortRef.current === null;
       if (abortRef.current === controller) abortRef.current = null;
       setBusy(false);
