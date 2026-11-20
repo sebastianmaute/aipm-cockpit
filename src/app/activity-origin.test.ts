@@ -29,6 +29,11 @@ describe("sanitizeAiOrigin", () => {
     expect(sanitizeAiOrigin(b)).toBe(b);
   });
 
+  it("strips an unknown extra key, so no user-written string rides the origin", () => {
+    expect(sanitizeAiOrigin({ feature: "chat", note: "x" })).toEqual({ feature: "chat" });
+    expect(sanitizeAiOrigin({ feature: "chat", threadId: "t", requestId: "r", note: "x" })).toEqual({ feature: "chat", threadId: "t", requestId: "r" });
+  });
+
   it("keeps a whole link", () => {
     expect(sanitizeAiOrigin({ feature: "chat", threadId: "t", requestId: "r" })).toEqual({ feature: "chat", threadId: "t", requestId: "r" });
   });

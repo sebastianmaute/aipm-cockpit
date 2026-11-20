@@ -759,6 +759,11 @@ describe("AI origin (§799)", () => {
     expect(Object.hasOwn(out as object, "origin")).toBe(false);
   });
 
+  test("sanitizeActivityEntry strips an unknown origin key", () => {
+    const out = sanitizeActivityEntry({ ...base, origin: { feature: "chat", note: "x" } });
+    expect(out?.origin).toEqual({ feature: "chat" });
+  });
+
   test("sanitizeActivityEntry repairs a half link", () => {
     const out = sanitizeActivityEntry({ ...base, origin: { feature: "chat", threadId: 5, requestId: "r" } });
     expect(out?.origin).toEqual({ feature: "chat" });

@@ -59,6 +59,13 @@ export interface ActivityAudit {
   projects: { id: string; name: string; archived: boolean; logUnreadable?: true; entriesDropped?: number; entries: ActivityAuditEntry[] }[];
 }
 
+/** Copies only the origin's known fields, so nothing else a stored entry carries reaches the download. */
+function auditOrigin(o: AiOrigin): AiOrigin {
+  return o.threadId !== undefined && o.requestId !== undefined
+    ? { feature: o.feature, threadId: o.threadId, requestId: o.requestId }
+    : { feature: o.feature };
+}
+
 function auditEntry(e: ActivityEntry): ActivityAuditEntry {
   return {
     id: e.id,
@@ -66,7 +73,7 @@ function auditEntry(e: ActivityEntry): ActivityAuditEntry {
     kind: e.kind,
     args: [...e.args],
     ...(e.actor !== undefined ? { actor: e.actor } : {}),
-    ...(e.origin !== undefined ? { origin: { ...e.origin } } : {}),
+    ...(e.origin !== undefined ? { origin: auditOrigin(e.origin) } : {}),
     // `allDetail`: the download is a machine-stable record that people also read, so a work-breakdown entry names
     // every task it created, as the Activity panel does, while stored values stay raw (no `display`, §476); the
     // capped form is the model's alone.

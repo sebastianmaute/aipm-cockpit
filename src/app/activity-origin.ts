@@ -52,15 +52,17 @@ export function chatSendOrigins(
 
 const isNonEmptyString = (x: unknown): x is string => typeof x === "string" && x.length > 0;
 
-/** Load-boundary repair. `null` = drop the origin (the entry survives). A well-formed input is returned
- *  BY REFERENCE; a half link is stripped to the bare feature. */
+/** Load-boundary repair. `null` = drop the origin (the entry survives). The result holds ONLY `feature` and,
+ *  when both are valid, `threadId` + `requestId`: an unknown extra key is stripped (no user-written string may
+ *  ride the origin) and a half link is stripped to the bare feature. An input that already has exactly those
+ *  keys is returned BY REFERENCE, so a clean entry keeps its identity. */
 export function sanitizeAiOrigin(v: unknown): AiOrigin | null {
   if (!v || typeof v !== "object" || Array.isArray(v)) return null;
   const o = v as { feature?: unknown; threadId?: unknown; requestId?: unknown };
   if (!isNonEmptyString(o.feature)) return null;
-  const hasThread = o.threadId !== undefined;
-  const hasRequest = o.requestId !== undefined;
-  if (!hasThread && !hasRequest) return v as AiOrigin;
-  if (isNonEmptyString(o.threadId) && isNonEmptyString(o.requestId)) return v as AiOrigin;
-  return { feature: o.feature };
+  const keys = Object.keys(o);
+  if (keys.length === 1) return v as AiOrigin;
+  const hasLink = isNonEmptyString(o.threadId) && isNonEmptyString(o.requestId);
+  if (hasLink && keys.length === 3) return v as AiOrigin;
+  return hasLink ? { feature: o.feature, threadId: o.threadId as string, requestId: o.requestId as string } : { feature: o.feature };
 }

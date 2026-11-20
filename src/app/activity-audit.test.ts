@@ -7,6 +7,7 @@ import {
 } from "./activity-audit";
 import { wbsPlanActivityArgs, type ActivityEntry } from "./activity-log";
 import { activityMessage } from "./activity-message";
+import type { AiOrigin } from "./activity-origin";
 
 // open-followups §510 — the internal activity-log download. Owner ruling 2026-10-04: include the
 // field changes, mark the file internal, cover the whole Turso portfolio when there is one.
@@ -122,6 +123,12 @@ describe("buildActivityAudit — AI origin (§799)", () => {
     const origin = { feature: "chat", threadId: "t", requestId: "r" };
     const [project] = buildActivityAudit("current", [source({ log: [entry({ origin })] })], NOW, "1.15.0").projects;
     expect(project.entries[0].origin).toEqual(origin);
+  });
+
+  it("carries only the origin's known fields", () => {
+    const origin = { feature: "chat", note: "x" } as unknown as AiOrigin;
+    const [project] = buildActivityAudit("current", [source({ log: [entry({ origin })] })], NOW, "1.15.0").projects;
+    expect(project.entries[0].origin).toEqual({ feature: "chat" });
   });
 
   it("has no origin key on an entry without one", () => {
