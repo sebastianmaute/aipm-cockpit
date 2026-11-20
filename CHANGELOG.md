@@ -10,6 +10,14 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Added
+
+- **Setup checklists for the Gantt chart, the RACI matrix and the Resources views.** Their empty states named one
+  missing input at a time, or none. Each now shows its whole setup order in the shape of the Budget checklist, ticked
+  from your project data: dated tasks, dependencies and milestones for the Gantt chart (which keeps a collapsed line
+  while a step remains, until you hide it); milestones, stakeholders and assignments for the RACI matrix; roles with a
+  rate, disciplines and grades, and people for Resources, with links to the views that do each step (§736, §734, §731).
+
 ### Removed
 
 - **The SignPath code-signing pipeline.** SignPath Foundation declined the project's application, so the release

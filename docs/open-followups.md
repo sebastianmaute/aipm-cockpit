@@ -970,12 +970,12 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§728](#728-the-first-start-splashs-german-locale-text-has-not-been-eye-checked-on-a-packaged-desktop-build-three-of-four-checks-seen--open) | The first-start splash's German-locale text has not been eye-checked on a packaged desktop build (three of four checks seen) | — | — | open |
 | [§729](#729-the-install-guide-describes-the-browser-download-prompt-and-the-windows-protection-box-without-pictures--closed-2026-10-14) | The install guide describes the browser download prompt and the Windows protection box without pictures | — | — | **CLOSED** 2026-10-14 |
 | [§730](#730-the-timelog-view-gives-no-guided-setup-for-its-connection-links-and-first-fetch--open) | The TimeLog view gives no guided setup for its connection, links and first fetch | — | — | open |
-| [§731](#731-an-empty-resources-view-says-only-no-contacts-available-and-gives-no-setup-order--open) | An empty Resources view says only "No contacts available." and gives no setup order | — | — | open |
+| [§731](#731-an-empty-resources-view-says-only-no-contacts-available-and-gives-no-setup-order--closed-2026-11-20) | An empty Resources view says only "No contacts available." and gives no setup order | — | — | **CLOSED** 2026-11-20 |
 | [§732](#732-the-jira-integration-gives-no-guided-setup-for-site-token-project-and-first-sync--open) | The Jira integration gives no guided setup for site, token, project and first sync | — | — | open |
 | [§733](#733-the-outlook-calendar-integration-gives-no-guided-setup-for-sign-in-write-back-types-and-sync--open) | The Outlook calendar integration gives no guided setup for sign-in, write-back types and sync | — | — | open |
-| [§734](#734-an-empty-raci-matrix-names-one-missing-input-at-a-time--open) | An empty RACI matrix names one missing input at a time | — | — | open |
+| [§734](#734-an-empty-raci-matrix-names-one-missing-input-at-a-time--closed-2026-11-20) | An empty RACI matrix names one missing input at a time | — | — | **CLOSED** 2026-11-20 |
 | [§735](#735-ai-documents-give-no-guided-setup-for-the-api-key-templates-and-a-first-document--open) | AI documents give no guided setup for the API key, templates and a first document | — | — | open |
-| [§736](#736-an-empty-gantt-chart-names-only-the-first-missing-input--open) | An empty Gantt chart names only the first missing input | — | — | open |
+| [§736](#736-an-empty-gantt-chart-names-only-the-first-missing-input--closed-2026-11-20) | An empty Gantt chart names only the first missing input | — | — | **CLOSED** 2026-11-20 |
 | [§737](#737-chart-labels-sit-directly-on-their-line-and-are-partly-hidden-or-hard-to-read--closed-2026-10-15) | Chart labels sit directly on their line and are partly hidden or hard to read | — | — | **CLOSED** 2026-10-15 |
 | [§738](#738-a-workday-hours-change-zeroes-the-hourly-rate-on-a-day-basis-roles-side-that-has-no-day-rate--closed-2026-10-15) | A workday-hours change zeroes the hourly rate on a day-basis role's side that has no day rate | — | — | **CLOSED** 2026-10-15 |
 | [§739](#739-a-new-projects-plan-start-date-is-the-utc-day-not-the-local-day--closed-2026-10-15) | A new project's plan start date is the UTC day, not the local day | — | — | **CLOSED** 2026-10-15 |
@@ -45396,7 +45396,7 @@ Size S.
 
 ## 730. The TimeLog view gives no guided setup for its connection, links and first fetch — OPEN
 
-**Status:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -n "timelogNotConfigured" src/app/i18n.ts` shows the only guidance: a switched-off notice pointing to Settings → Integrations.
+**Status:** **Update 2026-11-20:** the shared checklist component this entry asked for exists: `SetupChecklist` and `setupGoAction` in `src/app/setup-checklist.tsx`, which the Budget checklist (§710) now uses and the Gantt, RACI and Resources checklists (§736, §734, §731, closed) were built on (`grep -rn "SetupChecklist" src/app --include=*.tsx -l`). The TimeLog checklist itself is not built; Size S now. **Earlier:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -n "timelogNotConfigured" src/app/i18n.ts` shows the only guidance: a switched-off notice pointing to Settings → Integrations.
 
 **Work item:** #723
 
@@ -45408,11 +45408,12 @@ Size M (S once the shared component exists).
 
 **Source:** owner request 2026-10-14 ("file for all"), from a survey of which views need several setup steps in a fixed order.
 
-## 731. An empty Resources view says only "No contacts available." and gives no setup order — OPEN
+## 731. An empty Resources view says only "No contacts available." and gives no setup order — CLOSED 2026-11-20
 
-**Status:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -rln '"resourcesEmpty"' src/app --include=*.tsx` lists `resource-directory.tsx` and `resources-panel.tsx`, the two places that show it.
+**Status:** CLOSED 2026-11-20 on `feat/736-setup-checklists`: under "No contacts available." both places that show it (`resource-directory.tsx` and `resources-panel.tsx`) now show a checklist (`ResourcesSetupChecklist`): roles with a rate, disciplines and grades, people. Steps 1 and 3 reuse the Budget checklist's predicates (`budgetSetupSteps`). Capacity, absences and allocations need people first, so the intro names them instead of listing steps that could never tick in an empty view. Links go to Roles and, outside the directory (whose toolbar adds people), to the directory. `npx vitest run src/app/view-setup.test.ts src/app/view-setup-checklists.test.tsx` passes, and `npx vitest run src/app/resources-panel.test.tsx src/app/resource-directory.test.tsx` passes their §731 tests.
 
-**Work item:** #724
+**Earlier:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -rln '"resourcesEmpty"' src/app --include=*.tsx` lists `resource-directory.tsx` and `resources-panel.tsx`, the two places that show it.
+
 
 Resource planning depends on reference data that must exist first: roles (with rates for the budget), disciplines and grades, then the people, then capacity and absences, then allocations. The empty view says "No contacts available." and nothing about that order. Steps 1–2 overlap with the budget checklist (§710), which already ticks "Give your roles a rate" and "Add the people who do the work".
 
@@ -45450,11 +45451,12 @@ Size S.
 
 **Source:** owner request 2026-10-14 ("file for all"), from a survey of which views need several setup steps in a fixed order.
 
-## 734. An empty RACI matrix names one missing input at a time — OPEN
+## 734. An empty RACI matrix names one missing input at a time — CLOSED 2026-11-20
 
-**Status:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -n "raciNo" src/app/i18n.ts` shows `raciNoMilestones` and `raciNoStakeholders`, each shown alone.
+**Status:** CLOSED 2026-11-20 on `feat/736-setup-checklists`: the empty line still names the first missing input, and under it a checklist (`RaciSetupChecklist`) names milestones, stakeholders and the RACI assignments together, with links to the Milestones and Stakeholders views (none in a popout; a view whose function is off gets the turn-on hint). The "let Claude suggest" link the entry proposed was not added: Suggest RACI sits in the matrix toolbar, which shows only once both inputs exist. `npx vitest run src/app/view-setup.test.ts src/app/view-setup-checklists.test.tsx` passes, and `npx vitest run src/app/raci-panel.test.tsx` passes its three §734 tests.
 
-**Work item:** #727
+**Earlier:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -n "raciNo" src/app/i18n.ts` shows `raciNoMilestones` and `raciNoStakeholders`, each shown alone.
+
 
 The RACI matrix needs both milestones and stakeholders. The empty state says "Add milestones to build the RACI matrix." or "Add stakeholders to build the RACI matrix.", one at a time, so a user who fixes the first meets the second only afterwards.
 
@@ -45478,13 +45480,14 @@ Size S.
 
 **Source:** owner request 2026-10-14 ("file for all"), from a survey of which views need several setup steps in a fixed order.
 
-## 736. An empty Gantt chart names only the first missing input — OPEN
+## 736. An empty Gantt chart names only the first missing input — CLOSED 2026-11-20
 
-**Status:** **Update 2026-10-16 (owner decision):** build soon. The owner moved this from "build last or not at all" to the next onboarding builds; not started (`grep -n -A1 "ganttEmpty:" src/app/i18n.ts` still shows the one-input text).
+**Status:** CLOSED 2026-11-20 on `feat/736-setup-checklists`: the empty chart now shows a setup checklist (`GanttSetupChecklist`, drawn by the shared `SetupChecklist`) beside the add-task box: tasks with a due date, dependencies, and milestones when that function is on, each ticked from the unfiltered tasks and milestones (`ganttSetupSteps`, `view-setup.ts`). Once the chart draws, one collapsed line ("Gantt setup: N of M") stays while a step remains, until hidden; the hide choice is stored per device and project. The baseline step the entry proposed was dropped: the Gantt baseline comes from Turso trend snapshots (`baselineMilestoneTargets`), not from a setup action. The checklist offers no buttons, because the Gantt toolbar already has Add task and Add milestone. `npx vitest run src/app/view-setup.test.ts src/app/view-setup-checklists.test.tsx` passes, and `npx vitest run src/app/gantt.test.tsx` passes its "setup checklist (§736)" tests.
+
+**Earlier:** **Update 2026-10-16 (owner decision):** build soon. The owner moved this from "build last or not at all" to the next onboarding builds; not started (`grep -n -A1 "ganttEmpty:" src/app/i18n.ts` still shows the one-input text).
 
 **Earlier:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -n -A1 "ganttEmpty:" src/app/i18n.ts` shows the empty text "Add at least one task with a due date to see it on the Gantt chart.".
 
-**Work item:** #729
 
 The Gantt chart becomes useful with tasks that have dates, then dependencies, then milestones and a baseline. The empty text names only the first.
 
