@@ -76,9 +76,10 @@ Kennen Sie die Ausnahmen:
   `src/app/ai-consent.ts`]
 
 Was der Chat ändert, wird im Aktivitätsprotokoll als Änderung der KI festgehalten, und die meisten
-Änderungen lassen sich mit „Rückgängig“ zurücknehmen. Aufgaben, die durch einen von Ihnen übernommenen
-Projektstrukturplan angelegt wurden, lassen sich nicht rückgängig machen; löschen Sie sie von Hand.
-[geprüft: `src/app/activity-log.ts`; Register §796]
+Änderungen lassen sich mit „Rückgängig“ zurücknehmen. „Rückgängig“ bei einem von Ihnen übernommenen
+Projektstrukturplan entfernt auch die Aufgaben, die er angelegt hat, außer solchen, die Sie seither geändert
+oder von anderer Stelle verknüpft haben; diese bleiben.
+[geprüft: `src/app/use-wbs-plan.tsx`, `src/app/undo/created-rows.ts`]
 
 Sie bleiben verantwortlich für das, was Sie übernehmen, und für das, was Sie weitergeben, etwa einen
 Bericht oder eine E-Mail, die die KI entworfen hat. [Aussage des Maintainers; die Regeln Ihrer
