@@ -45347,10 +45347,9 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 **Earlier:** OPEN 2026-10-14, filed from §500's residue list; `grep -c "" src/app/budget-import/forecast-plan.ts` prints 498 on 2026-10-14, which is 499 by the `size:check` count (lines + 1).
 
-
 `src/app/budget-import/forecast-plan.ts` grew from 429 to 499 lines in §500's last review rounds. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
 
-- (6) The next growth should split matching from apply.
+- (6) The next growth should split matching from apply. (Fixed 2026-11-20: `forecast-apply.ts`.)
 
 The entry closes when every item is fixed or closed by an owner decision.
 
