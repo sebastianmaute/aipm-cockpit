@@ -107,7 +107,7 @@ der App.
   aufgelöst wird; DNS-Rebinding bleibt möglich (E70, *getestet (Unit)*).
 - Für Vorfälle: Das Aktivitätsprotokoll nennt die KI als Akteur ihrer Änderungen und die KI-Funktion, die jede
   vorgenommen hat; bei Turso-Speicherung verweist eine Änderung aus dem Chat zudem auf die Chat-Anfrage dahinter,
-  solange dieser Chat noch besteht (E55, *im Code gelesen*).
+  solange dieser Chat noch in der eigenen geladenen Chat-Liste der ansehenden Person für dieses Projekt steht und diese Anfrage noch enthält; Einträge aus der Zeit vor dieser Version tragen weder die KI-Funktion noch eine Verknüpfung (E55, *im Code gelesen*).
 - Fragen Sie Anthropic, was es von einer Anfrage aufbewahrt, wie lange und ob es damit trainiert.
 - Prüfen Sie SBOM und Herkunftsnachweise der Version, die Sie installieren, und weisen Sie die Nutzenden auf die
   Warnung vor einem unbekannten Herausgeber hin (E50, *getestet (Unit)*; E51, *getestet (Unit)*).

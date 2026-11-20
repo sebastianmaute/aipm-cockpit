@@ -765,6 +765,9 @@
   (raid, change, milestone, stakeholder, absence, calendarEvent), with `ai.documentWrite` in `use-document-tools.ts`; derive the sites and kinds over all
   three rather than quoting a number:
   `grep -ohE 'logActivityAi\?\.\(origin, "[A-Za-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts src/app/use-document-tools.ts | sort | uniq -c`.
+  The "every" covers the entity writers in those three files only; other callers of `logActivityAi` (the plan and suggestion
+  hooks, `use-forecast-tools.ts`, `use-reassign-hours.ts`, `project-meta-edit.ts`) are found with
+  `git grep -lE "logActivityAi" -- src/app ':!*.test.*'`.
   ★★ The coverage caveat therefore came OUT of the tool description in the same release, exactly as the
   ★★ below required. RETENTION (b) is unchanged and stays in.
   ★★★ **THE ORIGIN OF AN AI ENTRY TRAVELS AS AN ARGUMENT, NEVER AS DISPATCHER STATE (§799).** `runTool` takes a

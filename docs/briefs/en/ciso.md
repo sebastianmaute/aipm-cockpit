@@ -92,7 +92,7 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
   it, one caller can use up the limit for all (E54, *tested (unit)*; E69, *tested (unit)*). The dictation route refuses an endpoint whose host name
   resolves to a private address, though DNS rebinding remains (E70, *tested (unit)*).
 - For incidents: the activity log names the AI as actor of its changes and the AI feature that made each one;
-  with Turso storage, a chat change also links to the chat request behind it, while that chat still exists
+  with Turso storage, a chat change also links to the chat request behind it, while that chat is still in the viewer's own loaded chat list for this project and still holds that request; entries from before this release carry neither the feature nor a link
   (E55, *read in code*).
 - Ask Anthropic what it retains of a request, for how long, and whether it trains on it.
 - Check the SBOM and attestations of the release you install, and tell users about the unknown-publisher
