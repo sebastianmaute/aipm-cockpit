@@ -68,7 +68,9 @@ export function dropTaskRefs(row: Task, removed: ReadonlySet<number>): Task {
 
 /** `row` with its dependencies followed through `remap` — the SAME row when nothing moved. With `only`,
  *  just the entries equal to one of those (taskId and type) move: on an edited existing task, the links
- *  the apply wrote follow a re-mint, never a link a person added to the row that took the freed id. */
+ *  the apply wrote follow a re-mint. The match is by `(taskId, type)`, not by who wrote the link, so a
+ *  link a person added with the SAME taskId and type would be followed too. That needs a freed id to be
+ *  reused within the session, which the session id minter prevents. */
 export function remapTaskRefs(row: Task, remap: ReadonlyMap<number, number>, only?: readonly TaskDependency[]): Task {
   const deps = row.dependencies;
   if (!deps || remap.size === 0) return row;

@@ -464,9 +464,10 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         captureComposite?.({
           kind: "bulk.edit",
           entityKey: "task",
-          // Counts the created tasks even when an undo keeps all of them: the kept toast then replaces the stack's
-          // generic one, so this count is never shown for that undo.
-          primaryCount: result.applied,
+          // The TASKS the apply wrote — the edited existing ones plus the created ones — not the proposal items
+          // (`applied`): a split into 4 is one item but 4 tasks. It counts the created tasks even when an undo keeps
+          // all of them; the kept toast then replaces the stack's generic one, so that undo never shows this count.
+          primaryCount: result.editedBefore.length + result.created.length,
           parts: wbsUndoParts(result, setTasks, () => referrersRef.current, (n) => {
             showToast("info", tPlural(langRef.current, "wbsPlanUndoKept", n, n));
           }),
@@ -603,11 +604,13 @@ function wbsUndoParts(
       return part.restore(primaryRemap, isPrimary, arm, track);
     },
   };
-  const createdPart = captureCreatedPart<Task>({
+  const createdPart = captureCreatedPart<Task, TaskReferrers>({
     setter: setTasks,
     created,
     createdKind: "task.created",
-    isReferenced: (prev, id) => taskReferencedOutsideApply(prev, id, currentImages(), referrers()),
+    // Read once per undo, so the arming peek and the write judge the same links (`captureCreatedPart`).
+    readReferrers: referrers,
+    isReferenced: (prev, id, others) => taskReferencedOutsideApply(prev, id, currentImages(), others),
     dropRefs: dropTaskRefs,
     remapRefs: (row, remap) => {
       followed = composeRemap(followedAtUndo, remap, createdIds);

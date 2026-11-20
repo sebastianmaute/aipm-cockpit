@@ -234,6 +234,32 @@ describe("captureCreatedPart (§796)", () => {
     expect(arm).toHaveBeenCalledTimes(2);
   });
 
+  // The arming peek and the write must judge ONE snapshot of the referrers. Here the reader's answer changes after
+  // its first call (as a referrers ref refreshed by the peek's commit would): read per updater, the peek saw the
+  // row linked and did not arm while the write saw it free and removed it unarmed.
+  it("the peek and the write read the referrers once, so the arm and the removal agree", () => {
+    const created = [T(10, "new A")];
+    const { hook, arm, effectSaw } = setup([T(1, "a"), ...created]);
+    let reads = 0;
+    const readReferrers = vi.fn(() => (reads++ === 0 ? "linked" : "free"));
+    const fragment = captureCreatedPart<Task, string>({
+      setter: hook.result.current.setTasks,
+      created,
+      createdKind: "task.created",
+      readReferrers,
+      isReferenced: (prev, id, refs) => refs === "linked" || isReferenced(prev, id),
+      dropRefs,
+      remapRefs,
+    });
+    act(() => hook.result.current.api.captureComposite({ kind: "bulk.edit", primaryCount: 1, parts: [fragment] }));
+    act(() => hook.result.current.api.undo());
+    expect(readReferrers).toHaveBeenCalledTimes(1);
+    // The one snapshot said "linked": the row is kept and nothing armed.
+    expect(hook.result.current.tasks.map((t) => t.id)).toEqual([1, 10]);
+    expect(arm).not.toHaveBeenCalled();
+    expect(effectSaw.filter((e) => !e.ids.includes(10))).toEqual([]);
+  });
+
   it("an entry captured before a scope change is dropped and removes nothing", () => {
     const created = [T(10, "new A")];
     const epoch = { current: 1 };

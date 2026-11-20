@@ -392,6 +392,21 @@ describe("useWbsPlan undo (§796)", () => {
 
     expect(fields(api().ws.tasks)).toEqual(fields(SEED));
   });
+
+  // One proposal item, four tasks: the entry counts the TASKS the apply wrote (1 edited + 3 created), not the item.
+  it("the entry for a split into four counts four tasks", async () => {
+    const api = renderHarness();
+    await applyProposal([{
+      kind: "split", taskId: 1,
+      pieces: [{ taskName: "P1" }, { taskName: "P2" }, { taskName: "P3" }, { taskName: "P4" }],
+      why: "too big",
+    }]);
+    expect(api().ws.tasks).toHaveLength(SEED.length + 3);
+
+    const entry = api().undo.stack[api().undo.stack.length - 1];
+    expect(entry.count).toBe(4);
+    expect(entry.label).toContain("4");
+  });
 });
 
 function byName(tasks: readonly Task[], name: string): Task | undefined {
