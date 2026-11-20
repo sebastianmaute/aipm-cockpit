@@ -61,6 +61,7 @@ import * as handles from "./project-file-handles";
 import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
 import { TestProviders } from "./test-providers";
 import { useStorageBackend } from "./use-storage-backend";
+import { MODE_KEY } from "./portfolio-mode";
 import { useWorkspace } from "./workspace-context";
 import { seedDisciplines, seedGrades } from "./resource-foundation";
 
@@ -626,6 +627,77 @@ describe("§586 — no save before a load for the current backend has succeeded"
     expect(converted.save).not.toHaveBeenCalled();
     expect(setStorageConfig).not.toHaveBeenCalledWith({ kind: "local-json" });
   });
+  // ── §791: while the PORTFOLIO is on Turso, the Storage select may not leave Turso in place ──
+  // The portfolio flag is read once at startup and an in-place switch never touches it, so leaving Turso
+  // here left the flag on Turso over a local copy (project switch/create on Turso, rename of the Turso
+  // row, trends recorded under the Turso project). The portfolio switch does it right, so this one
+  // refuses and names that route. KILLED BY: deleting the §791 guard in `switchStorage`.
+  const LEAVE_TURSO_TEXT = () => t("en-US", "storageLeaveTursoPortfolio", t("en-US", "settings"), t("en-US", "settingsSectionIntegrations"), t("en-US", "portfolioModeLabel"), t("en-US", "portfolioModeFile"));
+
+  it("(o) §791 refuses an in-place switch away from Turso while the portfolio is on Turso", async () => {
+    localStorage.setItem(MODE_KEY, "turso");
+    const current = makeBackend(0);
+    const converted = makeBackend(0);
+    createBackendMock.mockReturnValueOnce(current).mockReturnValue(converted);
+    const dialogs = fakeDialogs();
+    const setStorageConfig = vi.fn();
+    const { result } = render({ ...makeArgs({ kind: "turso" }), setStorageConfig, dialogsRef: dialogs.ref });
+    await advance(100);
+    await act(async () => { await result.current.onRequestStorageSwitch("local-json"); });
+    expect(dialogs.confirm).not.toHaveBeenCalled();
+    expect(converted.save).not.toHaveBeenCalled();
+    expect(setStorageConfig).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("error", LEAVE_TURSO_TEXT());
+    expect(localStorage.getItem(MODE_KEY)).toBe("turso");
+  });
+
+  it("(p) §791 refuses it after a FAILED load too: the portfolio switch is the way out", async () => {
+    localStorage.setItem(MODE_KEY, "turso");
+    const failed = makeBackend(100, "reject");
+    const other = makeBackend(0);
+    createBackendMock.mockReturnValueOnce(failed).mockReturnValue(other);
+    const setStorageConfig = vi.fn();
+    const { result } = render({ ...makeArgs({ kind: "turso" }), setStorageConfig });
+    await advance(200);
+    expect(result.current.loadPause).toBe("load-failed"); // PRECONDITION: the Turso load has failed
+    await act(async () => { await result.current.onRequestStorageSwitch("browser"); });
+    expect(setStorageConfig).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("error", LEAVE_TURSO_TEXT());
+  });
+
+  // KILLED BY: dropping `current.kind === "turso"` from the §791 guard.
+  it("(r) §791 a local kind under a Turso flag (a device switched before the fix) may still move between local kinds", async () => {
+    localStorage.setItem(MODE_KEY, "turso");
+    const current = makeBackend(0);
+    const converted = makeBackend(0);
+    createBackendMock.mockReturnValueOnce(current).mockReturnValue(converted);
+    const dialogs = fakeDialogs();
+    dialogs.confirm.mockResolvedValue(true);
+    const setStorageConfig = vi.fn();
+    const { result } = render({ ...makeArgs({ kind: "local-json" }), setStorageConfig, dialogsRef: dialogs.ref });
+    await advance(100);
+    await act(async () => { await result.current.onRequestStorageSwitch("browser"); });
+    expect(dialogs.confirm).toHaveBeenCalledTimes(1);
+    expect(showToast).not.toHaveBeenCalledWith("error", LEAVE_TURSO_TEXT());
+    expect(setStorageConfig).toHaveBeenCalledWith({ kind: "browser" });
+  });
+
+  it("(q) §791 control: with a FILE portfolio, leaving single-database Turso storage still converts", async () => {
+    localStorage.setItem(MODE_KEY, "file");
+    const current = makeBackend(0);
+    const converted = makeBackend(0);
+    createBackendMock.mockReturnValueOnce(current).mockReturnValue(converted);
+    const dialogs = fakeDialogs();
+    dialogs.confirm.mockResolvedValue(true);
+    const setStorageConfig = vi.fn();
+    const { result } = render({ ...makeArgs({ kind: "turso" }), setStorageConfig, dialogsRef: dialogs.ref });
+    await advance(100);
+    await act(async () => { await result.current.onRequestStorageSwitch("local-json"); });
+    expect(dialogs.confirm).toHaveBeenCalledTimes(1);
+    expect(showToast).not.toHaveBeenCalledWith("error", LEAVE_TURSO_TEXT());
+    expect(setStorageConfig).toHaveBeenCalledWith({ kind: "local-json" });
+  });
+
   // ── §586/§587 (user decision): a storage-KIND switch with nothing loaded copies nothing ──
   // `onRequestStorageSwitch` normally copies the LIVE workspace into the new kind through
   // `guardedWrite`. Before any load of the current storage was applied, that workspace is the empty
