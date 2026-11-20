@@ -73,7 +73,7 @@ export interface CrossProjectDeps {
   tursoConfig: TursoConfig | null;
   portfolioMode: PortfolioMode;
   /** The LIVE storage kind (`settings.storageConfig.kind`). `portfolioMode` is fixed at startup and an in-place storage switch
-   *  leaves it on "turso", so only this says the open workspace still IS the Turso project. The sweep requires "turso". */
+   *  made before §791 (which now refuses it under a Turso portfolio) left it on "turso", so only this says the open workspace still IS the Turso project. The sweep requires "turso". */
   storageKind: StorageConfig["kind"];
   projects: readonly { id: string; name: string }[];
   currentProjectId: string | null;
@@ -146,7 +146,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   const runWritesRef = useRef<((links: PersonLinkRow[]) => PersonLinkRow[])[]>([]);
 
   // ★★★ §788: the WHOLE feature needs the LIVE storage to be Turso, not just the startup portfolio mode. `portfolioMode` never
-  // changes and an in-place switch away from Turso leaves it (and `tursoConfig`, `tursoProjectId`) looking like Turso while the open
+  // changes, and an in-place switch away from Turso made before §791 (now refused under a Turso portfolio) left it (and `tursoConfig`, `tursoProjectId`) looking like Turso while the open
   // workspace is a local copy: reading matches or writing an answer for that copy's ids would be about people who may not be
   // the ones in the Turso project. So off Turso the status is "unavailable" (not `singleProject`: that claims "the only project").
   const portfolio = portfolioMode === "turso" && storageKind === "turso" && tursoConfig !== null && currentProjectId !== null;

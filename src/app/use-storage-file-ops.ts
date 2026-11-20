@@ -947,7 +947,9 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     // rename the Turso row, and trends would be recorded under the Turso project. The portfolio switch
     // (`commitPortfolioModeSwitch`) leaves Turso correctly, so refuse and name it. That route also works
     // after a failed Turso load, so the refusal covers the no-copy branch below too.
-    if (current.kind === "turso" && newKind !== "turso" && loadPortfolioMode() === "turso") {
+    // (`newKind` cannot be "turso" here: the same-kind return above already left.) A device that reached a local
+    // kind under a Turso flag before this fix may still move between local kinds; only leaving Turso is refused.
+    if (current.kind === "turso" && loadPortfolioMode() === "turso") {
       const lang = deps.langRef.current;
       logDiag("info", "storage.switchDropped", { stage: "turso-portfolio" });
       deps.emitToast("error", t(lang, "storageLeaveTursoPortfolio", t(lang, "settings"), t(lang, "settingsSectionIntegrations"), t(lang, "portfolioModeLabel"), t(lang, "portfolioModeFile")));

@@ -658,10 +658,28 @@ describe("§586 — no save before a load for the current backend has succeeded"
     createBackendMock.mockReturnValueOnce(failed).mockReturnValue(other);
     const setStorageConfig = vi.fn();
     const { result } = render({ ...makeArgs({ kind: "turso" }), setStorageConfig });
-    await advance(200); // the Turso load has failed
+    await advance(200);
+    expect(result.current.loadPause).toBe("load-failed"); // PRECONDITION: the Turso load has failed
     await act(async () => { await result.current.onRequestStorageSwitch("browser"); });
     expect(setStorageConfig).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledWith("error", LEAVE_TURSO_TEXT());
+  });
+
+  // KILLED BY: dropping `current.kind === "turso"` from the §791 guard.
+  it("(r) §791 a local kind under a Turso flag (a device switched before the fix) may still move between local kinds", async () => {
+    localStorage.setItem(MODE_KEY, "turso");
+    const current = makeBackend(0);
+    const converted = makeBackend(0);
+    createBackendMock.mockReturnValueOnce(current).mockReturnValue(converted);
+    const dialogs = fakeDialogs();
+    dialogs.confirm.mockResolvedValue(true);
+    const setStorageConfig = vi.fn();
+    const { result } = render({ ...makeArgs({ kind: "local-json" }), setStorageConfig, dialogsRef: dialogs.ref });
+    await advance(100);
+    await act(async () => { await result.current.onRequestStorageSwitch("browser"); });
+    expect(dialogs.confirm).toHaveBeenCalledTimes(1);
+    expect(showToast).not.toHaveBeenCalledWith("error", LEAVE_TURSO_TEXT());
+    expect(setStorageConfig).toHaveBeenCalledWith({ kind: "browser" });
   });
 
   it("(q) §791 control: with a FILE portfolio, leaving single-database Turso storage still converts", async () => {
