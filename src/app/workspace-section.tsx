@@ -872,6 +872,9 @@ export function WorkspaceSection({
               documents={workspace.documents}
               onSave={handleSaveStakeholder}
               onCaptureBulk={onCaptureStakeholderBulk}
+              onSetupGo={isPopout ? undefined : setActiveTab}
+              features={projectFeatures}
+              onCommitFeatures={isPopout ? undefined : workspace.setFeatures}
               logActivityAs={logActivityAs}
               showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
