@@ -45414,7 +45414,6 @@ Size M (S once the shared component exists).
 
 **Earlier:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -rln '"resourcesEmpty"' src/app --include=*.tsx` lists `resource-directory.tsx` and `resources-panel.tsx`, the two places that show it.
 
-
 Resource planning depends on reference data that must exist first: roles (with rates for the budget), disciplines and grades, then the people, then capacity and absences, then allocations. The empty view says "No contacts available." and nothing about that order. Steps 1–2 overlap with the budget checklist (§710), which already ticks "Give your roles a rate" and "Add the people who do the work".
 
 Proposed: a checklist in the §710 shape on the shared component (see §730).
@@ -45457,7 +45456,6 @@ Size S.
 
 **Earlier:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -n "raciNo" src/app/i18n.ts` shows `raciNoMilestones` and `raciNoStakeholders`, each shown alone.
 
-
 The RACI matrix needs both milestones and stakeholders. The empty state says "Add milestones to build the RACI matrix." or "Add stakeholders to build the RACI matrix.", one at a time, so a user who fixes the first meets the second only afterwards.
 
 Proposed: a two-step checklist (milestones, stakeholders, then assign or let Claude suggest) in the §710 shape on the shared component (see §730).
@@ -45487,7 +45485,6 @@ Size S.
 **Earlier:** **Update 2026-10-16 (owner decision):** build soon. The owner moved this from "build last or not at all" to the next onboarding builds; not started (`grep -n -A1 "ganttEmpty:" src/app/i18n.ts` still shows the one-input text).
 
 **Earlier:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -n -A1 "ganttEmpty:" src/app/i18n.ts` shows the empty text "Add at least one task with a due date to see it on the Gantt chart.".
-
 
 The Gantt chart becomes useful with tasks that have dates, then dependencies, then milestones and a baseline. The empty text names only the first.
 
