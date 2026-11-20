@@ -21,6 +21,18 @@
 // SECURITY: the api key goes only into a request header; it is never logged, echoed or put in a URL.
 // No response body is logged.
 //
+// Time limit and retry (§798, policy in `ai-retry.ts`): every send is one ATTEMPT, timed on its own
+// controller that the caller's signal and an `AI_REQUEST_TIMEOUT_MS` timer both abort. The body is
+// read whole INSIDE that window (a stalled body times out too) and handed back as a fresh Response
+// over the read text, so callers read a body that has already arrived. Our timer firing is an
+// `AiTimeoutError`, never an `AbortError` (callers swallow those as Stop); a caller abort stays one.
+// A 429 / 529, an Anthropic `rate_limit_error` / `overloaded_error` on a non-2xx, or the relay's own
+// rate limit is tried again — at most `AI_MAX_ATTEMPTS` in all — after `retry-after` or a short
+// backoff; a wait over `AI_RETRY_MAX_WAIT_MS` is not waited. EVERY attempt re-runs the whole guard
+// chain (status confirmed, `beforeSend`, redaction) before it sends. When every attempt fails the
+// caller gets what one send would have given: the last non-2xx Response, or the relay's error. The
+// reply is restored and the usage tap fed once, on the final 2xx only.
+//
 // Usage tap: `subscribeAiUsage` listeners hear the normalised `usage` of every 2xx Messages response,
 // read from `res.clone()` so the caller's body is untouched. The read runs in the background: the
 // Response is handed to the caller at once, and the listeners hear the usage when the clone has been
@@ -43,6 +55,8 @@ import {
   AiGatewayError,
   AiKeyCheckUnavailableError,
   AiKeyRefusedError,
+  AiTimeoutError,
+  safeAiErrorType,
   type AiGatewayErrorCode,
   type AiKeyRefusedReason,
 } from "./ai-errors";
@@ -50,6 +64,13 @@ import { requestAiStatus } from "./ai-status-request";
 import { AiPeopleProtectedContentError, hasUnredactableContent, type AiPrivacy } from "./ai-privacy";
 import { countUnrestoredPlaceholders, redactJsonBody, restoreJsonText } from "./ai-people-redact";
 import { logDiag } from "./diagnostics";
+import {
+  AI_MAX_ATTEMPTS,
+  AI_REQUEST_TIMEOUT_MS,
+  isRetryableAiAnswer,
+  retryWaitMs,
+  sleepAbortable,
+} from "./ai-retry";
 import { reportAiKeyRefused } from "./ai-key-status";
 
 export { AiDeploymentError, AiGatewayError } from "./ai-errors";
@@ -271,14 +292,16 @@ export interface PostAiMessagesArgs {
   body: string;
   path: AiPathId;
   signal?: AbortSignal;
-  /** Runs after the deployment status is confirmed and immediately before the request is sent; a
-   *  throw stops the send. Callers pass their consent assertion here, because the consent can be
-   *  revoked while the status is asked. */
+  /** Runs after the deployment status is confirmed and immediately before the request is sent —
+   *  again before every retry; a throw stops the send. Callers pass their consent assertion here,
+   *  because the consent can be revoked while the status is asked or while a retry waits. */
   beforeSend?: () => void;
   /** REQUIRED so every caller decides. Protected: the body is redacted before it is sent and the
    *  reply restored; an image or non-text document block is refused (`AiPeopleProtectedContentError`)
    *  unless the privacy says `refuseUnredactable: false` (the unforced create-project wizard). */
   privacy: AiPrivacy;
+  /** Called once before each retry wait, with the wait in ms (§798). */
+  onRetryWait?: (waitMs: number) => void;
 }
 
 /** Redact `body` for a protected send and log the per-send counts (numbers only, never values). */
@@ -308,36 +331,162 @@ async function restoreReply(res: Response, privacy: AiPrivacy): Promise<Response
   return new Response(restored, { status: res.status, statusText: res.statusText, headers: res.headers });
 }
 
-/** POST a Messages request on this deployment's route, after `confirmAiDeployment`. */
-export async function postAiMessages({ apiKey, body, path, signal, beforeSend, privacy: asked }: PostAiMessagesArgs): Promise<Response> {
-  const { peopleForced } = await confirmAiDeployment(signal);
-  throwIfAborted(signal);
-  beforeSend?.();
-  const privacy = peopleForced ? forcedPrivacy(asked) : asked;
-  const outgoing = redactForSend(body, privacy);
-  const gateway = usesRelay(currentAiRoute());
-  const res = await fetch(gateway ? RELAY_MESSAGES_URL : ANTHROPIC_MESSAGES_URL, {
-    method: "POST",
-    headers: gateway ? relayHeaders(apiKey, true) : directHeaders(apiKey, true),
-    body: outgoing,
-    signal,
+/** Settle with `work`, or reject with the signal's reason the moment it aborts — so a `fetch` or a
+ *  body read that ignores its signal (a stalled stream) still ends at the time limit. */
+function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    if (signal.aborted) onAbort();
+    else signal.addEventListener("abort", onAbort, { once: true });
+    work.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
   });
-  if (gateway && !res.ok) await throwIfRelayOwnError(res, apiKey);
+}
+
+/** Statuses a `Response` cannot be built with a body for. */
+const NULL_BODY_STATUSES: ReadonlySet<number> = new Set([101, 103, 204, 205, 304]);
+
+/** One sent request, read whole: a fresh Response over the read text (same status, statusText and
+ *  headers), the text itself, and whether it came over the relay. */
+interface ReadAnswer {
+  res: Response;
+  text: string;
+  relayed: boolean;
+}
+
+/** Await the sent request and read its whole body under `signal`, so the time limit covers the body
+ *  too. (The `fetch` call stays at each call site, where the URL is named.) */
+async function readWhole(request: Promise<Response>, signal: AbortSignal, relayed: boolean): Promise<ReadAnswer> {
+  const sent = await untilAborted(request, signal);
+  const text = await untilAborted(sent.text(), signal);
+  const res = new Response(NULL_BODY_STATUSES.has(sent.status) ? null : text, {
+    status: sent.status,
+    statusText: sent.statusText,
+    headers: sent.headers,
+  });
+  return { res, text, relayed };
+}
+
+/** Run one attempt under its own controller, aborted by the caller's signal or by the time limit.
+ *  Our limit firing while the caller's signal is not aborted is an `AiTimeoutError`, never an
+ *  `AbortError`; anything else, the caller's abort included, is rethrown as it is. The timer and
+ *  the listener are always removed. */
+async function withTimeLimit<T>(signal: AbortSignal | undefined, attempt: (attemptSignal: AbortSignal) => Promise<T>): Promise<T> {
+  const ctrl = new AbortController();
+  let timedOut = false;
+  const onCallerAbort = () => ctrl.abort(signal?.reason);
+  if (signal?.aborted) onCallerAbort();
+  else signal?.addEventListener("abort", onCallerAbort, { once: true });
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ctrl.abort();
+  }, AI_REQUEST_TIMEOUT_MS);
+  try {
+    return await attempt(ctrl.signal);
+  } catch (e) {
+    if (timedOut && !signal?.aborted) throw new AiTimeoutError(AI_REQUEST_TIMEOUT_MS);
+    throw e;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onCallerAbort);
+  }
+}
+
+function anthropicErrorType(text: string): string | undefined {
+  try {
+    return safeAiErrorType(JSON.parse(text));
+  } catch {
+    return undefined;
+  }
+}
+
+function isRelayRateLimit(e: unknown): boolean {
+  return e instanceof AiGatewayError && (e.code === AI_RELAY_RATE_LIMITED || e.code === AI_GATEWAY_RATE_LIMITED);
+}
+
+/** A non-2xx answer judged: the relay's own error (when it raised one) and whether to try again. */
+async function judgeAnswer(answer: ReadAnswer, apiKey: string): Promise<{ retryable: boolean; relayError?: { error: unknown } }> {
+  if (answer.relayed) {
+    try {
+      await throwIfRelayOwnError(answer.res, apiKey);
+    } catch (error) {
+      return { retryable: isRelayRateLimit(error), relayError: { error } };
+    }
+  }
+  return { retryable: isRetryableAiAnswer(answer.res.status, anthropicErrorType(answer.text)) };
+}
+
+/** Send `attempt` up to `AI_MAX_ATTEMPTS` times, each under the time limit. A rate-limit or overload
+ *  answer (or the relay's own limit) waits and tries again while attempts remain and the wait is at
+ *  most `AI_RETRY_MAX_WAIT_MS`; otherwise the answer goes back (or the relay's error is thrown)
+ *  exactly as one send would. A 2xx is never sent again. */
+async function sendWithRetry<T extends ReadAnswer>(
+  apiKey: string,
+  signal: AbortSignal | undefined,
+  onRetryWait: ((waitMs: number) => void) | undefined,
+  attempt: (attemptSignal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  for (let n = 1; ; n++) {
+    const answer = await withTimeLimit(signal, attempt);
+    if (answer.res.ok) return answer;
+    // Read off the response before the relay's own answer is turned into an error.
+    const retryAfter = answer.res.headers.get("retry-after");
+    const { retryable, relayError } = await judgeAnswer(answer, apiKey);
+    const waitMs = retryable && n < AI_MAX_ATTEMPTS ? retryWaitMs(n, retryAfter, Date.now(), Math.random) : null;
+    if (waitMs === null) {
+      if (relayError) throw relayError.error;
+      return answer;
+    }
+    logDiag("info", "ai.retry", { status: answer.res.status, attempt: n, waitMs });
+    onRetryWait?.(waitMs);
+    await sleepAbortable(waitMs, signal);
+  }
+}
+
+/** POST a Messages request on this deployment's route. Every attempt confirms the deployment, runs
+ *  `beforeSend` and redacts anew, in that order, before anything is sent. */
+export async function postAiMessages({ apiKey, body, path, signal, beforeSend, privacy: asked, onRetryWait }: PostAiMessagesArgs): Promise<Response> {
+  const { res, privacy } = await sendWithRetry(apiKey, signal, onRetryWait, async (attemptSignal) => {
+    const { peopleForced } = await confirmAiDeployment(attemptSignal);
+    throwIfAborted(attemptSignal);
+    beforeSend?.();
+    const sendPrivacy = peopleForced ? forcedPrivacy(asked) : asked;
+    const outgoing = redactForSend(body, sendPrivacy);
+    const gateway = usesRelay(currentAiRoute());
+    const request = fetch(gateway ? RELAY_MESSAGES_URL : ANTHROPIC_MESSAGES_URL, {
+      method: "POST",
+      headers: gateway ? relayHeaders(apiKey, true) : directHeaders(apiKey, true),
+      body: outgoing,
+      signal: attemptSignal,
+    });
+    const answer = await readWhole(request, attemptSignal, gateway);
+    return { ...answer, privacy: sendPrivacy };
+  });
   const reply = await restoreReply(res, privacy);
   // Fire and forget: `tapUsage` swallows its own failures.
   if (reply.ok) void tapUsage(path, reply);
   return reply;
 }
 
-/** GET the model list on this deployment's route, after `confirmAiDeployment`. */
+/** GET the model list on this deployment's route, timed and retried like `postAiMessages`. */
 export async function getAiModels(apiKey: string, signal?: AbortSignal): Promise<Response> {
-  await confirmAiDeployment(signal);
-  throwIfAborted(signal);
-  const gateway = usesRelay(currentAiRoute());
-  const res = await fetch(gateway ? RELAY_MODELS_URL : ANTHROPIC_MODELS_URL, {
-    headers: gateway ? relayHeaders(apiKey, false) : directHeaders(apiKey, false),
-    signal,
+  const { res } = await sendWithRetry(apiKey, signal, undefined, async (attemptSignal) => {
+    await confirmAiDeployment(attemptSignal);
+    throwIfAborted(attemptSignal);
+    const gateway = usesRelay(currentAiRoute());
+    const request = fetch(gateway ? RELAY_MODELS_URL : ANTHROPIC_MODELS_URL, {
+      headers: gateway ? relayHeaders(apiKey, false) : directHeaders(apiKey, false),
+      signal: attemptSignal,
+    });
+    return readWhole(request, attemptSignal, gateway);
   });
-  if (gateway && !res.ok) await throwIfRelayOwnError(res, apiKey);
   return res;
 }

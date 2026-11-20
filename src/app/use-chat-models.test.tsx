@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
+import { spyAiFetch } from "../test/fetch-real-response";
 import { __resetAiKeyStatusForTests, getAiKeyStatus } from "./ai-key-status";
 import { renderHook, waitFor } from "@testing-library/react";
 import { AI_DISCLOSURE_VERSION, newConsent } from "./ai-consent";
@@ -11,7 +12,7 @@ const KEY = "sk-ant-api03-AbC123_def-456GHI789jkl";
 const ALLOWED = { enabled: true, consent: newConsent(new Date("2026-10-01T00:00:00Z")) };
 
 function mockFetchOnce(body: unknown, ok = true, status = 200) {
-  return vi.spyOn(globalThis, "fetch").mockResolvedValue({
+  return spyAiFetch().mockResolvedValue({
     ok,
     status,
     json: async () => body,
@@ -53,7 +54,7 @@ describe("useChatModels", () => {
 
   it("aborts the in-flight request on unmount", async () => {
     let aborted = false;
-    const spy = vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
+    const spy = spyAiFetch().mockImplementation((_url, init) => {
       (init?.signal as AbortSignal).addEventListener("abort", () => { aborted = true; });
       return new Promise(() => {}); // never resolves
     });
@@ -65,7 +66,7 @@ describe("useChatModels", () => {
   });
 
   it("does not fetch when disabled or key absent/malformed", async () => {
-    const spy = vi.spyOn(globalThis, "fetch");
+    const spy = spyAiFetch();
     renderHook(() => useChatModels(KEY, { ...ALLOWED, enabled: false }, "claude-sonnet-4-6"));
     renderHook(() => useChatModels("", ALLOWED, "claude-sonnet-4-6"));
     renderHook(() => useChatModels("not-a-key", ALLOWED, "claude-sonnet-4-6"));

@@ -6,6 +6,7 @@ import "../test/ai-consent-live";
 import { newConsent } from "./ai-consent";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { spyAiFetch } from "../test/fetch-real-response";
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { ChatPanel } from "./chat-panel";
 import type { ToolDispatcher } from "./chat-tools";
@@ -104,7 +105,7 @@ const doneTurn = { content: [{ type: "text", text: "done" }], stop_reason: "end_
 
 function scriptFetch(turns: unknown[], bodies: string[]) {
   let call = 0;
-  vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+  spyAiFetch().mockImplementation((_url, init?: RequestInit) => {
     bodies.push(String(init?.body ?? ""));
     const body = turns[Math.min(call, turns.length - 1)];
     call += 1;

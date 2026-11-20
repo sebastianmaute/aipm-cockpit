@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { runAllocProposal } from "./alloc-plan-call";
 import { MAX_ALLOC_CELLS } from "./alloc-plan/alloc-plan";
 import { aiPrivacyFor } from "./ai-privacy";
+import { spyAiFetch } from "../test/fetch-real-response";
 
 /** These tests are about the call mechanics, not people: a request for no project (unprotected). */
 const UNPROTECTED = aiPrivacyFor([]);
@@ -14,7 +15,7 @@ describe("runAllocProposal", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("returns the parsed alternatives (plus truncated: false) from a forced tool_use response", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    spyAiFetch().mockResolvedValue(
       ok({
         content: [
           {
@@ -40,7 +41,7 @@ describe("runAllocProposal", () => {
       periodKey: `2026-${String((i % 12) + 1).padStart(2, "0")}`,
       hours: 1,
     }));
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    spyAiFetch().mockResolvedValue(
       ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { alternatives: [{ summary: "", taskMoves: [], cells }] } }] }),
     );
     const result = await runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" }, "spread the work");
@@ -49,7 +50,7 @@ describe("runAllocProposal", () => {
   });
 
   it("sends the forced tool_choice and the propose tool", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    const spy = spyAiFetch().mockResolvedValue(
       ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { alternatives: [] } }] }),
     );
     await runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" }, "spread the work");
@@ -59,7 +60,7 @@ describe("runAllocProposal", () => {
   });
 
   it("sends a user message with the exact context-then-instruction template", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    const spy = spyAiFetch().mockResolvedValue(
       ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { alternatives: [] } }] }),
     );
     const context = "PLAN: 2026-08-01 .. 2026-09-30\n#1 Jane Doe :: 2026-08=0/160";
@@ -74,10 +75,12 @@ describe("runAllocProposal", () => {
   it("throws the HTTP status on a non-OK response, leaking neither key nor body message anywhere on the error", async () => {
     const secret = "sk-ant-SECRET";
     const bodyMsg = "internal-error-body-detail";
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    spyAiFetch().mockResolvedValue(
       {
         ok: false,
         status: 429,
+        // §798: the transport retries a 429; `retry-after: 0` keeps its retries from waiting.
+        headers: { "retry-after": "0" },
         json: async () => ({ error: { type: "rate_limit_error", message: bodyMsg } }),
       } as unknown as Response,
     );
@@ -99,7 +102,7 @@ describe("runAllocProposal", () => {
   });
 
   it("throws 'parse' on malformed tool output (no alternatives or cells array)", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    spyAiFetch().mockResolvedValue(
       ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { nope: true } }] }),
     );
     await expect(
@@ -109,19 +112,21 @@ describe("runAllocProposal", () => {
 
   it("forwards the abort signal to the underlying fetch call", async () => {
     // Not aborted up front: an already-aborted signal now stops at the deployment status check, before
-    // this fetch (as the real status request would). The point here is only that the signal is passed on.
+    // this fetch (as the real status request would). Since §798 the request carries the transport's own
+    // per-attempt signal, which the caller's abort aborts: aborting the caller while the request is out
+    // must abort the signal the request was given.
     const controller = new AbortController();
-    const spy = vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
-      const signal = (init as RequestInit | undefined)?.signal;
-      if (signal?.aborted) return Promise.reject(new DOMException("Aborted", "AbortError"));
+    let requestSignalAborted: boolean | undefined;
+    const spy = spyAiFetch().mockImplementation((_url, init) => {
+      controller.abort();
+      requestSignalAborted = init?.signal?.aborted;
       return Promise.resolve(ok({ content: [] }));
     });
     await expect(
       runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" }, "do something", controller.signal),
     ).rejects.toThrow();
     expect(spy).toHaveBeenCalledTimes(1);
-    const passedSignal = (spy.mock.calls[0][1] as RequestInit).signal;
-    expect(passedSignal).toBe(controller.signal);
+    expect(requestSignalAborted).toBe(true);
   });
 });
 
@@ -130,7 +135,7 @@ describe("runAllocProposal guide text", () => {
   afterEach(() => vi.restoreAllMocks());
   const reply = () => ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { alternatives: [] } }] });
   it("appends the guide text after the fixed system prompt", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(reply());
+    const spy = spyAiFetch().mockResolvedValue(reply());
     await runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m", guideText: "GUIDE-MARK" }, "x");
     const system = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string).system as { text: string }[];
     expect(system).toHaveLength(2);
@@ -138,7 +143,7 @@ describe("runAllocProposal guide text", () => {
     expect(system[1]).toEqual({ type: "text", text: "GUIDE-MARK" });
   });
   it("sends the fixed prompt alone without one", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(reply());
+    const spy = spyAiFetch().mockResolvedValue(reply());
     await runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" }, "x");
     const system = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string).system as string;
     expect(system).not.toContain("GUIDE-MARK");
@@ -155,13 +160,13 @@ describe("runAllocProposal output budget (§764)", () => {
   const CELLS = { alternatives: [{ summary: "", taskMoves: [], cells: [{ resourceId: 1, periodKey: "2026-08", hours: 40 }] }] };
 
   it("asks once more at 16384 when the reply was cut at 8192, and returns that answer", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(cutOr("max_tokens", {})).mockResolvedValueOnce(cutOr("tool_use", CELLS));
+    const spy = spyAiFetch().mockResolvedValueOnce(cutOr("max_tokens", {})).mockResolvedValueOnce(cutOr("tool_use", CELLS));
     await expect(runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" }, "x")).resolves.toMatchObject({ alternatives: CELLS.alternatives });
     expect(budgets(spy)).toEqual([8192, 16_384]);
   });
 
   it("never reads a reply cut at the retry budget too, even one that parses", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(cutOr("max_tokens", CELLS));
+    const spy = spyAiFetch().mockResolvedValue(cutOr("max_tokens", CELLS));
     await expect(runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" }, "x")).rejects.toThrow(/^parse$/);
     expect(budgets(spy)).toEqual([8192, 16_384]);
   });

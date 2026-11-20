@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { spyAiFetch } from "../../test/fetch-real-response";
 import { cleanup, render, screen } from "@testing-library/react";
 import { AiSection } from "./ai-section";
 import { newConsent } from "../ai-consent";
@@ -27,7 +28,7 @@ const NOTICE = t("en-US", "aiBackgroundPausedNotice");
 beforeEach(() => {
   state.overrides = undefined;
   setDisabledIntegrations([]);
-  vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false, status: 401, json: async () => ({}) } as Response);
+  spyAiFetch().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) } as Response);
 });
 afterEach(() => { cleanup(); setDisabledIntegrations([]); vi.restoreAllMocks(); });
 

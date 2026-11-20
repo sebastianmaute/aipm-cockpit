@@ -95,7 +95,7 @@ describe("protected send", () => {
 
   it("passes an error response through unrestored", async () => {
     const privacy = privacyOf(wsA);
-    stub(() => new Response(JSON.stringify({ type: "error", error: { type: "overloaded_error", message: "[Person 1]" } }), { status: 529 }));
+    stub(() => new Response(JSON.stringify({ type: "error", error: { type: "overloaded_error", message: "[Person 1]" } }), { status: 529, headers: { "retry-after": "0" } })); // §798: retried with no wait
     const res = await postAiMessages({ apiKey: KEY, path: "chat", privacy, body: bodyOf("hi") });
     expect(res.status).toBe(529);
     expect(await res.text()).toContain("[Person 1]");

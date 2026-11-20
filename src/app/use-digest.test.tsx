@@ -650,10 +650,9 @@ describe("useDigest background pause (§795)", () => {
   const dueConfig = { enabled: true, cadenceDays: 7 };
   const seedDue = () =>
     advanceDigestState("p1", { now: "2026-07-02T09:00:00.000Z", cadenceDays: 7, rag: "G", metrics: { overdue: 0, openRaid: 0 } });
-  const reply = () => ({
-    ok: true,
-    json: async () => ({ content: [{ type: "tool_use", name: "write_digest_narrative", input: { narrative: "On track." } }] }),
-  }) as unknown as Response;
+  // A real Response: the transport reads the body itself (§798).
+  const reply = () =>
+    new Response(JSON.stringify({ content: [{ type: "tool_use", name: "write_digest_narrative", input: { narrative: "On track." } }] }), { status: 200 });
   let fetchSpy: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
     fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => reply());

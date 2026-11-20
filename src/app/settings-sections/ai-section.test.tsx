@@ -2,6 +2,7 @@ import "fake-indexeddb/auto";
 import { useState } from "react";
 import { cleanup, render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { spyAiFetch } from "../../test/fetch-real-response";
 import { AiSection } from "./ai-section";
 import { hasUnsealedPassphraseSecret } from "../turso-token-marker";
 import { __resetAiKeyStatusForTests, reportAiKeyRefused, reportAiKeyResponse, reportAiKeyUnreadable } from "../ai-key-status";
@@ -57,7 +58,7 @@ beforeEach(() => {
   // A well-formed key + enabled AI makes useChatModels fire a browser-direct
   // fetch to api.anthropic.com. Stub it for EVERY test so none hits the network
   // (the hook falls back to the registry options on the !ok response).
-  vi.spyOn(globalThis, "fetch").mockResolvedValue({
+  spyAiFetch().mockResolvedValue({
     ok: false,
     status: 401,
     json: async () => ({}),
@@ -1534,7 +1535,7 @@ describe("AiSection — the relay could not check the key", () => {
   }
 
   function answerModels(status: number, body: unknown) {
-    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+    const spy = spyAiFetch().mockImplementation(async () =>
       new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
     return spy;
   }

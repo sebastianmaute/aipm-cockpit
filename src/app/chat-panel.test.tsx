@@ -5,6 +5,7 @@ import { asTimeZoneForTests } from "./timezone";
 import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { spyAiFetch } from "../test/fetch-real-response";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { __resetAiKeyStatusForTests, getAiKeyStatus, syncAiKey } from "./ai-key-status";
@@ -350,7 +351,7 @@ describe("Without a current AI consent", () => {
     ["consent was withdrawn", { ...AI_WITH_KEY, enabled: true, consent: undefined }],
     ["AI was switched off", { ...AI_WITH_KEY, enabled: false }],
   ])("a send stopped because %s names both causes and sends nothing", async (_cause, published) => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const fetchSpy = spyAiFetch();
     render(
       <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
     );
@@ -608,7 +609,7 @@ describe("Stop button", () => {
     const pending = new Promise<Response>((_res, rej) => {
       rejectFetch = rej;
     });
-    vi.spyOn(globalThis, "fetch").mockReturnValue(pending);
+    spyAiFetch().mockReturnValue(pending);
     const abortError = Object.assign(new Error("Aborted"), { name: "AbortError" });
     return () => rejectFetch(abortError);
   }
@@ -791,7 +792,7 @@ describe("suggested prompt chips", () => {
   it("chips stay available after the first message is sent (while busy)", async () => {
     let rejectFetch!: (reason: unknown) => void;
     const pending = new Promise<Response>((_res, rej) => { rejectFetch = rej; });
-    vi.spyOn(globalThis, "fetch").mockReturnValue(pending);
+    spyAiFetch().mockReturnValue(pending);
 
     renderEmpty();
     const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…");
@@ -835,7 +836,7 @@ describe("SP1 seed + foundational chips", () => {
   }
 
   it("seeds the input without sending when autoSend is false", () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    const fetchSpy = spyAiFetch().mockImplementation(jsonResponse);
     const onChatSeedConsumed = vi.fn();
     render(
       <ChatPanel {...SCOPE_PROPS}
@@ -855,7 +856,7 @@ describe("SP1 seed + foundational chips", () => {
   });
 
   it("adds a prefill after a draft the user is typing, never replacing it (§519)", () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    spyAiFetch().mockImplementation(jsonResponse);
     const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: AI_WITH_KEY, dispatcher: makeDispatcher(), onChatSeedConsumed: vi.fn() };
     const { rerender } = render(<ChatPanel {...props} chatSeed={null} />);
     const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…") as HTMLTextAreaElement;
@@ -865,7 +866,7 @@ describe("SP1 seed + foundational chips", () => {
   });
 
   it("applies a prefill present at mount once, under StrictMode's double effect run", () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    spyAiFetch().mockImplementation(jsonResponse);
     render(
       <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()}
         chatSeed={{ prompt: "Plan the kickoff", autoSend: false, originView: "dashboard" }} onChatSeedConsumed={vi.fn()} />,
@@ -875,7 +876,7 @@ describe("SP1 seed + foundational chips", () => {
   });
 
   it("auto-sends the seed when autoSend is true and the key is present, naming the page it came from (§703)", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    const fetchSpy = spyAiFetch().mockImplementation(jsonResponse);
     const onChatSeedConsumed = vi.fn();
     const dispatcher = makeDispatcher();
     render(
@@ -902,7 +903,7 @@ describe("SP1 seed + foundational chips", () => {
     }
 
     it("names the page when the seed waited for the guides and is sent unchanged", async () => {
-      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const fetchSpy = spyAiFetch().mockImplementation(jsonResponse);
       const dispatcher = makeDispatcher();
       const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: GUIDES_AI, dispatcher, onChatSeedConsumed: vi.fn(), chatSeed: seed };
       const { rerender } = render(<ChatPanel {...props} guidesReady={false} />);
@@ -914,7 +915,7 @@ describe("SP1 seed + foundational chips", () => {
     });
 
     it("names the page for a prefill-only seed sent unchanged", async () => {
-      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const fetchSpy = spyAiFetch().mockImplementation(jsonResponse);
       const dispatcher = makeDispatcher();
       render(
         <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher}
@@ -926,7 +927,7 @@ describe("SP1 seed + foundational chips", () => {
     });
 
     it("sends an edited prefill as a typed message, with no page", async () => {
-      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const fetchSpy = spyAiFetch().mockImplementation(jsonResponse);
       const dispatcher = makeDispatcher();
       render(
         <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher}
@@ -941,7 +942,7 @@ describe("SP1 seed + foundational chips", () => {
     // No edit happens here: the box holds the draft and the seed together, so
     // only the text match keeps this a typed message.
     it("sends a seed appended after a draft as a typed message, with no page", async () => {
-      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const fetchSpy = spyAiFetch().mockImplementation(jsonResponse);
       const dispatcher = makeDispatcher();
       const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: AI_WITH_KEY, dispatcher, onChatSeedConsumed: vi.fn() };
       const { rerender } = render(<ChatPanel {...props} chatSeed={null} />);
@@ -953,7 +954,7 @@ describe("SP1 seed + foundational chips", () => {
     });
 
     it("drops the page once the box is edited, even if the text is typed back", async () => {
-      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const fetchSpy = spyAiFetch().mockImplementation(jsonResponse);
       const dispatcher = makeDispatcher();
       render(
         <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher}
@@ -972,7 +973,7 @@ describe("SP1 seed + foundational chips", () => {
     //   returns early with the prefill still pending. This pins that such a send leaves the
     //   page for the real one.
     it("keeps the page through a send that returned early", async () => {
-      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const fetchSpy = spyAiFetch().mockImplementation(jsonResponse);
       const dispatcher = makeDispatcher();
       const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: GUIDES_AI, dispatcher, onChatSeedConsumed: vi.fn(), chatSeed: seed };
       const { rerender } = render(<ChatPanel {...props} guidesReady={false} />);
@@ -985,7 +986,7 @@ describe("SP1 seed + foundational chips", () => {
     });
 
     it("drops the page once the project scope has changed", async () => {
-      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const fetchSpy = spyAiFetch().mockImplementation(jsonResponse);
       const dispatcher = makeDispatcher();
       let epoch = 0;
       render(
@@ -1011,7 +1012,7 @@ describe("SP1 seed + foundational chips", () => {
         { content: [{ type: "tool_use", id: "t1", name: "get_app_state", input: {} }], stop_reason: "tool_use", usage },
         { content: [{ type: "text", text: "done" }], stop_reason: "end_turn", usage },
       ];
-      return vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+      return spyAiFetch().mockImplementation((_url, init?: RequestInit) => {
         bodies.push(String(init?.body ?? ""));
         const body = turns[Math.min(bodies.length - 1, turns.length - 1)];
         return Promise.resolve({ ok: true, text: () => Promise.resolve(""), json: () => Promise.resolve(body) } as unknown as Response);
@@ -1056,7 +1057,7 @@ describe("SP1 seed + foundational chips", () => {
   });
 
   it("does not auto-send when the api key is missing (seeds input only)", () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    const fetchSpy = spyAiFetch().mockImplementation(jsonResponse);
     const onChatSeedConsumed = vi.fn();
     render(
       <ChatPanel {...SCOPE_PROPS}
@@ -1072,7 +1073,7 @@ describe("SP1 seed + foundational chips", () => {
   });
 
   it("does not auto-send when guides are pending (seeds input only)", () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    const fetchSpy = spyAiFetch().mockImplementation(jsonResponse);
     const onChatSeedConsumed = vi.fn();
     render(
       <ChatPanel {...SCOPE_PROPS}
@@ -1095,7 +1096,7 @@ describe("SP1 seed + foundational chips", () => {
   // signal, not a break: it is the only thing that pins the chip strip's
   // contents to a rendered surface (see the sibling attachment test's comment).
   it("clicking a starter chip auto-sends", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    const fetchSpy = spyAiFetch().mockImplementation(jsonResponse);
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
@@ -1119,7 +1120,7 @@ describe("SP1 seed + foundational chips", () => {
   // `...CHAT_ONLY_PROMPTS` from the chip list deletes the prompt from the whole
   // product while every module-level test still passes.
   it("still offers the chat-only attachment chip, and it auto-sends", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    const fetchSpy = spyAiFetch().mockImplementation(jsonResponse);
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
@@ -1284,7 +1285,7 @@ describe("prompt caching", () => {
   it("sends system as one block when there is no view-scoped guide, cache-controlled", async () => {
     let rejectFetch!: (reason: unknown) => void;
     const pending = new Promise<Response>((_res, rej) => { rejectFetch = rej; });
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockReturnValue(pending);
+    const fetchSpy = spyAiFetch().mockReturnValue(pending);
 
     render(
       <ChatPanel {...SCOPE_PROPS}
@@ -1357,7 +1358,7 @@ describe("prompt cache layout wiring", () => {
   //   so this is the one place that array can be inspected without reaching
   //   into component internals.
   it("never writes the turn context into persisted history", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(() => okResponse());
+    spyAiFetch().mockImplementation(() => okResponse());
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
@@ -1398,7 +1399,7 @@ describe("prompt cache layout wiring", () => {
   //   thing still ships, and it survives a refactor of how the panel reaches
   //   the network.
   it("sends a system array with the guide-cache split, and the context on the turn", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() => okResponse());
+    const fetchSpy = spyAiFetch().mockImplementation(() => okResponse());
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
@@ -1442,7 +1443,7 @@ describe("prompt cache layout wiring", () => {
       { content: [{ type: "tool_use", id: "t1", name: "list_tasks", input: {} }] as Block[], stop_reason: "tool_use", usage },
       { content: [{ type: "text", text: "done" }] as Block[], stop_reason: "end_turn", usage },
     ];
-    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+    spyAiFetch().mockImplementation((_url, init?: RequestInit) => {
       bodies.push(String(init?.body ?? ""));
       const body = turns[Math.min(call, turns.length - 1)];
       call += 1;
@@ -1623,7 +1624,7 @@ describe("document attachments", () => {
   });
 
   it("sends the attachment as a text document block, then clears the chip", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+    const fetchSpy = spyAiFetch().mockImplementation(() =>
       Promise.resolve({
         ok: true,
         text: () => Promise.resolve(""),
@@ -1684,7 +1685,7 @@ describe("document attachments", () => {
   // ★★ It asserts on the PAYLOAD TEXT, deliberately not on a block count: a
   // count is satisfied by any second block, including an empty one.
   it("sends a mail attachment's content, not just its name", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+    const fetchSpy = spyAiFetch().mockImplementation(() =>
       Promise.resolve({
         ok: true,
         text: () => Promise.resolve(""),
@@ -1778,7 +1779,7 @@ describe("history budget wiring (§575)", () => {
         { kind: "assistant", text: "ok" },
       ],
     };
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+    const fetchSpy = spyAiFetch().mockImplementation(() =>
       Promise.resolve({
         ok: true,
         text: () => Promise.resolve(""),
@@ -1858,7 +1859,7 @@ describe("history budget keeps stored attachments (§575)", () => {
         { kind: "assistant", text: "ok" },
       ],
     };
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(reply);
+    const fetchSpy = spyAiFetch().mockImplementation(reply);
     vi.mocked(fitHistoryToBudget).mockClear();
     render(
       <ChatPanel {...SCOPE_PROPS}
@@ -1935,7 +1936,7 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
     const bodies: string[] = [];
     let call = 0;
     const dispatcher = makeDispatcher();
-    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+    spyAiFetch().mockImplementation((_url, init?: RequestInit) => {
       bodies.push(String(init?.body ?? ""));
       call += 1;
       // Turn 1: a tool_use cut off at max_tokens (possibly partial). Turn 2: done.
@@ -2011,7 +2012,7 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
     //  Guarded — no empty content, no consecutive user turns. Unguarded — both.
     const bodies: string[] = [];
     let call = 0;
-    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+    spyAiFetch().mockImplementation((_url, init?: RequestInit) => {
       bodies.push(String(init?.body ?? ""));
       call += 1;
       const body =
@@ -2062,7 +2063,7 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
   it("auto-continues a truncated TEXT answer without a prod (both halves shown, nudge hidden)", async () => {
     const bodies: string[] = [];
     let call = 0;
-    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+    spyAiFetch().mockImplementation((_url, init?: RequestInit) => {
       bodies.push(String(init?.body ?? ""));
       call += 1;
       const body =
@@ -2093,7 +2094,7 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
 
   it("surfaces a partial-answer note when the round-trip cap is exhausted", async () => {
     let call = 0;
-    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+    spyAiFetch().mockImplementation((_url, init?: RequestInit) => {
       void init;
       call += 1;
       // Never reaches end_turn — every turn truncates.
@@ -2141,7 +2142,7 @@ describe("conversation persistence across navigation (in-memory per-project stor
 
   it("restores the conversation after unmount/remount (survives view navigation)", async () => {
     const store = makeChatStore();
-    vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+    spyAiFetch().mockImplementation(() =>
       Promise.resolve({
         ok: true,
         text: () => Promise.resolve(""),
@@ -2182,7 +2183,7 @@ describe("conversation persistence across navigation (in-memory per-project stor
     store.m.set("p2", { history: [{ role: "user", content: "q2" }], display: [{ kind: "user", text: "p2 msg" }] });
     let resolveFetch!: (r: Response) => void;
     const pending = new Promise<Response>((res) => { resolveFetch = res; });
-    vi.spyOn(globalThis, "fetch").mockReturnValue(pending);
+    spyAiFetch().mockReturnValue(pending);
     const base = {
       lang: "en-US" as const,
       ai: AI_WITH_KEY,
@@ -2304,7 +2305,7 @@ describe("ChatPanel — Turso thread persistence", () => {
   });
 
   it("saves a new thread after the first turn completes, auto-named from the first message", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    spyAiFetch().mockResolvedValue({
       ok: true,
       text: () => Promise.resolve(""),
       json: () =>
@@ -2375,7 +2376,7 @@ describe("ChatPanel — Turso thread persistence", () => {
     const pendingFetch = new Promise<Response>((res) => {
       resolveFetch = res;
     });
-    vi.spyOn(globalThis, "fetch").mockReturnValue(pendingFetch);
+    spyAiFetch().mockReturnValue(pendingFetch);
 
     renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
     // Thread A (first in the fetched list) is adopted on mount; send from it.
@@ -2416,7 +2417,7 @@ describe("ChatPanel — Turso thread persistence", () => {
     const pendingFetch = new Promise<Response>((_res, rej) => {
       rejectFetch = rej;
     });
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockReturnValue(pendingFetch);
+    const fetchSpy = spyAiFetch().mockReturnValue(pendingFetch);
 
     renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
     await screen.findByText("thread A content");
@@ -2478,7 +2479,7 @@ describe("ChatPanel — Turso thread persistence", () => {
     const pendingFetch = new Promise<Response>((res) => {
       resolveFetch = res;
     });
-    vi.spyOn(globalThis, "fetch").mockReturnValue(pendingFetch);
+    spyAiFetch().mockReturnValue(pendingFetch);
 
     renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
     const loadThreadsMock = loadThreads as unknown as ReturnType<typeof vi.fn>;
@@ -2538,7 +2539,7 @@ describe("ChatPanel — Turso thread persistence", () => {
     const pendingFetch = new Promise<Response>((res) => {
       resolveFetch = res;
     });
-    vi.spyOn(globalThis, "fetch").mockReturnValue(pendingFetch);
+    spyAiFetch().mockReturnValue(pendingFetch);
 
     renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
     const loadThreadsMock = loadThreads as unknown as ReturnType<typeof vi.fn>;
@@ -2597,7 +2598,7 @@ describe("ChatPanel — Turso thread persistence", () => {
         display: [{ kind: "user", text: "prior message" }],
       },
     ] satisfies ChatThread[]);
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    const fetchMock = spyAiFetch().mockResolvedValue({
       ok: true,
       text: () => Promise.resolve(""),
       json: () =>
@@ -2657,9 +2658,11 @@ describe("usage-limit notice", () => {
 
   it("appends a notice on a 429 and keeps prior messages (does not clear the transcript)", async () => {
     const rateLimitBody = { error: { type: "rate_limit_error", message: "SECRET-do-not-render" } };
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    spyAiFetch().mockResolvedValue({
       ok: false,
       status: 429,
+      // §798: the transport retries a 429; `retry-after: 0` keeps its retries from waiting.
+      headers: { "retry-after": "0" },
       json: () => Promise.resolve(rateLimitBody),
       text: () => Promise.resolve(JSON.stringify(rateLimitBody)),
     } as unknown as Response);
@@ -2692,7 +2695,7 @@ describe("closable error banner", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("shows a dismiss button that clears the error banner", async () => {
-    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("boom"));
+    spyAiFetch().mockRejectedValue(new Error("boom"));
 
     render(
       <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
@@ -2725,7 +2728,7 @@ describe("400 response message surfacing", () => {
         message: "prompt is too long: 250000 tokens > 200000 maximum",
       },
     };
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    spyAiFetch().mockResolvedValue({
       ok: false,
       status: 400,
       json: () => Promise.resolve(body),
@@ -2747,7 +2750,7 @@ describe("400 response message surfacing", () => {
   });
 
   it("stays status-only when a non-400 failure has no readable message body", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    spyAiFetch().mockResolvedValue({
       ok: false,
       status: 500,
       json: () => Promise.reject(new Error("not json")),
@@ -2854,7 +2857,7 @@ describe("historySearch reaches the request body", () => {
    *  reads, not about which array a given block happens to sit in — a caching
    *  decision no assertion below should depend on. */
   async function requestBodyFor(ai: typeof AI_WITH_KEY) {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(okResponse);
+    const fetchSpy = spyAiFetch().mockImplementation(okResponse);
     const view = render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
@@ -2922,7 +2925,7 @@ describe("the forecast flag reaches the request body", () => {
       ...base,
       getSnapshot: vi.fn(() => ({ ...base.getSnapshot(), forecastSimulation, forecastView: true })),
     } as unknown as ToolDispatcher;
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+    const fetchSpy = spyAiFetch().mockImplementation(() =>
       Promise.resolve({
         ok: true,
         text: () => Promise.resolve(""),
@@ -2988,7 +2991,7 @@ describe("single-flight submitPrompt", () => {
     let rejectFirst!: (reason: unknown) => void;
     const first = new Promise<Response>((_res, rej) => { rejectFirst = rej; });
     const later = new Promise<Response>(() => {});
-    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
+    spyAiFetch().mockImplementation((_url, init) => {
       signals.push((init as RequestInit).signal as AbortSignal);
       return signals.length === 1 ? first : later;
     });
@@ -3051,7 +3054,7 @@ describe("staged tool calls (the review card)", () => {
   /** Serve `turns` in order, recording every request body. */
   function scriptFetch(turns: unknown[], bodies: string[]) {
     let call = 0;
-    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+    spyAiFetch().mockImplementation((_url, init?: RequestInit) => {
       bodies.push(String(init?.body ?? ""));
       const body = turns[Math.min(call, turns.length - 1)];
       call += 1;
@@ -4300,7 +4303,7 @@ describe("staged tool calls (the review card)", () => {
       doneTurn("after"),
     ];
     let call = 0;
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init?: RequestInit) => {
+    spyAiFetch().mockImplementation(async (_url, init?: RequestInit) => {
       bodies.push(String(init?.body ?? ""));
       const index = call;
       call += 1;
@@ -4495,7 +4498,7 @@ describe("cache-token usage recording", () => {
     vi.spyOn(Date, "now").mockImplementation(() => ++tick);
     const fetchTimes: number[] = [];
     let call = 0;
-    vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+    spyAiFetch().mockImplementation(() => {
       call += 1;
       fetchTimes.push(Date.now());
       // Turn 1: a real (non-destructive) tool call, so the round-trip loop
@@ -4570,7 +4573,7 @@ describe("cache-token usage recording", () => {
     let tick = Date.now();
     vi.spyOn(Date, "now").mockImplementation(() => ++tick);
     const fetchTimes: number[] = [];
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+    const fetchSpy = spyAiFetch().mockImplementation(() => {
       fetchTimes.push(Date.now());
       return Promise.resolve({
         ok: true,
@@ -4646,7 +4649,7 @@ describe("cache-token usage recording", () => {
       recordChatSend: recordChatSendSpy,
     });
     let resolveFetch!: (r: Response) => void;
-    vi.spyOn(globalThis, "fetch").mockReturnValue(new Promise<Response>((res) => { resolveFetch = res; }));
+    spyAiFetch().mockReturnValue(new Promise<Response>((res) => { resolveFetch = res; }));
     let epoch = 0;
     render(
       <ChatPanel
@@ -4706,7 +4709,7 @@ describe("cache-token usage recording", () => {
       noteUnbilledChatSend: noteSpy,
     });
     let call = 0;
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+    const fetchSpy = spyAiFetch().mockImplementation(() => {
       call += 1;
       if (call > 1) return Promise.reject(new Error("boom"));
       return Promise.resolve({
@@ -4742,7 +4745,7 @@ describe("cache-token usage recording", () => {
       recordChatSend: recordChatSendSpy,
       noteUnbilledChatSend: noteSpy,
     });
-    vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.reject(new Error("boom")));
+    spyAiFetch().mockImplementation(() => Promise.reject(new Error("boom")));
 
     renderGuidedPanel();
     await screen.findByText(t("en-US", "chatError", "boom"));
@@ -4751,10 +4754,13 @@ describe("cache-token usage recording", () => {
     expect(noteSpy).not.toHaveBeenCalled();
   });
 
-  // ★ The mock ignores the abort signal, so the request answers AFTER Stop and
-  //   the loop breaks on the cancel without throwing. A real Stop aborts the
-  //   fetch and takes the catch instead (the next test); this pins the
-  //   defensive cancel-after-response branch.
+  // ★ The request answers, and Stop lands only AFTER that, so the loop breaks
+  //   on the cancel without throwing. A real Stop aborts the fetch and takes
+  //   the catch instead (the next test); this pins the defensive
+  //   cancel-after-response branch. Since §798 the transport ends a request the
+  //   moment Stop aborts it — a mock that ignores the signal no longer gets a
+  //   late answer through — so Stop is pressed while `callClaude` reads the
+  //   answer the transport already handed back.
   it("notes, without counting, a send stopped after its request answered", async () => {
     const recordChatSendSpy = vi.fn();
     const noteSpy = vi.fn();
@@ -4764,26 +4770,39 @@ describe("cache-token usage recording", () => {
       noteUnbilledChatSend: noteSpy,
     });
     let answer: (r: Response) => void = () => {};
-    vi.spyOn(globalThis, "fetch").mockImplementation(
+    spyAiFetch().mockImplementation(
       () => new Promise<Response>((resolve) => { answer = resolve; }),
     );
 
     renderGuidedPanel();
     await waitFor(() => expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0));
-    fireEvent.click(screen.getAllByRole("button", { name: "Stop" })[0]);
-    answer({
-      ok: true,
-      text: () => Promise.resolve(""),
-      json: () =>
-        Promise.resolve({
-          content: [{ type: "text", text: "late" }],
-          stop_reason: "end_turn",
-          usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
-        }),
-    } as unknown as Response);
+    const realJson = Response.prototype.json;
+    let stopped = false;
+    const readReply = vi.spyOn(Response.prototype, "json").mockImplementation(async function (this: Response) {
+      const body: unknown = await realJson.call(this);
+      if (!stopped && typeof body === "object" && body !== null && "stop_reason" in body) {
+        stopped = true;
+        fireEvent.click(screen.getAllByRole("button", { name: "Stop" })[0]);
+      }
+      return body;
+    });
+    try {
+      answer({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            content: [{ type: "text", text: "late" }],
+            stop_reason: "end_turn",
+            usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+          }),
+      } as unknown as Response);
 
-    await waitFor(() => expect(noteSpy).toHaveBeenCalledTimes(1));
-    expect(recordChatSendSpy).not.toHaveBeenCalled();
+      await waitFor(() => expect(noteSpy).toHaveBeenCalledTimes(1));
+      expect(stopped).toBe(true);
+      expect(recordChatSendSpy).not.toHaveBeenCalled();
+    } finally {
+      readReply.mockRestore();
+    }
   });
 
   // The real Stop after a response: request 1 answered with a tool call, the
@@ -4803,7 +4822,7 @@ describe("cache-token usage recording", () => {
     vi.spyOn(Date, "now").mockImplementation(() => ++tick);
     const fetchTimes: number[] = [];
     let call = 0;
-    vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+    spyAiFetch().mockImplementation(() => {
       call += 1;
       fetchTimes.push(Date.now());
       if (call === 2) return Promise.reject(new DOMException("aborted", "AbortError"));
@@ -4840,7 +4859,7 @@ describe("§650 a refused key shows the key message", () => {
     [403, "permission_error", "Your Anthropic API key isn't allowed to make this request."],
   ] as const)("a %i shows the key message instead of the raw failure", async (status, type, copy) => {
     const body = { error: { type, message: "invalid x-api-key" } };
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    spyAiFetch().mockResolvedValue({
       ok: false,
       status,
       json: () => Promise.resolve(body),
@@ -4872,7 +4891,7 @@ describe("AI-17 a transport failure shows its own message", () => {
 
   it("an unconfirmed AI setting sends nothing and says so", async () => {
     __setAiStatusRequestForTests(() => Promise.reject(new TypeError("Failed to fetch")));
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const fetchSpy = spyAiFetch();
     render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />);
     fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "list tasks" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -4900,7 +4919,7 @@ describe("§650 a passphrase-unlocked key feeds the key verdict", () => {
     await saveSealed(await sealPassphrase("anthropicApiKey", "sk-ant-api03-UnlockedKey0000000000", "pw"));
     syncAiKey(""); // what task-manager syncs for a passphrase-wrapped key
     const body = { error: { type: "authentication_error", message: "invalid x-api-key" } };
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    spyAiFetch().mockResolvedValue({
       ok: false,
       status: 401,
       json: () => Promise.resolve(body),

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { stubAiFetch } from "../test/fetch-real-response";
 import "../test/ai-consent-live";
 import { AiBackgroundPausedError, AiConsentRevokedError, newConsent, publishAiConsentState, publishBackgroundProjectOff } from "./ai-consent";
 import { defaultAiConfig } from "./settings-types";
@@ -24,7 +25,7 @@ function args() {
 }
 
 function stubReply(stopReason: string | undefined) {
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+  stubAiFetch(vi.fn().mockResolvedValue({
     ok: true,
     status: 200,
     json: async () => ({ stop_reason: stopReason, content: [{ type: "tool_use", name: "t", input: { a: 1 } }] }),
@@ -32,7 +33,7 @@ function stubReply(stopReason: string | undefined) {
 }
 
 function stubStatus(status: number) {
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+  stubAiFetch(vi.fn().mockResolvedValue({
     ok: status >= 200 && status < 300,
     status,
     json: async () => (status === 200
@@ -83,7 +84,7 @@ describe("runForcedToolCall — §650 reports the key verdict at the envelope", 
     await expect(runForcedToolCall(args())).rejects.toBeInstanceOf(AiHttpError);
     stubStatus(500);
     await expect(runForcedToolCall(args())).rejects.toBeInstanceOf(AiHttpError);
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    stubAiFetch(vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
     await expect(runForcedToolCall(args())).rejects.toBeInstanceOf(TypeError);
     expect(getAiKeyStatus()).toBe("rejected");
   });
@@ -107,7 +108,7 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
 
   it("resends once with tool_choice auto and returns the tool input", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValueOnce(TOOL_REPLY);
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     await expect(runForcedToolCall({ ...args(), model: "claude-sonnet-5-5" })).resolves.toEqual({ a: 1 });
     expect(choices(fetchMock)).toEqual([{ type: "tool", name: "t" }, { type: "auto" }]);
   });
@@ -153,7 +154,7 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
 
     it("returns a matching plain auto reply with no strict request", async () => {
       const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValueOnce(reply(GOOD));
-      vi.stubGlobal("fetch", fetchMock);
+      stubAiFetch(fetchMock);
       await expect(runForcedToolCall(call())).resolves.toEqual(GOOD);
       expect(shape(fetchMock)).toEqual([["tool", false], ["auto", false]]);
     });
@@ -163,7 +164,7 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
         .mockResolvedValueOnce(REFUSAL)
         .mockResolvedValueOnce(reply(MALFORMED))
         .mockResolvedValue(reply(GOOD));
-      vi.stubGlobal("fetch", fetchMock);
+      stubAiFetch(fetchMock);
       await expect(runForcedToolCall(call())).resolves.toEqual(GOOD);
       await runForcedToolCall(call());
       expect(shape(fetchMock)).toEqual([["tool", false], ["auto", false], ["auto", true], ["auto", true]]);
@@ -202,7 +203,7 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
       ["a nested missing required key", { summary: "s", actions: [{ title: "a", entity: {} }] }],
     ])("treats %s as not matching", async (_label, input) => {
       const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValueOnce(reply(input)).mockResolvedValueOnce(reply(GOOD));
-      vi.stubGlobal("fetch", fetchMock);
+      stubAiFetch(fetchMock);
       await expect(runForcedToolCall(call())).resolves.toEqual(GOOD);
       expect(fetchMock).toHaveBeenCalledTimes(3);
     });
@@ -220,7 +221,7 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
         .mockResolvedValueOnce(reply(MALFORMED))
         .mockResolvedValueOnce(STRICT_REFUSAL)
         .mockResolvedValue(reply(MALFORMED));
-      vi.stubGlobal("fetch", fetchMock);
+      stubAiFetch(fetchMock);
       await expect(runForcedToolCall(call())).resolves.toEqual(MALFORMED);
       await expect(runForcedToolCall(call())).resolves.toEqual(MALFORMED);
       expect(shape(fetchMock)).toEqual([["tool", false], ["auto", false], ["auto", true], ["auto", false]]);
@@ -228,7 +229,7 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
 
     it("leaves the forced request as it was", async () => {
       const fetchMock = vi.fn().mockResolvedValue(reply(MALFORMED));
-      vi.stubGlobal("fetch", fetchMock);
+      stubAiFetch(fetchMock);
       await expect(runForcedToolCall({ ...call(), model: "claude-sonnet-5" })).resolves.toEqual(MALFORMED);
       expect(sentBodies(fetchMock)[0].tools).toEqual([TOOL, OTHER]);
       expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -249,7 +250,7 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
         .mockResolvedValueOnce(REFUSAL)
         .mockResolvedValueOnce(recReply([{ name: "create_task", input: { title: "Review T&M burn", dueDate: "2026-09-25" } }]))
         .mockResolvedValueOnce(recReply(valid));
-      vi.stubGlobal("fetch", fetchMock);
+      stubAiFetch(fetchMock);
       const out = await runForcedToolCall({ ...args(), model: "claude-sonnet-5-5", tools: [RECOMMEND_TOOL], toolName: RECOMMEND_TOOL.name });
       expect(out).toEqual({ summary: "s", calls: valid });
       expect(shape(fetchMock)).toEqual([["tool", false], ["auto", false], ["auto", true]]);
@@ -265,7 +266,7 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
 
   it("sends auto straight away for that model afterwards, and still forces the tool for other models", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValue(TOOL_REPLY);
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     await runForcedToolCall({ ...args(), model: "claude-sonnet-5-5" });
     await runForcedToolCall({ ...args(), model: "claude-sonnet-5-5" });
     await runForcedToolCall({ ...args(), model: "claude-sonnet-5" });
@@ -283,7 +284,7 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
       status: 400,
       json: async () => ({ error: { type: "invalid_request_error", message: "prompt is too long: 300000 tokens > 200000 maximum" } }),
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     await expect(runForcedToolCall(args())).rejects.toBeInstanceOf(AiHttpError);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -294,7 +295,7 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
       status: 200,
       json: async () => ({ stop_reason: "end_turn", content: [{ type: "text", text: "hello" }] }),
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     await expect(runForcedToolCall({ ...args(), model: "claude-sonnet-5-5" })).rejects.toThrow("parse");
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -334,7 +335,7 @@ describe("a reply cut at max_tokens (§764)", () => {
       .mockResolvedValueOnce(REFUSAL)
       .mockResolvedValueOnce(reply("max_tokens", {}))
       .mockResolvedValue(reply("tool_use", { summary: "s" }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     await expect(runForcedToolCallWithStop(call("claude-sonnet-5-5"))).resolves.toEqual({ input: {}, stopReason: "max_tokens" });
     await expect(runForcedToolCallWithStop(call("claude-sonnet-5-5"))).resolves.toEqual({ input: { summary: "s" }, stopReason: "tool_use" });
     expect(sent(fetchMock)).toEqual([["tool", false, 10], ["auto", false, 10], ["auto", false, 10]]);
@@ -344,14 +345,14 @@ describe("a reply cut at max_tokens (§764)", () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(reply("max_tokens", {}))
       .mockResolvedValueOnce(reply("tool_use", { summary: "s" }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     await expect(runForcedToolCallWithRetry(call(), 20)).resolves.toEqual({ input: { summary: "s" }, stopReason: "tool_use" });
     expect(sent(fetchMock)).toEqual([["tool", false, 10], ["tool", false, 20]]);
   });
 
   it("runForcedToolCallWithRetry sends one request when the reply is not cut", async () => {
     const fetchMock = vi.fn().mockResolvedValue(reply("tool_use", { summary: "s" }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     await expect(runForcedToolCallWithRetry(call(), 20)).resolves.toEqual({ input: { summary: "s" }, stopReason: "tool_use" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -360,13 +361,13 @@ describe("a reply cut at max_tokens (§764)", () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(reply("max_tokens"))
       .mockResolvedValueOnce(reply("tool_use", { summary: "s" }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     await expect(runForcedToolCallWithRetry(call(), 20)).resolves.toEqual({ input: { summary: "s" }, stopReason: "tool_use" });
   });
 
   it("runForcedToolCallWithRetry reports a second cut as max_tokens, for the caller to fail on", async () => {
     const fetchMock = vi.fn().mockResolvedValue(reply("max_tokens", { summary: "par" }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     await expect(runForcedToolCallWithRetry(call(), 20)).resolves.toEqual({ input: { summary: "par" }, stopReason: "max_tokens" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -379,7 +380,7 @@ describe("a reply cut at max_tokens (§764)", () => {
         status: 400,
         json: async () => ({ error: { type: "invalid_request_error", message: "max_tokens: 20 > 10, which is the maximum allowed" } }),
       });
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     await expect(runForcedToolCallWithRetry(call(), 20)).resolves.toEqual({ input: { summary: "par" }, stopReason: "max_tokens" });
   });
 
@@ -396,7 +397,7 @@ describe("a reply cut at max_tokens (§764)", () => {
       .mockResolvedValueOnce(reply("max_tokens", { summary: "par" }))
       .mockResolvedValueOnce(CAP)
       .mockResolvedValue(reply("tool_use", { summary: "s" }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     const model = "claude-sonnet-5-5";
     await runForcedToolCallWithStop(call(model));
     await expect(runForcedToolCallWithRetry(call(model), 20)).resolves.toEqual({ input: { summary: "par" }, stopReason: "max_tokens" });
@@ -411,8 +412,9 @@ describe("a reply cut at max_tokens (§764)", () => {
   it("runForcedToolCallWithRetry passes any other failure of the retry through", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(reply("max_tokens", {}))
-      .mockResolvedValueOnce({ ok: false, status: 529, json: async () => ({ error: { type: "overloaded_error", message: "Overloaded" } }) });
-    vi.stubGlobal("fetch", fetchMock);
+      // §798: the transport retries a 529 itself (here with no wait), so every later send answers 529.
+      .mockResolvedValue({ ok: false, status: 529, headers: { "retry-after": "0" }, json: async () => ({ error: { type: "overloaded_error", message: "Overloaded" } }) });
+    stubAiFetch(fetchMock);
     await expect(runForcedToolCallWithRetry(call(), 20)).rejects.toBeInstanceOf(AiHttpError);
   });
 
@@ -421,7 +423,7 @@ describe("a reply cut at max_tokens (§764)", () => {
       .mockResolvedValueOnce(REFUSAL)
       .mockResolvedValueOnce(reply("max_tokens", {}))
       .mockResolvedValueOnce(reply("tool_use", { summary: "s" }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     await expect(runForcedToolCallWithRetry(call("claude-sonnet-5-5"), 20)).resolves.toEqual({ input: { summary: "s" }, stopReason: "tool_use" });
     expect(sent(fetchMock)).toEqual([["tool", false, 10], ["auto", false, 10], ["auto", false, 20]]);
   });
@@ -455,7 +457,7 @@ function stubFallbackWith(during: () => void) {
       json: async () => ({ error: { type: "invalid_request_error", message: "tool_choice is not supported" } }),
     };
   });
-  vi.stubGlobal("fetch", fetchMock);
+  stubAiFetch(fetchMock);
   return fetchMock;
 }
 
@@ -468,7 +470,7 @@ describe("runForcedToolCall — the consent gate (AI-01)", () => {
 
   it("rejects with AiConsentRevokedError and sends nothing when no consent is published", async () => {
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     publishAiConsentState({ ...defaultAiConfig, consent: undefined });
     await expect(runForcedToolCall(args())).rejects.toBeInstanceOf(AiConsentRevokedError);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -478,7 +480,7 @@ describe("runForcedToolCall — the consent gate (AI-01)", () => {
     "a %s consent revoked while the deployment status is asked stops the request before it is sent",
     async (level) => {
       const fetchMock = vi.fn();
-      vi.stubGlobal("fetch", fetchMock);
+      stubAiFetch(fetchMock);
       __setAiStatusRequestForTests(async () => {
         publishAiConsentState(level === "background" ? { ...LIVE, backgroundConsent: undefined } : { ...defaultAiConfig, consent: undefined });
         return aiStatusResponse();
@@ -499,7 +501,7 @@ describe("runForcedToolCall — the consent gate (AI-01)", () => {
         json: async () => ({ error: { type: "invalid_request_error", message: "tool_choice is not supported" } }),
       };
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     await expect(runForcedToolCall(args())).rejects.toBeInstanceOf(AiConsentRevokedError);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -524,7 +526,7 @@ describe("runForcedToolCall — the consent gate (AI-01)", () => {
 
   it("a background call sends nothing without a background consent (AI-01)", async () => {
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     publishAiConsentState({ ...LIVE, backgroundConsent: undefined });
     await expect(runForcedToolCallWithStop({ ...args(), level: "background" })).rejects.toBeInstanceOf(AiConsentRevokedError);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -536,7 +538,7 @@ describe("runForcedToolCall — the pause target", () => {
 
   it("a paused target refuses before any fetch, whatever the open project publishes", async () => {
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    stubAiFetch(fetchMock);
     publishBackgroundProjectOff(false);
     await expect(
       runForcedToolCall({ ...args(), level: "background", pauseTarget: { settingsOverrides: { ai: { backgroundOff: true } } } }),

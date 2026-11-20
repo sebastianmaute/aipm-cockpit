@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { stubAiFetch } from "../test/fetch-real-response";
 import { act, renderHook } from "@testing-library/react";
 import { AI_KEY_CHECK_DEBOUNCE_MS, AI_KEY_CHECK_TIMEOUT_MS, useAiKeyCheck, useAiKeyStatus } from "./use-ai-key-check";
 import { AI_DISCLOSURE_VERSION, newConsent, type AiConsent } from "./ai-consent";
@@ -22,7 +23,7 @@ function mount(initial: Partial<Props> = {}) {
 
 function stubStatus(status: number) {
   const fn = vi.fn().mockResolvedValue({ ok: status >= 200 && status < 300, status, json: async () => ({ data: [] }) });
-  vi.stubGlobal("fetch", fn);
+  stubAiFetch(fn);
   return fn;
 }
 
@@ -144,7 +145,7 @@ describe("useAiKeyCheck — §650 start-up and on-save key check", () => {
 
   it("a network error leaves the verdict unchanged", async () => {
     reportAiKeyResponse(KEY_A, 200);
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    stubAiFetch(vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
     mount();
     await settle();
     expect(getAiKeyStatus()).toBe("ok");
@@ -153,7 +154,7 @@ describe("useAiKeyCheck — §650 start-up and on-save key check", () => {
   it("a timeout aborts the check and leaves the verdict unchanged", async () => {
     reportAiKeyResponse(KEY_A, 401);
     let seenSignal: AbortSignal | undefined;
-    vi.stubGlobal("fetch", vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+    stubAiFetch(vi.fn().mockImplementation((_url: string, init: RequestInit) => {
       seenSignal = init.signal ?? undefined;
       return new Promise((_resolve, reject) => {
         init.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
@@ -171,7 +172,7 @@ describe("useAiKeyCheck — §650 start-up and on-save key check", () => {
 describe("useAiKeyCheck — a late answer for an OLD key", () => {
   it("is dropped: start a check for KEY_A, switch to KEY_B, then A answers 401 — the verdict stays unknown", async () => {
     let resolveA!: (r: unknown) => void;
-    vi.stubGlobal("fetch", vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+    stubAiFetch(vi.fn().mockImplementation((_url: string, init: RequestInit) => {
       const key = (init.headers as Record<string, string>)["x-api-key"];
       // A ignores its abort on purpose: the store, not the abort, must drop the late answer.
       if (key === KEY_A) return new Promise((resolve) => { resolveA = resolve; });
