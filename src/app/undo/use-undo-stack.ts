@@ -659,10 +659,9 @@ export function captureCreatedPart<T extends { id: number }>(part: CreatedPart<T
     flushSync(() => {
       setter((prev) => {
         const undone = undoCreatedRows(prev, base, isReferenced, dropRefs);
-        const beforeIds = new Set(undone.keptBefore.map((r) => r.id));
         removed = undone.removed;
         keptBefore = undone.keptBefore;
-        keptAfter = undone.result.filter((r) => beforeIds.has(r.id));
+        keptAfter = undone.keptAfter;
         lastCount = undone.removed.length;
         if (onKept && !reported && undone.keptIds.length > 0) {
           reported = true;

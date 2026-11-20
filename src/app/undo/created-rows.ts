@@ -19,6 +19,8 @@ export interface CreatedRowsUndo<T extends { id: number }> {
   keptIds: number[];
   /** Kept rows as they were BEFORE their refs were dropped (only those `dropRefs` changed). */
   keptBefore: T[];
+  /** The same rows as the undo left them (refs dropped), in `keptBefore`'s order. */
+  keptAfter: T[];
 }
 
 export interface CreatedRowsRedo<T extends { id: number }> {
@@ -51,14 +53,18 @@ export function undoCreatedRows<T extends { id: number }>(
   }
   const removedIds: ReadonlySet<number> = new Set(removed.map((r) => r.id));
   const keptBefore: T[] = [];
+  const keptAfter: T[] = [];
   const result: T[] = [];
   for (const row of prev) {
     if (removedIds.has(row.id)) continue;
     const next = dropRefs(row, removedIds);
-    if (!rowsEqual(next, row)) keptBefore.push(row);
+    if (!rowsEqual(next, row)) {
+      keptBefore.push(row);
+      keptAfter.push(next);
+    }
     result.push(next);
   }
-  return { result, removed, keptIds, keptBefore };
+  return { result, removed, keptIds, keptBefore, keptAfter };
 }
 
 export function redoCreatedRows<T extends { id: number }>(

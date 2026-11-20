@@ -65,6 +65,9 @@ describe("undoCreatedRows", () => {
     expect(r.keptIds).toEqual([12]);
     expect(r.result.find((x) => x.id === 12)?.deps).toEqual([]);
     expect(r.keptBefore).toEqual([row(12, { deps: [11], title: "edited" })]);
+    // The kept rows as the undo left them, in keptBefore's order, and the very rows in the result.
+    expect(r.keptAfter).toEqual([row(12, { deps: [], title: "edited" })]);
+    expect(r.keptAfter[0]).toBe(r.result.find((x) => x.id === 12));
   });
 
   it("skips a created row already deleted", () => {
