@@ -260,18 +260,19 @@ export interface WorkspaceSectionProps {
    *  `logActivityChangesUser` wrappers here (see the "who names the actor" rule
    *  on `useActivityLog`) — the panel logs generic `milestone.*` kinds that the
    *  chat dispatcher also writes, so it cannot name its own actor. Anything on
-   *  this contract that writes an `ai.*` kind takes `logActivityAs` instead. */
+   *  this contract that writes an `ai.*` kind takes `logActivityAi` instead. */
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   logActivityChanges: (
     kind: ActivityKind,
     changes: readonly FieldChange[],
     ...args: (string | number)[]
   ) => void;
-  /** Actor-aware logger for the AI-writing surfaces this section mounts
-   *  (`RaciPanel` → `useRaciSuggest`, `ResourcesPanel` → `useAllocPlan`, and the
-   *  inline "Ask Claude" editor). Each stamps `"ai"` at its own call site. */
+  /** The HUMAN actor-aware logger (`HumanActor` excludes `"ai"`). Its only remaining use in this section is the
+   *  user-side project-meta save in `workspace-section.tsx`; the AI-writing surfaces take `logActivityAi`. */
   logActivityAs: LogActivityAsFn;
-  /** §799 — the AI logger for the same surfaces: the origin LEADS, so each names its own feature. */
+  /** §799 — the AI logger for the AI-writing surfaces this section mounts (`RaciPanel` → `useRaciSuggest`,
+   *  `ResourcesPanel` → `useAllocPlan`, the inline "Ask Claude" editor): stamps `"ai"` plus the origin, which
+   *  LEADS, so each names its own feature. */
   logActivityAi: LogActivityAiFn;
   handleClearActivityLog: () => void;
   handleOpenAddAbsence: (seed?: Partial<Absence>) => void;

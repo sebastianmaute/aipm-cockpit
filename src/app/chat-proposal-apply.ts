@@ -309,7 +309,8 @@ export interface ApplyProposalArgs {
    *  check (a unit test's opt-out); `chat-panel.tsx` always passes it. */
   readonly getFeatures?: () => readonly FeatureModuleId[] | undefined;
   /** §799 — the AI feature every replayed row is stored under, handed to `runTool` per row. REQUIRED: the caller
-   *  names it (the chat's review card passes `aiOrigin("chatProposal")`), so this module never invents one. */
+   *  names it (the chat's review card passes the staging request's `origins.proposal`, which may carry a
+   *  thread/request link), so this module never invents one. */
   readonly origin: AiOrigin;
 }
 
