@@ -232,8 +232,9 @@ below]
   deselected, and nothing is written until the user confirms. The allocation, RACI and work breakdown
   previews show each change with its current and new value.
   [verified: `src/app/alloc-plan-modal.tsx`, `src/app/raci-suggest-modal.tsx`,
-  `src/app/task-dedup-modal.tsx`, `src/app/wbs-plan-modal.tsx`] **Exception for undo:** tasks that an
-  applied work breakdown creates cannot be undone and must be deleted by hand (§796). [vendor statement; register §796]
+  `src/app/task-dedup-modal.tsx`, `src/app/wbs-plan-modal.tsx`] **Undo:** undoing an applied work
+  breakdown also removes the tasks it created, except any that were changed since or are linked from elsewhere, which
+  stay. [verified: `src/app/use-wbs-plan.tsx`, `src/app/undo/created-rows.ts`]
 - **Forecast import.** Applies only after a preview and, where the AI proposed the column mapping, only
   after the user confirms that mapping. [verified: `src/app/forecast-import-modal.tsx`]
 - **Next-actions weight suggestion.** Each suggested weight is taken over only with Accept or Accept all.
