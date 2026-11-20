@@ -25,6 +25,13 @@ longer carries its own changelog comment.
   what stands in for a signature. The app's own update-signature check is kept, dormant, for a future signing provider.
   §793 (the unsigned uninstaller) is closed as moot.
 
+### Fixed
+
+- **Storage can no longer leave Turso in place while the project portfolio is on Turso.** Switching Settings →
+  Storage from Turso to a local kind left the portfolio on Turso over a local copy, so switching or creating a project
+  still went to Turso and renaming the copy renamed the Turso project. The switch now refuses and points to
+  Settings → Integrations → Portfolio storage, which leaves Turso correctly (§791).
+
 ## [1.21.1] - 2026-11-17 "French"
 
 A release fix. 1.21.0 was tagged but never published: GitHub's SBOM attestation refused the release's SBOM because

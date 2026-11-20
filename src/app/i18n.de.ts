@@ -5381,6 +5381,7 @@ export const de: Record<TranslationKey, string> = {
   storageConflictOverwriteConfirmAction: "Andere Version überschreiben",
   storageSavePausedEmptyLoad: "Das Speichern ist pausiert: Dieser Speicher lieferte keine Daten. Das angezeigte Projekt wurde beibehalten, wird aber nicht hineingeschrieben. Änderungen, die Sie jetzt vornehmen, werden nicht gespeichert. Prüfen Sie die Speichereinstellungen, oder laden Sie das Projekt neu, um den leeren Speicher zu öffnen.",
   storageSwitchedWithoutCopy: "Speicher auf {0} umgestellt. Es wurde nichts übernommen, weil aus dem bisherigen Speicher kein Projekt geladen worden war.",
+  storageLeaveTursoPortfolio: "Ihr Projektportfolio liegt in Turso, daher kann der Speicher Turso hier nicht verlassen. Um Turso zu verlassen, stellen Sie {0} → {1} → {2} auf „{3}“.",
   storageConvertTursoHoldsProjects: "Es wurde nichts übernommen: Diese Turso-Datenbank enthält bereits Projekte, und das Kopieren würde sie ersetzen.",
   storageConvertTursoHoldsProjectsRoute: "Es wurde nichts übernommen: Diese Turso-Datenbank enthält bereits Projekte, und das Kopieren würde sie ersetzen. Um an diesen Projekten zu arbeiten, stellen Sie den Portfolio-Speicher unter Einstellungen → Integrationen auf Turso.",
   storageConvertTursoProbeFailed: "Es wurde nichts übernommen: Es ließ sich nicht prüfen, ob die Turso-Datenbank bereits Projekte enthält. {0}",
