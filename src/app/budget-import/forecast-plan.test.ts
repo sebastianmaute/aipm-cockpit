@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { BudgetBucket, BucketAllocation, DisciplineAllocation, Resource, ResourcePlan, Role } from "../types";
 import type { ForecastRow } from "./forecast-types";
 import { splitToGranularity } from "./period-split";
+import { applyForecastImport } from "./forecast-apply";
 import {
-  applyForecastImport,
   buildForecastImportPlan,
   normalisePerson,
   type ImportCtx,

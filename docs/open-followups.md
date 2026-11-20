@@ -966,7 +966,7 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§724](#724-forecast-imports-total-and-continuation-rules-ask-about-or-drop-legitimate-rows--closed-2026-10-20) | Forecast import's total and continuation rules ask about or drop legitimate rows | — | — | **CLOSED** 2026-10-20 |
 | [§725](#725-forecast-imports-mapping-step-cannot-express-some-corrections--closed-2026-10-20) | Forecast import's mapping step cannot express some corrections | — | — | **CLOSED** 2026-10-20 |
 | [§726](#726-forecast-import-cannot-route-some-matched-people-and-its-notes-name-namesakes-inconsistently--closed-2026-10-20) | Forecast import cannot route some matched people, and its notes name namesakes inconsistently | — | — | **CLOSED** 2026-10-20 |
-| [§727](#727-forecast-plants-mixes-matching-and-apply-and-should-split-before-it-grows--open) | forecast-plan.ts mixes matching and apply and should split before it grows | — | — | open |
+| [§727](#727-forecast-plants-mixes-matching-and-apply-and-should-split-before-it-grows--closed-2026-11-20) | forecast-plan.ts mixes matching and apply and should split before it grows | — | — | **CLOSED** 2026-11-20 |
 | [§728](#728-the-first-start-splashs-german-locale-text-has-not-been-eye-checked-on-a-packaged-desktop-build-three-of-four-checks-seen--open) | The first-start splash's German-locale text has not been eye-checked on a packaged desktop build (three of four checks seen) | — | — | open |
 | [§729](#729-the-install-guide-describes-the-browser-download-prompt-and-the-windows-protection-box-without-pictures--closed-2026-10-14) | The install guide describes the browser download prompt and the Windows protection box without pictures | — | — | **CLOSED** 2026-10-14 |
 | [§730](#730-the-timelog-view-gives-no-guided-setup-for-its-connection-links-and-first-fetch--open) | The TimeLog view gives no guided setup for its connection, links and first fetch | — | — | open |
@@ -45341,15 +45341,15 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 **Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
 
-## 727. forecast-plan.ts mixes matching and apply and should split before it grows — OPEN
+## 727. forecast-plan.ts mixes matching and apply and should split before it grows — CLOSED 2026-11-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue list; `grep -c "" src/app/budget-import/forecast-plan.ts` prints 498 on 2026-10-14, which is 499 by the `size:check` count (lines + 1).
+**Status:** CLOSED 2026-11-20: item (6), the entry's only item, is fixed. The apply half (`applyForecastImport` and its patch helpers) moved unchanged into `src/app/budget-import/forecast-apply.ts`; `forecast-plan.ts` keeps matching and planning and no longer imports or exports anything apply-only. `grep -c "" src/app/budget-import/forecast-plan.ts src/app/budget-import/forecast-apply.ts` prints 421 and 84. `use-forecast-import.ts` and `forecast-plan.test.ts` import `applyForecastImport` from the new file; `npx vitest run` over the six test files that name either module or their callers passed 397 of 397.
 
-**Work item:** #719
+**Earlier:** OPEN 2026-10-14, filed from §500's residue list; `grep -c "" src/app/budget-import/forecast-plan.ts` prints 498 on 2026-10-14, which is 499 by the `size:check` count (lines + 1).
 
 `src/app/budget-import/forecast-plan.ts` grew from 429 to 499 lines in §500's last review rounds. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
 
-- (6) The next growth should split matching from apply.
+- (6) The next growth should split matching from apply. (Fixed 2026-11-20: `forecast-apply.ts`.)
 
 The entry closes when every item is fixed or closed by an owner decision.
 

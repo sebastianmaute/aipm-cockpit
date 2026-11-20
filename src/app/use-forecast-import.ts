@@ -36,7 +36,8 @@
 // sealed behind a passphrase is hydrated only in the instance that unlocked it.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { applyForecastImport, buildForecastImportPlan, normalisePerson, type ImportPlan, type PersonOverride, type UnresolvedPerson } from "./budget-import/forecast-plan";
+import { applyForecastImport } from "./budget-import/forecast-apply";
+import { buildForecastImportPlan, normalisePerson, type ImportPlan, type PersonOverride, type UnresolvedPerson } from "./budget-import/forecast-plan";
 import { gridToForecastRows, isTotalLabel } from "./budget-import/forecast-rows";
 import { assignRunPeriods } from "./budget-import/period-assign";
 import type { AssumedYear, ColumnAmbiguity, ColumnMapping, DropReason, ForecastCollision, ForecastRow, IgnoredColumn } from "./budget-import/forecast-types";
