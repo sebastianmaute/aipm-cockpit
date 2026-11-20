@@ -458,12 +458,13 @@ async function sendWithRetry<T extends ReadAnswer>(
 /** POST a Messages request on this deployment's route. Every attempt confirms the deployment, runs
  *  `beforeSend` and redacts anew, in that order, before anything is sent. */
 export async function postAiMessages({ apiKey, body, path, signal, beforeSend, privacy: asked, onRetryWait }: PostAiMessagesArgs): Promise<Response> {
-  const { res, privacy } = await sendWithRetry(apiKey, signal, onRetryWait, async (attemptSignal) => {
+  // The privacy that redacted the FINAL send (forced or as asked) is the one that restores its reply.
+  const { res, privacy: sentPrivacy } = await sendWithRetry(apiKey, signal, onRetryWait, async (attemptSignal) => {
     const { peopleForced } = await confirmAiDeployment(attemptSignal);
     throwIfAborted(attemptSignal);
     beforeSend?.();
-    const sendPrivacy = peopleForced ? forcedPrivacy(asked) : asked;
-    const outgoing = redactForSend(body, sendPrivacy);
+    const privacy = peopleForced ? forcedPrivacy(asked) : asked;
+    const outgoing = redactForSend(body, privacy);
     const gateway = usesRelay(currentAiRoute());
     const request = fetch(gateway ? RELAY_MESSAGES_URL : ANTHROPIC_MESSAGES_URL, {
       method: "POST",
@@ -472,9 +473,9 @@ export async function postAiMessages({ apiKey, body, path, signal, beforeSend, p
       signal: attemptSignal,
     });
     const answer = await readWhole(request, attemptSignal, gateway);
-    return { ...answer, privacy: sendPrivacy };
+    return { ...answer, privacy };
   });
-  const reply = await restoreReply(res, privacy);
+  const reply = await restoreReply(res, sentPrivacy);
   // Fire and forget: `tapUsage` swallows its own failures.
   if (reply.ok) void tapUsage(path, reply);
   return reply;
