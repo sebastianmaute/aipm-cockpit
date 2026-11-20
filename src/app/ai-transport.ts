@@ -304,7 +304,7 @@ export interface PostAiMessagesArgs {
   onRetryWait?: (waitMs: number) => void;
 }
 
-/** Redact `body` for a protected send and log the per-send counts (numbers only, never values). */
+/** Redact `body` for a protected send and log the per-attempt counts (numbers only, never values). */
 function redactForSend(body: string, privacy: AiPrivacy): string {
   if (!privacy.protected) return body;
   if (privacy.refuseUnredactable && hasUnredactableContent(body)) throw new AiPeopleProtectedContentError();
@@ -443,6 +443,8 @@ async function sendWithRetry<T extends ReadAnswer>(
     const { retryable, relayError } = await judgeAnswer(answer, apiKey);
     const waitMs = retryable && n < AI_MAX_ATTEMPTS ? retryWaitMs(n, retryAfter, Date.now(), Math.random) : null;
     if (waitMs === null) {
+      // Retries ran out (or the wait is over the cap): one line, numbers only.
+      if (retryable) logDiag("info", "ai.retryExhausted", { status: answer.res.status, attempts: n });
       if (relayError) throw relayError.error;
       return answer;
     }

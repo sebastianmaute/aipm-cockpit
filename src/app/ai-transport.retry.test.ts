@@ -6,6 +6,7 @@ import { setAiDeploymentState, type AiDeploymentState } from "./ai-deployment";
 import { AiTimeoutError, AI_GATEWAY_RATE_LIMITED, AI_RELAY_RATE_LIMITED } from "./ai-errors";
 import { AI_REQUEST_TIMEOUT_MS } from "./ai-retry";
 import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
+import * as diagnostics from "./diagnostics";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { __setAiStatusRequestForTests } from "./ai-status-request";
 import { withPeopleAllowed } from "./ai-people-protection";
@@ -105,6 +106,35 @@ describe("postAiMessages retries a rate limit or overload", () => {
     expect(res.headers.get("x-attempt")).toBe("3");
     expect(await res.json()).toMatchObject({ error: { type: "overloaded_error" } });
     expect(sends(f)).toHaveLength(3);
+  });
+
+  it("logs one ai.retryExhausted line, numbers only, when three 529s run the retries out", async () => {
+    const log = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    stubFetch([() => overloaded()]);
+    const run = settle(postAiMessages({ privacy: UNPROTECTED, apiKey: KEY, body: "{}", path: "chat" }));
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(run.result()?.ok).toBe(true);
+    const exhausted = log.mock.calls.filter((c) => c[1] === "ai.retryExhausted");
+    expect(exhausted).toEqual([["info", "ai.retryExhausted", { status: 529, attempts: 3 }]]);
+  });
+
+  it("logs ai.retryExhausted when the requested wait is over the cap, and not when a retry succeeds", async () => {
+    const log = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    stubFetch([() => limited({ "retry-after": "120" })]);
+    const capped = settle(postAiMessages({ privacy: UNPROTECTED, apiKey: KEY, body: "{}", path: "chat" }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(capped.result()?.ok).toBe(true);
+    expect(log.mock.calls.filter((c) => c[1] === "ai.retryExhausted")).toEqual([
+      ["info", "ai.retryExhausted", { status: 429, attempts: 1 }],
+    ]);
+
+    log.mockClear();
+    stubFetch([() => overloaded(), () => json({ ok: true })]);
+    const recovered = settle(postAiMessages({ privacy: UNPROTECTED, apiKey: KEY, body: "{}", path: "chat" }));
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(recovered.result()?.ok).toBe(true);
+    expect(log.mock.calls.filter((c) => c[1] === "ai.retry")).toHaveLength(1);
+    expect(log.mock.calls.filter((c) => c[1] === "ai.retryExhausted")).toHaveLength(0);
   });
 
   it("an overloaded_error type is retried at a status other than 529", async () => {
