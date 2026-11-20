@@ -12,6 +12,7 @@ import { useWbsPlan } from "./use-wbs-plan";
 import { ToastProvider } from "./toast-context";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
+import type { KnowledgeItem } from "./document-link";
 import { useUndoStack, type UndoStackApi } from "./undo/use-undo-stack";
 import { defaultSettings, type Settings } from "./settings-types";
 import { type RaidItem, type Task } from "./types";
@@ -265,6 +266,25 @@ describe("useWbsPlan undo (§796)", () => {
     const docsId = named(api().ws.tasks, "Write docs")[0].id;
     act(() => {
       api().ws.setRaid([{ id: 1, category: "R", title: "Risk", status: "Open", linkedTaskIds: [docsId], raisedDate: "2026-10-01" } as unknown as RaidItem]);
+    });
+
+    act(() => { api().undo.undo(); });
+    await settle();
+
+    const tasks = api().ws.tasks;
+    expect(ids(named(tasks, "Write docs"))).toEqual([docsId]);
+    expect(named(tasks, "Build API")).toHaveLength(0);
+    expect(named(tasks, "Review docs")).toHaveLength(0);
+    noDanglingDeps(tasks);
+    expect(showToast).toHaveBeenLastCalledWith("info", "Undone. 1 new task was kept because it was changed or linked after the breakdown.");
+  });
+
+  it("undo keeps a created task a knowledge item links to", async () => {
+    const api = renderHarness();
+    await applyProposal(SPLIT_AND_NEW);
+    const docsId = named(api().ws.tasks, "Write docs")[0].id;
+    act(() => {
+      api().ws.setKnowledgeItems([{ url: "https://example.com/guide", title: "Guide", taskIds: [docsId] } as unknown as KnowledgeItem]);
     });
 
     act(() => { api().undo.undo(); });

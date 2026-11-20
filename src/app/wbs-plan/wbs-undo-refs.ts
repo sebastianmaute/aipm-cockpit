@@ -3,14 +3,19 @@
 // The apply's undo entry removes the tasks it created unless they changed or became referenced since
 // (`captureCreatedPart`, `undo/created-rows.ts`). These say, for TASKS, what "referenced" means, how a
 // removed task's links are dropped from the rows that stay, and how a redo's re-mint is followed.
+import type { KnowledgeItem } from "../document-link";
+import type { ProjectDocument } from "../document-model";
 import type { BudgetBucket, ChangeItem, Milestone, RaidItem, Task, TaskDependency } from "../types";
 
-/** The four non-task slices that can point at a task. */
+/** The six non-task slices that can point at a task. `knowledgeItems` is optional on the workspace, so absent
+ *  reads as none. */
 export interface TaskReferrers {
   raid: readonly RaidItem[];
   milestones: readonly Milestone[];
   changes: readonly ChangeItem[];
   budgets: readonly BudgetBucket[];
+  knowledgeItems: readonly KnowledgeItem[] | undefined;
+  documents: readonly ProjectDocument[];
 }
 
 /** One field-patch edit, as `fieldEditsFromRows` builds it. */
@@ -25,7 +30,8 @@ const dependsOn = (row: Task, id: number): boolean => (row.dependencies ?? []).s
 /**
  * Whether something OUTSIDE the apply's own writes points at task `id`: a dependency on it from a task the
  * apply did not create; a dependency on it from a created task whose created image did not have it (a
- * person added it since); or a RAID item, milestone, change or budget bucket linking it.
+ * person added it since); or a RAID item, milestone, change, budget bucket, knowledge item or document
+ * linking it (a document only through a `kind: "task"` reference — ids collide across kinds).
  * ★ `prev` is the FULL live list, so a created task's own image dependency must not count — in a chain
  * (created 12 depends on created 11) 11 would otherwise always be "referenced" and never removed.
  * ★ Called after the composite's field patch has reverted the edited tasks, so a link the apply wrote on
@@ -47,7 +53,9 @@ export function taskReferencedOutsideApply(
     links(others.raid) ||
     links(others.milestones) ||
     links(others.changes) ||
-    others.budgets.some((b) => (b.taskIds ?? []).includes(id))
+    others.budgets.some((b) => (b.taskIds ?? []).includes(id)) ||
+    (others.knowledgeItems ?? []).some((k) => (k.taskIds ?? []).includes(id)) ||
+    others.documents.some((d) => (d.linkedEntities ?? []).some((r) => r.kind === "task" && r.id === id))
   );
 }
 

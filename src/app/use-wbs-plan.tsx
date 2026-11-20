@@ -151,7 +151,7 @@ const isEditable = (task: Task): boolean => !isTaskClosed(task) && !task.jiraKey
 
 export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   const { settings, isPopout, lang, captureComposite, logActivityAs, getScopeEpoch, loadPending, today: tableToday, holidaySet } = deps;
-  const { tasks, setTasks, milestones, project, filteredSortedTasks, absences, resources, features, raid, changes, budgets } = useWorkspace();
+  const { tasks, setTasks, milestones, project, filteredSortedTasks, absences, resources, features, raid, changes, budgets, knowledgeItems, documents } = useWorkspace();
   const { healthFilter } = useFilters();
   const showToast = useToastContext();
 
@@ -181,9 +181,14 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   // §773 — mirrored like tasks: grounding reads the absences as they are when the reply returns.
   const absenceRef = useRef({ absences, resources, holidaySet });
   useEffect(() => { absenceRef.current = { absences, resources, holidaySet }; }, [absences, resources, holidaySet]);
-  // §796 — the four slices that can point at a task, read by an undo of an apply when it runs (spec 6a).
-  const referrersRef = useRef<TaskReferrers>({ raid, milestones, changes, budgets });
-  useEffect(() => { referrersRef.current = { raid, milestones, changes, budgets }; }, [raid, milestones, changes, budgets]);
+  // §796 — the six slices that can point at a task, read by an undo of an apply when it runs.
+  const referrersRef = useRef<TaskReferrers>({ raid, milestones, changes, budgets, knowledgeItems, documents });
+  useEffect(() => {
+    referrersRef.current = { raid, milestones, changes, budgets, knowledgeItems, documents };
+  }, [raid, milestones, changes, budgets, knowledgeItems, documents]);
+  // §796 — the kept toast fires at UNDO time, so it reads the language then, not the one the apply ran under.
+  const langRef = useRef(lang);
+  useEffect(() => { langRef.current = lang; }, [lang]);
   // ★ Written in the SAME call as the state, never synced by an effect: a call
   // that fails in the same tick it started batches "thinking" -> "idle" into no
   // state change at all, so an effect would never fire and the ref would stay
@@ -459,9 +464,11 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         captureComposite?.({
           kind: "bulk.edit",
           entityKey: "task",
+          // Counts the created tasks even when an undo keeps all of them: the kept toast then replaces the stack's
+          // generic one, so this count is never shown for that undo.
           primaryCount: result.applied,
           parts: wbsUndoParts(result, setTasks, () => referrersRef.current, (n) => {
-            showToast("info", tPlural(lang, "wbsPlanUndoKept", n, n));
+            showToast("info", tPlural(langRef.current, "wbsPlanUndoKept", n, n));
           }),
         });
       }
@@ -548,6 +555,9 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
  * later redo would point the link at whatever row holds the original id. `followed` is written from
  * `remapRefs`, which runs inside the redo's updater; it is OVERWRITTEN from the value captured at the undo, never
  * accumulated, so StrictMode's double call is harmless.
+ * ★ That updater is not flushed when the redo returns, and the next undo reads `followed`. This relies on the
+ * redo and the undo being separate discrete events (a click, a keypress), which React flushes before the next
+ * one runs; an undo called in the same tick as its redo would read the value from before that redo.
  */
 function wbsUndoParts(
   result: WbsApplyResult,

@@ -81,7 +81,8 @@ duplicates, so never use it for one.** The part is a composite fragment built by
 - **Keep rule.** Undo removes a created row only when the live row still equals the image the op wrote — every field
   but `localModifiedAt` (`rowChangedSince`; the write-through keys count, so a note added since keeps the row) — AND the
   caller's `isReferenced` says nothing outside the op points at it. For tasks that is a dependency from a task the apply
-  did not create (or one a person added to a created task since), or a RAID item, milestone, change or budget bucket
+  did not create (or one a person added to a created task since), or a RAID item, milestone, change, budget bucket,
+  knowledge item (`taskIds`) or document (a `kind: "task"` entry in `linkedEntities`)
   linking it (`taskReferencedOutsideApply`). A created id already gone from the array counts as neither removed nor kept.
 - **Kept rows.** Their links to removed rows are dropped (`dropRefs`; `keptBefore` / `keptAfter` record the change) and a
   redo restores them. `onKept` runs once per undo, from a microtask, with the kept ids; the apply shows one toast

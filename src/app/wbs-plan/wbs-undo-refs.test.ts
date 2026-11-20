@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { BudgetBucket, ChangeItem, Milestone, RaidItem, Task, TaskDependency } from "../types";
+import type { KnowledgeItem } from "../document-link";
+import type { ProjectDocument } from "../document-model";
 import { composeRemap, dropTaskRefs, followEditDeps, remapTaskRefs, taskReferencedOutsideApply } from "./wbs-undo-refs";
 
 const task = (id: number, dependencies?: TaskDependency[]): Task =>
   ({ id, taskName: `Task ${id}`, status: "To Do", ...(dependencies ? { dependencies } : {}) }) as Task;
 const fs = (taskId: number): TaskDependency => ({ taskId, type: "FS" });
-const NONE = { raid: [], milestones: [], changes: [], budgets: [] };
+const NONE = { raid: [], milestones: [], changes: [], budgets: [], knowledgeItems: [], documents: [] };
 
 describe("taskReferencedOutsideApply", () => {
   const created = new Map([[11, task(11)], [12, task(12, [fs(11)])]]);
@@ -46,6 +48,20 @@ describe("taskReferencedOutsideApply", () => {
     expect(taskReferencedOutsideApply([task(11)], 11, created, { ...NONE, budgets })).toBe(true);
     const noTasks = [{ id: 1 } as unknown as BudgetBucket];
     expect(taskReferencedOutsideApply([task(11)], 11, created, { ...NONE, budgets: noTasks })).toBe(false);
+  });
+
+  it("counts a knowledge item's task link", () => {
+    const knowledgeItems = [{ url: "https://example.com", taskIds: [11] } as unknown as KnowledgeItem];
+    expect(taskReferencedOutsideApply([task(11)], 11, created, { ...NONE, knowledgeItems })).toBe(true);
+    const unlinked = [{ url: "https://example.com" } as unknown as KnowledgeItem];
+    expect(taskReferencedOutsideApply([task(11)], 11, created, { ...NONE, knowledgeItems: unlinked })).toBe(false);
+  });
+
+  it("counts a document's task reference, never another kind's same id", () => {
+    const documents = [{ id: 1, linkedEntities: [{ kind: "task", id: 11 }] } as unknown as ProjectDocument];
+    expect(taskReferencedOutsideApply([task(11)], 11, created, { ...NONE, documents })).toBe(true);
+    const otherKind = [{ id: 1, linkedEntities: [{ kind: "raid", id: 11 }] }, { id: 2 }] as unknown as ProjectDocument[];
+    expect(taskReferencedOutsideApply([task(11)], 11, created, { ...NONE, documents: otherKind })).toBe(false);
   });
 });
 

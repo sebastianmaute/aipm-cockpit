@@ -78,7 +78,9 @@ export function redoCreatedRows<T extends { id: number }>(
   // Claim every free original id first, so only a genuinely taken id is re-minted.
   for (const row of removed) if (!used.has(row.id)) used.add(row.id);
   const taken = new Set(prev.map((r) => r.id));
-  let maxId = Math.max(0, ...used);
+  // A loop, not `Math.max(...used)`: spreading every id as an argument throws past ~100k rows.
+  let maxId = 0;
+  for (const id of used) if (id > maxId) maxId = id;
   const remap = new Map<number, number>();
   const minted: T[] = [];
   for (const row of removed) {
@@ -91,9 +93,10 @@ export function redoCreatedRows<T extends { id: number }>(
     minted.push({ ...row, id: maxId });
   }
   const afterById = new Map(keptAfter.map((r) => [r.id, r] as const));
+  const liveById = new Map(prev.map((r) => [r.id, r] as const));
   const restoreById = new Map<number, T>();
   for (const before of keptBefore) {
-    const live = prev.find((r) => r.id === before.id);
+    const live = liveById.get(before.id);
     const after = afterById.get(before.id);
     if (live === undefined || after === undefined || rowChangedSince(live, after)) continue;
     restoreById.set(before.id, remapRefs(before, remap));
