@@ -305,17 +305,17 @@ describe("WbsPlanModal", () => {
     expect(screen.getByText(t("en-US", "wbsPlanUndoNote"))).toBeInTheDocument();
   });
 
-  // The spec's binding wording: undo does NOT remove the new rows (undo.md "Creates").
-  it("says undo leaves new tasks in place, in EN and DE", () => {
+  // The spec's binding wording (§796): undo removes the new rows, except those changed since.
+  it("says undo removes new tasks unless changed since, in EN and DE", () => {
     render5();
     expect(
-      screen.getByText("Undo reverts the changes to existing tasks; new tasks stay and can be deleted by hand."),
+      screen.getByText("Undo reverts the changes and removes the new tasks, except new tasks changed since."),
     ).toBeInTheDocument();
     cleanup();
     render5({ lang: "de" });
     expect(
       screen.getByText(
-        "Rückgängig stellt die Änderungen an bestehenden Aufgaben wieder her; neue Aufgaben bleiben erhalten und können von Hand gelöscht werden.",
+        "Rückgängig macht die Änderungen rückgängig und entfernt die neuen Aufgaben, außer solchen, die seitdem geändert wurden.",
       ),
     ).toBeInTheDocument();
   });

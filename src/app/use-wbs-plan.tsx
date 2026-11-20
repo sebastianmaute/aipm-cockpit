@@ -27,7 +27,7 @@
 // grounded AGAIN against the tasks at apply time (applyWbsProposal), so a
 // hallucinated id or a row edited since the proposal never reaches a write.
 
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { SparklesIcon } from "./icons";
 import { type Lang, t, tPlural } from "./i18n";
@@ -35,7 +35,13 @@ import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
 import { type Task } from "./types";
 import { type LogActivityAsFn } from "./activity-log-context";
 import { wbsPlanActivityArgs } from "./activity-log";
-import { type UndoStackApi } from "./undo/use-undo-stack";
+import {
+  type CompositeFragment,
+  type UndoStackApi,
+  captureCreatedPart,
+  captureFieldPart,
+  fieldEditsFromRows,
+} from "./undo/use-undo-stack";
 import { useToastContext } from "./toast-context";
 import { useWorkspace } from "./workspace-context";
 import { sanitizeFeatures } from "./feature-modules";
@@ -69,6 +75,15 @@ import { isTaskClosed } from "./task-closed";
 import { resolveTimezone, todayInZone } from "./timezone";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 import { sanitizeText } from "./sanitize-core";
+import {
+  composeRemap,
+  dropTaskRefs,
+  followEditDeps,
+  remapTaskRefs,
+  taskReferencedOutsideApply,
+  type TaskFieldEdit,
+  type TaskReferrers,
+} from "./wbs-plan/wbs-undo-refs";
 
 type Phase = "idle" | "input" | "thinking" | "preview" | "applying";
 
@@ -84,7 +99,8 @@ export interface WbsPlanDeps {
   settings: Settings;
   isPopout: boolean;
   lang: Lang;
-  capture?: UndoStackApi["capture"];
+  /** §796 — one composite per apply: the edits as a field patch, then the created tasks (removed on undo). */
+  captureComposite?: UndoStackApi["captureComposite"];
   /** ★ ACTOR-AWARE. This hook writes exactly one kind, an `ai.*` one, so it
    *  KNOWS its actor — see the rule on `useActivityLog`. */
   logActivityAs?: LogActivityAsFn;
@@ -133,8 +149,8 @@ export interface WbsPlan {
 const isEditable = (task: Task): boolean => !isTaskClosed(task) && !task.jiraKey;
 
 export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
-  const { settings, isPopout, lang, capture, logActivityAs, getScopeEpoch, loadPending, today: tableToday, holidaySet } = deps;
-  const { tasks, setTasks, milestones, project, filteredSortedTasks, absences, resources, features } = useWorkspace();
+  const { settings, isPopout, lang, captureComposite, logActivityAs, getScopeEpoch, loadPending, today: tableToday, holidaySet } = deps;
+  const { tasks, setTasks, milestones, project, filteredSortedTasks, absences, resources, features, raid, changes, budgets } = useWorkspace();
   const { healthFilter } = useFilters();
   const showToast = useToastContext();
 
@@ -164,6 +180,9 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   // §773 — mirrored like tasks: grounding reads the absences as they are when the reply returns.
   const absenceRef = useRef({ absences, resources, holidaySet });
   useEffect(() => { absenceRef.current = { absences, resources, holidaySet }; }, [absences, resources, holidaySet]);
+  // §796 — the four slices that can point at a task, read by an undo of an apply when it runs (spec 6a).
+  const referrersRef = useRef<TaskReferrers>({ raid, milestones, changes, budgets });
+  useEffect(() => { referrersRef.current = { raid, milestones, changes, budgets }; }, [raid, milestones, changes, budgets]);
   // ★ Written in the SAME call as the state, never synced by an effect: a call
   // that fails in the same tick it started batches "thinking" -> "idle" into no
   // state change at all, so an effect would never fire and the ref would stay
@@ -401,8 +420,6 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
       reset();
       return;
     }
-    // The undo images' source array: `live` until the updater says otherwise.
-    let base: readonly Task[] = live;
     if (result.applied > 0) {
       // A pure updater, so StrictMode's double call is harmless. ★ It must not
       // throw: apply throws on an id collision or too few ids, and a throw in
@@ -414,13 +431,12 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
       // rendered, and an item stale against `prev` was not written. A fallback
       // wrote nothing, so no "Applied N" toast, no row and no undo entry — the
       // generic error instead.
-      const box: { written: WbsApplyResult | null; from: readonly Task[] } = { written: null, from: live };
+      const box: { written: WbsApplyResult | null } = { written: null };
       flushSync(() => {
         setTasks((prev) => {
           try {
             const r = applyWbsProposal(prev, ticked, ids, today, scope);
             box.written = r;
-            box.from = prev;
             return r.nextTasks;
           } catch {
             box.written = null;
@@ -434,19 +450,18 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         return;
       }
       result = box.written;
-      base = box.from;
     }
     if (result.applied > 0) {
-      // Updates only: created rows stay out of the images (docs/AGENTS/undo.md
-      // "Creates" — capturing a create duplicates it on undo).
-      if (result.editedBefore.length > 0) {
-        capture?.({
-          setter: setTasks,
+      // §796 — ONE entry: the edits as a field patch, then the created tasks, which its undo removes unless they
+      // changed or became referenced since. From the updater's OWN result.
+      if (result.editedBefore.length > 0 || result.created.length > 0) {
+        captureComposite?.({
           kind: "bulk.edit",
-          edited: result.editedBefore,
-          editedAfter: result.editedAfter,
-          fromArray: base,
           entityKey: "task",
+          primaryCount: result.applied,
+          parts: wbsUndoParts(result, setTasks, () => referrersRef.current, (n) => {
+            showToast("info", tPlural(lang, "wbsPlanUndoKept", n, n));
+          }),
         });
       }
       // ONE entry per apply, naming every created row by id and title (`wbsPlanActivityArgs`), so each task the
@@ -468,7 +483,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
       showToast("info", tPlural(lang, "wbsPlanStaleSkipped", skippedStale, skippedStale));
     }
     reset();
-  }, [phase, scope, loadPending, getScopeEpoch, items, selected, settings.timezone, project?.operatingTimezone, setTasks, capture, logActivityAs, showToast, lang, reset, setPhase]);
+  }, [phase, scope, loadPending, getScopeEpoch, items, selected, settings.timezone, project?.operatingTimezone, setTasks, captureComposite, logActivityAs, showToast, lang, reset, setPhase]);
 
   // ★ The trigger only OPENS the dialog; the billed call fires from inside it,
   //   so it is busy (and a Stop button) in `thinking` alone.
@@ -519,6 +534,74 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   }
 
   return { button, modal, open };
+}
+
+/**
+ * §796 — the undo fragments of one apply: a field patch over the edited existing tasks, then the created tasks
+ * (`captureCreatedPart`, always LAST). Its undo reverts the edits and removes every created task nobody changed
+ * or points at since (`taskReferencedOutsideApply`); `onKept` gets the count it kept.
+ * ★★ A redo that re-mints moves a created task to a fresh id, but the field patch was captured naming the
+ * ORIGINAL one. So `followed` records where each created task lives now, and every undo rebuilds the patch with
+ * its `after` dependencies followed there (`followEditDeps`): otherwise the next undo's three-way merge would
+ * see the link as a later write, keep it, and the created part would then keep the task as referenced — and a
+ * later redo would point the link at whatever row holds the original id. `followed` is written from
+ * `remapRefs`, which runs inside the redo's updater; it is OVERWRITTEN from the value captured at the undo, never
+ * accumulated, so StrictMode's double call is harmless.
+ */
+function wbsUndoParts(
+  result: WbsApplyResult,
+  setTasks: Dispatch<SetStateAction<readonly Task[]>>,
+  referrers: () => TaskReferrers,
+  onKept: (count: number) => void,
+): (CompositeFragment | null)[] {
+  const { created } = result;
+  const createdIds = created.map((r) => r.id);
+  const editedIds = new Set(result.editedBefore.map((r) => r.id));
+  const edits = fieldEditsFromRows(result.editedBefore, result.editedAfter);
+  // Original created id -> the id it lives under now; the value it had at the last undo; the patch that undo used.
+  let followed: ReadonlyMap<number, number> = new Map();
+  let followedAtUndo = followed;
+  let liveEdits: readonly TaskFieldEdit[] = edits;
+  const afterDeps = (id: number) => liveEdits.find((e) => e.id === id)?.after.dependencies ?? [];
+  let imagesFor: ReadonlyMap<number, number> | null = null;
+  let createdById: ReadonlyMap<number, Task> = new Map();
+  const currentImages = (): ReadonlyMap<number, Task> => {
+    if (imagesFor !== followed) {
+      imagesFor = followed;
+      const remap = followed;
+      createdById = new Map(created.map((r) => {
+        const row = remapTaskRefs({ ...r, id: remap.get(r.id) ?? r.id }, remap);
+        return [row.id, row] as const;
+      }));
+    }
+    return createdById;
+  };
+  const fieldPart: CompositeFragment | null = edits.length === 0 ? null : {
+    isPrimary: false,
+    followsPrimary: false,
+    restore: (primaryRemap, isPrimary, arm, track) => {
+      followedAtUndo = followed;
+      liveEdits = followEditDeps(edits, followed);
+      return (captureFieldPart({ setter: setTasks, edits: liveEdits }) as CompositeFragment)
+        .restore(primaryRemap, isPrimary, arm, track);
+    },
+  };
+  return [
+    fieldPart,
+    captureCreatedPart<Task>({
+      setter: setTasks,
+      created,
+      createdKind: "task.created",
+      isReferenced: (prev, id) => taskReferencedOutsideApply(prev, id, currentImages(), referrers()),
+      dropRefs: dropTaskRefs,
+      remapRefs: (row, remap) => {
+        followed = composeRemap(followedAtUndo, remap, createdIds);
+        return remapTaskRefs(row, remap, editedIds.has(row.id) ? afterDeps(row.id) : undefined);
+      },
+      remapScope: [...editedIds],
+      onKept: (kept) => onKept(kept.length),
+    }),
+  ];
 }
 
 /** The optional-instructions step, and the progress state while the call runs.
