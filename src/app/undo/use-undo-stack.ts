@@ -9,6 +9,7 @@ import type { ToastAction } from "../use-toast";
 import { WRITE_THROUGH_FIELDS } from "./write-through-fields";
 import { logDiag } from "../diagnostics";
 import { mergeFieldPatch } from "./merge-field-value";
+import { undoCreatedRows, redoCreatedRows } from "./created-rows";
 import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "../scope-epoch";
 import {
   completionFlipsOf,
@@ -265,10 +266,26 @@ export type TrackWrite = (written: Promise<boolean>) => void;
  *  composite that mixes array fragments with an async one (an applied plan with a project edit and a task delete,
  *  `collapseCaptures`), the arrays already moved, and putting the entry back unrolled would make the retry
  *  restore them twice. */
-type SettlingRunner = Runner & { settled?: Promise<boolean>; rollback?: () => void };
+type SettlingRunner = Runner & { settled?: Promise<boolean>; rollback?: () => void; created?: () => readonly CreatedCount[] };
 
 const settledOf = (run: Runner): Promise<boolean> | undefined => (run as SettlingRunner).settled;
 const rollbackOf = (run: Runner): (() => void) | undefined => (run as SettlingRunner).rollback;
+
+/** §796 — what a `captureCreatedPart` fragment's LAST applied direction removed (undo) or re-inserted (redo). */
+export interface CreatedCount { kind: ActivityKind; count: number }
+
+/** §796 — the created pairs the undo/redo activity row appends AFTER `reversedKindCounts`' pairs (so a reader of
+ *  the first pair is unaffected), summed per kind across the runs and only when the count is positive. `runs` are
+ *  the runners the applied entries RETURNED, which carry their composite's `created` reader. */
+function createdPairs(runs: readonly Runner[]): (ActivityKind | number)[] {
+  const byKind = new Map<ActivityKind, number>();
+  for (const run of runs) {
+    for (const c of (run as SettlingRunner).created?.() ?? []) {
+      if (c.count > 0) byKind.set(c.kind, (byKind.get(c.kind) ?? 0) + c.count);
+    }
+  }
+  return [...byKind].flatMap(([kind, count]) => [kind, count]);
+}
 
 /** §759 — `next` as is when no write was tracked (every synchronous entry keeps its runner's identity), else a
  *  wrapper carrying the writes' AND and the rollback. */
@@ -317,10 +334,10 @@ function settleAll(runs: readonly Runner[]): Promise<boolean[]> | null {
  *  the direction that reproduces §295, so a cleverer predicate is a regression
  *  risk, not an improvement.
  *
- *  ★ The UNDO direction never removes: `UndoOp` is "delete" | "edit" and
+ *  ★ The UNDO direction of these images never removes: `UndoOp` is "delete" | "edit" and
  *  created rows are excluded entirely — there is no before-image for a row that
- *  did not exist, and no entity in the app captures a create. So only
- *  forward/redo images are ever tested here.
+ *  did not exist. So only forward/redo images are ever tested here. (An undo that
+ *  removes the rows an op created is `captureCreatedPart`, which arms on its own, §796.)
  *  ★ A `kind: "budget.created"` exists and is NOT a counter-example —
  *  `ActivityKind` and `UndoOp` are different vocabularies. */
 function imagesRemoveRows<T extends { id: number }>(images: readonly BeforeImage<T>[]): boolean {
@@ -387,6 +404,9 @@ export interface CompositeFragment {
     arm?: () => void,
     track?: TrackWrite,
   ) => (track?: TrackWrite) => void;
+  /** §796 — set only by `captureCreatedPart`: what its last applied direction removed (undo) or re-inserted
+   *  (redo). The undo/redo activity rows append it as a further `(kind, count)` pair when the count is positive. */
+  createdCount?: () => CreatedCount | undefined;
 }
 
 /** Drive ONE `captureFieldPart` fragment as a standalone undo↔redo runner. The
@@ -449,6 +469,14 @@ function compositeUndoRunner(
   // The PRIMARY (remap source) is the explicitly-flagged fragment; `primaryIndexOf` owns the fallback and
   // refuses it for a composite whose cascades follow the remap (§134).
   const primaryIdx = primaryIndexOf(fragments);
+  // §796 — the composite's created counts, read by the activity row through the runner each direction returns.
+  const createdReaders = fragments.flatMap((f) => (f.createdCount ? [f.createdCount] : []));
+  const withCreated = (run: Runner): Runner => {
+    if (createdReaders.length > 0) {
+      (run as SettlingRunner).created = () => createdReaders.flatMap((read) => { const c = read(); return c ? [c] : []; });
+    }
+    return run;
+  };
   const runUndo: Runner = () => {
     // Fresh box each undo so a re-undo (after redo) re-derives the remap from
     // live state rather than a stale one.
@@ -484,13 +512,13 @@ function compositeUndoRunner(
         }
         fragments.forEach((_, i) => { if (i !== primaryIdx && !redoTracked.has(i)) one(i); });
       };
-      return withSettled(runUndo, redoWrites, undoUntracked);
+      return withCreated(withSettled(runUndo, redoWrites, undoUntracked));
     };
     // §759 — a failed undo write: redo the fragments that undid synchronously, so the entry goes back with the
     // state it had and a retry restores each row once. ★ A tracked fragment whose own write succeeded is not
     // rolled back; today the only tracked fragment is `projectUndoFragment`, one per composite.
     const redoUntracked = () => { redos.forEach((redo, i) => { if (!tracked.has(i)) redo(); }); };
-    return withSettled(runRedo, writes, redoUntracked);
+    return withCreated(withSettled(runRedo, writes, redoUntracked));
   };
   return runUndo;
 }
@@ -553,6 +581,121 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
     };
   };
   return { isPrimary: isPrimary === true, followsPrimary: fkRemapField !== undefined, restore };
+}
+
+/** §796 — one array's rows an op CREATED, which its undo removes (see "Creates" in `docs/AGENTS/undo.md` for why
+ *  `capturePart` must never be handed a create). */
+export interface CreatedPart<T extends { id: number }> {
+  setter: Dispatch<SetStateAction<readonly T[]>>;
+  /** The rows exactly as the op created them. */
+  created: readonly T[];
+  /** Forward kind the removed rows count as in the undo/redo activity row (e.g. "task.created"). */
+  createdKind: ActivityKind;
+  /** Whether a row OUTSIDE the op's own writes points at `id` — such a created row is kept. */
+  isReferenced: (prev: readonly T[], id: number) => boolean;
+  /** `row` without its references to the removed ids (the same row when it has none). */
+  dropRefs: (row: T, removed: ReadonlySet<number>) => T;
+  /** `row` with the references this entry wrote followed through a redo's re-mint. */
+  remapRefs: (row: T, remap: ReadonlyMap<number, number>) => T;
+  /** Ids of OTHER rows whose references this entry wrote (for a work breakdown, the edited existing tasks): a redo
+   *  that re-mints applies `remapRefs` to them too, in the same updater. */
+  remapScope?: readonly number[];
+  /** Once per undo that kept ≥1 row, from a microtask, with the kept ids. */
+  onKept?: (ids: readonly number[]) => void;
+}
+
+/**
+ * §796 — a composite fragment whose UNDO removes the rows an op created (only those nobody changed or points at
+ * since, `undoCreatedRows`) and whose REDO puts them back, under the original id when it is free, else under a
+ * fresh one (`redoCreatedRows`). `null` when nothing was created.
+ *
+ * ★★ ALWAYS THE LAST FRAGMENT OF ITS COMPOSITE, never primary and never `followsPrimary`. Undo runs fragment 0
+ * first (flushed), so an edit patch beside it has already reverted the links the op wrote before this part asks
+ * `isReferenced`; redo runs in index order, so the patch has re-written those links (to the ORIGINAL ids) before
+ * this part re-inserts, and a re-mint then follows them through `remapScope`.
+ *
+ * ★★★ §295 — THE UNDO ARMS, AND IT MUST ARM BEFORE ITS WRITE COMMITS. This is the one undo direction that removes
+ * rows, and the save effect consumes the arm (`consumeArm`) when it runs for the commit that removed them.
+ * Whether anything will be removed is only known from `prev`, so the undo runs TWO flushed updates on the setter:
+ *  1. a PEEK that computes the removal from `prev` and returns `prev` unchanged (the array keeps its identity,
+ *     so no effect over it — the save included — runs), then `arm` iff it found ≥1 row, outside every updater;
+ *  2. the real write, computed again from its own `prev`.
+ * ★ Not "write under `flushSync`, then arm": a flushed commit runs its passive effects before `flushSync` returns,
+ * so the save would already have run unarmed (pinned by "the arm is set before the save effect sees the removal").
+ * The real write is flushed too, so the count the activity row reads (`createdCount`) is final when `restore`
+ * returns. The peek and the write read the same `prev` unless something writes the array between them, which
+ * nothing does synchronously; and an extra arm would be harmless anyway (see `imagesRemoveRows`).
+ * The redo never arms: it only re-inserts.
+ *
+ * ★ StrictMode-safe: every updater recomputes its results from `prev` into variables it OVERWRITES, never
+ * accumulates (the redo images, the next undo's images, the count), and `onKept` is queued at most once per undo.
+ */
+export function captureCreatedPart<T extends { id: number }>(part: CreatedPart<T>): CompositeFragment | null {
+  const { setter, createdKind, isReferenced, dropRefs, remapRefs, onKept } = part;
+  if (part.created.length === 0) return null;
+  const scope: ReadonlySet<number> = new Set(part.remapScope ?? []);
+  // The images the NEXT undo removes: the created rows at first, the rows a redo re-inserted (under their new ids)
+  // after one.
+  let images: readonly T[] = part.created;
+  let lastCount = 0;
+  const restore = (
+    _primaryRemap: { current: ReadonlyMap<number, number> },
+    _isPrimary: boolean,
+    arm?: () => void,
+  ): (() => void) => {
+    const base = images;
+    let removable = 0;
+    flushSync(() => {
+      setter((prev) => {
+        removable = undoCreatedRows(prev, base, isReferenced, dropRefs).removed.length;
+        return prev;
+      });
+    });
+    if (removable > 0) arm?.();
+    let removed: readonly T[] = [];
+    let keptBefore: readonly T[] = [];
+    let keptAfter: readonly T[] = [];
+    let reported = false;
+    flushSync(() => {
+      setter((prev) => {
+        const undone = undoCreatedRows(prev, base, isReferenced, dropRefs);
+        const beforeIds = new Set(undone.keptBefore.map((r) => r.id));
+        removed = undone.removed;
+        keptBefore = undone.keptBefore;
+        keptAfter = undone.result.filter((r) => beforeIds.has(r.id));
+        lastCount = undone.removed.length;
+        if (onKept && !reported && undone.keptIds.length > 0) {
+          reported = true;
+          const ids = undone.keptIds;
+          queueMicrotask(() => onKept(ids));
+        }
+        return undone.removed.length === 0 && undone.keptBefore.length === 0 ? prev : undone.result;
+      });
+    });
+    return () => {
+      // `redoCreatedRows` re-inserts every removed row (re-minting a taken id), so the count is known here.
+      lastCount = removed.length;
+      setter((prev) => {
+        const redone = redoCreatedRows(prev, removed, keptBefore, keptAfter, remapRefs);
+        const firstNew = redone.result.length - redone.reinserted;
+        const reinserted = redone.result.slice(firstNew);
+        // `minted` is in `removed` order, so the i-th re-inserted row is the i-th removed one.
+        const byOriginal = new Map(removed.map((r, i) => [r.id, reinserted[i]] as const));
+        images = base.map((img) => byOriginal.get(img.id) ?? img);
+        if (redone.reinserted === 0 && redone.result.every((row, i) => row === prev[i])) return prev;
+        if (redone.remap.size === 0 || scope.size === 0) return redone.result;
+        // Follow the re-mint in the rows this entry wrote references on; a restored kept row was already remapped
+        // by `redoCreatedRows`, and remapping twice is a no-op (a fresh id is never a key of the remap).
+        return redone.result.map((row, i) => (i < firstNew && scope.has(row.id) ? remapRefs(row, redone.remap) : row));
+      });
+    };
+  };
+  return {
+    isPrimary: false,
+    followsPrimary: false,
+    restore,
+    createdCount: () => ({ kind: createdKind, count: lastCount }),
+  };
 }
 
 /** One FIELD-LEVEL contribution to a composite undo: N rows in ONE array, each
@@ -797,7 +940,8 @@ export interface UseUndoStackDeps {
   showToast: (kind: "info" | "error", text: string) => void;
   showToastAction: (kind: "info" | "error", text: string, action: ToastAction) => void;
   /** Arm the storage destructive-save bypass. Called by a runner whose applied
-   *  direction REMOVES rows — a redo of a captured deletion.
+   *  direction REMOVES rows — a redo of a captured deletion, or the undo of a
+   *  `captureCreatedPart` (§796).
    *
    *  ★★★ WITHOUT THIS, A REDO IS REFUSED. The runner drives the same workspace
    *  setters the save effect watches, so a redo of a clear-all re-removes every
@@ -934,7 +1078,8 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     //    `percent` is `done/total`) pushed the CURVE down. Say denominator, not
     //    "the truth": an earlier wording here said the latter and §166 spends a
     //    paragraph on that exact conflation.
-    logActivity("undo", entry.meta.count, ...reversedKindCounts([entry.meta]));
+    // §796 — then the rows a `captureCreatedPart` removed, e.g. `task.created` M (`createdPairs`).
+    logActivity("undo", entry.meta.count, ...reversedKindCounts([entry.meta]), ...createdPairs([redoRun]));
     showToast("info", t(lang, "undoneX", entry.meta.label));
     if (redo === "push") {
       setRedoStack((rs) => pushUndo(rs, { meta: entry.meta, run: redoRun, epoch: entry.epoch }, UNDO_CAP));
@@ -1005,7 +1150,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
       if (done.length === 0) return;
       const summed = done.reduce((n, e) => n + e.meta.count, 0);
       const { lang, logActivity, showToast } = depsRef.current;
-      logActivity("undo", summed, ...reversedKindCounts(done.map((e) => e.meta)));
+      logActivity("undo", summed, ...reversedKindCounts(done.map((e) => e.meta)), ...createdPairs(inverses.map((i) => i.run)));
       // ★ A through-undo of ONE entry is the same user-visible act as a plain
       //   undo(), so it says the same thing — "Undone: Edit task X", not the
       //   count-shaped "Undid 1 action(s)". Both keys already exist.
@@ -1040,7 +1185,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
       if (done.length === 0) return;
       const summed = done.reduce((n, e) => n + e.meta.count, 0);
       const { lang, logActivity, showToast } = depsRef.current;
-      logActivity("redo", summed, ...reversedKindCounts(done.map((e) => e.meta)));
+      logActivity("redo", summed, ...reversedKindCounts(done.map((e) => e.meta)), ...createdPairs(inverses.map((i) => i.run)));
       // Mirror of undoThrough's single-entry fallback above.
       showToast("info", inverses.length === 1
         ? t(lang, "redoneX", inverses[0].meta.label)
@@ -1066,7 +1211,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     setRedoStack(popped.rest); // §759 — mirror of commitUndo
     const finish = (async: boolean) => {
       const { lang, logActivity, showToast } = depsRef.current;
-      logActivity("redo", entry.meta.count, ...reversedKindCounts([entry.meta]));
+      logActivity("redo", entry.meta.count, ...reversedKindCounts([entry.meta]), ...createdPairs([undoRun]));
       showToast("info", t(lang, "redoneX", entry.meta.label));
       const undoEntry = { meta: entry.meta, run: undoRun, epoch: entry.epoch };
       // A late finish goes in id order: a capture may have landed above it while the write was out.

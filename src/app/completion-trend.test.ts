@@ -716,4 +716,22 @@ describe("a work-breakdown apply counts the tasks it created", () => {
   test("a count-only entry moves nothing", () => {
     expect(percents([...prefix(), evArgs("2026-06-20T09:00:00.000Z", "ai.wbsPlan", [3])])).toEqual(percents(prefix()));
   });
+
+  // §796 — undoing the apply removes M of its N created tasks (the rest were worked on since and kept), and the undo
+  // row says so with a `task.created` M pair after its `ai.wbsPlan` pair. The day then nets N − M, so the days
+  // before it keep the total they had before the apply.
+  test("an apply of N created then an undo that removes M leaves earlier days at their pre-apply total", () => {
+    // Pre-apply total 4; the apply creates 3; the undo removes 1 → live total 6.
+    const live = { ...BASE, currentTotal: 6 } as const;
+    const apply = evArgs("2026-06-20T09:00:00.000Z", "ai.wbsPlan", [4, 101, "A", 102, "B", 103, "C"]);
+    const undo = evArgs("2026-06-20T10:00:00.000Z", "undo", [4, "ai.wbsPlan", 4, "task.created", 1]);
+    const withUndo = computeCompletionTrend({ ...live, activity: [...prefix(), apply, undo] }).map((p) => p.percent);
+    const netTwoCreates = computeCompletionTrend({
+      ...live, activity: [...prefix(), ...[1, 2].map(() => ev("2026-06-20T09:00:00.000Z", "task.created"))],
+    }).map((p) => p.percent);
+    expect(withUndo).toEqual(netTwoCreates);
+    // Anti-vacuity: without the undo row the walk reads the day as +3 and the earlier days one task short.
+    const withoutUndo = computeCompletionTrend({ ...live, activity: [...prefix(), apply] }).map((p) => p.percent);
+    expect(withoutUndo.slice(0, 2)).not.toEqual(withUndo.slice(0, 2));
+  });
 });
