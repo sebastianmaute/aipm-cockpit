@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   clearChatThreads,
   clearChatThreadsFor,
   publishChatThreads,
   readChatThreads,
+  subscribeChatThreads,
 } from "./chat-threads-registry";
 import type { ChatThread } from "./chat-threads";
 
@@ -94,5 +95,44 @@ describe("chat threads registry", () => {
     publishChatThreads("p1", { threads: [T], activeThreadId: "t1", available: true });
     clearChatThreads();
     expect(readChatThreads("p1").available).toBe(false);
+  });
+});
+
+// §799 — the Activity view renders from the registry, so it must hear every change.
+describe("chat threads registry subscription", () => {
+  it("calls a subscriber once per publish and once per clear", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeChatThreads(listener);
+    publishChatThreads("p1", { threads: [T], activeThreadId: "t1", available: true });
+    expect(listener).toHaveBeenCalledTimes(1);
+    clearChatThreadsFor("p1");
+    expect(listener).toHaveBeenCalledTimes(2);
+    publishChatThreads("p1", { threads: [T], activeThreadId: "t1", available: true });
+    clearChatThreads();
+    expect(listener).toHaveBeenCalledTimes(4);
+    unsubscribe();
+  });
+
+  it("does not call a subscriber when a scoped clear leaves another project's slot in place", () => {
+    publishChatThreads("p2", { threads: [T], activeThreadId: "t1", available: true });
+    const listener = vi.fn();
+    const unsubscribe = subscribeChatThreads(listener);
+    clearChatThreadsFor("p1");
+    expect(listener).not.toHaveBeenCalled();
+    unsubscribe();
+  });
+
+  it("stops calling a subscriber after it unsubscribes", () => {
+    const listener = vi.fn();
+    subscribeChatThreads(listener)();
+    publishChatThreads("p1", { threads: [T], activeThreadId: "t1", available: true });
+    clearChatThreads();
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("returns the same snapshot between publishes", () => {
+    publishChatThreads("p1", { threads: [T], activeThreadId: "t1", available: true });
+    expect(readChatThreads("p1")).toBe(readChatThreads("p1"));
+    expect(readChatThreads("p9")).toBe(readChatThreads("p9"));
   });
 });

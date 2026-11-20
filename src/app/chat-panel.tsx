@@ -71,6 +71,7 @@ import { ToolBlock } from "./chat-tool-block";
 import type { TursoConfig } from "./turso-config";
 import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "./scope-epoch";
 import { useChatThreads } from "./use-chat-threads";
+import { useChatOpenThreadRequest, type OpenThreadRequest } from "./use-chat-open-thread-request";
 import { ChatNotSavedNotice, ChatThreadClosedNotice } from "./chat-not-saved-notice";
 import { fitHistoryToBudget, newRequestId } from "./chat-threads";
 import { ChatThreadSidebar } from "./chat-thread-sidebar";
@@ -196,31 +197,9 @@ function isFileDrag(dt: DataTransfer | null): boolean {
   return !!dt && Array.from(dt.types ?? []).includes("Files");
 }
 
-function ChatPanelImpl({
-  lang,
-  ai,
-  dictation,
-  dispatcher,
-  onChangeModel,
-  guides = [],
-  guidesReady = true,
-  chatSeed = null,
-  onChatSeedConsumed,
-  onConfigureAi,
-  projectId = "default",
-  assetsProjectId,
-  getChatConversation,
-  saveChatConversation,
-  tursoMode = false,
-  tursoConfig = null,
-  projectNames,
-  exportFooter,
-  workspace,
-  holidaySet,
-  runBatched,
-  getScopeEpoch,
-  isSwapInFlight,
-}: {
+/** ★ ONE props type for the memo'd export and the component: the pass-through wrapper that restated
+ *  every prop (and its type) a second time was removed in §799 to make room in this file. */
+type ChatPanelProps = {
   lang: Lang;
   ai: AiConfig;
   dictation?: Settings["dictation"];
@@ -230,6 +209,10 @@ function ChatPanelImpl({
   guidesReady?: boolean;
   chatSeed?: ChatSeed | null;
   onChatSeedConsumed?: () => void;
+  /** §799 — open this thread (an Activity entry's link). Applied once, then handed back through
+   *  `onOpenThreadRequestConsumed`; see `use-chat-open-thread-request.ts`. */
+  openThreadRequest?: OpenThreadRequest | null;
+  onOpenThreadRequestConsumed?: () => void;
   /** Deep-link to Settings → AI; rendered as a "Configure AI" button in the
    *  empty state when AI is off / no key. Omitted in pop-outs (can't navigate). */
   onConfigureAi?: () => void;
@@ -244,35 +227,7 @@ function ChatPanelImpl({
   exportFooter?: string;
 } & ChatProposalProps &
   ChatConversationStoreProps &
-  ChatScopeProps) {
-  return (
-    <ChatPanelInner
-      lang={lang}
-      ai={ai}
-      dictation={dictation}
-      dispatcher={dispatcher}
-      onChangeModel={onChangeModel}
-      guides={guides}
-      guidesReady={guidesReady}
-      chatSeed={chatSeed}
-      onChatSeedConsumed={onChatSeedConsumed}
-      onConfigureAi={onConfigureAi}
-      projectId={projectId}
-      assetsProjectId={assetsProjectId}
-      getChatConversation={getChatConversation}
-      saveChatConversation={saveChatConversation}
-      tursoMode={tursoMode}
-      tursoConfig={tursoConfig}
-      projectNames={projectNames}
-      exportFooter={exportFooter}
-      workspace={workspace}
-      holidaySet={holidaySet}
-      runBatched={runBatched}
-      getScopeEpoch={getScopeEpoch}
-      isSwapInFlight={isSwapInFlight}
-    />
-  );
-}
+  ChatScopeProps;
 
 /** §548/§596 — this panel's two windows onto storage scope, both REQUIRED.
  *
@@ -363,7 +318,7 @@ interface ChatConversationStoreProps {
 // Memoized export: with the dispatcher's stable identity (slice 5) the props
 // are reference-stable across parent renders that don't touch lang/ai. ChatPanel now
 // skips re-renders triggered by, e.g., task-form keystrokes.
-export const ChatPanel = memo(ChatPanelImpl);
+export const ChatPanel = memo(ChatPanelInner);
 
 function ChatPanelInner({
   lang,
@@ -375,6 +330,8 @@ function ChatPanelInner({
   guidesReady = true,
   chatSeed = null,
   onChatSeedConsumed,
+  openThreadRequest = null,
+  onOpenThreadRequestConsumed,
   onConfigureAi,
   projectId = "default",
   assetsProjectId,
@@ -389,28 +346,7 @@ function ChatPanelInner({
   runBatched,
   getScopeEpoch,
   isSwapInFlight,
-}: {
-  lang: Lang;
-  ai: AiConfig;
-  dictation?: Settings["dictation"];
-  dispatcher: ToolDispatcher;
-  onChangeModel?: (model: string) => void;
-  guides?: readonly OperatingGuide[];
-  guidesReady?: boolean;
-  chatSeed?: ChatSeed | null;
-  onChatSeedConsumed?: () => void;
-  /** Deep-link to Settings → AI; rendered as a "Configure AI" button in the
-   *  empty state when AI is off / no key. Omitted in pop-outs (can't navigate). */
-  onConfigureAi?: () => void;
-  tursoMode?: boolean;
-  tursoConfig?: TursoConfig | null;
-  /** Project names by id, for the project of each chat the sidebar's "Find" lists. */
-  projectNames?: ReadonlyMap<string, string>;
-  /** Footer line of a document card's HTML/PDF/PowerPoint download (`exportFooterText(settings.branding)`). */
-  exportFooter?: string;
-} & ChatProposalProps &
-  ChatConversationStoreProps &
-  ChatScopeProps) {
+}: ChatPanelProps) {
   const confirm = useConfirm();
   // Restore this project's in-memory conversation on (re)mount — the modern
   // shell remounts the chat view on every visit, so local state alone is lost.
@@ -656,6 +592,11 @@ function ChatPanelInner({
   // AI-02 — no send starts while Apply runs: its end would rewrite `history` without the applied notice the
   // apply appends when it settles (the reverse of the card's `busy`).
   const proposalApplying = pendingProposal?.applying === true;
+  // §799 — an Activity link's request; while a send or an Apply runs it never switches (a switch aborts the send).
+  const openThreadBusy = useChatOpenThreadRequest({
+    request: openThreadRequest, blocked: busy || proposalApplying, threadIds: chatThreads.threads.map((th) => th.id),
+    activeThreadId: chatThreads.activeThreadId, selectThread: chatThreads.selectThread, onConsumed: onOpenThreadRequestConsumed,
+  });
   // Master switch: when AI is disabled in Settings, the assistant is fully off
   // regardless of any stored key — force the no-key path so send is blocked.
   const consentStale = ai.enabled === true && !isConsentCurrent(ai.consent);
@@ -1681,6 +1622,7 @@ function ChatPanelInner({
         />
       )}
       {tursoMode && <ChatThreadClosedNotice lang={lang} closed={chatThreads.threadClosed} reason={chatThreads.threadCloseReason} />}
+      {openThreadBusy && <p role="status" className="mb-2 shrink-0 text-xs text-muted-foreground">{t(lang, "chatOpenThreadBusy")}</p>}
       <div className="mb-2 flex shrink-0 items-center justify-end gap-2">
         <Select
           size="xs"

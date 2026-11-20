@@ -16,7 +16,7 @@
 // for unrelated reasons (the entries array reference stays stable until a
 // new log entry is appended).
 
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo, useState, useSyncExternalStore } from "react";
 import {
   type ActivityEntry,
   type ActivityGroup,
@@ -42,6 +42,10 @@ import { useConfirm } from "./confirm-dialog";
 import { Button } from "./button";
 import { useCappedGroups } from "./use-capped-groups";
 import { KANBAN_COLUMN_PAGE } from "./kanban-column-page";
+import { type AiFeature, type AiOrigin, isKnownAiFeature } from "./activity-origin";
+import { resolveOriginLink } from "./activity-origin-link";
+import { readChatThreads, subscribeChatThreads } from "./chat-threads-registry";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 
 const ACTIVITY_LOG_COL_WIDTHS = {
   timestamp: 160,
@@ -93,10 +97,63 @@ function actorKeyOf(actor: unknown): (typeof ACTOR_KEYS)[keyof typeof ACTOR_KEYS
     : null;
 }
 
+/** §799 — feature → i18n key. Read only through `isKnownAiFeature` (own-property safe, see ACTOR_KEYS):
+ *  a stored `feature` is any string, and an unknown one renders `activityOriginUnknown`. */
+const ORIGIN_KEYS = {
+  chat: "activityOriginChat",
+  chatProposal: "activityOriginChatProposal",
+  inlineEdit: "activityOriginInlineEdit",
+  insightRecommendation: "activityOriginInsightRecommendation",
+  allocationPlan: "activityOriginAllocationPlan",
+  wbsPlan: "activityOriginWbsPlan",
+  taskDedup: "activityOriginTaskDedup",
+  raciSuggest: "activityOriginRaciSuggest",
+  meetingReport: "activityOriginMeetingReport",
+} as const satisfies Record<AiFeature, string>;
+
+/** The origin an AI row shows, or undefined. Only an AI row has one; the object check guards entries that
+ *  never passed the load boundary, as every other lookup in `enriched` does. */
+function aiOriginOf(e: ActivityEntry): AiOrigin | undefined {
+  const o: unknown = e.origin;
+  return e.actor === "ai" && o !== null && typeof o === "object" ? (o as AiOrigin) : undefined;
+}
+
+function originLabelOf(lang: Lang, origin: AiOrigin): string {
+  const f: unknown = origin.feature;
+  return t(lang, typeof f === "string" && isKnownAiFeature(f) ? ORIGIN_KEYS[f] : "activityOriginUnknown");
+}
+
+/** The origin under the actor: plain text, or a button opening the chat when the row links. */
+function OriginCell({ lang, label, link, onOpen }: {
+  lang: Lang;
+  label: string;
+  link: { threadId: string; token: string } | undefined;
+  onOpen: ((threadId: string) => void) | undefined;
+}) {
+  if (!link || !onOpen) return <span className="block">{label}</span>;
+  return (
+    <Button
+      variant="ghost"
+      size="xs"
+      className="block underline"
+      aria-label={rowLabel(t(lang, "activityOriginOpenChat", label), link.token)}
+      onClick={() => onOpen(link.threadId)}
+    >
+      {label}
+    </Button>
+  );
+}
+
 interface Props {
   lang: Lang;
   entries: readonly ActivityEntry[];
   onClear: () => void;
+  /** §799 — the project id the chat panel publishes its threads under (workspace-section hands both the
+   *  same value). Null or absent: no row links. */
+  chatProjectId?: string | null;
+  /** §799 — opens the Chat view on a thread. Absent (a popout): no row links. Must keep a stable identity,
+   *  since this panel is memo'd. */
+  onOpenChatThread?: (threadId: string) => void;
 }
 
 type SortKey = "timestamp" | "kind" | "message" | "actor";
@@ -202,8 +259,12 @@ function normalizeChanges(v: unknown): RowChange[] {
 /** The cap's one group: the whole table. */
 const LOG_GROUP = "log";
 
-function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
+function ActivityLogPanelInner({ lang, entries, onClear, chatProjectId = null, onOpenChatThread }: Props) {
   const { displayTz } = useDisplayTimezone();
+  // §799 — the chat's published threads for THIS project. `readChatThreads` returns the stored object or
+  // the frozen empty value, so the snapshot is reference-stable between publishes.
+  const readThreads = () => (chatProjectId === null ? null : readChatThreads(chatProjectId));
+  const publishedThreads = useSyncExternalStore(subscribeChatThreads, readThreads, readThreads);
   const confirm = useConfirm();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>("literal");
@@ -268,8 +329,11 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
         // The own-property guard is load-bearing — see ACTOR_KEYS. Kept on the
         // row so the filter reads the SAME derivation the cell renders from.
         const actorKey = actorKeyOf(e.actor);
+        const origin = aiOriginOf(e);
         return {
           entry: e,
+          origin,
+          originLabel: origin ? originLabelOf(lang, origin) : null,
           kind,
           timestamp,
           changes: normalizeChanges(e.changes),
@@ -341,6 +405,24 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   const cappedGroups = useMemo(() => new Map([[LOG_GROUP, visible]]), [visible]);
   const cap = useCappedGroups(cappedGroups, null, "tbody tr");
   const hiddenRows = cap.hiddenOf(LOG_GROUP);
+  const shownLimit = cap.limitOf(LOG_GROUP);
+  const shownRows = useMemo(() => visible.slice(0, shownLimit), [visible, shownLimit]);
+
+  // §799 — the rendered rows that link to their chat, each with its row-unique accessible-name token: the
+  // displayed time, numbered by `buildRowTokens` when two links share it (two writes of one chat turn often
+  // land within the same second). Over the SHOWN rows, in display order, so the numbering follows the screen.
+  const originLinks = useMemo(() => {
+    const links = new Map<ActivityEntry, { threadId: string; token: string }>();
+    if (!onOpenChatThread) return links;
+    const linked = shownRows.flatMap((row) => {
+      const link = resolveOriginLink(row.origin, publishedThreads);
+      const when = formatDisplayTimestamp(row.timestamp, displayTz, lang, { withSeconds: true });
+      return link ? [{ id: row.entry, name: when, threadId: link.threadId }] : [];
+    });
+    const tokens = buildRowTokens(linked);
+    for (const row of linked) links.set(row.id, { threadId: row.threadId, token: tokens.get(row.id) ?? row.name });
+    return links;
+  }, [shownRows, publishedThreads, onOpenChatThread, displayTz, lang]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -540,7 +622,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
               </tr>
             </>}
           >
-              {visible.slice(0, cap.limitOf(LOG_GROUP)).map(({ entry, kind, timestamp, actorKey, actorLabel, message, changes }) => (
+              {shownRows.map(({ entry, kind, timestamp, actorKey, actorLabel, originLabel, message, changes }) => (
                 <tr key={entry.id} tabIndex={-1} className="align-top">
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] tabular-nums text-muted-foreground">
                     {/* The COERCED timestamp, not `entry.timestamp` — same rule
@@ -565,6 +647,11 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                         unknown branch — a titled "You"/"AI" would describe a
                         row as unattributed when it is not. */}
                     {actorKey ? actorLabel : <span title={t(lang, "activityActorUnknown")}>{actorLabel}</span>}
+                    {/* §799 — which AI feature wrote it; a link to the chat while its request is in a loaded
+                        thread. The link's VISIBLE text is the label, and its name contains it (2.5.3). */}
+                    {originLabel !== null && (
+                      <OriginCell lang={lang} label={originLabel} link={originLinks.get(entry)} onOpen={onOpenChatThread} />
+                    )}
                   </td>
                   <td className="px-3 py-2 text-foreground">
                     {message}

@@ -959,9 +959,11 @@
   file already gives, which is why its `useMemo` needs no entry for the object this hook returns.
   ★ `use-chat-search-bindings.ts`'s own header says that file has TWO lines of headroom while
   `chat-recap.ts`'s says ONE; **799** is what the counter returns today.
-  ★★ **NO `useSyncExternalStore`, no listener set, no equality function** — the `project-appearance-prefs.ts`
-  precedent needs all of that because components RENDER from it. Nothing renders from chat search: the
-  dispatcher reads the slot at SEND time. Adding reactivity here would be machinery with no consumer.
+  ★★ **ONE LISTENER SET, and only since §799.** Chat search still reads the slot at SEND time and does not
+  subscribe. The Activity view does: an AI row links to its chat while that request is in a loaded thread,
+  so `ActivityLogPanel` renders from the slot through `useSyncExternalStore(subscribeChatThreads, …)`. No
+  snapshot cache or equality function is needed — `readChatThreads` returns the stored object or the frozen
+  `EMPTY`, so the snapshot is reference-stable between publishes.
   ★★★ **ONE SLOT STOPS A STALE KEY BEING READ, NEVER A STALE PAYLOAD BEING WRITTEN.** The store cannot tell
   whose threads a payload holds, so **the PUBLISHER owns payload/key agreement** — and it did not, once:
   `threads` is not reset synchronously when `projectId` flips, so the effect published p1's still-populated

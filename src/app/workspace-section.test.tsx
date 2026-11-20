@@ -99,7 +99,18 @@ vi.mock("./resources-panel", () => ({
     return <div data-testid="resources-panel" />;
   },
 }));
-vi.mock("./activity-log-panel", () => ({ ActivityLogPanel: () => <div data-testid="activity-panel" /> }));
+// §799 — records its props, and offers the Activity origin link as a plain button.
+const activityPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./activity-log-panel", () => ({
+  ActivityLogPanel: (p: { onOpenChatThread?: (id: string) => void }) => {
+    activityPanelMock.props.push(p);
+    return (
+      <div data-testid="activity-panel">
+        <button data-testid="activity-open-chat" onClick={() => p.onOpenChatThread?.("t1")} />
+      </div>
+    );
+  },
+}));
 // Records the props it was handed so the Timelog-cache wiring below can be
 // asserted end to end. `vi.hoisted` because `vi.mock` factories are hoisted
 // above every const in this file — a bare module-level array is in its TDZ when
@@ -1624,5 +1635,63 @@ describe("WorkspaceSection — the budget checklist offers the demo only where i
   it("withholds it when the local demo is refused: a browser-backed project and no usable Turso", async () => {
     saveRegistry(addProject(emptyRegistry(), { id: "p1", name: "Acme", code: "AC", storageConfig: { kind: "browser" } }, true));
     expect((await renderAtBudget(vi.fn())).onLoadDemo).toBeUndefined();
+  });
+});
+
+// §799 — an Activity origin link opens the chat on that thread: the chat tab becomes active and the
+// always-mounted ChatPanel is handed a request it consumes.
+describe("WorkspaceSection — Activity link opens the chat thread", () => {
+  function ActivityProbe() {
+    const { setActiveTab } = useWorkspaceTab();
+    return <button data-testid="goto-activity" onClick={() => setActiveTab("activity")} />;
+  }
+  async function renderAtActivity() {
+    chatPanelMock.props.length = 0;
+    activityPanelMock.props.length = 0;
+    const ui = () => (
+      <>
+        <ActivityProbe />
+        <WorkspaceSection {...makeProps({ currentProjectId: "p7" })} />
+      </>
+    );
+    const { rerender } = render(ui(), { wrapper: Wrapper });
+    fireEvent.click(screen.getByTestId("goto-activity"));
+    await screen.findByTestId("activity-panel");
+    return () => rerender(ui());
+  }
+
+  it("hands the Activity panel the chat's own project id and a stable open handler", async () => {
+    const rerender = await renderAtActivity();
+    rerender();
+    const first = activityPanelMock.props.at(0)!;
+    expect(first.chatProjectId).toBe("p7");
+    expect(chatPanelMock.props.at(-1)!.projectId).toBe("p7");
+    expect(typeof first.onOpenChatThread).toBe("function");
+    expect(activityPanelMock.props.length).toBeGreaterThan(1);
+    expect(activityPanelMock.props.every((p) => p.onOpenChatThread === first.onOpenChatThread)).toBe(true);
+  });
+
+  it("clicking the link activates the chat tab and passes the request until the chat consumes it", async () => {
+    await renderAtActivity();
+    expect(chatPanelMock.props.at(-1)!.openThreadRequest).toBeNull();
+    fireEvent.click(screen.getByTestId("activity-open-chat"));
+    expect(screen.queryByTestId("activity-panel")).toBeNull();
+    expect(screen.getByTestId("chat-panel").closest("[role=tabpanel]")).not.toHaveAttribute("hidden");
+    const handed = chatPanelMock.props.at(-1)!;
+    expect(handed.openThreadRequest).toEqual({ threadId: "t1", nonce: expect.any(Number) });
+    act(() => (handed.onOpenThreadRequestConsumed as () => void)());
+    expect(chatPanelMock.props.at(-1)!.openThreadRequest).toBeNull();
+  });
+
+  it("a second click on the same link is a NEW request", async () => {
+    await renderAtActivity();
+    fireEvent.click(screen.getByTestId("activity-open-chat"));
+    const first = chatPanelMock.props.at(-1)!.openThreadRequest as { nonce: number };
+    act(() => (chatPanelMock.props.at(-1)!.onOpenThreadRequestConsumed as () => void)());
+    fireEvent.click(screen.getByTestId("goto-activity"));
+    fireEvent.click(await screen.findByTestId("activity-open-chat"));
+    const second = chatPanelMock.props.at(-1)!.openThreadRequest as { nonce: number };
+    expect(second).not.toBe(first);
+    expect(second.nonce).toBeGreaterThan(first.nonce);
   });
 });
