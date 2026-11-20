@@ -116,3 +116,16 @@ describe("buildActivityAudit — plan.currencySwitched stays raw (§476)", () =>
     expect(project.entries[0].message).toBe("Project currency switched from EUR to GBP at 0.852 (ECB rates of 2026-10-13)");
   });
 });
+
+describe("buildActivityAudit — AI origin (§799)", () => {
+  it("carries an entry's origin", () => {
+    const origin = { feature: "chat", threadId: "t", requestId: "r" };
+    const [project] = buildActivityAudit("current", [source({ log: [entry({ origin })] })], NOW, "1.15.0").projects;
+    expect(project.entries[0].origin).toEqual(origin);
+  });
+
+  it("has no origin key on an entry without one", () => {
+    const [project] = buildActivityAudit("current", [source()], NOW, "1.15.0").projects;
+    expect(Object.hasOwn(project.entries[0], "origin")).toBe(false);
+  });
+});

@@ -14,6 +14,7 @@
 // Pure: the caller supplies the logs, the clock and the version.
 
 import type { ActivityActor, ActivityEntry, FieldChange } from "./activity-log";
+import type { AiOrigin } from "./activity-origin";
 import { activityMessage } from "./activity-message";
 
 export const ACTIVITY_AUDIT_CLASSIFICATION = "internal — contains audit values; do not share with clients";
@@ -43,6 +44,8 @@ export interface ActivityAuditEntry {
   args: (string | number)[];
   /** Absent on entries written before actors were recorded: unknown, never defaulted. */
   actor?: ActivityActor;
+  /** §799 — the AI feature (and chat link) that wrote the entry; absent when not recorded. */
+  origin?: AiOrigin;
   /** The entry rendered in English, so the file reads without the app. */
   message: string;
   changes?: readonly FieldChange[];
@@ -63,6 +66,7 @@ function auditEntry(e: ActivityEntry): ActivityAuditEntry {
     kind: e.kind,
     args: [...e.args],
     ...(e.actor !== undefined ? { actor: e.actor } : {}),
+    ...(e.origin !== undefined ? { origin: { ...e.origin } } : {}),
     // `allDetail`: the download is a machine-stable record that people also read, so a work-breakdown entry names
     // every task it created, as the Activity panel does, while stored values stay raw (no `display`, §476); the
     // capped form is the model's alone.
