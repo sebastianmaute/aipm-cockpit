@@ -46254,7 +46254,6 @@ The reader audit (2026-11-20, read-only, not run against a live database) found 
 
 **Earlier:** OPEN 2026-11-02, split out of §790. `portfolioMode` is read once at startup (`useState` in `task-manager.tsx`) and an in-place storage switch (Settings → Storage) does not update it. After a switch from Turso to a local copy it still says "turso" while the live storage is not Turso, which contradicts the comment in `portfolio-mode-switch.ts`. `grep -rn "portfolioMode" src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | wc -l` printed 122 on 2026-11-02: the lines outside tests that name it.
 
-
 **As filed (2026-11-02):** two readers are safe against this. §788 gates the cross-project people feature on the live storage kind as well, and §790 refuses a conversion into a Turso database that holds projects whatever the flag says. §790's refusal also READS the flag, for its wording only: with the flag on Turso it names no way back, because none works in that state (Portfolio storage already reads Turso, and opening a Turso project from the project list loads it while storage stays on the local copy). Fixing the flag should give that refusal a route to name. The other readers have not been audited.
 
 What it would take: either have an in-place storage switch keep `portfolioMode` true to the live storage (and decide what a switch back to Turso does to it), or audit each reader for what it does while the flag and the storage disagree, with a test for each one that writes.
