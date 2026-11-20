@@ -159,7 +159,7 @@ function TaskManagerInner() {
   useApplyFavicon(settings.branding?.favicon ?? null);
   // ★★★ USER-ACTOR WIRING — every `logActivity:` below MUST read `logActivityUser`; see the "who names the actor" rule on useActivityLog. Threading the raw one shipped ZERO "user" entries.
   // ★★ THE PIN COVERS TWO OF THE WIRING SITES, NOT ALL OF THEM — this line used to say "Pinned by task-manager.activity-actor.test.tsx" flat, which reads as coverage of the whole rule. That file drives exactly two threads through the real component: `useChangeLog` (via `handleSaveChange`) and `useStakeholders` (via `handleSaveStakeholder`), plus a control that `logActivityAs("ai")` stays distinct and the `logActivityChangesUser` field-diff variant on the change thread. A third site, the `useResourceQuickCreate` call (which holds the resource create, once the one inline `logActivityUser(...)` call), is pinned by a source scan in `use-resource-quick-create.test.ts` that proves the logger passed, not the actor recorded. Every OTHER site below — resource planner, budget buckets, notes window, undo stack, and the remaining hook threads (`useTaskEditorCreate` among them) — is UNPINNED: swapping one back to the raw `logActivity` drops its actor silently and the suite stays green. ★ Count those by eye, not by grepping this file for `logActivityUser`: THIS COMMENT matches that grep, so the count comes back inflated by the line quoting it.
-  const { activityLog, logActivity, logActivityAs, logActivityUser, logActivityChangesUser, handleClearActivityLog } =
+  const { activityLog, logActivity, logActivityAs, logActivityAi, logActivityUser, logActivityChangesUser, handleClearActivityLog } =
     useActivityLog();
   const { toast, showToast, showToastAction, pause: pauseToast, resume: resumeToast } = useToast();
   const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestHelpConcept, requestDocumentsForEntity } = useWorkspaceTab();
@@ -618,7 +618,7 @@ function TaskManagerInner() {
   } = useResourcePlanner({ lang, today, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows, allowDestructiveSave, dialogsRef: appDialogsRef, getScopeEpoch, onResourcesDeleted: forgetBridge.notify });
   // §774 — reassigning a task moves its planned hours (one undo entry, one notice). Threaded into the editor,
   // inline, Kanban, bulk and Action Center hooks, TasksSection and the Workload triage builder below.
-  const reassignHours = useReassignHours({ lang, today, isPopout, loadPending, tasks, setTasks, resources, setResources, plan, absences, workdayHours: settings.resources.workdayHours, holidaySet, captureComposite: undoApi.captureComposite, logActivityAs, showToast });
+  const reassignHours = useReassignHours({ lang, today, isPopout, loadPending, tasks, setTasks, resources, setResources, plan, absences, workdayHours: settings.resources.workdayHours, holidaySet, captureComposite: undoApi.captureComposite, logActivityAs, logActivityAi, showToast });
   const crossProject = useCrossProjectApp({ tursoConfig, portfolioMode, tursoProjects, currentProjectId: tursoProjectId, resources, plan, workdayHours: settings.resources.workdayHours, holidaySet, loadPending, getScopeEpoch, lang, showToast, forgetBridge, storageKind: settings.storageConfig.kind }); // §785
 
   // Day rates are the rate card's source of truth; the hourly cost rate every
@@ -893,7 +893,7 @@ function TaskManagerInner() {
     getDashboardModel: () => dashboardModel,
     aiKey: aiKeyIfEnabled(settings.ai),
     aiModel: settings.ai.model, guides: operatingGuides.guides,
-    captureComposite: undoApi.captureComposite, logActivityAs,
+    captureComposite: undoApi.captureComposite, logActivityAi,
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "", getScopeEpoch, // §763: no late write into the next project
   });
   // Stable callback (its own useCallback) — depend on this, not the whole hook
@@ -1080,7 +1080,7 @@ function TaskManagerInner() {
     [shifts, editingShift],
   );
 
-  const wbsPlan = useWbsPlan({ settings, isPopout, lang, captureComposite: undoApi.captureComposite, logActivityAs, getScopeEpoch, loadPending, today, holidaySet, guides: operatingGuides.guides });
+  const wbsPlan = useWbsPlan({ settings, isPopout, lang, captureComposite: undoApi.captureComposite, logActivityAi, getScopeEpoch, loadPending, today, holidaySet, guides: operatingGuides.guides });
   // The AI assistant's tool dispatcher, with its derived read-tool getters (budget rollup, allocations,
   // dashboard model) — see use-chat-dispatcher-wiring.ts (§491).
   const projectWriterRef = useRef<import("./use-project-tools").ProjectWriter | null>(null); // §715 — the project form's writer, filled below once usePortfolioProjects returns it
@@ -1115,7 +1115,7 @@ function TaskManagerInner() {
     isPopout, loadPending, getScopeEpoch, settings, projectFeatures: features, lang, today, project, guides: operatingGuides.guides, guidesReady: operatingGuides.ready,
     tasks, raid, milestones, changes, stakeholders, baselineHistory,
     resourcesById, absences, holidaySet, insights, setInsights, dispatcher,
-    showToast, logActivityAs,
+    showToast, logActivityAi,
     onAcknowledgeInsight, onActInsight, onDismissInsight,
     onLogAsRaid: raidCreate.openFromInsight,
   });
@@ -1398,7 +1398,7 @@ function TaskManagerInner() {
     handleJumpToTaskFromRaid,
     activityLog,
     logActivity: logActivityUser,
-    logActivityChanges: logActivityChangesUser, logActivityAs,
+    logActivityChanges: logActivityChangesUser, logActivityAs, logActivityAi,
     handleClearActivityLog: guardEdit(handleClearActivityLog),
     handleOpenAddAbsence: guardEdit(handleOpenAddAbsence),
     handleEditAbsence: guardEdit(handleEditAbsence),
@@ -1565,7 +1565,7 @@ function TaskManagerInner() {
       // `useCalendarIntegrations`'s deps bag. The prop is REQUIRED, so tsc proves it.
       getScopeEpoch={getScopeEpoch}
       dispatcher={dispatcher}
-      logActivityAs={logActivityAs}
+      logActivityAi={logActivityAi}
       captureFieldEdit={undoApi.captureFieldEdit} reassignHours={reassignHours}
       captureMerge={undoApi.capture} aiOptimizeButton={wbsPlan.button}
       jiraSiteUrl={settings.jira.siteUrl}
@@ -1928,7 +1928,7 @@ function TaskManagerInner() {
 
   if (isPopout) {
     return (
-      <ActivityLogProvider value={logActivityAs}>
+      <ActivityLogProvider value={logActivityAs} ai={logActivityAi}>
         <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides} guidesReady={operatingGuides.ready}>
           <ToastProvider value={toastApi}>
             <VoiceCommandProvider value={voiceHandlers}>
@@ -1953,7 +1953,7 @@ function TaskManagerInner() {
   //   unmount gate on `loadPending` themselves (docs/AGENTS/platform.md, "The load hold").
 
   return (
-    <ActivityLogProvider value={logActivityAs}>
+    <ActivityLogProvider value={logActivityAs} ai={logActivityAi}>
       <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides} guidesReady={operatingGuides.ready}>
         <ToastProvider value={toastApi}>
           <VoiceCommandProvider value={voiceHandlers}>

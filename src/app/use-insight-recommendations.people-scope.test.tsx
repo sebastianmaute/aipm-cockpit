@@ -64,7 +64,7 @@ function mkDeps(insights: readonly Insight[], background: boolean, features: str
     tasks: [], raid: [], milestones: [], changes: [], stakeholders: [], baselineHistory: [],
     resourcesById: new Map([[7, PERSON]]), absences: [], holidaySet: new Set(),
     insights, setInsights: vi.fn(), dispatcher: {} as InsightRecommendationDeps["dispatcher"],
-    showToast: vi.fn(), logActivityAs: vi.fn(),
+    showToast: vi.fn(), logActivityAi: vi.fn(),
     onAcknowledgeInsight: vi.fn(), onActInsight: vi.fn(), onDismissInsight: vi.fn(),
   };
 }

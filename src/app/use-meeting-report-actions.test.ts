@@ -9,6 +9,7 @@ import type { DashboardModel } from "./dashboard";
 import { defaultSettings } from "./settings-types";
 import { AiGatewayError, AiHttpError } from "./ai-errors";
 import { t } from "./i18n";
+import { aiOrigin } from "./activity-origin";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { useUndoStack, type CaptureCompositeOpts } from "./undo/use-undo-stack";
 import { AWAY_SUMMARY_MAX_CHARS } from "./absence-clash";
@@ -79,7 +80,7 @@ function makeDeps(over: Partial<MeetingReportActionsDeps> = {}): MeetingReportAc
     projectId: "p1",
     getScopeEpoch: () => 0,
     captureComposite: vi.fn(),
-    logActivityAs: vi.fn(),
+    logActivityAi: vi.fn(),
     ...over,
   };
 }
@@ -276,40 +277,40 @@ describe("useMeetingReportActions", () => {
       });
 
       it("fromAi logs exactly one ai.reportDraft as actor ai; a plain save logs nothing", () => {
-        const logActivityAs = vi.fn();
-        const h = harness(committee(), { logActivityAs });
+        const logActivityAi = vi.fn();
+        const h = harness(committee(), { logActivityAi });
         act(() => h.result.current!.onSaveReport(10, "<p>plain</p>"));
-        expect(logActivityAs).not.toHaveBeenCalled();
+        expect(logActivityAi).not.toHaveBeenCalled();
         act(() => h.result.current!.onSaveReport(10, "<p>drafted</p>", { fromAi: true }));
-        expect(logActivityAs).toHaveBeenCalledTimes(1);
-        expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.reportDraft", "2026-06-01");
+        expect(logActivityAi).toHaveBeenCalledTimes(1);
+        expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("meetingReport"), "ai.reportDraft", "2026-06-01");
       });
 
       function quiet() {
         const captureComposite = vi.fn();
-        const logActivityAs = vi.fn();
-        return { captureComposite, logActivityAs, h: harness(committee(), { captureComposite, logActivityAs }) };
+        const logActivityAi = vi.fn();
+        return { captureComposite, logActivityAi, h: harness(committee(), { captureComposite, logActivityAi }) };
       }
 
       it("captures and logs nothing for an unknown meeting", () => {
         const q = quiet();
         act(() => q.h.result.current!.onSaveReport(99, "<p>z</p>", { fromAi: true }));
         expect(q.captureComposite).not.toHaveBeenCalled();
-        expect(q.logActivityAs).not.toHaveBeenCalled();
+        expect(q.logActivityAi).not.toHaveBeenCalled();
       });
 
       it("captures and logs nothing for a restore without a previous", () => {
         const q = quiet();
         act(() => q.h.result.current!.onRestorePrevious(10));
         expect(q.captureComposite).not.toHaveBeenCalled();
-        expect(q.logActivityAs).not.toHaveBeenCalled();
+        expect(q.logActivityAi).not.toHaveBeenCalled();
       });
 
       it("captures and logs nothing for an unchanged body", () => {
         const q = quiet();
         act(() => q.h.result.current!.onSaveReport(10, "<p>x</p>", { fromAi: true }));
         expect(q.captureComposite).not.toHaveBeenCalled();
-        expect(q.logActivityAs).not.toHaveBeenCalled();
+        expect(q.logActivityAi).not.toHaveBeenCalled();
       });
     });
 
@@ -379,11 +380,11 @@ describe("useMeetingReportActions", () => {
       // updater's result synchronously (the log gate once did) sees nothing.
       it("through a real useState setter: one ai.reportDraft as actor ai, and undo restores the prior report", () => {
         const captureComposite = vi.fn();
-        const logActivityAs = vi.fn();
+        const logActivityAi = vi.fn();
         const { result } = renderHook(() => {
           const [c, setC] = useState<SteeringCommittee | undefined>(committee());
           const [, setTick] = useState(0);
-          const bag = useMeetingReportActions(makeDeps({ committee: c, setSteeringCommittee: setC, captureComposite, logActivityAs }));
+          const bag = useMeetingReportActions(makeDeps({ committee: c, setSteeringCommittee: setC, captureComposite, logActivityAi }));
           return { bag, c, setTick };
         });
         act(() => result.current.setTick(1)); // an unrelated commit first
@@ -392,8 +393,8 @@ describe("useMeetingReportActions", () => {
         expect(prior?.html).toBe("<p>plain</p>");
         act(() => result.current.bag!.onSaveReport(10, "<p>drafted</p>", { fromAi: true }));
         expect(result.current.c!.meetings[0].report?.html).toBe("<p>drafted</p>");
-        expect(logActivityAs).toHaveBeenCalledTimes(1);
-        expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.reportDraft", "2026-06-01");
+        expect(logActivityAi).toHaveBeenCalledTimes(1);
+        expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("meetingReport"), "ai.reportDraft", "2026-06-01");
         const undo = (captureComposite.mock.calls[1][0] as CaptureCompositeOpts).parts[0]!;
         act(() => { undo.restore({ current: new Map() }, false); });
         expect(result.current.c!.meetings[0].report).toEqual(prior);
@@ -403,29 +404,29 @@ describe("useMeetingReportActions", () => {
       // setter), not on this render's meeting, which a concurrent writer can have made stale.
       it("render says changed but live already holds the body: no write, no undo entry, no version row, no log", () => {
         const captureComposite = vi.fn();
-        const logActivityAs = vi.fn();
-        const f = frozen(committee(), { captureComposite, logActivityAs, tursoConfig: TURSO });
+        const logActivityAi = vi.fn();
+        const f = frozen(committee(), { captureComposite, logActivityAi, tursoConfig: TURSO });
         f.set({ ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>new</p>", updatedAt: "t9" } }] });
         act(() => f.result.current!.onSaveReport(10, "<p>new</p>", { fromAi: true }));
         expect(f.report()).toEqual({ html: "<p>new</p>", updatedAt: "t9" });
         expect(captureComposite).not.toHaveBeenCalled();
-        expect(logActivityAs).not.toHaveBeenCalled();
+        expect(logActivityAi).not.toHaveBeenCalled();
         expect(saveVersion).not.toHaveBeenCalled();
       });
 
       it("render says unchanged but live differs: the write lands with its undo entry, version row (of the LIVE text) and log", async () => {
         const captureComposite = vi.fn();
-        const logActivityAs = vi.fn();
+        const logActivityAi = vi.fn();
         const f = frozen(
           { ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>new</p>", updatedAt: "t0" } }] },
-          { captureComposite, logActivityAs, tursoConfig: TURSO },
+          { captureComposite, logActivityAi, tursoConfig: TURSO },
         );
         f.set(committee());
         act(() => f.result.current!.onSaveReport(10, "<p>new</p>", { fromAi: true }));
         expect(f.report().html).toBe("<p>new</p>");
         expect(f.report().previous?.html).toBe("<p>x</p>");
         expect(captureComposite).toHaveBeenCalledTimes(1);
-        expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.reportDraft", "2026-06-01");
+        expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("meetingReport"), "ai.reportDraft", "2026-06-01");
         await waitFor(() => expect(saveVersion).toHaveBeenCalledTimes(1));
         expect(saveVersion.mock.calls[0] as unknown[]).toContainEqual(expect.objectContaining({ html: "<p>x</p>" }));
       });

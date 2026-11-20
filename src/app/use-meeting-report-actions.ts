@@ -26,7 +26,8 @@ import type { DashboardModel } from "./dashboard";
 import type { TursoConfig } from "./turso-config";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 import type { UndoStackApi } from "./undo/use-undo-stack";
-import type { LogActivityAsFn } from "./activity-log-context";
+import type { LogActivityAiFn } from "./activity-log-context";
+import { aiOrigin } from "./activity-origin";
 import { meetingReportUndoFragment } from "./meeting-report-undo";
 
 export interface MeetingReportActionsDeps {
@@ -65,8 +66,8 @@ export interface MeetingReportActionsDeps {
   getScopeEpoch: ScopeEpochReader;
   /** AI-04 — a report save / swap is ONE undo entry (restores `html` and `previous` together). */
   captureComposite: UndoStackApi["captureComposite"];
-  /** AI-04 — a save that contains AI-drafted text is logged as actor "ai". */
-  logActivityAs: LogActivityAsFn;
+  /** AI-04 — a save that contains AI-drafted text is logged as actor "ai", feature `meetingReport` (§799). */
+  logActivityAi: LogActivityAiFn;
 }
 
 /** AI-04 — an AI draft held per meeting until the user takes sections from it (or discards it). */
@@ -216,7 +217,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     const prior = seen.before();
     if (prior && !isBlankReport(prior.html)) void snapshotCurrent(meetingId, prior.html); // a blank body is no version
     captureReportChange(meeting.id, meetingName(meeting), seen);
-    if (opts?.fromAi) deps.logActivityAs("ai", "ai.reportDraft", meeting.date);
+    if (opts?.fromAi) deps.logActivityAi(aiOrigin("meetingReport"), "ai.reportDraft", meeting.date);
     return true;
   }
 

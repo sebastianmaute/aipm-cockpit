@@ -160,7 +160,7 @@ export function WorkspaceSection({
   onOpenChangeNotes,
   activityLog,
   logActivity,
-  logActivityChanges, logActivityAs,
+  logActivityChanges, logActivityAs, logActivityAi,
   handleClearActivityLog,
   handleOpenAddAbsence,
   handleEditAbsence,
@@ -431,7 +431,7 @@ export function WorkspaceSection({
     onPullCalendar: absenceCalendar?.onPull,
     onLearnMore: requestHelpConcept,
     onCaptureUndo,
-    logActivityAs,
+    logActivityAi,
   });
   // Panel wrappers. The pt-4 offset clears the tab strip in classic/popout mode;
   // in fullBleed the strip is hidden, so we drop it to align the per-view card
@@ -877,7 +877,7 @@ export function WorkspaceSection({
               onSetupGo={isPopout ? undefined : setActiveTab}
               features={projectFeatures}
               onCommitFeatures={isPopout ? undefined : workspace.setFeatures}
-              logActivityAs={logActivityAs}
+              logActivityAi={logActivityAi}
               showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}

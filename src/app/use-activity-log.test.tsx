@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { useActivityLog } from "./use-activity-log";
+import { aiOrigin } from "./activity-origin";
 
 // handleClearActivityLog no longer confirms here — the branded confirm lives in
 // the panel (which renders under ConfirmProvider; this hook runs above it). The
@@ -114,6 +115,27 @@ describe("useActivityLog", () => {
       });
       expect(result.current.activityLog).not.toBe(before);
       expect(result.current.activityLog).toHaveLength(before.length + 1);
+    });
+  });
+
+  describe("logActivityAi", () => {
+    it("stamps actor ai and the origin the caller names", () => {
+      const { result } = renderLog();
+      act(() => {
+        result.current.logActivityAi(aiOrigin("wbsPlan"), "ai.wbsPlan", "x");
+      });
+      expect(result.current.activityLog[0].actor).toBe("ai");
+      expect(result.current.activityLog[0].origin).toEqual({ feature: "wbsPlan" });
+      expect(result.current.activityLog[0].args).toEqual(["x"]);
+    });
+
+    it("two calls in one act both survive, each with its own origin", () => {
+      const { result } = renderLog();
+      act(() => {
+        result.current.logActivityAi(aiOrigin("wbsPlan"), "ai.wbsPlan", "a");
+        result.current.logActivityAi(aiOrigin("taskDedup"), "ai.taskDedup", 2);
+      });
+      expect(result.current.activityLog.map((e) => e.origin?.feature)).toEqual(["wbsPlan", "taskDedup"]);
     });
   });
 

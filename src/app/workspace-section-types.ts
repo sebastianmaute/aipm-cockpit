@@ -18,7 +18,7 @@ import type {
   ActivityKind,
   FieldChange,
 } from "./activity-log";
-import type { LogActivityAsFn } from "./activity-log-context";
+import type { LogActivityAiFn, LogActivityAsFn } from "./activity-log-context";
 import type { UndoBatch } from "./use-undo-batch";
 import type { ScopeEpochReader } from "./scope-epoch";
 import type { CalendarEvent } from "./calendar-event";
@@ -271,6 +271,8 @@ export interface WorkspaceSectionProps {
    *  (`RaciPanel` → `useRaciSuggest`, `ResourcesPanel` → `useAllocPlan`, and the
    *  inline "Ask Claude" editor). Each stamps `"ai"` at its own call site. */
   logActivityAs: LogActivityAsFn;
+  /** §799 — the AI logger for the same surfaces: the origin LEADS, so each names its own feature. */
+  logActivityAi: LogActivityAiFn;
   handleClearActivityLog: () => void;
   handleOpenAddAbsence: (seed?: Partial<Absence>) => void;
   handleEditAbsence: (absence: Absence) => void;

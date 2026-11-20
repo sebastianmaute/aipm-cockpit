@@ -32,9 +32,10 @@ interface HarnessProps {
   captureSpy?: ReturnType<typeof vi.fn>;
   onTasks?: (t: readonly Task[]) => void;
   triggerQualifier?: string;
+  logAiSpy?: ReturnType<typeof vi.fn>;
 }
 
-function Harness({ captureSpy, onTasks, triggerQualifier }: HarnessProps) {
+function Harness({ captureSpy, onTasks, triggerQualifier, logAiSpy }: HarnessProps) {
   const [tasks, setTasks] = useState<readonly Task[]>([
     mkTask(1, "Write API docs"),
     mkTask(2, "Write the API documentation"),
@@ -47,6 +48,7 @@ function Harness({ captureSpy, onTasks, triggerQualifier }: HarnessProps) {
     tasks,
     setTasks: (u) => setTasks((prev) => { const next = typeof u === "function" ? u(prev) : u; onTasks?.(next); return next; }),
     capture: captureSpy as never,
+    logActivityAi: logAiSpy as never,
     triggerQualifier,
   });
   return (
@@ -151,7 +153,8 @@ describe("useTasksDedup (plan-then-apply)", () => {
       { keepId: 1, mergeIds: [2], rationale: "dup", unifiedFields: { taskName: "API documentation" } },
     ]);
     const captureSpy = vi.fn();
-    renderHarness({ captureSpy });
+    const logAiSpy = vi.fn();
+    renderHarness({ captureSpy, logAiSpy });
     // No root cause was ever established for §51, so this is the primary
     // instrument: it says whether the proposal resolved, whether the preview was
     // still open, and how far the merge got.
@@ -192,6 +195,10 @@ describe("useTasksDedup (plan-then-apply)", () => {
     // §177b — the merged keep row rides along, so the undo is a field patch.
     expect(arg.editedAfter.map((t: Task) => t.id)).toContain(1);
     expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1"));
+    // §799 — the row names the feature that wrote it.
+    expect(logAiSpy).toHaveBeenCalledTimes(1);
+    expect(logAiSpy.mock.calls[0][0].feature).toBe("taskDedup");
+    expect(logAiSpy.mock.calls[0][1]).toBe("ai.taskDedup");
   });
 
   it("shows a 'no duplicates' toast and no modal when the model returns no groups", async () => {

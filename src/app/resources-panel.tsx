@@ -55,7 +55,7 @@ const HIDE_EXTERNAL_KEY = "aipm-cockpit:resources-hide-external";
 import { isTaskClosed } from "./task-closed";
 import { useSettings } from "./use-settings";
 import { useAllocPlan } from "./use-alloc-plan";
-import { type LogActivityAsFn } from "./activity-log-context";
+import { type LogActivityAiFn } from "./activity-log-context";
 import { type UndoStackApi } from "./undo/use-undo-stack";
 import { type ReassignHours } from "./use-reassign-hours";
 import { type CrossProjectPeople } from "./use-cross-project-people";
@@ -176,7 +176,7 @@ interface Props {
   onCaptureComposite?: UndoStackApi["captureComposite"];
   /** ★ ACTOR-AWARE. Every consumer of this prop writes an `ai.*` kind, so it
    *  names its own actor — see the rule on `useActivityLog`. */
-  logActivityAs?: LogActivityAsFn;
+  logActivityAi?: LogActivityAiFn;
 }
 
 type AssigneeRow = {
@@ -254,7 +254,7 @@ function ResourcesPanelInner({
   onIsLoadHeld,
   crossProject,
   onCaptureComposite,
-  logActivityAs,
+  logActivityAi,
 }: Props) {
   const planning = useColumnResize<PlanningCol>("planning", PLANNING_COL_WIDTHS);
   const rollup = useColumnResize<RollupCol>("rollup", ROLLUP_COL_WIDTHS);
@@ -336,7 +336,7 @@ function ResourcesPanelInner({
     crossProject,
     captureComposite: onCaptureComposite,
     capture: onCaptureUndo,
-    logActivityAs,
+    logActivityAi,
   });
 
   const [calendarMode, setCalendarMode] = useState<CalendarMode>("month");

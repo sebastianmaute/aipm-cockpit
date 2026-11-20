@@ -35,7 +35,7 @@ function Harness() {
   const alloc = useAllocPlan({
     settings: AI_ON, isPopout: false, lang: "en-US", resources, setResources, roles: RATE_CARD,
     disciplines: [], grades: [], plan: PLAN, absences: [], workdayHours: 8, holidaySet: new Set<string>(),
-    capture: vi.fn() as never, logActivityAs: vi.fn() as never, tasks: [], milestones: [], stakeholders: [],
+    capture: vi.fn() as never, logActivityAi: vi.fn() as never, tasks: [], milestones: [], stakeholders: [],
     today: "2026-08-01", reassignTasks: () => 0, isLoadHeld: () => false,
   });
   return <div>{alloc.button}{alloc.modal}</div>;

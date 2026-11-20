@@ -9,6 +9,7 @@ import {
   type ActivityKind,
   type FieldChange,
 } from "./activity-log";
+import type { AiOrigin } from "./activity-origin";
 import { useWorkspace } from "./workspace-context";
 
 /** ★★ The log is WORKSPACE state now, not per-device localStorage — this hook
@@ -97,6 +98,9 @@ export function useActivityLog(): {
     changes: readonly FieldChange[],
     ...args: (string | number)[]
   ) => void;
+  /** §799 — the AI's logger: stamps `actor: "ai"` AND the origin, which LEADS and is required, so an AI feature
+   *  cannot write a row without naming itself. Same functional-setter rule as the others. */
+  logActivityAi: (origin: AiOrigin, kind: ActivityKind, ...args: (string | number)[]) => void;
   /** ★★★ PRE-STAMPED `"user"` — the loggers `task-manager` threads into every
    *  entity hook, per the rule above. They live HERE rather than as a local
    *  `useCallback` in task-manager for two reasons: that file sits under the
@@ -149,6 +153,13 @@ export function useActivityLog(): {
     [setActivityLog],
   );
 
+  const logActivityAi = useCallback(
+    (origin: AiOrigin, kind: ActivityKind, ...args: (string | number)[]) => {
+      setActivityLog((prev) => appendActivityEntry(prev, kind, args, undefined, "ai", origin));
+    },
+    [setActivityLog],
+  );
+
   const logActivityChangesAs = useCallback(
     (
       actor: ActivityActor,
@@ -190,6 +201,7 @@ export function useActivityLog(): {
     logActivityChanges,
     logActivityAs,
     logActivityChangesAs,
+    logActivityAi,
     logActivityUser,
     logActivityChangesUser,
     handleClearActivityLog,

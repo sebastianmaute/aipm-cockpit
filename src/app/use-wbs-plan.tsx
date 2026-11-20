@@ -33,7 +33,8 @@ import { SparklesIcon } from "./icons";
 import { type Lang, t, tPlural } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
 import { type Task } from "./types";
-import { type LogActivityAsFn } from "./activity-log-context";
+import { type LogActivityAiFn } from "./activity-log-context";
+import { aiOrigin } from "./activity-origin";
 import { wbsPlanActivityArgs } from "./activity-log";
 import {
   type CompositeFragment,
@@ -102,9 +103,9 @@ export interface WbsPlanDeps {
   lang: Lang;
   /** §796 — one composite per apply: the edits as a field patch, then the created tasks (removed on undo). */
   captureComposite?: UndoStackApi["captureComposite"];
-  /** ★ ACTOR-AWARE. This hook writes exactly one kind, an `ai.*` one, so it
-   *  KNOWS its actor — see the rule on `useActivityLog`. */
-  logActivityAs?: LogActivityAsFn;
+  /** ★ AI LOGGER (§799). This hook writes exactly one kind, an `ai.*` one, so it names its own
+   *  feature (`wbsPlan`) — see the rule on `useActivityLog`. */
+  logActivityAi?: LogActivityAiFn;
   /** REQUIRED (scope-epoch.ts: an optional reader is how a writer goes unguarded). */
   getScopeEpoch: ScopeEpochReader;
   /** True while a load or project swap holds the workspace: nothing starts. */
@@ -150,7 +151,7 @@ export interface WbsPlan {
 const isEditable = (task: Task): boolean => !isTaskClosed(task) && !task.jiraKey;
 
 export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
-  const { settings, isPopout, lang, captureComposite, logActivityAs, getScopeEpoch, loadPending, today: tableToday, holidaySet } = deps;
+  const { settings, isPopout, lang, captureComposite, logActivityAi, getScopeEpoch, loadPending, today: tableToday, holidaySet } = deps;
   const { tasks, setTasks, milestones, project, filteredSortedTasks, absences, resources, features, raid, changes, budgets, knowledgeItems, documents } = useWorkspace();
   const { healthFilter } = useFilters();
   const showToast = useToastContext();
@@ -477,7 +478,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
       // breakdown made can be found again — never one entry per task, which could push hundreds of older entries
       // out of the capped log. From the updater's OWN result. The completion trend counts its created pairs;
       // without them its backward walk read every earlier total too high by the tasks a breakdown created.
-      logActivityAs?.("ai", "ai.wbsPlan", ...wbsPlanActivityArgs(result.applied, result.created));
+      logActivityAi?.(aiOrigin("wbsPlan"), "ai.wbsPlan", ...wbsPlanActivityArgs(result.applied, result.created));
     }
     // ONE toast: there is a single toast slot, so a second call in this
     // handler would replace the first and a partial apply would report only
@@ -492,7 +493,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
       showToast("info", tPlural(lang, "wbsPlanStaleSkipped", skippedStale, skippedStale));
     }
     reset();
-  }, [phase, scope, loadPending, getScopeEpoch, items, selected, settings.timezone, project?.operatingTimezone, setTasks, captureComposite, logActivityAs, showToast, lang, reset, setPhase]);
+  }, [phase, scope, loadPending, getScopeEpoch, items, selected, settings.timezone, project?.operatingTimezone, setTasks, captureComposite, logActivityAi, showToast, lang, reset, setPhase]);
 
   // ★ The trigger only OPENS the dialog; the billed call fires from inside it,
   //   so it is busy (and a Stop button) in `thinking` alone.

@@ -55,7 +55,8 @@ import { logDiag } from "./diagnostics";
 import { descriptionText } from "./rich-text-projection";
 import { effectivePersonName, resourceDisplayName } from "./resource-foundation";
 import type { ToastKind } from "./use-toast";
-import type { LogActivityAsFn } from "./activity-log-context";
+import type { LogActivityAiFn } from "./activity-log-context";
+import { aiOrigin } from "./activity-origin";
 import { type OperatingGuide } from "./operating-guide";
 import { useGuideTextFrom } from "./action-guides-context";
 import { useOpenProjectPeopleProtected, usePeopleProtected } from "./ai-privacy-context";
@@ -120,7 +121,7 @@ export interface InsightRecommendationDeps {
   setInsights: Dispatch<SetStateAction<readonly Insight[] | undefined>>;
   dispatcher: ToolDispatcher;
   showToast: (kind: ToastKind, text: string) => void;
-  logActivityAs: LogActivityAsFn;
+  logActivityAi: LogActivityAiFn;
   onAcknowledgeInsight: (id: number) => void;
   onActInsight: (id: number) => void;
   onDismissInsight: (id: number) => void;
@@ -153,7 +154,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     setInsights,
     dispatcher,
     showToast,
-    logActivityAs,
+    logActivityAi,
     onAcknowledgeInsight,
     onActInsight,
     onDismissInsight,
@@ -597,7 +598,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
           : i,
       ),
     );
-    logActivityAs("ai", "ai.insightRecommendation", insight.id, rec.summary);
+    logActivityAi(aiOrigin("insightRecommendation"), "ai.insightRecommendation", insight.id, rec.summary);
     // ★ The stale message wins over the generic one when both kinds occurred:
     // "some of this was refused because the data moved — generate a new one" is
     // actionable, where "couldn't be applied" leaves the user with no next step.
@@ -623,7 +624,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
       refused > 0 ? "error" : "info",
       t(lang, refused > 0 ? "insightRecommendationApplyFailed" : "insightRecommendationApplied"),
     );
-  }, [insights, reviewInsightId, dispatcher, setInsights, setReviewInsightId, today, logActivityAs, showToast, lang, tasks, raid, changes, milestones, stakeholders, baselineHistory, peopleProtectedNow]);
+  }, [insights, reviewInsightId, dispatcher, setInsights, setReviewInsightId, today, logActivityAi, showToast, lang, tasks, raid, changes, milestones, stakeholders, baselineHistory, peopleProtectedNow]);
 
   return {
     insightActions,

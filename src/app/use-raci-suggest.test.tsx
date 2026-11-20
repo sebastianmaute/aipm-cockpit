@@ -97,9 +97,10 @@ interface HarnessProps {
   externalWrite?: { id: number; milestoneId: number; role: "R" | "A" | "C" | "I" };
   /** Stakeholders beyond Sam (1) and Lee (2), e.g. a third person who takes A from outside. */
   extraStakeholders?: Stakeholder[];
+  logAiSpy?: ReturnType<typeof vi.fn>;
 }
 
-function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakeholderRaci, externalWrite, extraStakeholders }: HarnessProps) {
+function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakeholderRaci, externalWrite, extraStakeholders, logAiSpy }: HarnessProps) {
   // Bound to a const so the `ext &&` guard's narrowing survives into the nested
   // setState/map callbacks below — a destructured PARAMETER's narrowing does not.
   const ext = externalWrite;
@@ -120,6 +121,7 @@ function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakehold
       setStakeholders((prev) => prev.map((s) => (s.id === item.id ? item : s)));
     },
     onCaptureBulk,
+    logActivityAi: logAiSpy as never,
   });
   return (
     <div>
@@ -313,7 +315,8 @@ describe("useRaciSuggest (plan-then-apply)", () => {
     });
     const onSaves = vi.fn();
     const onCaptureBulk = vi.fn();
-    renderHarness({ onSaves, onCaptureBulk });
+    const logAiSpy = vi.fn();
+    renderHarness({ onSaves, onCaptureBulk, logAiSpy });
 
     openAndRun();
     await waitFor(() => expect(screen.getByText(/Go-Live/)).toBeTruthy());
@@ -322,6 +325,10 @@ describe("useRaciSuggest (plan-then-apply)", () => {
     await waitFor(() =>
       expect(screen.getByTestId("sam-raci").textContent).toBe(JSON.stringify({ "10": "R", "11": "C" })),
     );
+    // §799 — the row names the feature that wrote it.
+    expect(logAiSpy).toHaveBeenCalledTimes(1);
+    expect(logAiSpy.mock.calls[0][0].feature).toBe("raciSuggest");
+    expect(logAiSpy.mock.calls[0][1]).toBe("ai.raciSuggest");
     // ONE save for the one touched stakeholder, not one per cell.
     expect(onSaves).toHaveBeenCalledTimes(1);
     expect(onCaptureBulk).toHaveBeenCalledTimes(1);

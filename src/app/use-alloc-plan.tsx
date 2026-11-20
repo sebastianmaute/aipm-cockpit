@@ -23,7 +23,8 @@ import { SparklesIcon } from "./icons";
 import { type Lang, t, tPlural } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
 import { type Absence, type Discipline, type Grade, type Milestone, type Resource, type ResourcePlan, type Role, type Stakeholder, type Task } from "./types";
-import { type LogActivityAsFn } from "./activity-log-context";
+import { type LogActivityAiFn } from "./activity-log-context";
+import { aiOrigin } from "./activity-origin";
 import { captureFieldPart, type CompositeFragment, type UndoStackApi } from "./undo/use-undo-stack";
 import { type ReassignHours } from "./use-reassign-hours";
 import { resourceDisplayName } from "./resource-foundation";
@@ -78,9 +79,9 @@ export interface AllocPlanDeps {
   capture?: UndoStackApi["capture"];
   /** Records a cells-only apply as one entry; absent → `capture`, as before §769. */
   captureComposite?: UndoStackApi["captureComposite"];
-  /** ★ ACTOR-AWARE. This hook writes exactly one kind, and it is an `ai.*`
-   *  one, so it KNOWS its actor — see the rule on `useActivityLog`. */
-  logActivityAs?: LogActivityAsFn;
+  /** ★ AI LOGGER (§799). This hook writes only `ai.*` kinds, so it takes the AI logger and names its own
+   *  feature (`allocationPlan`) at every call — see the rule on `useActivityLog`. */
+  logActivityAi?: LogActivityAiFn;
   /** §785: what the people here are booked for in other projects. Opening the window asks for it; Run waits for it. */
   crossProject?: CrossProjectPeople;
 }
@@ -124,7 +125,7 @@ function applyToastText(lang: Lang, c: ApplyCounts): string {
 
 export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const { settings, isPopout, lang, resources, setResources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet } = deps;
-  const { tasks, milestones, stakeholders, today, reassignTasks, isLoadHeld, capture, captureComposite, logActivityAs, crossProject } = deps;
+  const { tasks, milestones, stakeholders, today, reassignTasks, isLoadHeld, capture, captureComposite, logActivityAi, crossProject } = deps;
   const showToast = useToastContext();
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -328,7 +329,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     const cellsPart = captureFieldPart<Resource>({ setter: setResources, edits: p.patches, stampField: "localModifiedAt" });
     // ★ Moves first: §774 writes owners and hours through its own functional setters; the cells then write through a
     //   FUNCTIONAL setter on `prev`, on top of the moved hours. No cell left touches a key a fresh move writes.
-    const applied = p.ownerEdits.length === 0 ? 0 : reassignTasks(p.ownerEdits, "ai", {
+    const applied = p.ownerEdits.length === 0 ? 0 : reassignTasks(p.ownerEdits, aiOrigin("allocationPlan"), {
       toastText: (n) => toastFor(n + p.cellCount, p.ownerEdits.length - n),
       extraParts: [cellsPart],
       kind: "bulk.edit",
@@ -341,16 +342,16 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     if (applied > 0) {
       // §774 recorded the ONE entry (tasks, moved hours and these cells) and showed its toast. The alternative's
       // NUMBER, never its summary: model text is untrusted and the log is read back into prompts.
-      logActivityAs?.("ai", "ai.allocationPlanAlt", activeIndex + 1, applied, p.cellCount);
+      logActivityAi?.(aiOrigin("allocationPlan"), "ai.allocationPlanAlt", activeIndex + 1, applied, p.cellCount);
     } else if (p.cellCount === 0) {
       const text = toastFor(0, p.ownerEdits.length);
       if (text) showToast("info", text);
     } else {
       recordCellsOnly(p.cells, p.cellCount, cellsPart, toastFor(p.cellCount, p.ownerEdits.length));
-      logActivityAs?.("ai", "ai.allocationPlan", p.cellCount);
+      logActivityAi?.(aiOrigin("allocationPlan"), "ai.allocationPlan", p.cellCount);
     }
     reset();
-  }, [peopleProtected, phase, isLoadHeld, alternatives, activeIndex, selectedByAlt, resources, tasks, plan, absences, workdayHours, holidaySet, today, setResources, reassignTasks, recordCellsOnly, logActivityAs, showToast, lang, reset]);
+  }, [peopleProtected, phase, isLoadHeld, alternatives, activeIndex, selectedByAlt, resources, tasks, plan, absences, workdayHours, holidaySet, today, setResources, reassignTasks, recordCellsOnly, logActivityAi, showToast, lang, reset]);
 
   const stage: "input" | "preview" = phase === "preview" || phase === "applying" ? "preview" : "input";
   // The `"applying"` phase never actually commits a render (see the NOTE in

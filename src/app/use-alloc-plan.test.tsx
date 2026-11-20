@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { newConsent } from "./ai-consent";
+import { aiOrigin } from "./activity-origin";
 import { AiHttpError } from "./ai-errors";
 import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { defaultPeriodLabel, formatMovedHours } from "./reassign-hours-notice";
@@ -111,7 +112,7 @@ function Harness({
     workdayHours: 8,
     holidaySet: new Set<string>(),
     capture: captureSpy as never,
-    logActivityAs: logActivitySpy as never,
+    logActivityAi: logActivitySpy as never,
     tasks: [],
     milestones: [],
     stakeholders: [],
@@ -419,7 +420,7 @@ describe("useAllocPlan (plan-then-apply)", () => {
     // The pre-edit image — the resource as it was BEFORE the write.
     expect(arg.edited[0].id).toBe(1);
     expect(arg.edited[0].utilization).toEqual({});
-    expect(logActivitySpy).toHaveBeenCalledWith("ai", "ai.allocationPlan", 1);
+    expect(logActivitySpy).toHaveBeenCalledWith(aiOrigin("allocationPlan"), "ai.allocationPlan", 1);
     expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1"));
   });
 
@@ -467,7 +468,7 @@ describe("useAllocPlan (plan-then-apply)", () => {
     );
     // The applied count (1) — not the original selection count (2) — is what
     // gets logged, since the two diverge exactly in this window.
-    expect(logActivitySpy).toHaveBeenCalledWith("ai", "ai.allocationPlan", 1);
+    expect(logActivitySpy).toHaveBeenCalledWith(aiOrigin("allocationPlan"), "ai.allocationPlan", 1);
   });
 
   it("confirm applies nothing and stays quiet on capture/logActivity when every chosen cell went stale", async () => {
@@ -594,6 +595,7 @@ const UNOWNED: Task = { ...SEP_TASK, id: 13, taskName: "Nobody's", assignee: "",
 
 const fullToast = vi.fn();
 const fullLog = vi.fn();
+const fullLogUser = vi.fn();
 const noopLog = () => {};
 
 function alt(summary: string, taskMoves: { taskId: number; toResourceId: number }[], cells: RawAllocCell[]) {
@@ -622,7 +624,7 @@ function FullHarness({ initialTasks, initialResources, wrapReassign, externalTas
     lang: "en-US", today: TODAY_SD, isPopout: false, loadPending,
     tasks, setTasks, resources, setResources,
     plan: PLAN_SD, absences: [], workdayHours: 8, holidaySet: NO_HOLIDAYS,
-    captureComposite: undo.captureComposite, logActivityAs: fullLog, showToast: fullToast,
+    captureComposite: undo.captureComposite, logActivityAs: fullLogUser, logActivityAi: fullLog, showToast: fullToast,
   });
   const alloc = useAllocPlan({
     settings: AI_ON, isPopout: false, lang: "en-US",
@@ -632,7 +634,7 @@ function FullHarness({ initialTasks, initialResources, wrapReassign, externalTas
     reassignTasks: wrapReassign ? wrapReassign(reassign.reassignTasks) : reassign.reassignTasks,
     isLoadHeld: reassign.isLoadHeld,
     capture: undo.capture, captureComposite: undo.captureComposite,
-    logActivityAs: fullLog,
+    logActivityAi: fullLog,
   });
   return (
     <>
@@ -802,7 +804,11 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     fireEvent.click(screen.getByRole("radio", { name: /Alternative 2/ }));
     apply();
     await waitFor(() => expect(readOwners()[10]).toBe(2));
-    expect(fullLog).toHaveBeenCalledWith("ai", "ai.allocationPlanAlt", 2, 1, 1);
+    expect(fullLog).toHaveBeenCalledWith(aiOrigin("allocationPlan"), "ai.allocationPlanAlt", 2, 1, 1);
+    // Every row the apply wrote, the owner move's resource.hoursMoved included, names the allocation plan.
+    expect(fullLog.mock.calls.some((c) => c[1] === "resource.hoursMoved")).toBe(true);
+    expect(fullLog.mock.calls.every((c) => c[0].feature === "allocationPlan")).toBe(true);
+    expect(fullLogUser).not.toHaveBeenCalled();
     for (const args of fullLog.mock.calls) {
       for (const a of args) expect(String(a)).not.toMatch(/SUMMARY/);
     }
@@ -830,7 +836,7 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     expect(readOwners()[12]).toBe(1);
     expect(lastToast().startsWith(`${tPlural("en-US", "allocPlanApplied", 2, 2)} ${tPlural("en-US", "allocPlanSkippedUnchanged", 1, 1)}`)).toBe(true);
     expect(lastToast()).not.toContain(tPlural("en-US", "allocPlanSkippedStale", 1, 1));
-    expect(fullLog).toHaveBeenCalledWith("ai", "ai.allocationPlanAlt", 1, 1, 1);
+    expect(fullLog).toHaveBeenCalledWith(aiOrigin("allocationPlan"), "ai.allocationPlanAlt", 1, 1, 1);
     expect(readStack()).toEqual([{ kind: "bulk.edit", count: 2, label: expect.any(String) }]);
   });
 
@@ -972,7 +978,7 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     await waitFor(() => expect(readUtil()[3]).toEqual({ "2026-11": 12 }));
     expect(readOwners()[10]).toBe(1);
     expect(readStack()).toEqual([{ kind: "bulk.edit", count: 1, label: expect.any(String) }]);
-    expect(fullLog).toHaveBeenCalledWith("ai", "ai.allocationPlan", 1);
+    expect(fullLog).toHaveBeenCalledWith(aiOrigin("allocationPlan"), "ai.allocationPlan", 1);
     expect(fullLog.mock.calls.some((c) => c[1] === "ai.allocationPlanAlt")).toBe(false);
     expect(lastToast()).toBe(tPlural("en-US", "allocPlanApplied", 1, 1));
     fireEvent.click(screen.getByRole("button", { name: "undo-now" }));

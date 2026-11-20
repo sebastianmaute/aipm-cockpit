@@ -13,6 +13,7 @@ import {
 import { resourceLogName } from "./chat-tool-summaries";
 import { historySearchEnabled } from "./settings-types";
 import { summarizeForRecap } from "./activity-recap";
+import { aiOrigin } from "./activity-origin";
 import { assertJiraManagedUnchanged, buildTaskCleanPatch } from "./chat-task-patch";
 import { deriveMode, isModuleEnabled, isViewEnabled, sanitizeFeatures } from "./feature-modules";
 import { computeSettingsPatch } from "./chat-settings-patch";
@@ -565,7 +566,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         }
         tasksRef.current = next;
         setTasks(next);
-        hoursStep?.commit("ai");
+        // §799 Task 3 threads the real per-call origin; until then the chat names itself with no link.
+        hoursStep?.commit(aiOrigin("chat"));
         args.logActivityAs?.("ai", "task.updated", merged.id, merged.taskName);
         // ★ The `"ai"` actor is required: this file logs MODEL writes, and
         // threading the user actor here would misattribute them.

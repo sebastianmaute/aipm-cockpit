@@ -20,7 +20,7 @@ import {
   type Role, type Stakeholder, type Task,
 } from "./types";
 import { type ProjectDocument } from "./document-model";
-import { type LogActivityAsFn } from "./activity-log-context";
+import { type LogActivityAiFn } from "./activity-log-context";
 import { RaciChipPicker, RaciLegend } from "./raci-chip-picker";
 import { buildRowTokens, collapse } from "./row-tokens";
 import { useResizable } from "./use-resizable";
@@ -59,7 +59,7 @@ export interface RaciPanelProps {
   onCaptureBulk?: (edits: readonly { id: number; before: Partial<Stakeholder>; after: Partial<Stakeholder> }[]) => void;
   /** ★ ACTOR-AWARE. Every consumer of this prop writes an `ai.*` kind, so it
    *  names its own actor — see the rule on `useActivityLog`. */
-  logActivityAs?: LogActivityAsFn;
+  logActivityAi?: LogActivityAiFn;
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
@@ -76,7 +76,7 @@ export interface RaciPanelProps {
 // Component
 // ---------------------------------------------------------------------------
 
-export function RaciPanel({ lang, stakeholders, milestones, tasks, raid, changes, resources, roles, disciplines, grades, documents, onSave, onCaptureBulk, logActivityAs, showHints, isPopout, onLearnMore, settings, onSetupGo, features, onCommitFeatures }: RaciPanelProps) {
+export function RaciPanel({ lang, stakeholders, milestones, tasks, raid, changes, resources, roles, disciplines, grades, documents, onSave, onCaptureBulk, logActivityAi, showHints, isPopout, onLearnMore, settings, onSetupGo, features, onCommitFeatures }: RaciPanelProps) {
 
   // AI-assisted "Suggest RACI" (Stakeholders → RACI toolbar only). Called
   // UNCONDITIONALLY — before the two empty-state early returns below — so the
@@ -92,7 +92,7 @@ export function RaciPanel({ lang, stakeholders, milestones, tasks, raid, changes
     tasks, raid, changes, resources, roles, disciplines, grades, documents,
     onSave,
     onCaptureBulk,
-    logActivityAs,
+    logActivityAi,
   });
 
   const rows = useMemo(
