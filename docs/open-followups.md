@@ -46350,8 +46350,6 @@ Size M.
 
 **Earlier:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -rnE "setTimeout\(\(\) => [a-zA-Z.]*abort|AbortSignal.timeout" src/app --include=*.ts --include=*.tsx` lists, among the AI callers, only `use-digest.ts` (the on-request digest summary, `AI_TIMEOUT_MS`, 20 s) and `use-ai-key-check.ts` (the key check, 15 s); `grep -n "status === 429" src/app/ai-errors.ts` prints the one line that turns a 429 or an overload into a "limit" error shown to the user.
 
-**Work item:** #973
-
 Only two AI calls set a time limit of their own: the digest summary asked for on request (20 seconds) and the API key check (15 seconds). The others, among them the chat, the inline edit, Plan with AI, the work breakdown, the steering-committee report, insight recommendations and the scheduled runs, end only when the user cancels or the connection fails. On a gateway or organisation-key deployment the server relay adds a 15-minute idle timeout. A rate-limit or overload answer is reported to the user as such, and nothing tries again; the retry the AI helpers do make is for an answer cut off by its token budget, not for a transient failure.
 
 What it would take: an overall timeout for each AI request, and a bounded retry with backoff on 429 and overload answers that honours `retry-after`, kept off for a streamed answer once text has arrived. Tests for each.
