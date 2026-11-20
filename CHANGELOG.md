@@ -10,6 +10,16 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Changed
+
+- **AI requests now have a time limit and retry a rate limit or overload.** Each AI request attempt is limited to 5
+  minutes (a feature's own shorter limit still wins); a timeout shows "Claude did not answer within 5 minutes. Try
+  again." instead of ending silently, and a scheduled run records it as a failed run. A rate-limit or overload
+  answer (429, 529, or the relay's own limit) is retried, up to three attempts in all, after the `retry-after` the
+  service names or about 2 s and then 4 s; a wait over 60 s is not waited. Each retry re-checks the AI setting and
+  consent and redacts again, and Stop ends a wait. A timeout or a network failure is never retried. The relay now
+  passes an upstream `retry-after` on, and the chat shows "Claude is busy, trying again in N s…" while it waits (§798).
+
 ### Removed
 
 - **The SignPath code-signing pipeline.** SignPath Foundation declined the project's application, so the release

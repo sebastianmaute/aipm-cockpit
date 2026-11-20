@@ -49,10 +49,6 @@ Form einer Telefonnummer im Browser vor dem Senden durch Platzhalter ersetzt (E1
    *nicht belegt*).
 3. **§814:** Sechs Pfade haben weder gemessene Kosten noch beobachtetes Verhalten, darunter die wöchentliche
    harte Obergrenze (E39, *nicht belegt*).
-4. **§798:** Nur der Text der Zusammenfassung auf Anfrage und der Schlüsseltest im Browser haben ein eigenes
-   Zeitlimit. Auf dem Relay-Weg wird eine Antwort abgebrochen, die 15 Minuten lang nichts sendet, und eine
-   Antwort mit Ratenlimit oder Überlastung wird den Nutzenden als solche angezeigt und nicht wiederholt (E40,
-   *im Code gelesen*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
 

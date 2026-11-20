@@ -65,11 +65,9 @@ Schalter und die Beobachtung der Ausgaben: Nichts in der App hält interaktive K
 ## Noch nicht belegt / offene Lücken
 
 1. **§802:** Der Gateway-Weg lief noch nie gegen ein echtes Gateway (E12, *nicht belegt*).
-2. **§798:** Die meisten KI-Aufrufe haben kein eigenes Zeitlimit, und keiner wird bei Ratenlimit oder
-   Überlastung wiederholt (E40, *im Code gelesen*).
-3. **§814:** Sechs Pfade haben weder gemessene Kosten noch beobachtetes Verhalten, darunter ein abgelehnter
+2. **§814:** Sechs Pfade haben weder gemessene Kosten noch beobachtetes Verhalten, darunter ein abgelehnter
    Schlüssel (E39, *nicht belegt*).
-4. **Anfragegrenzen sind geteilt und gelten je Prozess:** Sofern Sie `AIPM_TRUSTED_PROXY_HOPS` nicht setzen,
+3. **Anfragegrenzen sind geteilt und gelten je Prozess:** Sofern Sie `AIPM_TRUSTED_PROXY_HOPS` nicht setzen,
    teilen sich alle Aufrufer jeder der sechs begrenzten Routen, auch des Relays und des Diktats, eine Zählung
    (Jira und Confluence teilen sich eine gemeinsame), sodass ein Aufrufer sie für alle aufbrauchen kann; nur die
    Grenzen des Relays und des Diktats lassen sich erhöhen, die übrigen liegen fest bei 60 pro Minute; die

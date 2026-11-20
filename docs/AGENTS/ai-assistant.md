@@ -64,6 +64,22 @@
   (more than one when it falls back); a scheduled job two in the usual case (its `confirmDeployment` before the run,
   then its analysis's `postOnce`). Reproduce the call sites:
   `grep -rnE "postAiMessages\(|confirmAiDeployment\(|postOnce\(" src/app --include=*.ts | grep -v test`.
+  ★★ **Time limit and retry (§798; policy in `ai-retry.ts`, no fetch there).** Each send is one ATTEMPT limited to
+  `AI_REQUEST_TIMEOUT_MS` (5 minutes; a caller's shorter limit still wins: the digest 20 s, the key check 15 s). The
+  transport reads the WHOLE reply body inside that window and hands the caller an in-memory `Response`, so a body that
+  stalls after the headers still times out. A timeout is `AiTimeoutError` (message `aiRequestTimedOut`; a scheduled
+  run records the token `ai-timed-out`) and is NEVER an `AbortError`, which every caller swallows as Stop; a caller
+  signal that aborts first, or during the read, stays an `AbortError`. A 429, a 529, an Anthropic `rate_limit_error` /
+  `overloaded_error` on a non-2xx answer, and the relay's `AI_RELAY_RATE_LIMITED` / `AI_GATEWAY_RATE_LIMITED` are
+  retried (`isRetryableAiAnswer`), `AI_MAX_ATTEMPTS` (3) in all, after `retry-after` (seconds or an HTTP date;
+  `parseRetryAfterMs`) or about 2 s then 4 s with jitter (`retryWaitMs`); a wait over `AI_RETRY_MAX_WAIT_MS` (60 s) is
+  not waited and the answer goes back at once. A timeout, a network failure and any other status are never retried.
+  ★ Before EVERY retry the transport re-runs `confirmAiDeployment` and the caller's `beforeSend` and redacts again
+  from the same privacy session, so a consent revoked during a wait stops the send and no raw name goes out; Stop
+  ends a wait at once (`sleepAbortable`). The relay passes an upstream `retry-after` through (`passThroughHeaders` in
+  `_relay.ts`, and on the gateway's own 429 -> 502 `AI_GATEWAY_RATE_LIMITED`). The chat shows the wait as "Claude is
+  busy, trying again in N s…" (`onRetryWait` on `postAiMessages` / `callClaude`, countdown in `use-retry-wait.ts`);
+  other features retry silently.
   Route `direct` is the browser calling Anthropic as before (incl.
   `anthropic-dangerous-direct-browser-access`); route `gateway` posts to the same-origin relay
   (`/api/ai/messages`, `/api/ai/models`). The relay's own non-Anthropic-shaped failures become

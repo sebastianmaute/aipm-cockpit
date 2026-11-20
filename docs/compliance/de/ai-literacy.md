@@ -133,9 +133,12 @@ Kollegin oder ein Kollege sie vorschlüge? [Aussage des Maintainers]
   eine Datei angehängt ist und sobald er eine aus Jira synchronisierte Aufgabe gelesen hat; bei Text von
   außen ohne eine solche Kennzeichnung, etwa aus einer importierten Datei angelegten Einträgen, tut er das
   nicht. [geprüft: `stagesWhenUntrusted` und `resultCarriesExternalText` in `src/app/chat-send-record.ts`]
-- **Lange Wartezeiten und Fehler.** Die meisten KI-Anfragen haben in der App kein Zeitlimit, und eine
-  Anfrage, die abgelehnt wird, weil der Dienst ausgelastet ist, wird nicht erneut versucht. Brechen Sie ab
-  und versuchen Sie es später noch einmal. [Aussage des Maintainers; Register §798]
+- **Lange Wartezeiten und Fehler.** Jeder Versuch einer KI-Anfrage ist auf 5 Minuten begrenzt; läuft die Zeit
+  ab, meldet die App, dass Claude nicht geantwortet hat, und Sie können es erneut versuchen. Eine Anfrage, die
+  abgelehnt wird, weil der Dienst ausgelastet ist oder ein Ratenlimit greift, wird insgesamt bis zu dreimal
+  versucht, nach der Wartezeit, die der Dienst nennt (höchstens 60 s; der Chat zeigt den Countdown); Abbrechen
+  beendet die Wartezeit. Ein Zeitlimit oder ein Netzwerkfehler wird nicht wiederholt. [geprüft:
+  `AI_REQUEST_TIMEOUT_MS` in `src/app/ai-retry.ts`; `postAiMessages` in `src/app/ai-transport.ts`]
 - **Unbekannte Namen.** Der Personenschutz verbirgt Namen, die das Projekt kennt, nicht aber Namen, die
   Sie eingeben und die es nicht kennt. [geprüft: `aiPeopleProtectionHelp` in `src/app/i18n.ts` und `src/app/i18n.de.ts`]
 
