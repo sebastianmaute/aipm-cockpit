@@ -88,11 +88,7 @@ import { isPureReadTool, markUntrustedByResults, openSendRecord, runsInPlaceWhen
 import { describeProposal, type DescribedRow } from "./chat-proposal-describe";
 import { NO_HOLIDAYS, type AbsenceCtx } from "./absence-clash";
 import { callAbsenceClashes, DATE_WRITE_TOOLS } from "./chat-absence-clashes";
-import {
-  cardRowTitle,
-  ChatProposalBlock,
-  type ProposalCardRow,
-} from "./chat-proposal-block";
+import { cardRowTitle, ChatProposalBlock, type ProposalCardRow } from "./chat-proposal-block";
 import {
   applyProposal,
   failureKindOf,
@@ -115,6 +111,7 @@ import type { UndoBatch } from "./use-undo-batch";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import { buildRowTokens } from "./row-tokens";
 import { useRetryWait } from "./use-retry-wait";
+import { aiOrigin } from "./activity-origin";
 
 // A staged upload: the Anthropic content blocks plus display metadata.
 // summary is the non-error disclosure of what the tree under this file
@@ -815,7 +812,7 @@ function ChatPanelInner({
       let resultStr: string;
       let isError = false;
       try {
-        resultStr = stringifyResult(await runTool(toolDispatcher, name, input));
+        resultStr = stringifyResult(await runTool(toolDispatcher, name, input, aiOrigin("chat")));
       } catch (err) {
         isError = true;
         resultStr = err instanceof Error ? err.message : String(err);
@@ -1414,6 +1411,7 @@ function ChatPanelInner({
         dispatcher,
         rows: p.rows,
         selected: p.selected,
+        origin: aiOrigin("chatProposal"), // §799
         batch: { runBatched: runBatched ?? RUN_UNBATCHED },
         // ★★ The click-time check above cannot see a swap that lands DURING the
         // replay — `runTool` is awaited per row — so the same epoch is re-read

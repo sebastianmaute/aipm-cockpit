@@ -44,6 +44,7 @@ import type { UndoBatch } from "./use-undo-batch";
 import type { ChatConversation } from "./workspace-tab-context";
 import { useAiUsageActions } from "./ai-usage-context";
 import type { SendFingerprint } from "./ai-view-switch";
+import { aiOrigin } from "./activity-origin";
 
 // §548/§596 — `ChatPanel`'s two scope readers are REQUIRED props (see
 // `ChatScopeProps` in chat-panel.tsx: an optional one degrades silently, which is
@@ -4450,7 +4451,42 @@ describe("staged tool calls (the review card)", () => {
     fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
     await waitFor(() => expect(extra.updateSettings).toHaveBeenCalledTimes(1));
     expect(dispatcher.setFilters).toHaveBeenCalledTimes(1);
-    expect(dispatcher.setLanguage).toHaveBeenCalledWith("de");
+    expect(dispatcher.setLanguage).toHaveBeenCalledWith("de", aiOrigin("chatProposal")); // §799
+  });
+
+  // §799 — a write the chat runs at once (no card) reaches its handler under the chat's own origin.
+  it("a lone write run without the card reaches its handler with the chat origin (§799)", async () => {
+    const task = {
+      id: 1, taskName: "Ship it", assignee: "Alice", dueDate: "2030-12-31", lastUpdateDate: "2030-01-01",
+      status: "To Do", priority: "Medium", blockers: "", description: "",
+    } as Task;
+    const workspace = { ...emptyWorkspace(), tasks: [task] } as Workspace;
+    const dispatcher = makeDispatcher();
+    vi.mocked(dispatcher.getTask).mockImplementation(() => task);
+    vi.mocked(dispatcher.updateTask).mockImplementation(() => ({ ...task, status: "Done" }));
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "update_task", input: { id: 1, expectedToken: entityToken("task", task), status: "Done" } },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        workspace={workspace}
+        projectId="p1"
+      />,
+    );
+    send();
+    await screen.findByText("ok");
+    expect(screen.queryByRole("region", CARD)).toBeNull(); // anti-vacuity: the write was not staged
+    expect(dispatcher.updateTask).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(dispatcher.updateTask).mock.calls[0].at(-1)).toEqual(aiOrigin("chat"));
   });
 });
 

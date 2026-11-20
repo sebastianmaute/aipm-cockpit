@@ -26,7 +26,7 @@ import { useTaskForm } from "./task-form-context";
 import { type Resource, type Task } from "./types";
 import { ALL_MODULE_IDS, deriveMode } from "./feature-modules";
 import { type AppView } from "./nav-config";
-import { type LogActivityAsFn } from "./activity-log-context";
+import { type LogActivityAiFn } from "./activity-log-context";
 import { CALENDAR_SUMMARY_KEYS, runTool, type SettingsUpdateInput } from "./chat-tools";
 import { RECAP_WINDOW_DAYS } from "./history-search";
 import { type DocumentUpdateResult } from "./chat-tools-documents";
@@ -36,6 +36,7 @@ import { MAX_BLOCKS_PER_DOC } from "./document-model";
 import { type DashboardModel } from "./dashboard";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import { stubGetForecastInput } from "../test/chat-dispatcher-fixture";
+import { aiOrigin, type AiOrigin } from "./activity-origin";
 
 /** Minimal stub getters for the dashboard-snapshot deps: none of these tests
  *  exercise get_dashboard_snapshot. `stubGetDashboardModel` throws a named
@@ -219,13 +220,13 @@ function renderDispatcher(
   isReadOnly = false,
   currentView: AppView = "open-points",
   // ★ Deliberately OPTIONAL and left undefined by every other call in this
-  // file: `logActivityAs` is an optional prop on ChatDispatcherArgs, so the ~60
+  // file: `logActivityAi` is an optional prop on ChatDispatcherArgs, so the ~60
   // callers below are the standing proof that omitting it does not throw
   // (the document-tool tests among them exercise every write path with it
   // absent). Only the activity-row suites pass a spy.
-  logActivityAs?: LogActivityAsFn,
+  logActivityAi?: LogActivityAiFn,
   onSettingsLoggedByAi?: () => void,
-  // ★ Same contract as `logActivityAs`: optional on ChatDispatcherArgs, so the
+  // ★ Same contract as `logActivityAi`: optional on ChatDispatcherArgs, so the
   //   ~60 callers that omit it are the standing proof the write paths do not
   //   throw without a bypass. Only the arming suite passes a spy.
   allowDestructiveSave?: () => void,
@@ -260,7 +261,7 @@ function renderDispatcher(
         getBudgetRollup: stubGetBudgetRollup,
         getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), ...STUB_PROJECT_WRITE,
         openWbsPlan,
-        logActivityAs,
+        logActivityAi,
         onSettingsLoggedByAi,
         allowDestructiveSave,
       }),
@@ -286,12 +287,12 @@ describe("useChatDispatcher", () => {
         taskName: "First",
         assignee: "Alice",
         dueDate: "2026-06-01",
-      });
+      }, aiOrigin("chat"));
       b = result.current.createTask({
         taskName: "Second",
         assignee: "Bob",
         dueDate: "2026-06-02",
-      });
+      }, aiOrigin("chat"));
     });
     expect(a!.id).toBe(1);
     expect(b!.id).toBe(2);
@@ -307,17 +308,17 @@ describe("useChatDispatcher", () => {
         taskName: "First",
         assignee: "Alice",
         dueDate: "2026-06-01",
-      });
+      }, aiOrigin("chat"));
     });
     act(() => {
-      result.current.deleteTask(a!.id);
+      result.current.deleteTask(a!.id, aiOrigin("chat"));
     });
     act(() => {
       b = result.current.createTask({
         taskName: "Second",
         assignee: "Bob",
         dueDate: "2026-06-02",
-      });
+      }, aiOrigin("chat"));
     });
     // Old inline mint (max+1 over the now-empty list) would reuse id 1;
     // the session minter must hand out 2.
@@ -349,7 +350,7 @@ describe("useChatDispatcher", () => {
       taskName: "  Delta  ",
       assignee: "Dave",
       dueDate: "2026-06-04",
-    });
+    }, aiOrigin("chat"));
     expect(created.id).toBe(4);
     expect(created.taskName).toBe("Delta");
     expect(result.current.listTasks()).toHaveLength(4);
@@ -362,27 +363,27 @@ describe("useChatDispatcher", () => {
         taskName: "",
         assignee: "Dave",
         dueDate: "2026-06-04",
-      }),
+      }, aiOrigin("chat")),
     ).toThrow(/taskName is required/);
     expect(() =>
       result.current.createTask({
         taskName: "Delta",
         assignee: "",
         dueDate: "2026-06-04",
-      }),
+      }, aiOrigin("chat")),
     ).toThrow(/assignee is required/);
     expect(() =>
       result.current.createTask({
         taskName: "Delta",
         assignee: "Dave",
         dueDate: "not-a-date",
-      }),
+      }, aiOrigin("chat")),
     ).toThrow(/dueDate must be YYYY-MM-DD/);
   });
 
   it("updateTask patches fields and bumps localModifiedAt", () => {
     const { result } = renderDispatcher();
-    const updated = result.current.updateTask(1, { priority: "Urgent" });
+    const updated = result.current.updateTask(1, { priority: "Urgent" }, aiOrigin("chat"));
     expect(updated?.priority).toBe("Urgent");
     expect(updated?.localModifiedAt).toMatch(
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
@@ -407,7 +408,7 @@ describe("useChatDispatcher", () => {
     // runTool and assert what reaches the tool, never what the tool WRITES.
     const { result } = renderDispatcher();
     const html = "<p><strong>Vendor</strong> delay</p><p>New plan</p>";
-    const updated = result.current.updateTask(1, { description: html });
+    const updated = result.current.updateTask(1, { description: html }, aiOrigin("chat"));
     expect(updated?.description).toBe(html);
     expect(updated?.description).not.toContain("&lt;");
   });
@@ -416,7 +417,7 @@ describe("useChatDispatcher", () => {
     // The other half: the chat model usually sends prose, and that must still be
     // wrapped and escaped. Fixing the HTML case must not stop this working.
     const { result } = renderDispatcher();
-    const updated = result.current.updateTask(1, { description: "a < b\nsecond line" });
+    const updated = result.current.updateTask(1, { description: "a < b\nsecond line" }, aiOrigin("chat"));
     expect(updated?.description).toBe("<p>a &lt; b<br>second line</p>");
   });
 
@@ -430,7 +431,7 @@ describe("useChatDispatcher", () => {
       assignee: "Ada",
       dueDate: "2026-09-01",
       description: html,
-    });
+    }, aiOrigin("chat"));
     expect(created?.description).toBe(html);
     expect(created?.description).not.toContain("&lt;");
   });
@@ -452,7 +453,7 @@ describe("useChatDispatcher", () => {
         status: "Open",
         description: "<p>real risk</p><script>alert(1)</script>",
         mitigation: "<p>plan</p><img src=x onerror=alert(2)>",
-      });
+      }, aiOrigin("chat"));
     });
     const stored = result.current.ws.raid[0];
     expect(stored.description).not.toContain("script");
@@ -475,7 +476,7 @@ describe("useChatDispatcher", () => {
     const { result } = renderRaidProbe();
     let id = 0;
     act(() => {
-      id = result.current.d.createRaid({ category: "R", title: "Keep my notes", status: "Open" })!.id;
+      id = result.current.d.createRaid({ category: "R", title: "Keep my notes", status: "Open" }, aiOrigin("chat"))!.id;
     });
     // A note exists on the stored row (the notes window writes through).
     act(() => {
@@ -488,7 +489,7 @@ describe("useChatDispatcher", () => {
       );
     });
     act(() => {
-      result.current.d.updateRaid(id, { targetDate: "2026-06-30" });
+      result.current.d.updateRaid(id, { targetDate: "2026-06-30" }, aiOrigin("chat"));
     });
     const stored = result.current.ws.raid[0];
     expect(stored.targetDate).toBe("2026-06-30");
@@ -507,10 +508,10 @@ describe("useChatDispatcher", () => {
         title: "Keep me",
         status: "Open",
         description: "<p>original <strong>detail</strong></p>",
-      })!.id;
+      }, aiOrigin("chat"))!.id;
     });
     act(() => {
-      result.current.d.updateRaid(id, { title: "Renamed" });
+      result.current.d.updateRaid(id, { title: "Renamed" }, aiOrigin("chat"));
     });
     const stored = result.current.ws.raid[0];
     expect(stored.title).toBe("Renamed");
@@ -525,7 +526,7 @@ describe("useChatDispatcher", () => {
     const log = [{ id: 1, timestamp: "2026-01-01T00:00:00.000Z", html: "<p>keep me</p>", text: "keep me" }];
     let id = 0;
     act(() => {
-      id = result.current.d.createChange({ title: "Scope cut", status: "Proposed" })!.id;
+      id = result.current.d.createChange({ title: "Scope cut", status: "Proposed" }, aiOrigin("chat"))!.id;
     });
     // The note exists on the STORED row — the notes window writes through, and
     // `noteLog` is in no AI tool schema, so a patch can never carry one.
@@ -535,7 +536,7 @@ describe("useChatDispatcher", () => {
     // A title-only patch: the model never mentions noteLog, so nothing but the
     // sanitizer can be responsible if the log disappears.
     act(() => {
-      result.current.d.updateChange(id, { title: "Scope cut v2" });
+      result.current.d.updateChange(id, { title: "Scope cut v2" }, aiOrigin("chat"));
     });
     const stored = result.current.ws.changes[0];
     expect(stored.title).toBe("Scope cut v2");
@@ -552,7 +553,7 @@ describe("useChatDispatcher", () => {
 
     it("createChange stamps decisionDate for a decided status", () => {
       const { result } = renderRaidProbe();
-      act(() => { result.current.d.createChange({ title: "Scope cut", status: "Approved" }); });
+      act(() => { result.current.d.createChange({ title: "Scope cut", status: "Approved" }, aiOrigin("chat")); });
       expect(result.current.ws.changes[0]).toMatchObject({ status: "Approved", decisionDate: TODAY });
     });
 
@@ -560,7 +561,7 @@ describe("useChatDispatcher", () => {
     // not been decided, so a pending create must stay dateless.
     it("createChange leaves a pending status dateless", () => {
       const { result } = renderRaidProbe();
-      act(() => { result.current.d.createChange({ title: "Scope cut", status: "Under Review" }); });
+      act(() => { result.current.d.createChange({ title: "Scope cut", status: "Under Review" }, aiOrigin("chat")); });
       expect(result.current.ws.changes[0].decisionDate).toBeUndefined();
     });
 
@@ -570,17 +571,17 @@ describe("useChatDispatcher", () => {
     // reads as never raised.
     it("createChange falls back to today for an unparseable raisedDate", () => {
       const { result } = renderRaidProbe();
-      act(() => { result.current.d.createChange({ title: "Scope cut", raisedDate: "13/07/26" }); });
+      act(() => { result.current.d.createChange({ title: "Scope cut", raisedDate: "13/07/26" }, aiOrigin("chat")); });
       expect(result.current.ws.changes[0].raisedDate).toBe(TODAY);
     });
 
     it("updateChange stamps decisionDate when the model decides a pending change", () => {
       const { result } = renderRaidProbe();
       let id = 0;
-      act(() => { id = result.current.d.createChange({ title: "Scope cut", status: "Proposed" })!.id; });
+      act(() => { id = result.current.d.createChange({ title: "Scope cut", status: "Proposed" }, aiOrigin("chat"))!.id; });
       expect(result.current.ws.changes[0].decisionDate).toBeUndefined();
       let summary: ReturnType<typeof result.current.d.updateChange> = null;
-      act(() => { summary = result.current.d.updateChange(id, { status: "Approved" }); });
+      act(() => { summary = result.current.d.updateChange(id, { status: "Approved" }, aiOrigin("chat")); });
       expect(result.current.ws.changes[0]).toMatchObject({ status: "Approved", decisionDate: TODAY });
       // The tool RESULT is what the model reads back. Summarising the pre-stamp
       // row would report the change as decided with no date — and on the
@@ -591,9 +592,9 @@ describe("useChatDispatcher", () => {
     it("updateChange clears decisionDate when the model returns a change to pending", () => {
       const { result } = renderRaidProbe();
       let id = 0;
-      act(() => { id = result.current.d.createChange({ title: "Scope cut", status: "Approved" })!.id; });
+      act(() => { id = result.current.d.createChange({ title: "Scope cut", status: "Approved" }, aiOrigin("chat"))!.id; });
       expect(result.current.ws.changes[0].decisionDate).toBe(TODAY);
-      act(() => { result.current.d.updateChange(id, { status: "Under Review" }); });
+      act(() => { result.current.d.updateChange(id, { status: "Under Review" }, aiOrigin("chat")); });
       expect(result.current.ws.changes[0].decisionDate).toBeUndefined();
     });
 
@@ -602,14 +603,14 @@ describe("useChatDispatcher", () => {
     it("updateChange does not date a decided row when the patch omits status", () => {
       const { result } = renderRaidProbe();
       let id = 0;
-      act(() => { id = result.current.d.createChange({ title: "Scope cut", status: "Proposed" })!.id; });
+      act(() => { id = result.current.d.createChange({ title: "Scope cut", status: "Proposed" }, aiOrigin("chat"))!.id; });
       // A row carrying a decided status with NO date — what every pre-fix AI
       // approval left behind, and what a legacy import can still carry.
       act(() => {
         result.current.ws.setChanges((prev) =>
           prev.map((c) => (c.id === id ? { ...c, status: "Approved" as const } : c)));
       });
-      act(() => { result.current.d.updateChange(id, { title: "Scope cut v2" }); });
+      act(() => { result.current.d.updateChange(id, { title: "Scope cut v2" }, aiOrigin("chat")); });
       expect(result.current.ws.changes[0]).toMatchObject({ status: "Approved", title: "Scope cut v2" });
       expect(result.current.ws.changes[0].decisionDate).toBeUndefined();
     });
@@ -621,9 +622,9 @@ describe("useChatDispatcher", () => {
     it("updateChange ignores an unrecognised status instead of demoting the row", () => {
       const { result } = renderRaidProbe();
       let id = 0;
-      act(() => { id = result.current.d.createChange({ title: "Scope cut", status: "Approved" })!.id; });
+      act(() => { id = result.current.d.createChange({ title: "Scope cut", status: "Approved" }, aiOrigin("chat"))!.id; });
       let summary: ReturnType<typeof result.current.d.updateChange> = null;
-      act(() => { summary = result.current.d.updateChange(id, { status: "approved", title: "Scope cut v2" }); });
+      act(() => { summary = result.current.d.updateChange(id, { status: "approved", title: "Scope cut v2" }, aiOrigin("chat")); });
       expect(result.current.ws.changes[0]).toMatchObject({
         status: "Approved", decisionDate: TODAY, title: "Scope cut v2",
       });
@@ -637,7 +638,7 @@ describe("useChatDispatcher", () => {
       taskName: "Delta",
       assignee: "Dave",
       dueDate: "2026-06-04",
-    });
+    }, aiOrigin("chat"));
     expect(created.status).toBe("To Do");
     expect(created.completedDate ?? "").toBe("");
   });
@@ -649,7 +650,7 @@ describe("useChatDispatcher", () => {
       assignee: "Dave",
       dueDate: "2026-06-04",
       status: "Done",
-    });
+    }, aiOrigin("chat"));
     expect(created.status).toBe("Done");
     // completedDate stamped to today (proves it went through applyStatusChange,
     // not a raw status assignment which would leave completedDate unset).
@@ -663,23 +664,23 @@ describe("useChatDispatcher", () => {
       assignee: "Dave",
       dueDate: "2026-06-04",
       status: "Bogus",
-    });
+    }, aiOrigin("chat"));
     expect(created.status).toBe("To Do");
   });
 
   it("updateTask changes status via applyStatusChange on a non-synced task", () => {
     const { result } = renderDispatcher();
-    const updated = result.current.updateTask(1, { status: "In Progress" });
+    const updated = result.current.updateTask(1, { status: "In Progress" }, aiOrigin("chat"));
     expect(updated?.status).toBe("In Progress");
     expect(result.current.getTask(1)?.status).toBe("In Progress");
   });
 
   it("updateTask to 'Done' stamps completedDate; reopening clears it", () => {
     const { result } = renderDispatcher();
-    const done = result.current.updateTask(1, { status: "Done" });
+    const done = result.current.updateTask(1, { status: "Done" }, aiOrigin("chat"));
     expect(done?.status).toBe("Done");
     expect(done?.completedDate).toBe("2026-05-19");
-    const reopened = result.current.updateTask(1, { status: "To Do" });
+    const reopened = result.current.updateTask(1, { status: "To Do" }, aiOrigin("chat"));
     expect(reopened?.status).toBe("To Do");
     expect(reopened?.completedDate ?? "").toBe("");
   });
@@ -690,22 +691,22 @@ describe("useChatDispatcher", () => {
    *  transition threaded with the user actor would misattribute them in the
    *  activity log. Both blocks therefore assert the `"ai"` actor explicitly. */
   it("logs an ai-actored completion when the assistant moves a task to Done", () => {
-    const logActivityAs = vi.fn();
-    const { result } = renderDispatcher(seedTasks(), false, "open-points", logActivityAs);
-    act(() => { result.current.updateTask(1, { status: "Done" }); });
-    expect(logActivityAs).toHaveBeenCalledWith(
-      "ai", "task.completed", 1, expect.any(String),
+    const logActivityAi = vi.fn();
+    const { result } = renderDispatcher(seedTasks(), false, "open-points", logActivityAi);
+    act(() => { result.current.updateTask(1, { status: "Done" }, aiOrigin("chat")); });
+    expect(logActivityAi).toHaveBeenCalledWith(
+      aiOrigin("chat"), "task.completed", 1, expect.any(String),
     );
   });
 
   it("logs an ai-actored reopening when the assistant moves a task off Done", () => {
-    const logActivityAs = vi.fn();
-    const { result } = renderDispatcher(seedTasks(), false, "open-points", logActivityAs);
-    act(() => { result.current.updateTask(1, { status: "Done" }); });
-    logActivityAs.mockClear();
-    act(() => { result.current.updateTask(1, { status: "To Do" }); });
-    expect(logActivityAs).toHaveBeenCalledWith(
-      "ai", "task.reopened", 1, expect.any(String),
+    const logActivityAi = vi.fn();
+    const { result } = renderDispatcher(seedTasks(), false, "open-points", logActivityAi);
+    act(() => { result.current.updateTask(1, { status: "Done" }, aiOrigin("chat")); });
+    logActivityAi.mockClear();
+    act(() => { result.current.updateTask(1, { status: "To Do" }, aiOrigin("chat")); });
+    expect(logActivityAi).toHaveBeenCalledWith(
+      aiOrigin("chat"), "task.reopened", 1, expect.any(String),
     );
   });
 
@@ -715,7 +716,7 @@ describe("useChatDispatcher", () => {
     );
     const { result } = renderDispatcher(tasksWithJira);
     expect(() =>
-      result.current.updateTask(1, { status: "In Progress" }),
+      result.current.updateTask(1, { status: "In Progress" }, aiOrigin("chat")),
     ).toThrow(/managed in Jira/);
     expect(result.current.getTask(1)?.status).toBe("To Do");
   });
@@ -726,7 +727,7 @@ describe("useChatDispatcher", () => {
     );
     const { result } = renderDispatcher(tasksWithJira);
     expect(() =>
-      result.current.updateTask(1, { assignee: "Different Person" }),
+      result.current.updateTask(1, { assignee: "Different Person" }, aiOrigin("chat")),
     ).toThrow(/managed in Jira/);
   });
 
@@ -746,7 +747,7 @@ describe("useChatDispatcher", () => {
     );
     const { result } = renderDispatcher(tasksWithJira);
     expect(() =>
-      result.current.updateTask(1, { completedDate: undefined }),
+      result.current.updateTask(1, { completedDate: undefined }, aiOrigin("chat")),
     ).toThrow(/Reopening/);
     // The refused write left the row alone.
     expect(result.current.getTask(1)?.completedDate).toBe("2026-05-18");
@@ -761,7 +762,7 @@ describe("useChatDispatcher", () => {
     const { result } = renderDispatcher(tasksWithJira);
     let updated: Task | null = null;
     act(() => {
-      updated = result.current.updateTask(1, { taskName: "Alpha renamed" });
+      updated = result.current.updateTask(1, { taskName: "Alpha renamed" }, aiOrigin("chat"));
     });
     expect(updated).not.toBeNull();
     expect(result.current.getTask(1)?.taskName).toBe("Alpha renamed");
@@ -789,7 +790,7 @@ describe("useChatDispatcher", () => {
       },
     ];
     const { result } = renderDispatcher(dependants);
-    const deleted = result.current.deleteTask(2);
+    const deleted = result.current.deleteTask(2, aiOrigin("chat"));
     expect(deleted).toBe(true);
     expect(result.current.listTasks()).toHaveLength(3);
     expect(result.current.getTask(4)?.dependencies).toEqual([]);
@@ -797,7 +798,7 @@ describe("useChatDispatcher", () => {
 
   it("deleteAllTasks empties the workspace and clears selection state", () => {
     const { result, setSelectedIds } = renderDispatcher();
-    const count = result.current.deleteAllTasks();
+    const count = result.current.deleteAllTasks(aiOrigin("chat"));
     expect(count).toBe(3);
     expect(result.current.listTasks()).toHaveLength(0);
     expect(setSelectedIds).toHaveBeenCalledWith(new Set());
@@ -806,7 +807,7 @@ describe("useChatDispatcher", () => {
   it("sendInquiry opens a mailto URL and increments inquiriesSent", () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     const { result } = renderDispatcher();
-    const outcome = result.current.sendInquiry(1);
+    const outcome = result.current.sendInquiry(1, aiOrigin("chat"));
     expect(outcome).toEqual({ sent: true });
     expect(openSpy).toHaveBeenCalledWith(
       expect.stringMatching(/^mailto:alice%40example\.com\?/),
@@ -824,7 +825,7 @@ describe("useChatDispatcher", () => {
 
   it("setLanguage calls setSettings with an updater that merges language", () => {
     const { result, setSettings } = renderDispatcher();
-    result.current.setLanguage("de");
+    result.current.setLanguage("de", aiOrigin("chat"));
     expect(setSettings).toHaveBeenCalledTimes(1);
     const updater = setSettings.mock.calls[0][0] as (s: Settings) => Settings;
     const prev = makeSettings();
@@ -836,7 +837,7 @@ describe("useChatDispatcher", () => {
   it("updateSettings applies hideExternalTasks and merges it onto prior settings", () => {
     const { result, setSettings } = renderDispatcher();
     act(() => {
-      result.current.updateSettings({ hideExternalTasks: true });
+      result.current.updateSettings({ hideExternalTasks: true }, aiOrigin("chat"));
     });
     expect(setSettings).toHaveBeenCalledTimes(1);
     const updater = setSettings.mock.calls[0][0] as (s: Settings) => Settings;
@@ -856,7 +857,7 @@ describe("useChatDispatcher", () => {
       apiKey: "sk-ant-nope",
     };
     act(() => {
-      result.current.updateSettings(patch as SettingsUpdateInput);
+      result.current.updateSettings(patch as SettingsUpdateInput, aiOrigin("chat"));
     });
     expect(setSettings).toHaveBeenCalledTimes(1);
     const updater = setSettings.mock.calls[0][0] as (s: Settings) => Settings;
@@ -886,7 +887,7 @@ describe("useChatDispatcher", () => {
       taskName: "Echo",
       assignee: "Eve",
       dueDate: "2026-06-05",
-    });
+    }, aiOrigin("chat"));
     const after = result.current;
     expect(after).toBe(before);
   });
@@ -1060,7 +1061,7 @@ describe("useChatDispatcher – blockers write through the blocker log", () => {
     const { result } = renderDispatcher(seededWithLog());
     let updated: Task | null = null;
     act(() => {
-      updated = result.current.updateTask(1, { blockers: "Vendor contract" });
+      updated = result.current.updateTask(1, { blockers: "Vendor contract" }, aiOrigin("chat"));
     });
     const stored = result.current.getTask(1);
     expect(updated).toEqual(stored);
@@ -1077,7 +1078,7 @@ describe("useChatDispatcher – blockers write through the blocker log", () => {
   it("AI update_task keeps an open blocker its text still carries and adds only the rest", () => {
     const { result } = renderDispatcher(seededWithLog());
     act(() => {
-      result.current.updateTask(1, { blockers: "Waiting on DBA\nVendor contract" });
+      result.current.updateTask(1, { blockers: "Waiting on DBA\nVendor contract" }, aiOrigin("chat"));
     });
     const stored = result.current.getTask(1);
     expect(stored?.blockers).toBe("Waiting on DBA\nVendor contract");
@@ -1092,7 +1093,7 @@ describe("useChatDispatcher – blockers write through the blocker log", () => {
   it("AI update_task with an empty blockers string resolves every open entry", () => {
     const { result } = renderDispatcher(seededWithLog());
     act(() => {
-      result.current.updateTask(1, { blockers: "" });
+      result.current.updateTask(1, { blockers: "" }, aiOrigin("chat"));
     });
     const stored = result.current.getTask(1);
     expect(stored?.blockers).toBe("");
@@ -1103,7 +1104,7 @@ describe("useChatDispatcher – blockers write through the blocker log", () => {
   it("AI update_task without blockers leaves the log untouched", () => {
     const { result } = renderDispatcher(seededWithLog());
     act(() => {
-      result.current.updateTask(1, { priority: "Urgent" });
+      result.current.updateTask(1, { priority: "Urgent" }, aiOrigin("chat"));
     });
     const stored = result.current.getTask(1);
     expect(stored?.priority).toBe("Urgent");
@@ -1120,7 +1121,7 @@ describe("useChatDispatcher – blockers write through the blocker log", () => {
         assignee: "Gina",
         dueDate: "2026-06-03",
         blockers: "Needs sign-off",
-      });
+      }, aiOrigin("chat"));
     });
     const stored = result.current.getTask((created as Task | null)?.id ?? -1);
     expect(stored?.blockers).toBe("Needs sign-off");
@@ -1137,32 +1138,32 @@ describe("useChatDispatcher – read-only (popout) mode", () => {
         taskName: "X",
         assignee: "Y",
         dueDate: "2026-06-01",
-      }),
+      }, aiOrigin("chat")),
     ).toThrow();
     expect(result.current.listTasks()).toHaveLength(0);
   });
 
   it("refuses updateTask in read-only mode", () => {
     const { result } = renderDispatcher(seedTasks(), true);
-    expect(() => result.current.updateTask(1, { priority: "Urgent" })).toThrow();
+    expect(() => result.current.updateTask(1, { priority: "Urgent" }, aiOrigin("chat"))).toThrow();
     expect(result.current.getTask(1)?.priority).toBe("Medium");
   });
 
   it("refuses deleteTask in read-only mode", () => {
     const { result } = renderDispatcher(seedTasks(), true);
-    expect(() => result.current.deleteTask(1)).toThrow();
+    expect(() => result.current.deleteTask(1, aiOrigin("chat"))).toThrow();
     expect(result.current.listTasks()).toHaveLength(3);
   });
 
   it("refuses deleteAllTasks in read-only mode", () => {
     const { result } = renderDispatcher(seedTasks(), true);
-    expect(() => result.current.deleteAllTasks()).toThrow();
+    expect(() => result.current.deleteAllTasks(aiOrigin("chat"))).toThrow();
     expect(result.current.listTasks()).toHaveLength(3);
   });
 
   it("sendInquiry returns a read-only refusal in read-only mode and does not mutate", () => {
     const { result } = renderDispatcher(seedTasks(), true);
-    const res = result.current.sendInquiry(1);
+    const res = result.current.sendInquiry(1, aiOrigin("chat"));
     expect(res).toEqual({ sent: false, reason: "read-only" });
     expect(result.current.getTask(1)?.inquiriesSent).toBe(0);
   });
@@ -1173,7 +1174,7 @@ describe("useChatDispatcher – read-only (popout) mode", () => {
       taskName: "X",
       assignee: "Y",
       dueDate: "2026-06-01",
-    });
+    }, aiOrigin("chat"));
     expect(created.taskName).toBe("X");
     expect(result.current.listTasks()).toHaveLength(1);
   });
@@ -1191,10 +1192,10 @@ describe("useChatDispatcher – RAID write methods", () => {
   it("createRaid assigns id=max+1, defaults category 'R', valid status, and raisedDate=today", () => {
     const { result } = renderDispatcher();
     // Seed two existing raid items via back-to-back creates so max id = 2.
-    result.current.createRaid({ title: "Existing risk 1" });
-    result.current.createRaid({ title: "Existing risk 2" });
+    result.current.createRaid({ title: "Existing risk 1" }, aiOrigin("chat"));
+    result.current.createRaid({ title: "Existing risk 2" }, aiOrigin("chat"));
 
-    const created = result.current.createRaid({ title: "New risk" });
+    const created = result.current.createRaid({ title: "New risk" }, aiOrigin("chat"));
     expect(created.id).toBe(3);
     expect(created.category).toBe("R");
     expect(created.title).toBe("New risk");
@@ -1213,16 +1214,16 @@ describe("useChatDispatcher – RAID write methods", () => {
     const { result } = renderDispatcher();
     // We can't read raisedDate from RaidSummary (not in it), but createRaid
     // must not throw and the item must appear in listRaid()
-    const created = result.current.createRaid({ title: "Risk with no date" });
+    const created = result.current.createRaid({ title: "Risk with no date" }, aiOrigin("chat"));
     expect(created.id).toBeGreaterThan(0);
     expect(result.current.listRaid()).toHaveLength(1);
   });
 
   it("updateRaid patches a field and returns the updated summary", () => {
     const { result } = renderDispatcher();
-    result.current.createRaid({ title: "Risk alpha" });
+    result.current.createRaid({ title: "Risk alpha" }, aiOrigin("chat"));
 
-    const updated = result.current.updateRaid(1, { severity: "Critical" });
+    const updated = result.current.updateRaid(1, { severity: "Critical" }, aiOrigin("chat"));
     expect(updated).not.toBeNull();
     expect(updated?.id).toBe(1);
     expect(updated?.severity).toBe("Critical");
@@ -1235,32 +1236,32 @@ describe("useChatDispatcher – RAID write methods", () => {
 
   it("updateRaid returns null for an unknown id", () => {
     const { result } = renderDispatcher();
-    const res = result.current.updateRaid(999, { severity: "Critical" });
+    const res = result.current.updateRaid(999, { severity: "Critical" }, aiOrigin("chat"));
     expect(res).toBeNull();
   });
 
   it("deleteRaid removes the item and returns true", () => {
     const { result } = renderDispatcher();
-    result.current.createRaid({ title: "To delete" });
+    result.current.createRaid({ title: "To delete" }, aiOrigin("chat"));
     expect(result.current.listRaid()).toHaveLength(1);
 
-    const deleted = result.current.deleteRaid(1);
+    const deleted = result.current.deleteRaid(1, aiOrigin("chat"));
     expect(deleted).toBe(true);
     expect(result.current.listRaid()).toHaveLength(0);
   });
 
   it("deleteRaid returns false for an unknown id", () => {
     const { result } = renderDispatcher();
-    const res = result.current.deleteRaid(999);
+    const res = result.current.deleteRaid(999, aiOrigin("chat"));
     expect(res).toBe(false);
   });
 
   it("createRaid throws when title is empty/whitespace", () => {
     const { result } = renderDispatcher();
-    expect(() => result.current.createRaid({ title: "" })).toThrow(
+    expect(() => result.current.createRaid({ title: "" }, aiOrigin("chat"))).toThrow(
       /invalid RAID item: title is required/,
     );
-    expect(() => result.current.createRaid({ title: "   " })).toThrow(
+    expect(() => result.current.createRaid({ title: "   " }, aiOrigin("chat"))).toThrow(
       /invalid RAID item: title is required/,
     );
   });
@@ -1272,7 +1273,7 @@ describe("useChatDispatcher – Milestone write methods", () => {
     const created = result.current.createMilestone({
       name: "Go-live",
       date: "2026-09-01",
-    });
+    }, aiOrigin("chat"));
     expect(created.id).toBe(1);
     expect(created.name).toBe("Go-live");
     expect(created.date).toBe("2026-09-01");
@@ -1282,15 +1283,15 @@ describe("useChatDispatcher – Milestone write methods", () => {
   it("createMilestone throws for an invalid date", () => {
     const { result } = renderDispatcher();
     expect(() =>
-      result.current.createMilestone({ name: "Bad milestone", date: "nope" }),
+      result.current.createMilestone({ name: "Bad milestone", date: "nope" }, aiOrigin("chat")),
     ).toThrow(/invalid milestone/);
   });
 
   it("updateMilestone patches a field and returns the updated summary", () => {
     const { result } = renderDispatcher();
-    result.current.createMilestone({ name: "Phase 1", date: "2026-07-01" });
+    result.current.createMilestone({ name: "Phase 1", date: "2026-07-01" }, aiOrigin("chat"));
 
-    const updated = result.current.updateMilestone(1, { date: "2026-08-01" });
+    const updated = result.current.updateMilestone(1, { date: "2026-08-01" }, aiOrigin("chat"));
     expect(updated).not.toBeNull();
     expect(updated?.date).toBe("2026-08-01");
     expect(updated?.name).toBe("Phase 1");
@@ -1298,28 +1299,28 @@ describe("useChatDispatcher – Milestone write methods", () => {
 
   it("updateMilestone returns null for an unknown id", () => {
     const { result } = renderDispatcher();
-    const res = result.current.updateMilestone(999, { date: "2026-08-01" });
+    const res = result.current.updateMilestone(999, { date: "2026-08-01" }, aiOrigin("chat"));
     expect(res).toBeNull();
   });
 
   it("deleteMilestone removes the item and returns true", () => {
     const { result } = renderDispatcher();
-    result.current.createMilestone({ name: "Phase 1", date: "2026-07-01" });
-    const deleted = result.current.deleteMilestone(1);
+    result.current.createMilestone({ name: "Phase 1", date: "2026-07-01" }, aiOrigin("chat"));
+    const deleted = result.current.deleteMilestone(1, aiOrigin("chat"));
     expect(deleted).toBe(true);
     expect(result.current.listMilestones()).toHaveLength(0);
   });
 
   it("deleteMilestone returns false for an unknown id", () => {
     const { result } = renderDispatcher();
-    expect(result.current.deleteMilestone(999)).toBe(false);
+    expect(result.current.deleteMilestone(999, aiOrigin("chat"))).toBe(false);
   });
 });
 
 describe("useChatDispatcher – Stakeholder write methods", () => {
   it("createStakeholder defaults category 'Other', influence/interest 'Medium'", () => {
     const { result } = renderDispatcher();
-    const created = result.current.createStakeholder({ name: "Acme" });
+    const created = result.current.createStakeholder({ name: "Acme" }, aiOrigin("chat"));
     expect(created.id).toBe(1);
     expect(created.name).toBe("Acme");
     expect(created.category).toBe("Other");
@@ -1329,8 +1330,8 @@ describe("useChatDispatcher – Stakeholder write methods", () => {
 
   it("listStakeholders includes newly created stakeholders", () => {
     const { result } = renderDispatcher();
-    result.current.createStakeholder({ name: "Acme" });
-    result.current.createStakeholder({ name: "Beta Corp" });
+    result.current.createStakeholder({ name: "Acme" }, aiOrigin("chat"));
+    result.current.createStakeholder({ name: "Beta Corp" }, aiOrigin("chat"));
 
     const list = result.current.listStakeholders();
     expect(list).toHaveLength(2);
@@ -1340,12 +1341,12 @@ describe("useChatDispatcher – Stakeholder write methods", () => {
 
   it("updateStakeholder patches a field and returns the updated summary", () => {
     const { result } = renderDispatcher();
-    result.current.createStakeholder({ name: "Acme" });
+    result.current.createStakeholder({ name: "Acme" }, aiOrigin("chat"));
 
     const updated = result.current.updateStakeholder(1, {
       name: "Acme Updated",
       influence: "High",
-    });
+    }, aiOrigin("chat"));
     expect(updated).not.toBeNull();
     expect(updated?.name).toBe("Acme Updated");
     expect(updated?.influence).toBe("High");
@@ -1355,19 +1356,19 @@ describe("useChatDispatcher – Stakeholder write methods", () => {
 
   it("updateStakeholder returns null for an unknown id", () => {
     const { result } = renderDispatcher();
-    expect(result.current.updateStakeholder(999, { name: "X" })).toBeNull();
+    expect(result.current.updateStakeholder(999, { name: "X" }, aiOrigin("chat"))).toBeNull();
   });
 
   it("deleteStakeholder removes the item and returns true", () => {
     const { result } = renderDispatcher();
-    result.current.createStakeholder({ name: "Acme" });
-    expect(result.current.deleteStakeholder(1)).toBe(true);
+    result.current.createStakeholder({ name: "Acme" }, aiOrigin("chat"));
+    expect(result.current.deleteStakeholder(1, aiOrigin("chat"))).toBe(true);
     expect(result.current.listStakeholders()).toHaveLength(0);
   });
 
   it("deleteStakeholder returns false for an unknown id", () => {
     const { result } = renderDispatcher();
-    expect(result.current.deleteStakeholder(999)).toBe(false);
+    expect(result.current.deleteStakeholder(999, aiOrigin("chat"))).toBe(false);
   });
 });
 
@@ -1421,7 +1422,7 @@ describe("useChatDispatcher – optimize_wbs", () => {
     const openWbsPlan = vi.fn(() => ({ opened: true, tasksInScope: 1 }));
     const { result } = renderDispatcher([], false, "open-points", undefined, undefined, undefined, undefined, openWbsPlan);
     act(() => {
-      result.current.createTask({ taskName: "Made this turn", assignee: "Ada", dueDate: "2026-06-01" });
+      result.current.createTask({ taskName: "Made this turn", assignee: "Ada", dueDate: "2026-06-01" }, aiOrigin("chat"));
       result.current.openWbsPlan({ group: "Build" });
     });
     const arg = (openWbsPlan.mock.calls[0] as unknown as [{ group?: string; liveTasks?: readonly { taskName: string }[] }])[0];
@@ -1433,36 +1434,36 @@ describe("useChatDispatcher – optimize_wbs", () => {
 describe("useChatDispatcher – read-only guard for entity write methods", () => {
   it("createRaid throws popoutReadOnly error in read-only mode", () => {
     const { result } = renderDispatcher([], true);
-    expect(() => result.current.createRaid({ title: "X" })).toThrow(
+    expect(() => result.current.createRaid({ title: "X" }, aiOrigin("chat"))).toThrow(
       "Editing is disabled in the pop-out view — make changes in the main window.",
     );
   });
 
   it("updateRaid throws in read-only mode", () => {
     const { result } = renderDispatcher([], true);
-    expect(() => result.current.updateRaid(1, { severity: "Critical" })).toThrow();
+    expect(() => result.current.updateRaid(1, { severity: "Critical" }, aiOrigin("chat"))).toThrow();
   });
 
   it("deleteRaid throws in read-only mode", () => {
     const { result } = renderDispatcher([], true);
-    expect(() => result.current.deleteRaid(1)).toThrow();
+    expect(() => result.current.deleteRaid(1, aiOrigin("chat"))).toThrow();
   });
 
   it("createMilestone throws in read-only mode", () => {
     const { result } = renderDispatcher([], true);
     expect(() =>
-      result.current.createMilestone({ name: "X", date: "2026-09-01" }),
+      result.current.createMilestone({ name: "X", date: "2026-09-01" }, aiOrigin("chat")),
     ).toThrow();
   });
 
   it("createStakeholder throws in read-only mode", () => {
     const { result } = renderDispatcher([], true);
-    expect(() => result.current.createStakeholder({ name: "X" })).toThrow();
+    expect(() => result.current.createStakeholder({ name: "X" }, aiOrigin("chat"))).toThrow();
   });
 
   it("createChange throws in read-only mode", () => {
     const { result } = renderDispatcher([], true);
-    expect(() => result.current.createChange({ title: "Change X" })).toThrow();
+    expect(() => result.current.createChange({ title: "Change X" }, aiOrigin("chat"))).toThrow();
   });
 
   it("read methods remain available in read-only mode", () => {
@@ -1496,10 +1497,10 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     const { result } = renderDispatcher();
     result.current.createAbsence({
       assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05",
-    });
+    }, aiOrigin("chat"));
     result.current.createAbsence({
       assignee: "Bob", startDate: "2026-07-01", endDate: "2026-07-03",
-    });
+    }, aiOrigin("chat"));
 
     const list = result.current.listAbsences();
     expect(list).toHaveLength(2);
@@ -1510,11 +1511,11 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     const { result } = renderDispatcher();
     const created = result.current.createAbsence({
       assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", type: "vacation",
-    });
+    }, aiOrigin("chat"));
 
     // Without the ref write, `updateAbsence` would not find the row and would
     // return null — the create having been invisible to it.
-    const updated = result.current.updateAbsence(created.id, { note: "Approved" });
+    const updated = result.current.updateAbsence(created.id, { note: "Approved" }, aiOrigin("chat"));
     expect(updated).not.toBeNull();
     // The write landed on the STORED row; the summary never carries the note.
     expect(result.current.getAbsenceRow(created.id)?.note).toBe("Approved");
@@ -1528,12 +1529,12 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     const { result } = renderDispatcher();
     const created = result.current.createAbsence({
       assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", type: "sick", note: "flu",
-    });
+    }, aiOrigin("chat"));
     expect(created).toEqual({
       id: created.id, assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", type: "absent",
     });
 
-    const updated = result.current.updateAbsence(created.id, { endDate: "2026-06-08" });
+    const updated = result.current.updateAbsence(created.id, { endDate: "2026-06-08" }, aiOrigin("chat"));
     expect(updated).toEqual({
       id: created.id, assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-08", type: "absent",
     });
@@ -1547,12 +1548,12 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     const { result } = renderDispatcher();
     const created = result.current.createAbsence({
       assignee: "Alice", startDate: "2026-02-01", endDate: "2026-02-05", type: "vacation",
-    });
-    expect(() => result.current.updateAbsence(created.id, { endDate: "2026-02-30" })).toThrow("invalid absence update");
+    }, aiOrigin("chat"));
+    expect(() => result.current.updateAbsence(created.id, { endDate: "2026-02-30" }, aiOrigin("chat"))).toThrow("invalid absence update");
     expect(result.current.listAbsences()[0].endDate).toBe("2026-02-05");
     expect(() => result.current.createAbsence({
       assignee: "Bob", startDate: "2026-02-01", endDate: "2026-02-30", type: "vacation",
-    })).toThrow(/invalid absence/);
+    }, aiOrigin("chat"))).toThrow(/invalid absence/);
     expect(result.current.listAbsences()).toHaveLength(1);
   });
 
@@ -1597,19 +1598,19 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     const { result } = renderKeptRawProbe();
     expect(result.current.listMilestones().map((m) => m.date)).toEqual(["2026-02-30"]);
 
-    const m = result.current.updateMilestone(7, { name: "Go-live (moved)" });
+    const m = result.current.updateMilestone(7, { name: "Go-live (moved)" }, aiOrigin("chat"));
     expect(m?.name).toBe("Go-live (moved)");
     expect(m?.date).toBe("2026-02-30");
 
-    const a = result.current.updateAbsence(9, { note: "Approved" });
+    const a = result.current.updateAbsence(9, { note: "Approved" }, aiOrigin("chat"));
     expect(result.current.getAbsenceRow(9)?.note).toBe("Approved");
     expect([a?.startDate, a?.endDate]).toEqual(["2026-02-30", "2026-03-05"]);
   });
 
   it("re-sending the stored kept-raw date is unchanged, not refused — the card skips it as before === after", () => {
     const { result } = renderKeptRawProbe();
-    expect(result.current.updateMilestone(7, { date: "2026-02-30", name: "Renamed" })?.name).toBe("Renamed");
-    expect(result.current.updateAbsence(9, { startDate: "2026-02-30", note: "n" })?.startDate).toBe("2026-02-30");
+    expect(result.current.updateMilestone(7, { date: "2026-02-30", name: "Renamed" }, aiOrigin("chat"))?.name).toBe("Renamed");
+    expect(result.current.updateAbsence(9, { startDate: "2026-02-30", note: "n" }, aiOrigin("chat"))?.startDate).toBe("2026-02-30");
   });
 
   // §542: calendar events ride the same carry. Before it, `updateCalendarEvent`
@@ -1619,19 +1620,19 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     const { result } = renderKeptRawProbe();
     expect(result.current.getCalendarEventRow(11)?.startDate).toBe("2026-02-30");
 
-    expect(() => result.current.updateCalendarEvent(11, { title: "Daily" })).not.toThrow();
+    expect(() => result.current.updateCalendarEvent(11, { title: "Daily" }, aiOrigin("chat"))).not.toThrow();
     const row = result.current.getCalendarEventRow(11);
     expect(row?.title).toBe("Daily");
     expect(row?.startDate).toBe("2026-02-30");
     expect(row?.recurrence?.until).toBe("2026-04-31");
     // …and a CHANGE to another non-calendar date is still refused.
-    expect(() => result.current.updateCalendarEvent(11, { startDate: "2026-04-31" })).toThrow("invalid meeting update");
+    expect(() => result.current.updateCalendarEvent(11, { startDate: "2026-04-31" }, aiOrigin("chat"))).toThrow("invalid meeting update");
   });
 
   it("still refuses a CHANGED non-calendar date on a kept-raw row, and leaves the row alone", () => {
     const { result } = renderKeptRawProbe();
-    expect(() => result.current.updateMilestone(7, { date: "2026-02-31" })).toThrow("invalid milestone update");
-    expect(() => result.current.updateAbsence(9, { endDate: "2026-02-31" })).toThrow("invalid absence update");
+    expect(() => result.current.updateMilestone(7, { date: "2026-02-31" }, aiOrigin("chat"))).toThrow("invalid milestone update");
+    expect(() => result.current.updateAbsence(9, { endDate: "2026-02-31" }, aiOrigin("chat"))).toThrow("invalid absence update");
     expect(result.current.listMilestones()[0].date).toBe("2026-02-30");
     expect(result.current.listAbsences()[0].endDate).toBe("2026-03-05");
   });
@@ -1677,10 +1678,10 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
 
   it("M6: an update of an unrelated field carries every untouched stored optional date verbatim", () => {
     const { result } = renderOptionalRawProbe();
-    expect(result.current.updateMilestone(7, { name: "Go-live (moved)" })?.achievedDate).toBe("2026-02-30");
-    result.current.updateRaid(3, { title: "Vendor risk (re-scoped)" });
+    expect(result.current.updateMilestone(7, { name: "Go-live (moved)" }, aiOrigin("chat"))?.achievedDate).toBe("2026-02-30");
+    result.current.updateRaid(3, { title: "Vendor risk (re-scoped)" }, aiOrigin("chat"));
     expect(result.current.getRaidRow(3)).toMatchObject({ title: "Vendor risk (re-scoped)", raisedDate: "2026-02-30", targetDate: "2026-02-31", closedDate: "tbd" });
-    result.current.updateChange(5, { title: "Scope (v2)" });
+    result.current.updateChange(5, { title: "Scope (v2)" }, aiOrigin("chat"));
     expect(result.current.getChangeRow(5)).toMatchObject({ title: "Scope (v2)", raisedDate: "tbd", decisionDate: "2026-02-30" });
   });
 
@@ -1691,34 +1692,34 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
   //  task stored the raw string verbatim.
   it("M1: every AI email writer judges and stores the unwrapped address", () => {
     const { result } = renderDispatcher();
-    const task = result.current.createTask({ taskName: "Mail", assignee: "Ada", dueDate: "2026-06-01", assigneeEmail: "Ada Lovelace <ada@x.com>" } as never);
+    const task = result.current.createTask({ taskName: "Mail", assignee: "Ada", dueDate: "2026-06-01", assigneeEmail: "Ada Lovelace <ada@x.com>" } as never, aiOrigin("chat"));
     expect(result.current.listTasks().find((r) => r.id === task.id)?.assigneeEmail).toBe("ada@x.com");
-    result.current.updateTask(task.id, { assigneeEmail: "Bob<bob@x.com>" });
+    result.current.updateTask(task.id, { assigneeEmail: "Bob<bob@x.com>" }, aiOrigin("chat"));
     expect(result.current.listTasks().find((r) => r.id === task.id)?.assigneeEmail).toBe("bob@x.com");
 
-    const raid = result.current.createRaid({ title: "Risk", category: "R", ownerEmail: "Ann Lee <ann@x.com>" } as never);
+    const raid = result.current.createRaid({ title: "Risk", category: "R", ownerEmail: "Ann Lee <ann@x.com>" } as never, aiOrigin("chat"));
     expect(result.current.getRaidRow(raid.id)?.ownerEmail).toBe("ann@x.com");
-    result.current.updateRaid(raid.id, { ownerEmail: "Cara<cara@x.com>" } as never);
+    result.current.updateRaid(raid.id, { ownerEmail: "Cara<cara@x.com>" } as never, aiOrigin("chat"));
     expect(result.current.getRaidRow(raid.id)?.ownerEmail).toBe("cara@x.com");
 
-    const stk = result.current.createStakeholder({ name: "Sam", email: "Sam Poe <sam@x.com>" } as never);
+    const stk = result.current.createStakeholder({ name: "Sam", email: "Sam Poe <sam@x.com>" } as never, aiOrigin("chat"));
     expect(result.current.getStakeholderRow(stk.id)?.email).toBe("sam@x.com");
-    const abs = result.current.createAbsence({ assignee: "Al", startDate: "2026-06-01", endDate: "2026-06-02", type: "vacation", assigneeEmail: "Al Bee <al@x.com>" } as never);
+    const abs = result.current.createAbsence({ assignee: "Al", startDate: "2026-06-01", endDate: "2026-06-02", type: "vacation", assigneeEmail: "Al Bee <al@x.com>" } as never, aiOrigin("chat"));
     expect(result.current.getAbsenceRow(abs.id)?.assigneeEmail).toBe("al@x.com");
-    expect(() => result.current.createResource({ firstName: "Res", lastName: "One", email: "Res One <res@x.com>", emails: ["Two Tee <two@x.com>"] } as never)).not.toThrow();
+    expect(() => result.current.createResource({ firstName: "Res", lastName: "One", email: "Res One <res@x.com>", emails: ["Two Tee <two@x.com>"] } as never, aiOrigin("chat"))).not.toThrow();
 
     // A shape the unwrap cannot prove equal is judged as sent, and still refused.
-    expect(() => result.current.createRaid({ title: "Torn", category: "R", ownerEmail: "Name <a,b@x.com>" } as never)).toThrow(/ownerEmail/);
+    expect(() => result.current.createRaid({ title: "Torn", category: "R", ownerEmail: "Name <a,b@x.com>" } as never, aiOrigin("chat"))).toThrow(/ownerEmail/);
   });
 
   it("M6: a CHANGED optional date is still judged strictly — a refused one leaves the stored value, a valid one lands, a clear clears", () => {
     const { result } = renderOptionalRawProbe();
-    result.current.updateRaid(3, { targetDate: "2026-02-29", closedDate: "" });
+    result.current.updateRaid(3, { targetDate: "2026-02-29", closedDate: "" }, aiOrigin("chat"));
     expect(result.current.getRaidRow(3)).toMatchObject({ targetDate: "2026-02-31" });
     expect(result.current.getRaidRow(3)?.closedDate).toBeUndefined();
-    result.current.updateRaid(3, { targetDate: "2026-03-02" });
+    result.current.updateRaid(3, { targetDate: "2026-03-02" }, aiOrigin("chat"));
     expect(result.current.getRaidRow(3)?.targetDate).toBe("2026-03-02");
-    expect(result.current.updateMilestone(7, { achievedDate: "2026-04-01" })?.achievedDate).toBe("2026-04-01");
+    expect(result.current.updateMilestone(7, { achievedDate: "2026-04-01" }, aiOrigin("chat"))?.achievedDate).toBe("2026-04-01");
   });
 
   // ★★★ THE MERGE-SITE GUARD AT ITS REAL CALL SITE, which nothing pinned before.
@@ -1741,7 +1742,7 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     const { result } = renderDispatcher();
     const created = result.current.createAbsence({
       assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", type: "vacation",
-    });
+    }, aiOrigin("chat"));
     expect(result.current.getAbsenceRow(created.id)?.type).toBe("vacation");
 
     const updated = result.current.updateAbsence(created.id, {
@@ -1749,7 +1750,7 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
       // model call looks like on the wire.
       type: "sabbatical" as never,
       note: "Approved",
-    });
+    }, aiOrigin("chat"));
     expect(updated).not.toBeNull();
     expect(result.current.getAbsenceRow(created.id)).toMatchObject({ type: "vacation", note: "Approved" });
   });
@@ -1762,13 +1763,13 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     expect(() => result.current.createAbsence({
       assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05",
       assigneeEmail: "m.bennett@example.com probed",
-    })).toThrow("assigneeEmail is invalid");
+    }, aiOrigin("chat"))).toThrow("assigneeEmail is invalid");
     expect(result.current.listAbsences()).toHaveLength(0);
 
     // `AbsenceSummary` carries no email, so the FULL row is read back.
     const created = result.current.createAbsence({
       assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", assigneeEmail: "",
-    });
+    }, aiOrigin("chat"));
     expect(result.current.listAbsences()).toHaveLength(1);
     expect(result.current.getAbsenceRow(created.id)?.assigneeEmail).toBeUndefined();
   });
@@ -1777,15 +1778,15 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     const { result } = renderDispatcher();
     const created = result.current.createAbsence({
       assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", assigneeEmail: "alice@example.com",
-    });
+    }, aiOrigin("chat"));
     expect(() => result.current.updateAbsence(created.id, {
       assigneeEmail: "m.bennett@example.com probed", note: "Approved",
-    })).toThrow("assigneeEmail is invalid");
+    }, aiOrigin("chat"))).toThrow("assigneeEmail is invalid");
     const kept = result.current.getAbsenceRow(created.id);
     expect(kept?.assigneeEmail).toBe("alice@example.com");
     expect(kept?.note).toBeUndefined();
 
-    expect(result.current.updateAbsence(created.id, { assigneeEmail: "" })).not.toBeNull();
+    expect(result.current.updateAbsence(created.id, { assigneeEmail: "" }, aiOrigin("chat"))).not.toBeNull();
     expect(result.current.getAbsenceRow(created.id)?.assigneeEmail).toBeUndefined();
   });
 
@@ -1802,10 +1803,10 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     const { result } = renderDispatcher();
     const first = result.current.createCalendarEvent({
       title: "Kickoff", startDate: "2026-06-01",
-    });
+    }, aiOrigin("chat"));
     expect(result.current.listCalendarEvents()).toHaveLength(1);
 
-    result.current.createCalendarEvent({ title: "Retro", startDate: "2026-06-08" });
+    result.current.createCalendarEvent({ title: "Retro", startDate: "2026-06-08" }, aiOrigin("chat"));
 
     const list = result.current.listCalendarEvents();
     expect(list).toHaveLength(2);
@@ -1819,9 +1820,9 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     const { result } = renderDispatcher();
     const created = result.current.createCalendarEvent({
       title: "Kickoff", startDate: "2026-06-01",
-    });
+    }, aiOrigin("chat"));
 
-    const updated = result.current.updateCalendarEvent(created.id, { location: "Room 3" });
+    const updated = result.current.updateCalendarEvent(created.id, { location: "Room 3" }, aiOrigin("chat"));
     expect(updated).not.toBeNull();
     expect(updated?.location).toBe("Room 3");
     expect(result.current.listCalendarEvents()).toHaveLength(1);
@@ -1831,26 +1832,26 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     const { result } = renderDispatcher();
     const created = result.current.createCalendarEvent({
       title: "Kickoff", startDate: "2026-06-01",
-    });
-    expect(result.current.deleteCalendarEvent(created.id)).toBe(true);
+    }, aiOrigin("chat"));
+    expect(result.current.deleteCalendarEvent(created.id, aiOrigin("chat"))).toBe(true);
     expect(result.current.listCalendarEvents()).toEqual([]);
     // A second delete of the same id must report false rather than throwing on
     // a list the writer might have reset to `undefined`.
-    expect(result.current.deleteCalendarEvent(created.id)).toBe(false);
+    expect(result.current.deleteCalendarEvent(created.id, aiOrigin("chat"))).toBe(false);
   });
 
   it("both entities refuse every write in read-only mode", () => {
     const { result } = renderDispatcher([], true);
     expect(() => result.current.createAbsence({
       assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05",
-    })).toThrow();
-    expect(() => result.current.updateAbsence(1, { note: "x" })).toThrow();
-    expect(() => result.current.deleteAbsence(1)).toThrow();
+    }, aiOrigin("chat"))).toThrow();
+    expect(() => result.current.updateAbsence(1, { note: "x" }, aiOrigin("chat"))).toThrow();
+    expect(() => result.current.deleteAbsence(1, aiOrigin("chat"))).toThrow();
     expect(() => result.current.createCalendarEvent({
       title: "Kickoff", startDate: "2026-06-01",
-    })).toThrow();
-    expect(() => result.current.updateCalendarEvent(1, { location: "x" })).toThrow();
-    expect(() => result.current.deleteCalendarEvent(1)).toThrow();
+    }, aiOrigin("chat"))).toThrow();
+    expect(() => result.current.updateCalendarEvent(1, { location: "x" }, aiOrigin("chat"))).toThrow();
+    expect(() => result.current.deleteCalendarEvent(1, aiOrigin("chat"))).toThrow();
     // Reads stay available, as they do for every other register.
     expect(() => result.current.listAbsences()).not.toThrow();
     expect(() => result.current.listCalendarEvents()).not.toThrow();
@@ -1860,7 +1861,7 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
 describe("useChatDispatcher – setTaskDependencies", () => {
   it("writes a valid link: the task's dependencies becomes the applied list", () => {
     const { result } = renderDispatcher();
-    const res = result.current.setTaskDependencies(1, [{ taskId: 2, type: "FS" }]);
+    const res = result.current.setTaskDependencies(1, [{ taskId: 2, type: "FS" }], aiOrigin("chat"));
     expect(res).toMatchObject({
       id: 1,
       dependencies: [{ taskId: 2, type: "FS" }],
@@ -1886,7 +1887,7 @@ describe("useChatDispatcher – setTaskDependencies", () => {
     });
     const { result } = renderDispatcher(seeded);
 
-    const res = result.current.setTaskDependencies(2, [{ taskId: 1, type: "FS" }]);
+    const res = result.current.setTaskDependencies(2, [{ taskId: 1, type: "FS" }], aiOrigin("chat"));
     expect(res).toMatchObject({
       id: 2,
       dependencies: [{ taskId: 3, type: "FS" }],
@@ -1914,7 +1915,7 @@ describe("useChatDispatcher – setTaskDependencies", () => {
     );
     const { result } = renderDispatcher(seeded);
 
-    const res = result.current.setTaskDependencies(2, [{ taskId: 1, type: "FS" }]);
+    const res = result.current.setTaskDependencies(2, [{ taskId: 1, type: "FS" }], aiOrigin("chat"));
     expect(res).toMatchObject({
       id: 2,
       dependencies: [{ taskId: 1, type: "FS" }],
@@ -1930,7 +1931,7 @@ describe("useChatDispatcher – setTaskDependencies", () => {
     );
     const { result } = renderDispatcher(seeded, true);
     expect(() =>
-      result.current.setTaskDependencies(1, [{ taskId: 3, type: "FS" }]),
+      result.current.setTaskDependencies(1, [{ taskId: 3, type: "FS" }], aiOrigin("chat")),
     ).toThrow();
     expect(result.current.getTask(1)?.dependencies).toEqual([{ taskId: 2, type: "FS" }]);
   });
@@ -1941,7 +1942,7 @@ describe("useChatDispatcher – resource directory", () => {
     const { result } = renderDispatcher();
     const created = result.current.createResource({
       firstName: "Ada", lastName: "Lovelace", email: "ada@x.com", title: "Engineer",
-    });
+    }, aiOrigin("chat"));
     expect(created).toMatchObject({ firstName: "Ada", lastName: "Lovelace", title: "Engineer" });
     expect("email" in created).toBe(false); // AI-08: the summary carries no address
     expect(result.current.getResourceRow(created.id)?.email).toBe("ada@x.com");
@@ -1951,32 +1952,32 @@ describe("useChatDispatcher – resource directory", () => {
 
   it("createResource splits a full name when first/last aren't given", () => {
     const { result } = renderDispatcher();
-    const created = result.current.createResource({ name: "Grace Hopper" });
+    const created = result.current.createResource({ name: "Grace Hopper" }, aiOrigin("chat"));
     expect(created.firstName).toBe("Grace");
     expect(created.lastName).toBe("Hopper");
   });
 
   it("createResource throws when no name is provided (sanitizer rejects)", () => {
     const { result } = renderDispatcher();
-    expect(() => result.current.createResource({ email: "x@y.com" })).toThrow();
+    expect(() => result.current.createResource({ email: "x@y.com" }, aiOrigin("chat"))).toThrow();
   });
 
   it("createResource is refused in read-only (popout)", () => {
     const { result } = renderDispatcher(seedTasks(), true);
-    expect(() => result.current.createResource({ firstName: "X" })).toThrow();
+    expect(() => result.current.createResource({ firstName: "X" }, aiOrigin("chat"))).toThrow();
     expect(result.current.listResources()).toHaveLength(0);
   });
 
   it("createResource refuses an extra email carrying a delimiter and writes nothing (§422)", () => {
     const { result } = renderDispatcher();
-    expect(() => result.current.createResource({ firstName: "Ada", emails: ["a,b@x.com"] })).toThrow(/emails/);
+    expect(() => result.current.createResource({ firstName: "Ada", emails: ["a,b@x.com"] }, aiOrigin("chat"))).toThrow(/emails/);
     expect(result.current.listResources()).toHaveLength(0);
   });
 
   it("updateResource refuses an extra email carrying a delimiter and leaves the row untouched (§422)", () => {
     const { result } = renderDispatcher();
-    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace", emails: ["ada.alt@x.com"] });
-    expect(() => result.current.updateResource(created.id, { title: "Lead", emails: ["x;y@x.com"] })).toThrow(/emails/);
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace", emails: ["ada.alt@x.com"] }, aiOrigin("chat"));
+    expect(() => result.current.updateResource(created.id, { title: "Lead", emails: ["x;y@x.com"] }, aiOrigin("chat"))).toThrow(/emails/);
     expect(result.current.getResourceRow(created.id)).toMatchObject({ emails: ["ada.alt@x.com"] });
     expect(result.current.getResource(created.id)?.title).toBeUndefined();
   });
@@ -1991,7 +1992,7 @@ describe("useChatDispatcher – resource directory", () => {
       emails: ["a,b@x.com"],
     };
     const { result } = renderDispatcher(seedTasks(), false, "open-points", undefined, undefined, undefined, [seeded]);
-    expect(() => result.current.updateResource(1, { title: "Lead", emails: "a,b@x.com, c@y.com" as unknown as string[] })).toThrow(/emails/);
+    expect(() => result.current.updateResource(1, { title: "Lead", emails: "a,b@x.com, c@y.com" as unknown as string[] }, aiOrigin("chat"))).toThrow(/emails/);
     expect(result.current.getResourceRow(1)).toMatchObject({ emails: ["a,b@x.com"] });
     expect(result.current.getResource(1)?.title).toBeUndefined();
   });
@@ -2008,7 +2009,7 @@ describe("useChatDispatcher – resource directory", () => {
     const { result } = renderDispatcher(seedTasks(), false, "open-points", undefined, undefined, undefined, [seeded]);
     let updated: unknown;
     expect(() => {
-      updated = result.current.updateResource(1, { title: "Lead", emails: ["a,b@x.com"] });
+      updated = result.current.updateResource(1, { title: "Lead", emails: ["a,b@x.com"] }, aiOrigin("chat"));
     }).not.toThrow();
     expect(updated).toMatchObject({ title: "Lead" });
     expect(result.current.getResourceRow(1)).toMatchObject({ title: "Lead", emails: ["a,b@x.com"] });
@@ -2021,28 +2022,28 @@ describe("useChatDispatcher – resource directory", () => {
       emails: ["a,b@x.com"],
     };
     const { result } = renderDispatcher(seedTasks(), false, "open-points", undefined, undefined, undefined, [seeded]);
-    expect(() => result.current.updateResource(1, { title: "Lead", emails: ["a,b@x.com", "new;x@y.com"] })).toThrow(/emails/);
+    expect(() => result.current.updateResource(1, { title: "Lead", emails: ["a,b@x.com", "new;x@y.com"] }, aiOrigin("chat"))).toThrow(/emails/);
     expect(result.current.getResourceRow(1)).toMatchObject({ emails: ["a,b@x.com"] });
     expect(result.current.getResource(1)?.title).toBeUndefined();
   });
 
   it("getResource fetches a created resource and returns null for a missing id", () => {
     const { result } = renderDispatcher();
-    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" }, aiOrigin("chat"));
     expect(result.current.getResource(created.id)).toMatchObject({ firstName: "Ada", lastName: "Lovelace" });
     expect(result.current.getResource(999999)).toBeNull();
   });
 
   it("updateResource patches fields (incl. isExternal + emails) and returns null for a missing id", () => {
     const { result } = renderDispatcher();
-    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace", email: "ada@x.com" });
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace", email: "ada@x.com" }, aiOrigin("chat"));
     const updated = result.current.updateResource(created.id, {
       title: "Lead", isExternal: true, emails: ["ada.alt@x.com"],
-    });
+    }, aiOrigin("chat"));
     expect(updated).toMatchObject({ title: "Lead", isExternal: true });
     expect(result.current.getResourceRow(created.id)).toMatchObject({ emails: ["ada.alt@x.com"] });
     expect(result.current.getResource(created.id)).toMatchObject({ title: "Lead", isExternal: true });
-    expect(result.current.updateResource(999999, { title: "X" })).toBeNull();
+    expect(result.current.updateResource(999999, { title: "X" }, aiOrigin("chat"))).toBeNull();
   });
 
   // ★★★ `name` ON AN UPDATE WAS A SILENT NO-OP AND REPORTED SUCCESS. It is
@@ -2055,8 +2056,8 @@ describe("useChatDispatcher – resource directory", () => {
   //   the model was told the rename had happened.
   it("updateResource splits a `name` into first/last, the shape create already honoured", () => {
     const { result } = renderDispatcher();
-    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });
-    const updated = result.current.updateResource(created.id, { name: "Grace Hopper" });
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" }, aiOrigin("chat"));
+    const updated = result.current.updateResource(created.id, { name: "Grace Hopper" }, aiOrigin("chat"));
     expect(updated).toMatchObject({ firstName: "Grace", lastName: "Hopper" });
     expect(result.current.getResource(created.id)).toMatchObject({
       firstName: "Grace", lastName: "Hopper",
@@ -2065,10 +2066,10 @@ describe("useChatDispatcher – resource directory", () => {
 
   it("updateResource lets explicit firstName/lastName win over a `name`", () => {
     const { result } = renderDispatcher();
-    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" }, aiOrigin("chat"));
     const updated = result.current.updateResource(created.id, {
       name: "Grace Hopper", firstName: "Katherine", lastName: "Johnson",
-    });
+    }, aiOrigin("chat"));
     expect(updated).toMatchObject({ firstName: "Katherine", lastName: "Johnson" });
   });
 
@@ -2078,8 +2079,8 @@ describe("useChatDispatcher – resource directory", () => {
   // the patch still landed rather than the write having been dropped wholesale.
   it("updateResource ignores a blank `name` without failing the rest of the patch", () => {
     const { result } = renderDispatcher();
-    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });
-    const updated = result.current.updateResource(created.id, { name: "   ", title: "Lead" });
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" }, aiOrigin("chat"));
+    const updated = result.current.updateResource(created.id, { name: "   ", title: "Lead" }, aiOrigin("chat"));
     expect(updated).toMatchObject({ firstName: "Ada", lastName: "Lovelace", title: "Lead" });
   });
 
@@ -2092,10 +2093,10 @@ describe("useChatDispatcher – resource directory", () => {
   //   an explicit null for "leave this alone" is entirely plausible.
   it("updateResource splits a `name` even when a part is an explicit null", () => {
     const { result } = renderDispatcher();
-    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" }, aiOrigin("chat"));
     const updated = result.current.updateResource(created.id, {
       name: "Grace Hopper", firstName: null,
-    } as unknown as Parameters<typeof result.current.updateResource>[1]);
+    } as unknown as Parameters<typeof result.current.updateResource>[1], aiOrigin("chat"));
     expect(updated).toMatchObject({ firstName: "Grace", lastName: "Hopper" });
     // The wipe is the half that made this destructive rather than merely inert.
     expect(updated?.firstName).not.toBe("");
@@ -2103,16 +2104,16 @@ describe("useChatDispatcher – resource directory", () => {
 
   it("deleteResource removes a resource and returns false for a missing id", () => {
     const { result } = renderDispatcher();
-    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });
-    expect(result.current.deleteResource(created.id)).toBe(true);
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" }, aiOrigin("chat"));
+    expect(result.current.deleteResource(created.id, aiOrigin("chat"))).toBe(true);
     expect(result.current.listResources().some((r) => r.id === created.id)).toBe(false);
-    expect(result.current.deleteResource(999999)).toBe(false);
+    expect(result.current.deleteResource(999999, aiOrigin("chat"))).toBe(false);
   });
 
   it("updateResource + deleteResource are refused in read-only (popout)", () => {
     const { result } = renderDispatcher(seedTasks(), true);
-    expect(() => result.current.updateResource(1, { title: "X" })).toThrow();
-    expect(() => result.current.deleteResource(1)).toThrow();
+    expect(() => result.current.updateResource(1, { title: "X" }, aiOrigin("chat"))).toThrow();
+    expect(() => result.current.deleteResource(1, aiOrigin("chat"))).toThrow();
   });
 });
 
@@ -2226,7 +2227,7 @@ describe("useChatDispatcher – document tools", () => {
       await runTool(result.current, "create_document", {
         title: "Charter",
         blocks: [{ type: "heading", level: 1, text: "Charter" }],
-      });
+      }, aiOrigin("chat"));
     });
     expect(result.current.listDocuments()).toHaveLength(1);
     expect(result.current.listDocuments()[0].title).toBe("Charter");
@@ -2241,7 +2242,7 @@ describe("useChatDispatcher – document tools", () => {
       await runTool(result.current, "create_document", {
         title: "Charter",
         blocks: [{ type: "paragraph", html: "<p>ok</p><script>alert(1)</script>" }],
-      });
+      }, aiOrigin("chat"));
     });
     const id = result.current.listDocuments()[0].id;
     const stored = result.current.getDocument(id);
@@ -2276,7 +2277,7 @@ describe("useChatDispatcher – document tools", () => {
           id: 1,
           title: "Charter",
           ops: [{ op: "append", block: { type: "paragraph", html: "<p>x</p>" } }],
-        }),
+        }, aiOrigin("chat")),
       ).rejects.toThrow(/read-only/);
       // Positive observable: the refusal is a refusal, not merely a throw —
       // nothing reached storage on the way out.
@@ -2286,17 +2287,17 @@ describe("useChatDispatcher – document tools", () => {
 
   it("createDocument throws in a popout", () => {
     const { result } = renderDispatcher([], true);
-    expect(() => result.current.createDocument("Charter", [])).toThrow(/read-only/);
+    expect(() => result.current.createDocument("Charter", [], aiOrigin("chat"))).toThrow(/read-only/);
   });
 
   it("updateDocument throws in a popout", () => {
     const { result } = renderDispatcher([], true);
-    expect(() => result.current.updateDocument(1, [], "New title")).toThrow(/read-only/);
+    expect(() => result.current.updateDocument(1, [], "New title", aiOrigin("chat"))).toThrow(/read-only/);
   });
 
   it("deleteDocument throws in a popout", () => {
     const { result } = renderDispatcher([], true);
-    expect(() => result.current.deleteDocument(1)).toThrow(/read-only/);
+    expect(() => result.current.deleteDocument(1, aiOrigin("chat"))).toThrow(/read-only/);
   });
 
   // Seeded with REAL prior blocks — the assertion cannot pass by accident
@@ -2307,7 +2308,7 @@ describe("useChatDispatcher – document tools", () => {
       await runTool(result.current, "create_document", {
         title: "Doc",
         blocks: [{ type: "paragraph", html: "<p>keep me</p>" }],
-      });
+      }, aiOrigin("chat"));
     });
     const id = result.current.listDocuments()[0].id;
     await expect(
@@ -2320,7 +2321,7 @@ describe("useChatDispatcher – document tools", () => {
       // exists for it, and the engine checks the RANGE before it compares any
       // token (document-ops.ts's delete arm), which is why the range guard is
       // still what rejects.
-      runTool(result.current, "update_document", { id, ops: [{ op: "delete", index: 42, expectHash: "t42" }] }),
+      runTool(result.current, "update_document", { id, ops: [{ op: "delete", index: 42, expectHash: "t42" }] }, aiOrigin("chat")),
       // ★ Assert the REASON, not merely that something threw — that is what
       // makes the drift above impossible to repeat unnoticed.
     ).rejects.toThrow(/out of range/i);
@@ -2353,7 +2354,7 @@ describe("useChatDispatcher – document tools", () => {
     const { result } = renderDispatcher();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>user text</p>" }]).id;
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>user text</p>" }], aiOrigin("chat")).id;
     });
     // ★ Derived from a block the document does NOT hold, so it differs from the
     // live token whatever the stored bytes normalised to — the token of "what
@@ -2371,7 +2372,7 @@ describe("useChatDispatcher – document tools", () => {
             expectHash: stale,
           },
         ],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     expect(out!.rejected).toEqual(["op 0: replace index 0 was changed by another writer"]);
@@ -2385,7 +2386,7 @@ describe("useChatDispatcher – document tools", () => {
     const { result } = renderDispatcher();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>user text</p>" }]).id;
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>user text</p>" }], aiOrigin("chat")).id;
     });
     // Read the token off the STORED block, exactly as `get_document`'s
     // `blockTokens` does — the model's copy of it is what round-trips here.
@@ -2402,7 +2403,7 @@ describe("useChatDispatcher – document tools", () => {
             expectHash: live,
           },
         ],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     expect(out!.rejected).toEqual([]);
@@ -2436,12 +2437,12 @@ describe("useChatDispatcher – document tools", () => {
           { type: "paragraph", html: "<p>first block</p>" },
           { type: "paragraph", html: "<p>second block</p>" },
         ],
-      });
+      }, aiOrigin("chat"));
     });
     const id = result.current.listDocuments()[0].id;
     let read!: { blockTokens: string[] };
     await act(async () => {
-      read = (await runTool(result.current, "get_document", { id })) as { blockTokens: string[] };
+      read = (await runTool(result.current, "get_document", { id }, aiOrigin("chat"))) as { blockTokens: string[] };
     });
     let out!: DocumentUpdateResult;
     await act(async () => {
@@ -2455,7 +2456,7 @@ describe("useChatDispatcher – document tools", () => {
             expectHash: read.blockTokens[1],
           },
         ],
-      })) as DocumentUpdateResult;
+      }, aiOrigin("chat"))) as DocumentUpdateResult;
     });
     expect(out.rejected).toEqual([]);
     expect(out.applied).toBe(1);
@@ -2480,12 +2481,12 @@ describe("useChatDispatcher – document tools", () => {
           { type: "paragraph", html: "<p>first block</p>" },
           { type: "paragraph", html: "<p>second block</p>" },
         ],
-      });
+      }, aiOrigin("chat"));
     });
     const id = result.current.listDocuments()[0].id;
     let read!: { blockTokens: string[] };
     await act(async () => {
-      read = (await runTool(result.current, "get_document", { id })) as { blockTokens: string[] };
+      read = (await runTool(result.current, "get_document", { id }, aiOrigin("chat"))) as { blockTokens: string[] };
     });
     expect(read.blockTokens[0]).not.toBe(read.blockTokens[1]);
     await expect(
@@ -2499,7 +2500,7 @@ describe("useChatDispatcher – document tools", () => {
             expectHash: read.blockTokens[0],
           },
         ],
-      }),
+      }, aiOrigin("chat")),
     ).rejects.toThrow(/changed by another writer/i);
     const stored = JSON.stringify(result.current.getDocument(id)!.blocks);
     expect(stored).toContain("second block");
@@ -2521,7 +2522,7 @@ describe("useChatDispatcher – document tools", () => {
     const { result } = renderDispatcher();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>user text</p>" }]).id;
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>user text</p>" }], aiOrigin("chat")).id;
     });
     const stale = blockToken({ type: "paragraph", html: "<p>what the model read</p>" });
     let out: DocumentUpdateResult | null = null;
@@ -2542,7 +2543,7 @@ describe("useChatDispatcher – document tools", () => {
             expectHash: stale,
           },
         ],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     expect(out!.rejected).toEqual([
@@ -2564,18 +2565,18 @@ describe("useChatDispatcher – document tools", () => {
 
   it("updateDocument returns null when the document does not exist", () => {
     const { result } = renderDispatcher();
-    expect(result.current.updateDocument(999, [], "New title")).toBeNull();
+    expect(result.current.updateDocument(999, [], "New title", aiOrigin("chat"))).toBeNull();
   });
 
   it("updateDocument applies a title-only rename with no ops", () => {
     const { result } = renderDispatcher();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Old title", []).id;
+      id = result.current.createDocument("Old title", [], aiOrigin("chat")).id;
     });
     let out: DocumentUpdateResult | null = null;
     act(() => {
-      out = result.current.updateDocument(id, [], "New title");
+      out = result.current.updateDocument(id, [], "New title", aiOrigin("chat"));
     });
     expect(out).toMatchObject({ id, title: "New title", applied: 0, rejected: [] });
     expect(result.current.getDocument(id)!.title).toBe("New title");
@@ -2589,7 +2590,7 @@ describe("useChatDispatcher – document tools", () => {
         { type: "paragraph", html: "<p>a</p>" },
         { type: "paragraph", html: "<p>b</p>" },
         { type: "paragraph", html: "<p>c</p>" },
-      ]).id;
+      ], aiOrigin("chat")).id;
     });
     let out: DocumentUpdateResult | null = null;
     act(() => {
@@ -2601,7 +2602,7 @@ describe("useChatDispatcher – document tools", () => {
             blocks: [{ type: "paragraph", html: "<p>only</p><script>alert(1)</script>" }],
           },
         ],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     expect(out).toMatchObject({ id, applied: 1, removed: 2 });
@@ -2622,7 +2623,7 @@ describe("useChatDispatcher – document tools", () => {
     const { result } = renderDispatcher();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>old</p>" }]).id;
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>old</p>" }], aiOrigin("chat")).id;
     });
     let out: DocumentUpdateResult | null = null;
     act(() => {
@@ -2639,7 +2640,7 @@ describe("useChatDispatcher – document tools", () => {
             ],
           },
         ] as unknown as DocOp[],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     // The survivors DO land — a partial drop is not a refusal — but the drop
@@ -2665,7 +2666,7 @@ describe("useChatDispatcher – document tools", () => {
     const { result } = renderDispatcher();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>old</p>" }]).id;
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>old</p>" }], aiOrigin("chat")).id;
     });
     let out: DocumentUpdateResult | null = null;
     act(() => {
@@ -2680,7 +2681,7 @@ describe("useChatDispatcher – document tools", () => {
             ],
           },
         ],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     expect(out!.rejected).toEqual(["op 0: 1 block(s) failed the model-input allow-list"]);
@@ -2701,14 +2702,14 @@ describe("useChatDispatcher – document tools", () => {
       id = result.current.createDocument("Doc", [
         { type: "paragraph", html: "<p>keep me</p>" },
         { type: "paragraph", html: "<p>and me</p>" },
-      ]).id;
+      ], aiOrigin("chat")).id;
     });
     let out: DocumentUpdateResult | null = null;
     act(() => {
       out = result.current.updateDocument(
         id,
         [{ op: "replaceAll", blocks: [{ type: "bogus" }, { type: "alsoBogus" }] }] as unknown as DocOp[],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     expect(out!.applied).toBe(0);
@@ -2728,11 +2729,11 @@ describe("useChatDispatcher – document tools", () => {
     const { result } = renderDispatcher();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>gone</p>" }]).id;
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>gone</p>" }], aiOrigin("chat")).id;
     });
     let out: DocumentUpdateResult | null = null;
     act(() => {
-      out = result.current.updateDocument(id, [{ op: "replaceAll", blocks: [] }], undefined);
+      out = result.current.updateDocument(id, [{ op: "replaceAll", blocks: [] }], undefined, aiOrigin("chat"));
     });
     expect(out!.applied).toBe(1);
     expect(out!.rejected).toEqual([]);
@@ -2750,7 +2751,7 @@ describe("useChatDispatcher – document tools", () => {
     const { result } = renderDispatcher();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>old</p>" }]).id;
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>old</p>" }], aiOrigin("chat")).id;
     });
     let out: DocumentUpdateResult | null = null;
     act(() => {
@@ -2762,7 +2763,7 @@ describe("useChatDispatcher – document tools", () => {
             blocks: [{ type: "paragraph", html: "<p>new</p>" }, { type: "bogus" }],
           },
         ] as unknown as DocOp[],
-        "   ",
+        "   ", aiOrigin("chat"),
       );
     });
     // The op DID apply, so 1 is the truthful count — not 1 minus the title
@@ -2790,7 +2791,7 @@ describe("useChatDispatcher – document tools", () => {
       result.current.createDocument("Charter", [
         { type: "paragraph", html: "<p>intro</p>" },
         { type: "bogus" },
-      ]),
+      ], aiOrigin("chat")),
     ).toThrow(/1 of 2 block\(s\) failed the model-input allow-list/);
     // The refusal is total: no partially-written document survives it.
     expect(result.current.listDocuments()).toEqual([]);
@@ -2802,7 +2803,7 @@ describe("useChatDispatcher – document tools", () => {
       runTool(result.current, "create_document", {
         title: "Charter",
         blocks: [{ type: "paragraph", html: "<p><script>alert(1)</script></p>" }],
-      }),
+      }, aiOrigin("chat")),
     ).rejects.toThrow(/failed the model-input allow-list/);
     expect(result.current.listDocuments()).toEqual([]);
   });
@@ -2816,7 +2817,7 @@ describe("useChatDispatcher – document tools", () => {
       result.current.createDocument("Charter", [
         { type: "heading", level: 1, text: "Charter" },
         { type: "paragraph", html: "<p>ok</p>" },
-      ]);
+      ], aiOrigin("chat"));
     });
     expect(result.current.listDocuments()).toHaveLength(1);
     expect(result.current.listDocuments()[0].blockCount).toBe(2);
@@ -2826,7 +2827,7 @@ describe("useChatDispatcher – document tools", () => {
     const { result } = renderDispatcher();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }]).id;
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }], aiOrigin("chat")).id;
     });
     let out: DocumentUpdateResult | null = null;
     act(() => {
@@ -2836,7 +2837,7 @@ describe("useChatDispatcher – document tools", () => {
           { op: "append", block: { type: "paragraph", html: "<p>b</p>" } },
           { op: "delete", index: 99 },
         ],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     expect(out!.applied).toBe(1);
@@ -2858,11 +2859,11 @@ describe("useChatDispatcher – document tools", () => {
         { type: "paragraph", html: "<p>a</p>" },
         { type: "paragraph", html: "<p>b</p>" },
         { type: "paragraph", html: "<p>c</p>" },
-      ]).id;
+      ], aiOrigin("chat")).id;
     });
     let out: DocumentUpdateResult | null = null;
     act(() => {
-      out = result.current.updateDocument(id, [{ op: "delete", index: 99 }], "   ");
+      out = result.current.updateDocument(id, [{ op: "delete", index: 99 }], "   ", aiOrigin("chat"));
     });
     expect(out!.applied).toBe(0);
     expect(out!.applied).not.toBeLessThan(0);
@@ -2880,14 +2881,14 @@ describe("useChatDispatcher – document tools", () => {
     const { result } = renderDispatcher();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }]).id;
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }], aiOrigin("chat")).id;
     });
     let out: DocumentUpdateResult | null = null;
     act(() => {
       out = result.current.updateDocument(
         id,
         [{ op: "append", block: { type: "paragraph", html: "<p>b</p>" } }],
-        "  ",
+        "  ", aiOrigin("chat"),
       );
     });
     expect(out!.applied).toBe(1);
@@ -2901,7 +2902,7 @@ describe("useChatDispatcher – document tools", () => {
     const { result } = renderDispatcher();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }]).id;
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }], aiOrigin("chat")).id;
     });
     let out: DocumentUpdateResult | null = null;
     act(() => {
@@ -2914,7 +2915,7 @@ describe("useChatDispatcher – document tools", () => {
             block: { type: "paragraph", html: "<p>before</p><script>alert(1)</script>" },
           },
         ],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     expect(out).toMatchObject({ applied: 1, rejected: [] });
@@ -2937,14 +2938,14 @@ describe("useChatDispatcher – document tools", () => {
     const { result } = renderDispatcher();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }]).id;
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }], aiOrigin("chat")).id;
     });
     const badOps = [
       { op: "insert", index: 0, block: { type: "bogus" } },
     ] as unknown as DocOp[];
     let out: DocumentUpdateResult | null = null;
     act(() => {
-      out = result.current.updateDocument(id, badOps, undefined);
+      out = result.current.updateDocument(id, badOps, undefined, aiOrigin("chat"));
     });
     expect(out!.applied).toBe(0);
     expect(out!.rejected).toHaveLength(1);
@@ -2978,14 +2979,14 @@ describe("useChatDispatcher – document tools", () => {
     const { result } = renderDispatcher();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }]).id;
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }], aiOrigin("chat")).id;
     });
     let out: DocumentUpdateResult | null = null;
     act(() => {
       out = result.current.updateDocument(
         id,
         [{ op: "append", block: { type: "paragraph", html: "<p><script>alert(1)</script></p>" } }],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     expect(out!.applied).toBe(0);
@@ -3005,7 +3006,7 @@ describe("useChatDispatcher – document tools", () => {
       await runTool(result.current, "create_document", {
         title: "Doc",
         blocks: [{ type: "paragraph", html: "<p>a</p>" }],
-      });
+      }, aiOrigin("chat"));
     });
     const id = result.current.listDocuments()[0].id;
     let out: DocumentUpdateResult | null = null;
@@ -3016,7 +3017,7 @@ describe("useChatDispatcher – document tools", () => {
           { op: "append", block: { type: "paragraph", html: "<p>good</p>" } },
           { op: "insert", index: 0, block: { type: "bogus" } } as unknown as DocOp,
         ],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     expect(out!.applied).toBe(1);
@@ -3036,35 +3037,35 @@ describe("useChatDispatcher – document tools", () => {
       await runTool(result.current, "create_document", {
         title: "Doc",
         blocks: [{ type: "paragraph", html: "<p>keep me</p>" }],
-      });
+      }, aiOrigin("chat"));
     });
     const id = result.current.listDocuments()[0].id;
     await expect(
       runTool(result.current, "update_document", {
         id,
         ops: [{ op: "insert", index: 0, block: { type: "bogus" } }],
-      }),
+      }, aiOrigin("chat")),
     ).rejects.toThrow();
     expect(JSON.stringify(result.current.getDocument(id)!.blocks)).toContain("keep me");
   });
 
   it("deleteDocument returns deleted:false and no restorableVersionId for an unknown id", () => {
     const { result } = renderDispatcher();
-    expect(result.current.deleteDocument(999)).toEqual({ deleted: false, restorableVersionId: null });
+    expect(result.current.deleteDocument(999, aiOrigin("chat"))).toEqual({ deleted: false, restorableVersionId: null });
   });
 
   it("deleteDocument reports a restorableVersionId on success and removes the document", () => {
     const { result } = renderDispatcher();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Doc", []).id;
+      id = result.current.createDocument("Doc", [], aiOrigin("chat")).id;
     });
     let out: { deleted: boolean; restorableVersionId: number | null } = {
       deleted: false,
       restorableVersionId: null,
     };
     act(() => {
-      out = result.current.deleteDocument(id);
+      out = result.current.deleteDocument(id, aiOrigin("chat"));
     });
     expect(out.deleted).toBe(true);
     expect(out.restorableVersionId).not.toBeNull();
@@ -3103,14 +3104,14 @@ describe("useChatDispatcher — delete_document arms the destructive-save bypass
     let a!: number;
     let b!: number;
     act(() => {
-      a = result.current.createDocument("Draft A", []).id;
-      b = result.current.createDocument("Draft B", []).id;
+      a = result.current.createDocument("Draft A", [], aiOrigin("chat")).id;
+      b = result.current.createDocument("Draft B", [], aiOrigin("chat")).id;
     });
     // A create is not a removal — the bypass exists for deletions only.
     expect(allowDestructiveSave).not.toHaveBeenCalled();
     act(() => {
-      result.current.deleteDocument(a);
-      result.current.deleteDocument(b);
+      result.current.deleteDocument(a, aiOrigin("chat"));
+      result.current.deleteDocument(b, aiOrigin("chat"));
     });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(2);
     // Positive observable: the deletes really ran, so the arming is not being
@@ -3122,24 +3123,24 @@ describe("useChatDispatcher — delete_document arms the destructive-save bypass
     const { result, allowDestructiveSave } = renderWithBypass();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Draft", []).id;
+      id = result.current.createDocument("Draft", [], aiOrigin("chat")).id;
     });
     act(() => {
-      result.current.deleteDocument(id + 999);
+      result.current.deleteDocument(id + 999, aiOrigin("chat"));
     });
     // `changed:false` — nothing was removed, so nothing consumes the one-shot
     // and arming here would leave it up indefinitely.
     expect(allowDestructiveSave).not.toHaveBeenCalled();
     // POSITIVE CONTROL: the id that DOES exist arms.
     act(() => {
-      result.current.deleteDocument(id);
+      result.current.deleteDocument(id, aiOrigin("chat"));
     });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
   });
 
   it("does NOT arm for a delete refused in a read-only popout", () => {
     const { result, allowDestructiveSave } = renderWithBypass(true);
-    expect(() => result.current.deleteDocument(1)).toThrow(/read-only/);
+    expect(() => result.current.deleteDocument(1, aiOrigin("chat"))).toThrow(/read-only/);
     expect(allowDestructiveSave).not.toHaveBeenCalled();
   });
 
@@ -3148,8 +3149,8 @@ describe("useChatDispatcher — delete_document arms the destructive-save bypass
     let id!: number;
     expect(() => {
       act(() => {
-        id = result.current.createDocument("Draft", []).id;
-        result.current.deleteDocument(id);
+        id = result.current.createDocument("Draft", [], aiOrigin("chat")).id;
+        result.current.deleteDocument(id, aiOrigin("chat"));
       });
     }).not.toThrow();
     expect(result.current.getDocument(id)).toBeNull();
@@ -3186,7 +3187,7 @@ describe("useChatDispatcher — the register delete tools arm the destructive-sa
   it("deleteTask arms once for a task that exists", () => {
     const { result, allowDestructiveSave } = renderWithBypass();
     const victim = result.current.listTasks()[0]!;
-    act(() => { result.current.deleteTask(victim.id); });
+    act(() => { result.current.deleteTask(victim.id, aiOrigin("chat")); });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
     // Positive observable: the delete really ran.
     expect(result.current.listTasks().some((t) => t.id === victim.id)).toBe(false);
@@ -3195,115 +3196,115 @@ describe("useChatDispatcher — the register delete tools arm the destructive-sa
   it("deleteTask does NOT arm for an id that does not exist", () => {
     const { result, allowDestructiveSave } = renderWithBypass();
     const before = result.current.listTasks().length;
-    act(() => { result.current.deleteTask(999_999); });
+    act(() => { result.current.deleteTask(999_999, aiOrigin("chat")); });
     expect(allowDestructiveSave).not.toHaveBeenCalled();
     expect(result.current.listTasks()).toHaveLength(before);
     // POSITIVE CONTROL: the id that DOES exist arms, so the fixture is not vacuous.
-    act(() => { result.current.deleteTask(result.current.listTasks()[0]!.id); });
+    act(() => { result.current.deleteTask(result.current.listTasks()[0]!.id, aiOrigin("chat")); });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
   });
 
   it("deleteAllTasks arms once when it emptied a non-empty register", () => {
     const { result, allowDestructiveSave } = renderWithBypass();
-    act(() => { result.current.deleteAllTasks(); });
+    act(() => { result.current.deleteAllTasks(aiOrigin("chat")); });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
     expect(result.current.listTasks()).toEqual([]);
   });
 
   it("deleteAllTasks does NOT arm when the register was already empty", () => {
     const { result, allowDestructiveSave } = renderWithBypass();
-    act(() => { result.current.deleteAllTasks(); });
+    act(() => { result.current.deleteAllTasks(aiOrigin("chat")); });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
     // A second clear removes nothing: arming again would leave a one-shot up
     // with no save to spend it.
-    act(() => { result.current.deleteAllTasks(); });
+    act(() => { result.current.deleteAllTasks(aiOrigin("chat")); });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
   });
 
   it("deleteResource arms only when a resource was removed", () => {
     const { result, allowDestructiveSave } = renderWithBypass();
-    act(() => { result.current.deleteResource(999_999); });
+    act(() => { result.current.deleteResource(999_999, aiOrigin("chat")); });
     expect(allowDestructiveSave).not.toHaveBeenCalled();
     let id!: number;
     act(() => {
-      id = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" }).id;
+      id = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" }, aiOrigin("chat")).id;
     });
-    act(() => { result.current.deleteResource(id); });
+    act(() => { result.current.deleteResource(id, aiOrigin("chat")); });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
   });
 
   it("does not throw when no bypass is supplied", () => {
     const { result } = renderDispatcher();
     expect(() => {
-      act(() => { result.current.deleteAllTasks(); });
+      act(() => { result.current.deleteAllTasks(aiOrigin("chat")); });
     }).not.toThrow();
   });
 
   it("does NOT arm for a delete refused in a read-only popout", () => {
     const { result, allowDestructiveSave } = renderWithBypass(true);
-    expect(() => result.current.deleteAllTasks()).toThrow();
+    expect(() => result.current.deleteAllTasks(aiOrigin("chat"))).toThrow();
     expect(allowDestructiveSave).not.toHaveBeenCalled();
   });
 
   it("deleteRaid arms only when an item was removed", () => {
     const { result, allowDestructiveSave } = renderWithBypass();
-    act(() => { result.current.deleteRaid(999_999); });
+    act(() => { result.current.deleteRaid(999_999, aiOrigin("chat")); });
     expect(allowDestructiveSave).not.toHaveBeenCalled();
     let id!: number;
     act(() => {
-      id = result.current.createRaid({ category: "Risk", title: "R1" }).id;
+      id = result.current.createRaid({ category: "Risk", title: "R1" }, aiOrigin("chat")).id;
     });
-    act(() => { result.current.deleteRaid(id); });
+    act(() => { result.current.deleteRaid(id, aiOrigin("chat")); });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
   });
 
   it("deleteMilestone arms only when a milestone was removed", () => {
     const { result, allowDestructiveSave } = renderWithBypass();
-    act(() => { result.current.deleteMilestone(999_999); });
+    act(() => { result.current.deleteMilestone(999_999, aiOrigin("chat")); });
     expect(allowDestructiveSave).not.toHaveBeenCalled();
     let id!: number;
     act(() => {
-      id = result.current.createMilestone({ name: "M1", date: "2026-09-01" }).id;
+      id = result.current.createMilestone({ name: "M1", date: "2026-09-01" }, aiOrigin("chat")).id;
     });
-    act(() => { result.current.deleteMilestone(id); });
+    act(() => { result.current.deleteMilestone(id, aiOrigin("chat")); });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
   });
 
   it("deleteChange arms only when a change was removed", () => {
     const { result, allowDestructiveSave } = renderWithBypass();
-    act(() => { result.current.deleteChange(999_999); });
+    act(() => { result.current.deleteChange(999_999, aiOrigin("chat")); });
     expect(allowDestructiveSave).not.toHaveBeenCalled();
     let id!: number;
     act(() => {
-      id = result.current.createChange({ title: "C1" }).id;
+      id = result.current.createChange({ title: "C1" }, aiOrigin("chat")).id;
     });
-    act(() => { result.current.deleteChange(id); });
+    act(() => { result.current.deleteChange(id, aiOrigin("chat")); });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
   });
 
   it("deleteStakeholder arms only when a stakeholder was removed", () => {
     const { result, allowDestructiveSave } = renderWithBypass();
-    act(() => { result.current.deleteStakeholder(999_999); });
+    act(() => { result.current.deleteStakeholder(999_999, aiOrigin("chat")); });
     expect(allowDestructiveSave).not.toHaveBeenCalled();
     let id!: number;
     act(() => {
-      id = result.current.createStakeholder({ name: "S1" }).id;
+      id = result.current.createStakeholder({ name: "S1" }, aiOrigin("chat")).id;
     });
-    act(() => { result.current.deleteStakeholder(id); });
+    act(() => { result.current.deleteStakeholder(id, aiOrigin("chat")); });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
   });
 
   it("deleteAbsence arms only when an absence was removed", () => {
     const { result, allowDestructiveSave } = renderWithBypass();
-    act(() => { result.current.deleteAbsence(999_999); });
+    act(() => { result.current.deleteAbsence(999_999, aiOrigin("chat")); });
     expect(allowDestructiveSave).not.toHaveBeenCalled();
     let id!: number;
     act(() => {
       id = result.current.createAbsence({
         assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05",
-      }).id;
+      }, aiOrigin("chat")).id;
     });
-    act(() => { result.current.deleteAbsence(id); });
+    act(() => { result.current.deleteAbsence(id, aiOrigin("chat")); });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
     // Positive observable: the delete really ran, so the arming is not being
     // counted on a no-op path.
@@ -3316,15 +3317,15 @@ describe("useChatDispatcher — the register delete tools arm the destructive-sa
     // `undefined`), which is the stronger fixture: it pins BOTH that a miss
     // does not arm AND that the `?? []` read reaches the `!doomed` guard
     // instead of throwing on undefined.
-    act(() => { result.current.deleteCalendarEvent(999_999); });
+    act(() => { result.current.deleteCalendarEvent(999_999, aiOrigin("chat")); });
     expect(allowDestructiveSave).not.toHaveBeenCalled();
     let id!: number;
     act(() => {
       id = result.current.createCalendarEvent({
         title: "Kickoff", startDate: "2026-06-01",
-      }).id;
+      }, aiOrigin("chat")).id;
     });
-    act(() => { result.current.deleteCalendarEvent(id); });
+    act(() => { result.current.deleteCalendarEvent(id, aiOrigin("chat")); });
     expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
     expect(result.current.listCalendarEvents()).toEqual([]);
   });
@@ -3354,78 +3355,78 @@ describe("useChatDispatcher – ai.documentWrite activity rows", () => {
   const GOOD_BLOCK = { type: "paragraph" as const, html: "<p>keep me</p>" };
 
   function renderWithLog(isReadOnly = false) {
-    const logActivityAs = vi.fn();
-    const { result } = renderDispatcher(seedTasks(), isReadOnly, "open-points", logActivityAs);
-    return { result, logActivityAs };
+    const logActivityAi = vi.fn();
+    const { result } = renderDispatcher(seedTasks(), isReadOnly, "open-points", logActivityAi);
+    return { result, logActivityAi };
   }
 
   it("logs one ai.documentWrite row when the assistant creates a document", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
+      id = result.current.createDocument("Charter", [GOOD_BLOCK], aiOrigin("chat")).id;
     });
-    expect(logActivityAs).toHaveBeenCalledTimes(1);
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "Charter");
+    expect(logActivityAi).toHaveBeenCalledTimes(1);
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "ai.documentWrite", id, "Charter");
   });
 
   // ★ ONE row per WRITE, not per op — three ops in a single update_document
   // call are one thing the assistant did. A per-op emitter would report 3.
   it("logs exactly one row for a multi-op update", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
+      id = result.current.createDocument("Charter", [GOOD_BLOCK], aiOrigin("chat")).id;
     });
-    logActivityAs.mockClear();
+    logActivityAi.mockClear();
     const ops: DocOp[] = [
       { op: "append", block: GOOD_BLOCK },
       { op: "append", block: GOOD_BLOCK },
       { op: "append", block: GOOD_BLOCK },
     ];
     act(() => {
-      result.current.updateDocument(id, ops, undefined);
+      result.current.updateDocument(id, ops, undefined, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledTimes(1);
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "Charter");
+    expect(logActivityAi).toHaveBeenCalledTimes(1);
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "ai.documentWrite", id, "Charter");
   });
 
   it("logs a row for a title-only rename, carrying the NEW title", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Old title", []).id;
+      id = result.current.createDocument("Old title", [], aiOrigin("chat")).id;
     });
-    logActivityAs.mockClear();
+    logActivityAi.mockClear();
     act(() => {
-      result.current.updateDocument(id, [], "New title");
+      result.current.updateDocument(id, [], "New title", aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledTimes(1);
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "New title");
+    expect(logActivityAi).toHaveBeenCalledTimes(1);
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "ai.documentWrite", id, "New title");
   });
 
   // The title is read BEFORE the mutation — afterwards the row is gone from
   // result.documents, so a naive lookup would log an empty name.
   it("logs a row naming the document it deleted", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Doomed", []).id;
+      id = result.current.createDocument("Doomed", [], aiOrigin("chat")).id;
     });
-    logActivityAs.mockClear();
+    logActivityAi.mockClear();
     act(() => {
-      result.current.deleteDocument(id);
+      result.current.deleteDocument(id, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledTimes(1);
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "Doomed");
+    expect(logActivityAi).toHaveBeenCalledTimes(1);
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "ai.documentWrite", id, "Doomed");
   });
 
   it("logs NO row when a create is refused because a block failed the allow-list", () => {
-    const { result, logActivityAs } = renderWithLog();
-    expect(() => result.current.createDocument("Charter", [GOOD_BLOCK, DROPPED_BLOCK])).toThrow(
+    const { result, logActivityAi } = renderWithLog();
+    expect(() => result.current.createDocument("Charter", [GOOD_BLOCK, DROPPED_BLOCK], aiOrigin("chat"))).toThrow(
       /allow-list/,
     );
-    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(logActivityAi).not.toHaveBeenCalled();
     // Nothing was created either — the refusal is total.
     expect(result.current.listDocuments()).toEqual([]);
     // POSITIVE CONTROL: the ONLY change is dropping the bad block. Same spy,
@@ -3433,99 +3434,99 @@ describe("useChatDispatcher – ai.documentWrite activity rows", () => {
     // above would survive an unwired spy or a deleted emitter.
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
+      id = result.current.createDocument("Charter", [GOOD_BLOCK], aiOrigin("chat")).id;
     });
-    expect(logActivityAs).toHaveBeenCalledTimes(1);
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "Charter");
+    expect(logActivityAi).toHaveBeenCalledTimes(1);
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "ai.documentWrite", id, "Charter");
   });
 
   it("logs NO row when every op of an update was rejected", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
+      id = result.current.createDocument("Charter", [GOOD_BLOCK], aiOrigin("chat")).id;
     });
-    logActivityAs.mockClear();
+    logActivityAi.mockClear();
     act(() => {
-      result.current.updateDocument(id, [{ op: "delete", index: 42 }], undefined);
+      result.current.updateDocument(id, [{ op: "delete", index: 42 }], undefined, aiOrigin("chat"));
     });
-    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(logActivityAi).not.toHaveBeenCalled();
     // The document really is untouched — the write was refused, not silently
     // applied with a missing row.
     expect(JSON.stringify(result.current.getDocument(id)!.blocks)).toContain("keep me");
     // POSITIVE CONTROL: same document, same dispatcher, an in-range op.
     act(() => {
-      result.current.updateDocument(id, [{ op: "delete", index: 0 }], undefined);
+      result.current.updateDocument(id, [{ op: "delete", index: 0 }], undefined, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledTimes(1);
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "Charter");
+    expect(logActivityAi).toHaveBeenCalledTimes(1);
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "ai.documentWrite", id, "Charter");
   });
 
   it("logs NO row when a rename is a no-op (same title, no ops)", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Charter", []).id;
+      id = result.current.createDocument("Charter", [], aiOrigin("chat")).id;
     });
-    logActivityAs.mockClear();
+    logActivityAi.mockClear();
     act(() => {
-      result.current.updateDocument(id, [], "Charter");
+      result.current.updateDocument(id, [], "Charter", aiOrigin("chat"));
     });
-    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(logActivityAi).not.toHaveBeenCalled();
     // POSITIVE CONTROL: a title that actually differs logs.
     act(() => {
-      result.current.updateDocument(id, [], "Charter v2");
+      result.current.updateDocument(id, [], "Charter v2", aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledTimes(1);
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "Charter v2");
+    expect(logActivityAi).toHaveBeenCalledTimes(1);
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "ai.documentWrite", id, "Charter v2");
   });
 
   it("logs NO row when deleting an id that does not exist", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Charter", []).id;
+      id = result.current.createDocument("Charter", [], aiOrigin("chat")).id;
     });
-    logActivityAs.mockClear();
+    logActivityAi.mockClear();
     act(() => {
-      result.current.deleteDocument(999);
+      result.current.deleteDocument(999, aiOrigin("chat"));
     });
-    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(logActivityAi).not.toHaveBeenCalled();
     // POSITIVE CONTROL: the id that DOES exist logs.
     act(() => {
-      result.current.deleteDocument(id);
+      result.current.deleteDocument(id, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledTimes(1);
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "Charter");
+    expect(logActivityAi).toHaveBeenCalledTimes(1);
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "ai.documentWrite", id, "Charter");
   });
 
   // A popout refuses before mutateDocuments is reached, so there is nothing to
   // record. Positive control is the non-popout dispatcher in the same test.
   it("logs NO row for a write refused in a read-only popout", () => {
-    const { result, logActivityAs } = renderWithLog(true);
-    expect(() => result.current.createDocument("Charter", [GOOD_BLOCK])).toThrow(/read-only/);
-    expect(() => result.current.updateDocument(1, [], "New title")).toThrow(/read-only/);
-    expect(() => result.current.deleteDocument(1)).toThrow(/read-only/);
-    expect(logActivityAs).not.toHaveBeenCalled();
+    const { result, logActivityAi } = renderWithLog(true);
+    expect(() => result.current.createDocument("Charter", [GOOD_BLOCK], aiOrigin("chat"))).toThrow(/read-only/);
+    expect(() => result.current.updateDocument(1, [], "New title", aiOrigin("chat"))).toThrow(/read-only/);
+    expect(() => result.current.deleteDocument(1, aiOrigin("chat"))).toThrow(/read-only/);
+    expect(logActivityAi).not.toHaveBeenCalled();
     // POSITIVE CONTROL: identical create against a WRITABLE dispatcher.
-    const { result: writable, logActivityAs: writableLog } = renderWithLog(false);
+    const { result: writable, logActivityAi: writableLog } = renderWithLog(false);
     act(() => {
-      writable.current.createDocument("Charter", [GOOD_BLOCK]);
+      writable.current.createDocument("Charter", [GOOD_BLOCK], aiOrigin("chat"));
     });
     expect(writableLog).toHaveBeenCalledTimes(1);
   });
 
-  // logActivityAs is OPTIONAL on ChatDispatcherArgs (every other ai.* emitter is
+  // logActivityAi is OPTIONAL on ChatDispatcherArgs (every other ai.* emitter is
   // too, and a required prop would break task-manager.characterization's prop
   // contract). Omitting it must no-op, not throw.
-  it("does not throw when logActivityAs is omitted", () => {
+  it("does not throw when logActivityAi is omitted", () => {
     const { result } = renderDispatcher();
     let id!: number;
     expect(() => {
       act(() => {
-        id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
-        result.current.updateDocument(id, [], "Renamed");
-        result.current.deleteDocument(id);
+        id = result.current.createDocument("Charter", [GOOD_BLOCK], aiOrigin("chat")).id;
+        result.current.updateDocument(id, [], "Renamed", aiOrigin("chat"));
+        result.current.deleteDocument(id, aiOrigin("chat"));
       });
     }).not.toThrow();
     // Positive observable: the writes really ran on the no-logger path.
@@ -3546,10 +3547,10 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
   const OVER_CAP = MAX_BLOCKS_PER_DOC + 3;
   const CAP_REASON = `block limit exceeded (${OVER_CAP} > ${MAX_BLOCKS_PER_DOC})`;
 
-  function docWith(result: { current: { createDocument: (t: string, b: unknown[]) => { id: number } } }, blocks: unknown[]) {
+  function docWith(result: { current: { createDocument: (t: string, b: unknown[], o: AiOrigin) => { id: number } } }, blocks: unknown[]) {
     let id!: number;
     act(() => {
-      id = result.current.createDocument("Doc", blocks).id;
+      id = result.current.createDocument("Doc", blocks, aiOrigin("chat")).id;
     });
     return id;
   }
@@ -3570,7 +3571,7 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
           { op: "insert", index: 0, block: BAD },
           { op: "delete", index: 42 },
         ] as unknown as DocOp[],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     // EXACT array: the second entry is "op 1", the caller's index for the
@@ -3600,7 +3601,7 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
           { op: "delete", index: 99 },
           { op: "append", block: BAD },
         ] as unknown as DocOp[],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     expect(out!.rejected).toEqual([
@@ -3627,7 +3628,7 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
           { op: "insert", index: 0, block: BAD },
           { op: "delete", index: 42 },
         ] as unknown as DocOp[],
-        "   ",
+        "   ", aiOrigin("chat"),
       );
     });
     expect(out!.applied).toBe(0);
@@ -3654,7 +3655,7 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
     const { result } = renderDispatcher();
     let message = "";
     try {
-      result.current.createDocument("Big", Array.from({ length: OVER_CAP }, (_, i) => P(i)));
+      result.current.createDocument("Big", Array.from({ length: OVER_CAP }, (_, i) => P(i)), aiOrigin("chat"));
     } catch (error) {
       message = (error as Error).message;
     }
@@ -3671,7 +3672,7 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
     const { result } = renderDispatcher();
     let message = "";
     try {
-      result.current.createDocument("Charter", [P(1), BAD, P(2)]);
+      result.current.createDocument("Charter", [P(1), BAD, P(2)], aiOrigin("chat"));
     } catch (error) {
       message = (error as Error).message;
     }
@@ -3692,7 +3693,7 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
     const blocks = Array.from({ length: OVER_CAP }, (_, i) => (i === 3 || i === 7 ? BAD : P(i)));
     let message = "";
     try {
-      result.current.createDocument("Big", blocks);
+      result.current.createDocument("Big", blocks, aiOrigin("chat"));
     } catch (error) {
       message = (error as Error).message;
     }
@@ -3710,7 +3711,7 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
     const blocks = Array.from({ length: OVER_CAP }, (_, i) => (i >= MAX_BLOCKS_PER_DOC ? BAD : P(i)));
     let message = "";
     try {
-      result.current.createDocument("Big", blocks);
+      result.current.createDocument("Big", blocks, aiOrigin("chat"));
     } catch (error) {
       message = (error as Error).message;
     }
@@ -3724,7 +3725,7 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
     act(() => {
       result.current.createDocument(
         "Exactly at the cap",
-        Array.from({ length: MAX_BLOCKS_PER_DOC }, (_, i) => P(i)),
+        Array.from({ length: MAX_BLOCKS_PER_DOC }, (_, i) => P(i)), aiOrigin("chat"),
       );
     });
     expect(result.current.listDocuments()).toHaveLength(1);
@@ -3742,7 +3743,7 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
       out = result.current.updateDocument(
         id,
         [{ op: "replaceAll", blocks: Array.from({ length: OVER_CAP }, (_, i) => P(i)) }],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     expect(out!.rejected).toEqual([`op 0: ${CAP_REASON}`]);
@@ -3767,7 +3768,7 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
           { op: "replaceAll", blocks: [BAD, BAD] },
           { op: "delete", index: 0 },
         ] as unknown as DocOp[],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     expect(out!.removed).toBe(0);
@@ -3790,7 +3791,7 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
       out = result.current.updateDocument(
         id,
         [{ op: "replaceAll" }, { op: "delete", index: 0 }] as unknown as DocOp[],
-        undefined,
+        undefined, aiOrigin("chat"),
       );
     });
     expect(out!.removed).toBe(0);
@@ -3800,7 +3801,7 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
   });
 });
 
-// ★★★ THE ARG COUNT IS UNTYPED AND NOTHING ELSE CHECKS IT. `logActivityAs`
+// ★★★ THE ARG COUNT IS UNTYPED AND NOTHING ELSE CHECKS IT. `logActivityAi`
 // ends in `...args: (string | number)[]`, so passing two args to a kind whose
 // EN string carries three placeholders typechecks, ships, and renders a
 // literal "{2}" in the Activity panel and in the model's own history feed.
@@ -3816,7 +3817,7 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
 // Their arities happened to be right, so nothing was broken; the point is that
 // nothing would have SAID SO. Every kind the dispatcher emits now has one.
 // Re-derive that rather than trusting this sentence — enumerate the emit sites
-// with `grep -n 'logActivityAs?.("ai"' src/app/use-chat-dispatcher.ts
+// with `grep -n 'logActivityAi?.(origin' src/app/use-chat-dispatcher.ts
 // src/app/use-register-tools.ts` (23 on 2026-08-27) and check each KIND against
 // a toHaveBeenCalledWith below. A new writer adds a row to that grep and nothing
 // else forces a test — add one here.
@@ -3827,38 +3828,38 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
 // move — 11 + 12 is the same 23 the one-file grep used to return.
 describe("useChatDispatcher – AI entity writes reach the activity log", () => {
   function renderWithLog(tasks: Task[] = seedTasks()) {
-    const logActivityAs = vi.fn();
-    const { result } = renderDispatcher(tasks, false, "open-points", logActivityAs);
-    return { result, logActivityAs };
+    const logActivityAi = vi.fn();
+    const { result } = renderDispatcher(tasks, false, "open-points", logActivityAi);
+    return { result, logActivityAi };
   }
 
   it("logs task.created with actor ai", () => {
-    const { result, logActivityAs } = renderWithLog([]);
+    const { result, logActivityAi } = renderWithLog([]);
     let created!: Task;
     act(() => {
       created = result.current.createTask({
         taskName: "Cutover",
         assignee: "Ada",
         dueDate: "2026-09-01",
-      });
+      }, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "task.created", created.id, "Cutover");
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "task.created", created.id, "Cutover");
   });
 
   it("logs task.updated with actor ai", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     act(() => {
-      result.current.updateTask(1, { taskName: "Alpha renamed" });
+      result.current.updateTask(1, { taskName: "Alpha renamed" }, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "task.updated", 1, "Alpha renamed");
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "task.updated", 1, "Alpha renamed");
   });
 
   it("logs task.deleted with actor ai", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     act(() => {
-      result.current.deleteTask(1);
+      result.current.deleteTask(1, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "task.deleted", 1, "Alpha");
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "task.deleted", 1, "Alpha");
   });
 
   // ★★ A bulk op logs ONE summarising row, not N. ACTIVITY_MAX_ENTRIES is 500,
@@ -3868,68 +3869,68 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
   //    captures expires with the session, so this row is the lasting account of a mass deletion —
   //    "Bulk edit applied to 3 task(s)" understates what happened.
   it("logs delete-all as a single bulk.delete row, not one row per task", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     act(() => {
-      result.current.deleteAllTasks();
+      result.current.deleteAllTasks(aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledTimes(1);
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "bulk.delete", 3);
+    expect(logActivityAi).toHaveBeenCalledTimes(1);
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "bulk.delete", 3);
   });
 
   // ★ Deleting nothing is not a delete. A "Bulk delete applied to 0 task(s)"
   //   row is noise in a 500-entry ring buffer, so the empty case logs nothing.
   it("logs nothing when delete-all runs against an empty task list", () => {
-    const { result, logActivityAs } = renderWithLog([]);
+    const { result, logActivityAi } = renderWithLog([]);
     act(() => {
-      expect(result.current.deleteAllTasks()).toBe(0);
+      expect(result.current.deleteAllTasks(aiOrigin("chat"))).toBe(0);
     });
-    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(logActivityAi).not.toHaveBeenCalled();
   });
 
   it("does not log when the write is rejected", () => {
-    const { result, logActivityAs } = renderWithLog([]);
-    expect(result.current.updateTask(999, { taskName: "ghost" })).toBeNull();
-    expect(result.current.deleteTask(999)).toBe(false);
-    expect(result.current.updateRaid(999, { title: "ghost" })).toBeNull();
-    expect(result.current.deleteRaid(999)).toBe(false);
-    expect(result.current.updateChange(999, { title: "ghost" })).toBeNull();
-    expect(result.current.deleteChange(999)).toBe(false);
-    expect(result.current.updateMilestone(999, { name: "ghost" })).toBeNull();
-    expect(result.current.deleteMilestone(999)).toBe(false);
-    expect(result.current.updateStakeholder(999, { name: "ghost" })).toBeNull();
-    expect(result.current.deleteStakeholder(999)).toBe(false);
-    expect(result.current.updateResource(999, { firstName: "ghost" })).toBeNull();
-    expect(result.current.deleteResource(999)).toBe(false);
-    expect(logActivityAs).not.toHaveBeenCalled();
+    const { result, logActivityAi } = renderWithLog([]);
+    expect(result.current.updateTask(999, { taskName: "ghost" }, aiOrigin("chat"))).toBeNull();
+    expect(result.current.deleteTask(999, aiOrigin("chat"))).toBe(false);
+    expect(result.current.updateRaid(999, { title: "ghost" }, aiOrigin("chat"))).toBeNull();
+    expect(result.current.deleteRaid(999, aiOrigin("chat"))).toBe(false);
+    expect(result.current.updateChange(999, { title: "ghost" }, aiOrigin("chat"))).toBeNull();
+    expect(result.current.deleteChange(999, aiOrigin("chat"))).toBe(false);
+    expect(result.current.updateMilestone(999, { name: "ghost" }, aiOrigin("chat"))).toBeNull();
+    expect(result.current.deleteMilestone(999, aiOrigin("chat"))).toBe(false);
+    expect(result.current.updateStakeholder(999, { name: "ghost" }, aiOrigin("chat"))).toBeNull();
+    expect(result.current.deleteStakeholder(999, aiOrigin("chat"))).toBe(false);
+    expect(result.current.updateResource(999, { firstName: "ghost" }, aiOrigin("chat"))).toBeNull();
+    expect(result.current.deleteResource(999, aiOrigin("chat"))).toBe(false);
+    expect(logActivityAi).not.toHaveBeenCalled();
   });
 
   // THREE args — the EN string has {0} {1} {2}. Two would render "{2}".
   it("logs raid.* with the three args its EN string interpolates", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     act(() => {
-      result.current.createRaid({ title: "Vendor slip", category: "R" });
+      result.current.createRaid({ title: "Vendor slip", category: "R" }, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "raid.created", 1, "R", "Vendor slip");
-    logActivityAs.mockClear();
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "raid.created", 1, "R", "Vendor slip");
+    logActivityAi.mockClear();
     act(() => {
-      result.current.updateRaid(1, { title: "Vendor slip (revised)" });
+      result.current.updateRaid(1, { title: "Vendor slip (revised)" }, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith(
-      "ai",
+    expect(logActivityAi).toHaveBeenCalledWith(
+      aiOrigin("chat"),
       "raid.updated",
       1,
       "R",
       "Vendor slip (revised)",
     );
-    logActivityAs.mockClear();
+    logActivityAi.mockClear();
     act(() => {
-      result.current.deleteRaid(1);
+      result.current.deleteRaid(1, aiOrigin("chat"));
     });
     // ★ The STORED title, not the one it was created with — the rename above
     //   landed, so a delete row naming "Vendor slip" would be reading a stale
     //   copy rather than the row it actually removed.
-    expect(logActivityAs).toHaveBeenCalledWith(
-      "ai",
+    expect(logActivityAi).toHaveBeenCalledWith(
+      aiOrigin("chat"),
       "raid.deleted",
       1,
       "R",
@@ -3941,21 +3942,21 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
   // user-side call sites in milestones-panel.tsx pass the id alone. CREATE is
   // the two-arg outlier ("Created milestone #{0} – {1}").
   it("logs milestone.* with the arity each EN string interpolates", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     act(() => {
-      result.current.createMilestone({ name: "Go-live", date: "2026-09-01" });
+      result.current.createMilestone({ name: "Go-live", date: "2026-09-01" }, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "milestone.created", 1, "Go-live");
-    logActivityAs.mockClear();
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "milestone.created", 1, "Go-live");
+    logActivityAi.mockClear();
     act(() => {
-      result.current.updateMilestone(1, { name: "Go-live B" });
+      result.current.updateMilestone(1, { name: "Go-live B" }, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "milestone.updated", 1);
-    logActivityAs.mockClear();
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "milestone.updated", 1);
+    logActivityAi.mockClear();
     act(() => {
-      result.current.deleteMilestone(1);
+      result.current.deleteMilestone(1, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "milestone.deleted", 1);
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "milestone.deleted", 1);
   });
 
   // ★★ THE UPDATE/DELETE HALVES ARE NOT A FORMALITY — they were missing, and a
@@ -3966,60 +3967,60 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
   //    `stakeholder.updated`/`stakeholder.deleted` had NO positive assertion
   //    anywhere in the suite.
   it("logs change.* and stakeholder.* with (id, title|name), on all three verbs", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     act(() => {
-      result.current.createChange({ title: "Scope +1" });
+      result.current.createChange({ title: "Scope +1" }, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "change.created", 1, "Scope +1");
-    logActivityAs.mockClear();
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "change.created", 1, "Scope +1");
+    logActivityAi.mockClear();
     act(() => {
-      result.current.updateChange(1, { title: "Scope +2" });
+      result.current.updateChange(1, { title: "Scope +2" }, aiOrigin("chat"));
     });
     // The MERGED title, not the created one — same rule raid.deleted pins.
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "change.updated", 1, "Scope +2");
-    logActivityAs.mockClear();
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "change.updated", 1, "Scope +2");
+    logActivityAi.mockClear();
     act(() => {
-      result.current.deleteChange(1);
+      result.current.deleteChange(1, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "change.deleted", 1, "Scope +2");
-    logActivityAs.mockClear();
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "change.deleted", 1, "Scope +2");
+    logActivityAi.mockClear();
     act(() => {
-      result.current.createStakeholder({ name: "Ada Lovelace" });
+      result.current.createStakeholder({ name: "Ada Lovelace" }, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "stakeholder.created", 1, "Ada Lovelace");
-    logActivityAs.mockClear();
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "stakeholder.created", 1, "Ada Lovelace");
+    logActivityAi.mockClear();
     act(() => {
-      result.current.updateStakeholder(1, { name: "Ada King" });
+      result.current.updateStakeholder(1, { name: "Ada King" }, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "stakeholder.updated", 1, "Ada King");
-    logActivityAs.mockClear();
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "stakeholder.updated", 1, "Ada King");
+    logActivityAi.mockClear();
     act(() => {
-      result.current.deleteStakeholder(1);
+      result.current.deleteStakeholder(1, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "stakeholder.deleted", 1, "Ada King");
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "stakeholder.deleted", 1, "Ada King");
   });
 
   // ★ The full name, mirroring use-resource-quick-create.ts's resource.created row —
   //   `${firstName} ${lastName}`.trim(), not the first name alone.
   it("logs resource.* with the full name", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     act(() => {
-      result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });
+      result.current.createResource({ firstName: "Ada", lastName: "Lovelace" }, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "resource.created", 1, "Ada Lovelace");
-    logActivityAs.mockClear();
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "resource.created", 1, "Ada Lovelace");
+    logActivityAi.mockClear();
     // ★ `resource.updated` had no positive assertion at all until this line,
     //   and it is the one of the three that reads `resourceLogName(merged)` —
     //   a partial patch must still log the FULL merged name, not the patch.
     act(() => {
-      result.current.updateResource(1, { lastName: "King" });
+      result.current.updateResource(1, { lastName: "King" }, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "resource.updated", 1, "Ada King");
-    logActivityAs.mockClear();
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "resource.updated", 1, "Ada King");
+    logActivityAi.mockClear();
     act(() => {
-      result.current.deleteResource(1);
+      result.current.deleteResource(1, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "resource.deleted", 1, "Ada King");
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "resource.deleted", 1, "Ada King");
   });
 
   // ★★ setTaskDependencies is the writer a `^(create|update|delete)[A-Z]` grep
@@ -4028,45 +4029,45 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
   //    (a refused wholly-destructive write, and a true no-op) leave the task
   //    untouched and must record nothing.
   it("logs task.updated for a dependency write, and nothing for its no-ops", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     act(() => {
-      result.current.setTaskDependencies(2, [{ taskId: 1, type: "FS" }]);
+      result.current.setTaskDependencies(2, [{ taskId: 1, type: "FS" }], aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "task.updated", 2, "Bravo");
-    logActivityAs.mockClear();
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "task.updated", 2, "Bravo");
+    logActivityAi.mockClear();
     // TRUE NO-OP: the identical link set. Nothing added, nothing removed.
     act(() => {
-      result.current.setTaskDependencies(2, [{ taskId: 1, type: "FS" }]);
+      result.current.setTaskDependencies(2, [{ taskId: 1, type: "FS" }], aiOrigin("chat"));
     });
-    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(logActivityAi).not.toHaveBeenCalled();
     // REFUSED: a self-dependency is rejected, nothing is applied, and task 2
     // still holds a link — so the write is left undone entirely.
     act(() => {
-      result.current.setTaskDependencies(2, [{ taskId: 2, type: "FS" }]);
+      result.current.setTaskDependencies(2, [{ taskId: 2, type: "FS" }], aiOrigin("chat"));
     });
-    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(logActivityAi).not.toHaveBeenCalled();
     // Positive observable: the refused call really did leave the link alone.
     expect(result.current.getTask(2)?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
     // And an unknown id logs nothing either.
     act(() => {
-      expect(result.current.setTaskDependencies(999, [])).toBeNull();
+      expect(result.current.setTaskDependencies(999, [], aiOrigin("chat"))).toBeNull();
     });
-    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(logActivityAi).not.toHaveBeenCalled();
   });
 
   // No placeholders in "Settings updated" — no args.
   it("logs settings.updated with no args, and only when something applied", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     act(() => {
-      result.current.updateSettings({ showViewHints: false });
+      result.current.updateSettings({ showViewHints: false }, aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "settings.updated");
-    logActivityAs.mockClear();
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "settings.updated");
+    logActivityAi.mockClear();
     // A patch that applies nothing is not a settings change.
     act(() => {
-      result.current.updateSettings({});
+      result.current.updateSettings({}, aiOrigin("chat"));
     });
-    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(logActivityAi).not.toHaveBeenCalled();
   });
 
   // ★★ setLanguage writes `settings.language` — a persisted Settings field —
@@ -4074,11 +4075,11 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
   //    model-exposed writers a `^(create|update|delete)[A-Z]` grep over the
   //    dispatcher cannot see, and it logged nothing until this fix.
   it("logs settings.updated for setLanguage, with no args", () => {
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     act(() => {
-      result.current.setLanguage("de");
+      result.current.setLanguage("de", aiOrigin("chat"));
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "settings.updated");
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "settings.updated");
   });
 
   // ★★★ §160 — an AI settings write produced TWO textually identical
@@ -4088,27 +4089,27 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
   //   per row it already wrote, consumed by the next run of that effect.
   describe("credits the debounced settings row it already wrote (§160)", () => {
     function renderWithCredit() {
-      const logActivityAs = vi.fn();
+      const logActivityAi = vi.fn();
       const onSettingsLoggedByAi = vi.fn();
       const { result } = renderDispatcher(
-        seedTasks(), false, "open-points", logActivityAs, onSettingsLoggedByAi,
+        seedTasks(), false, "open-points", logActivityAi, onSettingsLoggedByAi,
       );
-      return { result, logActivityAs, onSettingsLoggedByAi };
+      return { result, logActivityAi, onSettingsLoggedByAi };
     }
 
     it("credits once per applied updateSettings", () => {
-      const { result, logActivityAs, onSettingsLoggedByAi } = renderWithCredit();
+      const { result, logActivityAi, onSettingsLoggedByAi } = renderWithCredit();
       act(() => {
-        result.current.updateSettings({ showViewHints: false });
+        result.current.updateSettings({ showViewHints: false }, aiOrigin("chat"));
       });
-      expect(logActivityAs).toHaveBeenCalledWith("ai", "settings.updated");
+      expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "settings.updated");
       expect(onSettingsLoggedByAi).toHaveBeenCalledTimes(1);
     });
 
     it("credits once for setLanguage", () => {
       const { result, onSettingsLoggedByAi } = renderWithCredit();
       act(() => {
-        result.current.setLanguage("de");
+        result.current.setLanguage("de", aiOrigin("chat"));
       });
       expect(onSettingsLoggedByAi).toHaveBeenCalledTimes(1);
     });
@@ -4120,11 +4121,11 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
     //   the NEXT genuine user row. A patch that applies nothing must therefore
     //   credit nothing, exactly as it logs nothing.
     it("credits NOTHING when the patch applied nothing", () => {
-      const { result, logActivityAs, onSettingsLoggedByAi } = renderWithCredit();
+      const { result, logActivityAi, onSettingsLoggedByAi } = renderWithCredit();
       act(() => {
-        result.current.updateSettings({});
+        result.current.updateSettings({}, aiOrigin("chat"));
       });
-      expect(logActivityAs).not.toHaveBeenCalled();
+      expect(logActivityAi).not.toHaveBeenCalled();
       expect(onSettingsLoggedByAi).not.toHaveBeenCalled();
     });
 
@@ -4132,13 +4133,13 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
     //   settings rows are issued together, always, so the counter can never
     //   drift from the number of rows it is meant to cancel.
     it("issues exactly as many credits as settings rows across a burst", () => {
-      const { result, logActivityAs, onSettingsLoggedByAi } = renderWithCredit();
+      const { result, logActivityAi, onSettingsLoggedByAi } = renderWithCredit();
       act(() => {
-        result.current.updateSettings({ showViewHints: false });
-        result.current.setLanguage("de");
-        result.current.updateSettings({});
+        result.current.updateSettings({ showViewHints: false }, aiOrigin("chat"));
+        result.current.setLanguage("de", aiOrigin("chat"));
+        result.current.updateSettings({}, aiOrigin("chat"));
       });
-      const settingsRows = logActivityAs.mock.calls.filter(
+      const settingsRows = logActivityAi.mock.calls.filter(
         (c) => c[1] === "settings.updated",
       ).length;
       expect(settingsRows).toBe(2);
@@ -4147,13 +4148,13 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
 
     // ★ A refused (read-only) write logs nothing, so it must credit nothing.
     it("credits nothing when the write is refused", () => {
-      const logActivityAs = vi.fn();
+      const logActivityAi = vi.fn();
       const onSettingsLoggedByAi = vi.fn();
       const { result } = renderDispatcher(
-        seedTasks(), true, "open-points", logActivityAs, onSettingsLoggedByAi,
+        seedTasks(), true, "open-points", logActivityAi, onSettingsLoggedByAi,
       );
       act(() => {
-        expect(() => result.current.updateSettings({ showViewHints: false })).toThrow();
+        expect(() => result.current.updateSettings({ showViewHints: false }, aiOrigin("chat"))).toThrow();
       });
       expect(onSettingsLoggedByAi).not.toHaveBeenCalled();
     });
@@ -4165,26 +4166,26 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
   //    same single-count arg shape, so the two rows read identically.
   it("logs bulk.inquiries for sendInquiry, and nothing when it refuses", () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
-    const { result, logActivityAs } = renderWithLog();
+    const { result, logActivityAi } = renderWithLog();
     act(() => {
-      expect(result.current.sendInquiry(1)).toEqual({ sent: true });
+      expect(result.current.sendInquiry(1, aiOrigin("chat"))).toEqual({ sent: true });
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "bulk.inquiries", 1);
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "bulk.inquiries", 1);
     // Positive observable: the write the row claims really happened.
     expect(result.current.getTask(1)?.inquiriesSent).toBe(1);
-    logActivityAs.mockClear();
+    logActivityAi.mockClear();
     // A refusal mutates nothing, so it must record nothing.
     act(() => {
-      expect(result.current.sendInquiry(999).sent).toBe(false);
+      expect(result.current.sendInquiry(999, aiOrigin("chat")).sent).toBe(false);
     });
-    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(logActivityAi).not.toHaveBeenCalled();
     openSpy.mockRestore();
   });
 
   // ★★★ THE TWO REJECT CLASSES THE SUITE COULD NOT SEE. "does not log when the
   //   write is rejected" above covers the twelve NOT-FOUND guards well, but
   //   every read-only test in this file calls `renderDispatcher(tasks, true)`
-  //   with the `logActivityAs` argument OMITTED — so the spy does not exist in
+  //   with the `logActivityAi` argument OMITTED — so the spy does not exist in
   //   those runs and nothing observes whether a refused write logged. Measured:
   //   a log call moved INSIDE the read-only branch of `deleteAllTasks`, and
   //   another inside `createTask`'s `!taskName` throw, both passed 155/155.
@@ -4195,8 +4196,8 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
   //   which is exactly how this gap survived in the first place.
   describe("a refused write records nothing", () => {
     it("logs nothing for any entity writer refused in a read-only popout", () => {
-      const logActivityAs = vi.fn();
-      const { result } = renderDispatcher(seedTasks(), true, "open-points", logActivityAs);
+      const logActivityAi = vi.fn();
+      const { result } = renderDispatcher(seedTasks(), true, "open-points", logActivityAi);
       const d = result.current;
       // ★ The EN string is "Editing is disabled in the pop-out view …" —
       //   hyphenated. Matching the user-facing wording rather than the
@@ -4204,60 +4205,60 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
       //   fired, not merely that something threw.
       const readOnly = /pop-?out/i;
 
-      expect(() => d.createTask({ taskName: "T", assignee: "A", dueDate: "2026-09-01" })).toThrow(readOnly);
-      expect(() => d.updateTask(1, { taskName: "X" })).toThrow(readOnly);
-      expect(() => d.setTaskDependencies(2, [{ taskId: 1, type: "FS" }])).toThrow(readOnly);
-      expect(() => d.deleteTask(1)).toThrow(readOnly);
-      expect(() => d.deleteAllTasks()).toThrow(readOnly);
-      expect(() => d.updateSettings({ showViewHints: false })).toThrow(readOnly);
-      expect(() => d.createRaid({ title: "R" })).toThrow(readOnly);
-      expect(() => d.updateRaid(1, { title: "R2" })).toThrow(readOnly);
-      expect(() => d.deleteRaid(1)).toThrow(readOnly);
-      expect(() => d.createChange({ title: "C" })).toThrow(readOnly);
-      expect(() => d.updateChange(1, { title: "C2" })).toThrow(readOnly);
-      expect(() => d.deleteChange(1)).toThrow(readOnly);
-      expect(() => d.createMilestone({ name: "M", date: "2026-09-01" })).toThrow(readOnly);
-      expect(() => d.updateMilestone(1, { name: "M2" })).toThrow(readOnly);
-      expect(() => d.deleteMilestone(1)).toThrow(readOnly);
-      expect(() => d.createStakeholder({ name: "S" })).toThrow(readOnly);
-      expect(() => d.updateStakeholder(1, { name: "S2" })).toThrow(readOnly);
-      expect(() => d.deleteStakeholder(1)).toThrow(readOnly);
-      expect(() => d.createResource({ firstName: "F", lastName: "L" })).toThrow(readOnly);
-      expect(() => d.updateResource(1, { firstName: "F2" })).toThrow(readOnly);
-      expect(() => d.deleteResource(1)).toThrow(readOnly);
+      expect(() => d.createTask({ taskName: "T", assignee: "A", dueDate: "2026-09-01" }, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.updateTask(1, { taskName: "X" }, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.setTaskDependencies(2, [{ taskId: 1, type: "FS" }], aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.deleteTask(1, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.deleteAllTasks(aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.updateSettings({ showViewHints: false }, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.createRaid({ title: "R" }, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.updateRaid(1, { title: "R2" }, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.deleteRaid(1, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.createChange({ title: "C" }, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.updateChange(1, { title: "C2" }, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.deleteChange(1, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.createMilestone({ name: "M", date: "2026-09-01" }, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.updateMilestone(1, { name: "M2" }, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.deleteMilestone(1, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.createStakeholder({ name: "S" }, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.updateStakeholder(1, { name: "S2" }, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.deleteStakeholder(1, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.createResource({ firstName: "F", lastName: "L" }, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.updateResource(1, { firstName: "F2" }, aiOrigin("chat"))).toThrow(readOnly);
+      expect(() => d.deleteResource(1, aiOrigin("chat"))).toThrow(readOnly);
 
-      expect(logActivityAs).not.toHaveBeenCalled();
+      expect(logActivityAi).not.toHaveBeenCalled();
     });
 
     // ★ sendInquiry REFUSES rather than throws in a popout, so it needs its own
     //   positive observable — the refusal value, not a thrown error.
     it("logs nothing when sendInquiry is refused in a read-only popout", () => {
-      const logActivityAs = vi.fn();
-      const { result } = renderDispatcher(seedTasks(), true, "open-points", logActivityAs);
+      const logActivityAi = vi.fn();
+      const { result } = renderDispatcher(seedTasks(), true, "open-points", logActivityAi);
       act(() => {
-        expect(result.current.sendInquiry(1).sent).toBe(false);
+        expect(result.current.sendInquiry(1, aiOrigin("chat")).sent).toBe(false);
       });
-      expect(logActivityAs).not.toHaveBeenCalled();
+      expect(logActivityAi).not.toHaveBeenCalled();
     });
 
     // ★★ The OTHER unpinned class: a create rejected by its own VALIDATION,
     //   before anything is written. All six entities, each with the input its
     //   sanitizer refuses.
     it("logs nothing for a create rejected by its own validation", () => {
-      const logActivityAs = vi.fn();
-      const { result } = renderDispatcher([], false, "open-points", logActivityAs);
+      const logActivityAi = vi.fn();
+      const { result } = renderDispatcher([], false, "open-points", logActivityAi);
       const d = result.current;
 
-      expect(() => d.createTask({ taskName: "  ", assignee: "A", dueDate: "2026-09-01" })).toThrow(/taskName/);
-      expect(() => d.createTask({ taskName: "T", assignee: "", dueDate: "2026-09-01" })).toThrow(/assignee/);
-      expect(() => d.createTask({ taskName: "T", assignee: "A", dueDate: "nope" })).toThrow(/dueDate/);
-      expect(() => d.createRaid({ title: "   " })).toThrow(/RAID/);
-      expect(() => d.createChange({ title: "   " })).toThrow(/change/);
-      expect(() => d.createMilestone({ name: "M", date: "not-a-date" })).toThrow(/milestone/);
-      expect(() => d.createStakeholder({ name: "   " })).toThrow(/stakeholder/);
-      expect(() => d.createResource({ firstName: "  ", lastName: "  " })).toThrow(/resource/);
+      expect(() => d.createTask({ taskName: "  ", assignee: "A", dueDate: "2026-09-01" }, aiOrigin("chat"))).toThrow(/taskName/);
+      expect(() => d.createTask({ taskName: "T", assignee: "", dueDate: "2026-09-01" }, aiOrigin("chat"))).toThrow(/assignee/);
+      expect(() => d.createTask({ taskName: "T", assignee: "A", dueDate: "nope" }, aiOrigin("chat"))).toThrow(/dueDate/);
+      expect(() => d.createRaid({ title: "   " }, aiOrigin("chat"))).toThrow(/RAID/);
+      expect(() => d.createChange({ title: "   " }, aiOrigin("chat"))).toThrow(/change/);
+      expect(() => d.createMilestone({ name: "M", date: "not-a-date" }, aiOrigin("chat"))).toThrow(/milestone/);
+      expect(() => d.createStakeholder({ name: "   " }, aiOrigin("chat"))).toThrow(/stakeholder/);
+      expect(() => d.createResource({ firstName: "  ", lastName: "  " }, aiOrigin("chat"))).toThrow(/resource/);
 
-      expect(logActivityAs).not.toHaveBeenCalled();
+      expect(logActivityAi).not.toHaveBeenCalled();
       // Positive observable that the REJECTIONS were real: nothing was stored.
       expect(d.listTasks()).toHaveLength(0);
     });
@@ -4376,35 +4377,35 @@ describe("useChatDispatcher – getSnapshot().activitySummary", () => {
 describe("the email write rule on AI writers (spec Part 1)", () => {
   it("createTask refuses a delimiter-bearing assigneeEmail", () => {
     const { result } = renderDispatcher();
-    expect(() => result.current.createTask({ taskName: "T", assignee: "Ada", dueDate: "2026-06-01", assigneeEmail: "a,b@x.com" })).toThrow('assigneeEmail must not contain "," or ";"');
+    expect(() => result.current.createTask({ taskName: "T", assignee: "Ada", dueDate: "2026-06-01", assigneeEmail: "a,b@x.com" }, aiOrigin("chat"))).toThrow('assigneeEmail must not contain "," or ";"');
   });
 
   it("updateTask keeps a stored unsafe assigneeEmail when it is echoed unchanged", () => {
     const seeded = seedTasks().map((row, i) => (i === 0 ? { ...row, assigneeEmail: "a,b@x.com" } : row));
     const { result } = renderDispatcher(seeded);
     const id = seeded[0].id;
-    act(() => { result.current.updateTask(id, { assigneeEmail: "a,b@x.com", taskName: "Renamed" }); });
+    act(() => { result.current.updateTask(id, { assigneeEmail: "a,b@x.com", taskName: "Renamed" }, aiOrigin("chat")); });
     expect(result.current.getTask(id)).toMatchObject({ taskName: "Renamed", assigneeEmail: "a,b@x.com" });
   });
 
   it("createResource refuses a malformed primary email and writes nothing", () => {
     const { result } = renderDispatcher();
-    expect(() => result.current.createResource({ firstName: "Ada", email: "nope" })).toThrow("email is invalid");
+    expect(() => result.current.createResource({ firstName: "Ada", email: "nope" }, aiOrigin("chat"))).toThrow("email is invalid");
     expect(result.current.listResources()).toHaveLength(0);
   });
 
   it("updateResource refuses a CHANGED delimiter-bearing primary email", () => {
     const { result } = renderDispatcher();
     let id = 0;
-    act(() => { id = result.current.createResource({ firstName: "Ada", lastName: "L", email: "ada@x.com" }).id; });
-    expect(() => result.current.updateResource(id, { email: "a;b@x.com" })).toThrow('email must not contain "," or ";"');
+    act(() => { id = result.current.createResource({ firstName: "Ada", lastName: "L", email: "ada@x.com" }, aiOrigin("chat")).id; });
+    expect(() => result.current.updateResource(id, { email: "a;b@x.com" }, aiOrigin("chat"))).toThrow('email must not contain "," or ";"');
     expect(result.current.getResourceRow(id)?.email).toBe("ada@x.com");
   });
 
   it("createRaid refuses a malformed ownerEmail; createStakeholder refuses a delimiter-bearing email", () => {
     const { result } = renderDispatcher();
-    expect(() => result.current.createRaid({ category: "R", title: "Risk", ownerEmail: "nope" })).toThrow("ownerEmail is invalid");
-    expect(() => result.current.createStakeholder({ name: "Sam", email: "a,b@x.com" })).toThrow('email must not contain "," or ";"');
+    expect(() => result.current.createRaid({ category: "R", title: "Risk", ownerEmail: "nope" }, aiOrigin("chat"))).toThrow("ownerEmail is invalid");
+    expect(() => result.current.createStakeholder({ name: "Sam", email: "a,b@x.com" }, aiOrigin("chat"))).toThrow('email must not contain "," or ";"');
   });
 
   // ★★ Census miss: updateRaid/updateStakeholder/updateAbsence
@@ -4416,59 +4417,59 @@ describe("the email write rule on AI writers (spec Part 1)", () => {
 
   it("updateRaid refuses a CHANGED delimiter-bearing ownerEmail and writes nothing", () => {
     const { result } = renderDispatcher();
-    const id = result.current.createRaid({ category: "R", title: "Risk", ownerEmail: "owner@x.com" }).id;
-    expect(() => result.current.updateRaid(id, { ownerEmail: "a;b@x.com" })).toThrow('ownerEmail must not contain "," or ";"');
+    const id = result.current.createRaid({ category: "R", title: "Risk", ownerEmail: "owner@x.com" }, aiOrigin("chat")).id;
+    expect(() => result.current.updateRaid(id, { ownerEmail: "a;b@x.com" }, aiOrigin("chat"))).toThrow('ownerEmail must not contain "," or ";"');
     expect(result.current.getRaidRow(id)?.ownerEmail).toBe("owner@x.com");
   });
 
   it("updateRaid keeps a stored unsafe ownerEmail when echoed unchanged, and saves another field", () => {
     const { result } = renderRaidProbe();
-    const id = result.current.d.createRaid({ category: "R", title: "Risk" }).id;
+    const id = result.current.d.createRaid({ category: "R", title: "Risk" }, aiOrigin("chat")).id;
     // Bypasses the create-time guard — the only way to get an unsafe value
     // into the stored row for this test (mirrors §422's seedResources note).
     act(() => {
       result.current.ws.setRaid((prev) => prev.map((r) => (r.id === id ? { ...r, ownerEmail: "a,b@x.com" } : r)));
     });
     act(() => {
-      result.current.d.updateRaid(id, { ownerEmail: "a,b@x.com", title: "Renamed" });
+      result.current.d.updateRaid(id, { ownerEmail: "a,b@x.com", title: "Renamed" }, aiOrigin("chat"));
     });
     expect(result.current.d.getRaidRow(id)).toMatchObject({ title: "Renamed", ownerEmail: "a,b@x.com" });
   });
 
   it("updateStakeholder refuses a CHANGED delimiter-bearing email and writes nothing", () => {
     const { result } = renderDispatcher();
-    const id = result.current.createStakeholder({ name: "Sam", email: "sam@x.com" }).id;
-    expect(() => result.current.updateStakeholder(id, { email: "a;b@x.com" })).toThrow('email must not contain "," or ";"');
+    const id = result.current.createStakeholder({ name: "Sam", email: "sam@x.com" }, aiOrigin("chat")).id;
+    expect(() => result.current.updateStakeholder(id, { email: "a;b@x.com" }, aiOrigin("chat"))).toThrow('email must not contain "," or ";"');
     expect(result.current.getStakeholderRow(id)?.email).toBe("sam@x.com");
   });
 
   it("updateStakeholder keeps a stored unsafe email when echoed unchanged, and saves another field", () => {
     const { result } = renderRaidProbe();
-    const id = result.current.d.createStakeholder({ name: "Sam" }).id;
+    const id = result.current.d.createStakeholder({ name: "Sam" }, aiOrigin("chat")).id;
     act(() => {
       result.current.ws.setStakeholders((prev) => prev.map((s) => (s.id === id ? { ...s, email: "a,b@x.com" } : s)));
     });
     act(() => {
-      result.current.d.updateStakeholder(id, { email: "a,b@x.com", name: "Sam Renamed" });
+      result.current.d.updateStakeholder(id, { email: "a,b@x.com", name: "Sam Renamed" }, aiOrigin("chat"));
     });
     expect(result.current.d.getStakeholderRow(id)).toMatchObject({ name: "Sam Renamed", email: "a,b@x.com" });
   });
 
   it("updateAbsence refuses a CHANGED delimiter-bearing assigneeEmail and writes nothing", () => {
     const { result } = renderDispatcher();
-    const id = result.current.createAbsence({ assignee: "Ada", startDate: "2026-06-01", endDate: "2026-06-05", assigneeEmail: "ada@x.com" }).id;
-    expect(() => result.current.updateAbsence(id, { assigneeEmail: "a;b@x.com" })).toThrow('assigneeEmail must not contain "," or ";"');
+    const id = result.current.createAbsence({ assignee: "Ada", startDate: "2026-06-01", endDate: "2026-06-05", assigneeEmail: "ada@x.com" }, aiOrigin("chat")).id;
+    expect(() => result.current.updateAbsence(id, { assigneeEmail: "a;b@x.com" }, aiOrigin("chat"))).toThrow('assigneeEmail must not contain "," or ";"');
     expect(result.current.getAbsenceRow(id)?.assigneeEmail).toBe("ada@x.com");
   });
 
   it("updateAbsence keeps a stored unsafe assigneeEmail when echoed unchanged, and saves another field", () => {
     const { result } = renderRaidProbe();
-    const id = result.current.d.createAbsence({ assignee: "Ada", startDate: "2026-06-01", endDate: "2026-06-05" }).id;
+    const id = result.current.d.createAbsence({ assignee: "Ada", startDate: "2026-06-01", endDate: "2026-06-05" }, aiOrigin("chat")).id;
     act(() => {
       result.current.ws.setAbsences((prev) => prev.map((a) => (a.id === id ? { ...a, assigneeEmail: "a,b@x.com" } : a)));
     });
     act(() => {
-      result.current.d.updateAbsence(id, { assigneeEmail: "a,b@x.com", note: "updated" });
+      result.current.d.updateAbsence(id, { assigneeEmail: "a,b@x.com", note: "updated" }, aiOrigin("chat"));
     });
     expect(result.current.d.getAbsenceRow(id)).toMatchObject({ note: "updated", assigneeEmail: "a,b@x.com" });
   });
@@ -4514,7 +4515,7 @@ describe("list_allocations scope reaches the snapshot getter (§12)", () => {
     const { result } = renderWithGetter(getter);
 
     await expect(
-      runTool(result.current, "list_allocations", { resourceIds: [3], periodFrom: "2026-08", periodTo: "2026-09" }),
+      runTool(result.current, "list_allocations", { resourceIds: [3], periodFrom: "2026-08", periodTo: "2026-09" }, aiOrigin("chat")),
     ).resolves.toBe(snapshot);
 
     expect(getter).toHaveBeenCalledTimes(1);
@@ -4525,7 +4526,7 @@ describe("list_allocations scope reaches the snapshot getter (§12)", () => {
     const getter = vi.fn(() => snapshot);
     const { result } = renderWithGetter(getter);
 
-    await runTool(result.current, "list_allocations", {});
+    await runTool(result.current, "list_allocations", {}, aiOrigin("chat"));
 
     expect(getter).toHaveBeenCalledWith(undefined);
   });
@@ -4540,8 +4541,8 @@ describe("AI person writes keep the resource link in step with the name", () => 
     const { result } = renderRaidProbe();
     const ids = { alice: 0, bob: 0 };
     act(() => {
-      ids.alice = result.current.d.createResource({ firstName: "Alice", lastName: "Smith", email: "alice@x.com" } as never).id;
-      ids.bob = result.current.d.createResource({ firstName: "Bob", lastName: "Jones", email: "bob@x.com" } as never).id;
+      ids.alice = result.current.d.createResource({ firstName: "Alice", lastName: "Smith", email: "alice@x.com" } as never, aiOrigin("chat")).id;
+      ids.bob = result.current.d.createResource({ firstName: "Bob", lastName: "Jones", email: "bob@x.com" } as never, aiOrigin("chat")).id;
     });
     const shown = (ref: { assignee: string; resourceId?: number | null }) =>
       effectiveAssignee(ref, new Map(result.current.ws.resources.map((r) => [r.id, r])));
@@ -4551,7 +4552,7 @@ describe("AI person writes keep the resource link in step with the name", () => 
   function linkedTask(r: ReturnType<typeof setup>["result"], resourceId: number) {
     let id = 0;
     act(() => {
-      id = r.current.d.createTask({ taskName: "Alpha", assignee: "Alice Smith", assigneeEmail: "alice@x.com", dueDate: "2026-06-01" }).id;
+      id = r.current.d.createTask({ taskName: "Alpha", assignee: "Alice Smith", assigneeEmail: "alice@x.com", dueDate: "2026-06-01" }, aiOrigin("chat")).id;
     });
     act(() => {
       r.current.ws.setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, resourceId } : t)));
@@ -4563,7 +4564,7 @@ describe("AI person writes keep the resource link in step with the name", () => 
     const { result, ids, shown } = setup();
     const id = linkedTask(result, ids.alice);
     act(() => {
-      result.current.d.updateTask(id, { assignee: "Bob Jones" });
+      result.current.d.updateTask(id, { assignee: "Bob Jones" }, aiOrigin("chat"));
     });
     const row = result.current.d.getTask(id)!;
     expect(row.resourceId).toBe(ids.bob);
@@ -4575,7 +4576,7 @@ describe("AI person writes keep the resource link in step with the name", () => 
     const { result, ids, shown } = setup();
     const id = linkedTask(result, ids.alice);
     act(() => {
-      result.current.d.updateTask(id, { assignee: "Charlie Nobody" });
+      result.current.d.updateTask(id, { assignee: "Charlie Nobody" }, aiOrigin("chat"));
     });
     const row = result.current.d.getTask(id)!;
     expect(row.resourceId).toBeUndefined();
@@ -4588,7 +4589,7 @@ describe("AI person writes keep the resource link in step with the name", () => 
     const { result, ids } = setup();
     const id = linkedTask(result, ids.alice);
     act(() => {
-      result.current.d.updateTask(id, { assignee: "B. Jones", assigneeEmail: "bob@x.com" });
+      result.current.d.updateTask(id, { assignee: "B. Jones", assigneeEmail: "bob@x.com" }, aiOrigin("chat"));
     });
     expect(result.current.d.getTask(id)!.resourceId).toBe(ids.bob);
   });
@@ -4596,12 +4597,12 @@ describe("AI person writes keep the resource link in step with the name", () => 
   it("updateTask unlinks rather than guesses when two directory people share the name", () => {
     const { result, ids } = setup();
     act(() => {
-      result.current.d.createResource({ firstName: "Sam", lastName: "Lee" } as never);
-      result.current.d.createResource({ firstName: "Sam", lastName: "Lee" } as never);
+      result.current.d.createResource({ firstName: "Sam", lastName: "Lee" } as never, aiOrigin("chat"));
+      result.current.d.createResource({ firstName: "Sam", lastName: "Lee" } as never, aiOrigin("chat"));
     });
     const id = linkedTask(result, ids.alice);
     act(() => {
-      result.current.d.updateTask(id, { assignee: "Sam Lee" });
+      result.current.d.updateTask(id, { assignee: "Sam Lee" }, aiOrigin("chat"));
     });
     expect(result.current.d.getTask(id)!.resourceId).toBeUndefined();
   });
@@ -4610,7 +4611,7 @@ describe("AI person writes keep the resource link in step with the name", () => 
     const { result, ids } = setup();
     const id = linkedTask(result, ids.alice);
     act(() => {
-      result.current.d.updateTask(id, { assignee: "Alice Smith", assigneeEmail: "bob@x.com" });
+      result.current.d.updateTask(id, { assignee: "Alice Smith", assigneeEmail: "bob@x.com" }, aiOrigin("chat"));
     });
     expect(result.current.d.getTask(id)!.resourceId).toBeUndefined();
   });
@@ -4623,10 +4624,10 @@ describe("AI person writes keep the resource link in step with the name", () => 
       result.current.ws.setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, assignee: "A. S." } : t)));
     });
     act(() => {
-      result.current.d.updateTask(id, { priority: "Urgent" });
+      result.current.d.updateTask(id, { priority: "Urgent" }, aiOrigin("chat"));
     });
     act(() => {
-      result.current.d.updateTask(id, { assignee: "A. S." });
+      result.current.d.updateTask(id, { assignee: "A. S." }, aiOrigin("chat"));
     });
     expect(result.current.d.getTask(id)!.resourceId).toBe(ids.alice);
   });
@@ -4635,7 +4636,7 @@ describe("AI person writes keep the resource link in step with the name", () => 
     const { result, ids, shown } = setup();
     let id = 0;
     act(() => {
-      id = result.current.d.createTask({ taskName: "Beta", assignee: "Bob Jones", dueDate: "2026-06-01" }).id;
+      id = result.current.d.createTask({ taskName: "Beta", assignee: "Bob Jones", dueDate: "2026-06-01" }, aiOrigin("chat")).id;
     });
     const row = result.current.d.getTask(id)!;
     expect(row.resourceId).toBe(ids.bob);
@@ -4651,7 +4652,7 @@ describe("AI person writes keep the resource link in step with the name", () => 
     });
     const id = linkedTask(result, ids.alice);
     act(() => {
-      result.current.d.updateTask(id, { assignee: "Carol Diaz" });
+      result.current.d.updateTask(id, { assignee: "Carol Diaz" }, aiOrigin("chat"));
     });
     expect(result.current.d.getTask(id)).toMatchObject({ assignee: "Carol Diaz", assigneeEmail: "", resourceId: carol });
   });
@@ -4660,10 +4661,10 @@ describe("AI person writes keep the resource link in step with the name", () => 
     const { result } = setup();
     let id = 0;
     act(() => {
-      id = result.current.d.createTask({ taskName: "Gamma", assignee: "ext person", assigneeEmail: "ext@client.com", dueDate: "2026-06-01" }).id;
+      id = result.current.d.createTask({ taskName: "Gamma", assignee: "ext person", assigneeEmail: "ext@client.com", dueDate: "2026-06-01" }, aiOrigin("chat")).id;
     });
     act(() => {
-      result.current.d.updateTask(id, { assignee: "Ext Person" });
+      result.current.d.updateTask(id, { assignee: "Ext Person" }, aiOrigin("chat"));
     });
     expect(result.current.d.getTask(id)).toMatchObject({ assignee: "Ext Person", assigneeEmail: "ext@client.com" });
   });
@@ -4672,7 +4673,7 @@ describe("AI person writes keep the resource link in step with the name", () => 
     const { result, ids } = setup();
     const id = linkedTask(result, ids.alice);
     act(() => {
-      result.current.d.updateTask(id, { assignee: "Charlie Nobody", assigneeEmail: "charlie@x.com" });
+      result.current.d.updateTask(id, { assignee: "Charlie Nobody", assigneeEmail: "charlie@x.com" }, aiOrigin("chat"));
     });
     expect(result.current.d.getTask(id)!.assigneeEmail).toBe("charlie@x.com");
   });
@@ -4681,15 +4682,15 @@ describe("AI person writes keep the resource link in step with the name", () => 
     const { result, ids } = setup();
     let id = 0;
     act(() => {
-      id = result.current.d.createRaid({ category: "R", title: "Risk", owner: "Alice Smith", ownerEmail: "alice@x.com" }).id;
+      id = result.current.d.createRaid({ category: "R", title: "Risk", owner: "Alice Smith", ownerEmail: "alice@x.com" }, aiOrigin("chat")).id;
     });
     expect(result.current.d.getRaidRow(id)!.ownerResourceId).toBe(ids.alice);
     act(() => {
-      result.current.d.updateRaid(id, { owner: "Bob Jones" });
+      result.current.d.updateRaid(id, { owner: "Bob Jones" }, aiOrigin("chat"));
     });
     expect(result.current.d.getRaidRow(id)).toMatchObject({ ownerResourceId: ids.bob, ownerEmail: "bob@x.com" });
     act(() => {
-      result.current.d.updateRaid(id, { owner: "Charlie Nobody" });
+      result.current.d.updateRaid(id, { owner: "Charlie Nobody" }, aiOrigin("chat"));
     });
     const row = result.current.d.getRaidRow(id)!;
     expect(row.ownerResourceId).toBeNull();
@@ -4703,7 +4704,7 @@ describe("AI person writes keep the resource link in step with the name", () => 
     const { result } = setup();
     let id = 0;
     act(() => {
-      id = result.current.d.createRaid({ category: "R", title: "Risk" }).id;
+      id = result.current.d.createRaid({ category: "R", title: "Risk" }, aiOrigin("chat")).id;
     });
     expect("ownerResourceId" in result.current.d.getRaidRow(id)!).toBe(false);
   });
@@ -4712,10 +4713,10 @@ describe("AI person writes keep the resource link in step with the name", () => 
     const { result, ids } = setup();
     let id = 0;
     act(() => {
-      id = result.current.d.createAbsence({ assignee: "Alice Smith", assigneeEmail: "alice@x.com", startDate: "2026-07-06", endDate: "2026-07-10", resourceId: ids.alice }).id;
+      id = result.current.d.createAbsence({ assignee: "Alice Smith", assigneeEmail: "alice@x.com", startDate: "2026-07-06", endDate: "2026-07-10", resourceId: ids.alice }, aiOrigin("chat")).id;
     });
     act(() => {
-      result.current.d.updateAbsence(id, { assignee: "Bob Jones" });
+      result.current.d.updateAbsence(id, { assignee: "Bob Jones" }, aiOrigin("chat"));
     });
     const row = result.current.ws.absences.find((a) => a.id === id)!;
     expect(row).toMatchObject({ resourceId: ids.bob, assigneeEmail: "bob@x.com" });
@@ -4731,7 +4732,7 @@ describe("create_task under people protection", () => {
       const { result } = renderDispatcher();
       let created: unknown;
       await act(async () => {
-        created = await runTool(result.current, "create_task", { taskName: "Kick-off", assignee: "Alice", dueDate: "2026-06-04" });
+        created = await runTool(result.current, "create_task", { taskName: "Kick-off", assignee: "Alice", dueDate: "2026-06-04" }, aiOrigin("chat"));
       });
       expect(created).toMatchObject({ taskName: "Kick-off", assignee: "" });
       const row = result.current.listTasks().find((tk) => tk.taskName === "Kick-off")!;
@@ -4745,7 +4746,7 @@ describe("create_task under people protection", () => {
   it("protection off: the same call is assigned (positive control)", async () => {
     const { result } = renderDispatcher();
     await act(async () => {
-      await runTool(result.current, "create_task", { taskName: "Kick-off", assignee: "Alice", dueDate: "2026-06-04" });
+      await runTool(result.current, "create_task", { taskName: "Kick-off", assignee: "Alice", dueDate: "2026-06-04" }, aiOrigin("chat"));
     });
     expect(result.current.listTasks().find((tk) => tk.taskName === "Kick-off")!.assignee).toBe("Alice");
   });

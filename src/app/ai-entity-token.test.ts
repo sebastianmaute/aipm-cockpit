@@ -3,6 +3,7 @@ import { entityToken, TOKEN_EXCLUDED, type TokenEntity } from "./ai-entity-token
 import { TOOL_DEFS } from "./chat-tool-defs";
 import { runTool, type ToolDispatcher } from "./chat-tools";
 import type { Task } from "./types";
+import { aiOrigin } from "./activity-origin";
 
 function task(overrides: Partial<Task> = {}): Task {
   return {
@@ -204,7 +205,7 @@ describe("the exclusion set is disjoint from what the AI can write", () => {
     };
     for (const field of TOKEN_EXCLUDED[kind]) input[field] = "INJECTED";
 
-    await runTool(dispatcher, tool, input);
+    await runTool(dispatcher, tool, input, aiOrigin("chat"));
 
     // Anti-vacuity: a throw before dispatch would otherwise pass silently.
     expect(spy, `${tool} must reach the dispatcher`).toHaveBeenCalledTimes(1);
@@ -296,7 +297,7 @@ describe("the model cannot write Task.blockerLog", () => {
     const dispatcher = { updateTask: spy, getTask: vi.fn(() => current), isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false } as unknown as ToolDispatcher;
     await runTool(dispatcher, "update_task", {
       id: 1, expectedToken: entityToken("task", current), blockers: "typed", blockerLog: LOG,
-    });
+    }, aiOrigin("chat"));
     expect(spy).toHaveBeenCalledTimes(1);
     const patch = spy.mock.calls[0][1];
     expect("blockerLog" in patch).toBe(false);
@@ -308,7 +309,7 @@ describe("the model cannot write Task.blockerLog", () => {
     const dispatcher = { createTask: spy, isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false } as unknown as ToolDispatcher;
     await runTool(dispatcher, "create_task", {
       taskName: "T", assignee: "A", dueDate: "2030-01-01", blockers: "typed", blockerLog: LOG,
-    });
+    }, aiOrigin("chat"));
     expect(spy).toHaveBeenCalledTimes(1);
     expect("blockerLog" in spy.mock.calls[0][0]).toBe(false);
     expect(spy.mock.calls[0][0].blockers).toBe("typed");

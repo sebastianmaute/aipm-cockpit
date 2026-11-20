@@ -759,12 +759,12 @@
   mutates state and logs NOTHING. Reproduce with `grep -n "logActivity" src/app/use-chat-dispatcher.ts` —
   **one** hit." That command now returns **28**, so the doc carried the command that disproves it — which is
   the gate working in the only way an ungated doc can be gated, and only if somebody runs it. Every chat
-  entity writer now ends its SUCCESS path with `logActivityAs?.("ai", …)` (tasks · raid · change · milestone
+  entity writer now ends its SUCCESS path with `logActivityAi?.(origin, …)` — actor `ai` plus the origin of the `runTool` call that ran it, passed as an ARGUMENT (§799) (tasks · raid · change · milestone
   · stakeholder · resource · absence · calendarEvent, plus `settings.updated`, `bulk.inquiries` and `bulk.delete`). The
   writers are split across `use-chat-dispatcher.ts` (tasks, resources, settings, bulk) and `use-register-tools.ts`
   (raid, change, milestone, stakeholder, absence, calendarEvent), with `ai.documentWrite` in `use-document-tools.ts`; derive the sites and kinds over all
   three rather than quoting a number:
-  `grep -ohE 'logActivityAs\?\.\("ai", "[A-Za-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts src/app/use-document-tools.ts | sort | uniq -c`.
+  `grep -ohE 'logActivityAi\?\.\(origin, "[A-Za-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts src/app/use-document-tools.ts | sort | uniq -c`.
   ★★ The coverage caveat therefore came OUT of the tool description in the same release, exactly as the
   ★★ below required. RETENTION (b) is unchanged and stays in.
   ★★ **`ai.inlineEdit` NO LONGER FIRES FROM ANYWHERE, and the kind is deliberately still in the union.**
@@ -781,7 +781,7 @@
   call. ★ `ai.wbsPlan` (`use-wbs-plan.tsx`) is the exception: it is reached from the Open Points toolbar
   button AND from the `optimize_wbs` chat tool, because that tool only opens the same proposal flow and the
   entry is written when the user applies it, either way. So "the log has `ai.*` kinds" still does not mean
-  "the log covers the chat assistant"; the `logActivityAs` sites above are what mean that.
+  "the log covers the chat assistant"; the `logActivityAi` sites above are what mean that.
   (b) RETENTION: `ACTIVITY_MAX_ENTRIES` drops the oldest, so an empty result for an OLD range is
   indistinguishable from a quiet period.
   ★★ Both WERE fixed in the DESCRIPTION rather than the wiring, on the reasoning that logging chat writes

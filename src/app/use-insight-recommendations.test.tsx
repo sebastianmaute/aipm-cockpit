@@ -177,6 +177,22 @@ describe("a stale recommendation is refused visibly, not swallowed", () => {
     expect(vi.mocked(deps.logActivityAi).mock.calls[0].slice(0, 2)).toEqual([aiOrigin("insightRecommendation"), "ai.insightRecommendation"]);
   });
 
+  // §799 — the replayed tool call runs with the recommendation's origin, so the entity row the dispatcher
+  //   writes names "insightRecommendation" rather than the chat. Read off the handler's own trailing argument.
+  it("replays its tool calls with the insightRecommendation origin", async () => {
+    const store = mkStore([mkInsight({ recommendation: mkRec({ id: 42, status: "In Progress", expectedToken: entityToken("task", task) }) })]);
+    const d = mkDispatcher();
+    const inner = d.dispatcher as unknown as { updateTask: (...a: unknown[]) => unknown };
+    const updateTask = vi.fn((...a: unknown[]) => inner.updateTask(...a));
+    const dispatcher = { ...(d.dispatcher as unknown as Record<string, unknown>), updateTask } as unknown as InsightRecommendationDeps["dispatcher"];
+    const deps = mkDeps({ insights: store.read(), setInsights: store.setInsights, dispatcher });
+    const { result } = renderHook(() => useInsightRecommendations(deps));
+    act(() => { result.current.setReviewInsightId(1); });
+    await act(async () => { await result.current.confirmInsightRecommendation(); });
+    expect(updateTask).toHaveBeenCalledTimes(1);
+    expect(updateTask.mock.calls[0].at(-1)).toEqual(aiOrigin("insightRecommendation"));
+  });
+
   it("refuses a moved row: nothing written, the insight is NOT advanced, and the toast says why", async () => {
     const store = mkStore([mkInsight({ recommendation: mkRec({ id: 42, status: "In Progress", expectedToken: "0000000000000000" }) })]);
     const { deps, d } = await confirmWith({}, store);

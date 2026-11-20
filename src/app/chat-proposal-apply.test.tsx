@@ -22,6 +22,8 @@ import { describeProposal } from "./chat-proposal-describe";
 import { type TestSeed } from "./test-providers";
 import { DEFAULT_TASK_STATUS, type Milestone, type Resource, type Task } from "./types";
 import { useChatDispatcher } from "./use-chat-dispatcher";
+import { useActivityLog } from "./use-activity-log";
+import { aiOrigin, type AiOrigin } from "./activity-origin";
 import { useUndoBatch } from "./use-undo-batch";
 import { useUndoStack } from "./undo/use-undo-stack";
 import { emptyWorkspace, type Workspace } from "./workspace";
@@ -87,8 +89,10 @@ function renderApply(seed: TestSeed = SEED) {
     () => {
       const undo = useUndoStack({ lang: "en-US", logActivity, showToast, showToastAction });
       const batch = useUndoBatch(undo);
-      const dispatcher = useChatDispatcher(makeDispatcherArgs({ undo: batch.undo }));
-      return { undo, batch, dispatcher };
+      // §799 — the REAL log, so a test can read the origin a replayed row was stored with.
+      const log = useActivityLog();
+      const dispatcher = useChatDispatcher(makeDispatcherArgs({ undo: batch.undo, logActivityAi: log.logActivityAi }));
+      return { undo, batch, dispatcher, log };
     },
     { wrapper: dispatcherWrapperWith(seed) },
   );
@@ -98,7 +102,7 @@ type Rendered = ReturnType<typeof renderApply>["result"];
 
 /** Describe `calls` against `ws`, then apply every row. Returns the per-row
  *  outcomes. `await act` because each replayed write sets React state. */
-async function applyAll(result: Rendered, calls: readonly ProposedCall[], ws = seedWorkspace()) {
+async function applyAll(result: Rendered, calls: readonly ProposedCall[], ws = seedWorkspace(), origin: AiOrigin = aiOrigin("chatProposal")) {
   const rows = describeProposal(calls, ws);
   const selected = new Set(rows.map((_, i) => i));
   let outcome: Awaited<ReturnType<typeof applyProposal>> | undefined;
@@ -108,6 +112,7 @@ async function applyAll(result: Rendered, calls: readonly ProposedCall[], ws = s
       rows,
       selected,
       batch: result.current.batch,
+      origin,
     });
   });
   return outcome!;
@@ -128,6 +133,21 @@ const taskIds = (r: Rendered) => r.current.dispatcher.listTasks().map((t) => t.i
 const milestoneIds = (r: Rendered) => r.current.dispatcher.listMilestones().map((m) => m.id);
 
 describe("applyProposal", () => {
+  // §799 — every applied row is stored with the origin the CALLER passed in `args`, not one this module names:
+  //   a linked chat origin proves the value is forwarded rather than rebuilt here.
+  test("applied rows carry the origin passed in args", async () => {
+    const { result } = renderApply();
+    const origin = aiOrigin("chatProposal", { threadId: "t-9", requestId: "r-9" });
+    const outcome = await applyAll(result, [
+      { name: "update_task", input: { id: 2, taskName: "After" } },
+      { name: "update_milestone", input: { id: 2, name: "M2 moved" } },
+    ], seedWorkspace(), origin);
+    expect(outcome.rows).toEqual([{ index: 0, ok: true }, { index: 1, ok: true }]);
+    const rows = result.current.log.activityLog.filter((e) => e.kind === "task.updated" || e.kind === "milestone.updated");
+    expect(rows.map((e) => e.kind)).toEqual(["task.updated", "milestone.updated"]);
+    for (const e of rows) expect(e.origin).toEqual({ feature: "chatProposal", threadId: "t-9", requestId: "r-9" });
+  });
+
   test("applying a two-entity plan pushes exactly ONE undo entry", async () => {
     const { result } = renderApply();
     expect(result.current.undo.stack).toHaveLength(0);
@@ -186,7 +206,7 @@ describe("applyProposal", () => {
     // A concurrent writer moves row 2 AFTER the plan was stamped — the exact
     // window `expectedToken` exists to cover.
     act(() => {
-      result.current.dispatcher.updateTask(2, { taskName: "Moved by someone else" });
+      result.current.dispatcher.updateTask(2, { taskName: "Moved by someone else" }, aiOrigin("chat"));
     });
     const before = result.current.undo.stack.length;
 
@@ -196,7 +216,7 @@ describe("applyProposal", () => {
         dispatcher: result.current.dispatcher,
         rows,
         selected: new Set([0, 1]),
-        batch: result.current.batch,
+        batch: result.current.batch, origin: aiOrigin("chatProposal"),
       });
     });
 
@@ -344,7 +364,7 @@ describe("applyProposal honours the selection", () => {
         dispatcher: result.current.dispatcher,
         rows,
         selected: new Set([0]),
-        batch: result.current.batch,
+        batch: result.current.batch, origin: aiOrigin("chatProposal"),
       });
     });
 
@@ -379,7 +399,7 @@ async function applyPlan(
       dispatcher: result.current.dispatcher,
       rows,
       selected,
-      batch: result.current.batch,
+      batch: result.current.batch, origin: aiOrigin("chatProposal"),
     });
   });
   return outcome!;
@@ -686,7 +706,7 @@ describe("applying a staged update whose target this same plan created", () => {
 
     let outcome: Awaited<ReturnType<typeof applyProposal>> | undefined;
     await act(async () => {
-      outcome = await applyProposal({ dispatcher, rows, selected, batch: result.current.batch });
+      outcome = await applyProposal({ dispatcher, rows, selected, batch: result.current.batch, origin: aiOrigin("chatProposal") });
     });
 
     // The create landed — so the refusal below is on a live path, not a create
@@ -737,7 +757,7 @@ describe("applying a staged update whose target this same plan created", () => {
 
     let outcome: Awaited<ReturnType<typeof applyProposal>> | undefined;
     await act(async () => {
-      outcome = await applyProposal({ dispatcher, rows, selected, batch: result.current.batch });
+      outcome = await applyProposal({ dispatcher, rows, selected, batch: result.current.batch, origin: aiOrigin("chatProposal") });
     });
 
     expect(outcome!.rows).toEqual([
@@ -921,7 +941,7 @@ describe("TOKEN_ROW_SOURCE", () => {
             // `update_project` writes nothing for a patch naming no project field (§715), so the write half
             // of the anti-vacuity check below needs one; no other tool reads the key.
             ...(tool === "update_project" ? { customer: "Acme" } : {}),
-          });
+          }, aiOrigin("chat"));
         } catch (e) {
           thrown = e;
         }
@@ -1112,7 +1132,7 @@ describe("§600 — applyProposal stops at the row where the scope changed", () 
         rows,
         selected: new Set([0, 1, 2]),
         batch: result.current.batch,
-        ...(isScopeStale ? { isScopeStale: () => isScopeStale(updateTask.mock.calls.length) } : {}),
+        ...(isScopeStale ? { isScopeStale: () => isScopeStale(updateTask.mock.calls.length) } : {}), origin: aiOrigin("chatProposal"),
       });
     });
     return { result, outcome: outcome!, updateTask };

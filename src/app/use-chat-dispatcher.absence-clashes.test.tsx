@@ -9,6 +9,7 @@ import { runTool } from "./chat-tools";
 import { entityToken } from "./ai-entity-token";
 import type { Absence, Milestone, Resource, Task } from "./types";
 import { ALL_MODULE_IDS } from "./feature-modules";
+import { aiOrigin } from "./activity-origin";
 
 const MAYA = { id: 1, firstName: "Maya", lastName: "Patel", email: "maya@example.com" } as Resource;
 // 2026-11-02 is a Monday.
@@ -28,7 +29,7 @@ function render(holidaySet: ReadonlySet<string> = new Set()) {
 
 async function run(d: ReturnType<typeof useChatDispatcher>, name: string, input: Record<string, unknown>) {
   let out: unknown;
-  await act(async () => { out = await runTool(d, name, input); });
+  await act(async () => { out = await runTool(d, name, input, aiOrigin("chat")); });
   return out as Record<string, unknown>;
 }
 

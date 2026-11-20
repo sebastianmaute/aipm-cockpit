@@ -12,6 +12,7 @@ import { useUndoBatch } from "./use-undo-batch";
 import { runTool } from "./chat-tools";
 import { entityToken } from "./ai-entity-token";
 import { useWorkspace } from "./workspace-context";
+import { aiOrigin } from "./activity-origin";
 
 function renderWithHours() {
   const spies = rigSpies();
@@ -31,7 +32,7 @@ const util = (rs: readonly { id: number; utilization: Record<string, number> }[]
 describe("update_task moves the planned hours (§774)", () => {
   it("update_task reassign moves the hours and reports them in the tool result", () => {
     const { result } = renderWithHours();
-    act(() => { result.current.dispatcher.updateTask(RIG_TASK.id, { assignee: LIAM_OWNS.assignee }); });
+    act(() => { result.current.dispatcher.updateTask(RIG_TASK.id, { assignee: LIAM_OWNS.assignee }, aiOrigin("chat")); });
 
     expect(result.current.dispatcher.getTask(RIG_TASK.id)?.resourceId).toBe(2);
     expect(util(result.current.resources, 1)).toEqual({ "2026-09": 32, "2026-10": 32, "2026-11": 20 });
@@ -45,7 +46,7 @@ describe("update_task moves the planned hours (§774)", () => {
 
   it("the reassignment and its hours are ONE undo entry", () => {
     const { result } = renderWithHours();
-    act(() => { result.current.dispatcher.updateTask(RIG_TASK.id, { assignee: LIAM_OWNS.assignee }); });
+    act(() => { result.current.dispatcher.updateTask(RIG_TASK.id, { assignee: LIAM_OWNS.assignee }, aiOrigin("chat")); });
     expect(result.current.undo.stack).toHaveLength(1);
     expect(util(result.current.resources, 2)).toEqual({ "2026-09": 8, "2026-10": 8 });
 
@@ -57,7 +58,7 @@ describe("update_task moves the planned hours (§774)", () => {
 
   it("an update_task that only changes another field moves nothing and reports nothing extra", () => {
     const { result } = renderWithHours();
-    act(() => { result.current.dispatcher.updateTask(RIG_TASK.id, { priority: "High" }); });
+    act(() => { result.current.dispatcher.updateTask(RIG_TASK.id, { priority: "High" }, aiOrigin("chat")); });
     expect(util(result.current.resources, 1)).toEqual(MAYA.utilization);
     expect(util(result.current.resources, 2)).toEqual({});
     expect(result.current.dispatcher.takePlannedHoursNote?.() ?? null).toBeNull();
@@ -87,8 +88,8 @@ describe("a staged plan's reassignments (§774)", () => {
     const { result, spies } = renderStaged();
     await act(async () => {
       await result.current.batch.runBatched(async () => {
-        result.current.dispatcher.updateTask(10, { assignee: LIAM_OWNS.assignee });
-        result.current.dispatcher.updateTask(11, { assignee: LIAM_OWNS.assignee });
+        result.current.dispatcher.updateTask(10, { assignee: LIAM_OWNS.assignee }, aiOrigin("chat"));
+        result.current.dispatcher.updateTask(11, { assignee: LIAM_OWNS.assignee }, aiOrigin("chat"));
       });
     });
     expect(result.current.undo.stack).toHaveLength(1);
@@ -118,7 +119,7 @@ describe("inline AI edit (§774)", () => {
     await act(async () => {
       out = (await runTool(result.current.dispatcher, "update_task", {
         id: RIG_TASK.id, expectedToken: entityToken("task", stored!), assignee: LIAM_OWNS.assignee,
-      })) as Record<string, unknown>;
+      }, aiOrigin("chat"))) as Record<string, unknown>;
     });
     expect(util(result.current.resources, 2)).toEqual({ "2026-09": 8, "2026-10": 8 });
     expect(out.plannedHours).toEqual(expect.stringContaining("Liam Foster"));

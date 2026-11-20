@@ -10,6 +10,7 @@ import { TARGET_CONFIDENCES, type TargetConfidence } from "./forecast-target";
 import { requireToken } from "./chat-tools-updates";
 import type { DocumentToolDispatcher } from "./chat-tools-documents";
 import { applyOps, type DocOp } from "./document-ops";
+import type { AiOrigin } from "./activity-origin";
 
 export type ForecastScenarioResult = {
   id: number;
@@ -28,16 +29,17 @@ export type ForecastToolDispatcher = {
   getForecast(whatIf: readonly ScenarioChange[] | null, options?: ForecastReadOptions): ForecastReport;
   getForecastScenarioRow(id: number): ForecastScenario | null;
   /** Both throw `Error(<refusal>)` on refusal, as does `getForecast`. */
-  createForecastScenario(name: string, changes: readonly ScenarioChange[]): ForecastScenarioResult;
+  createForecastScenario(name: string, changes: readonly ScenarioChange[], origin: AiOrigin): ForecastScenarioResult;
   updateForecastScenario(
     id: number,
     patch: { name?: string; changes?: readonly ScenarioChange[] },
+    origin: AiOrigin,
   ): ForecastScenarioResult & { removedRows?: number };
   /** The three decision writes (§502 part 4) throw `Error(<refusal>)` on refusal too. */
-  deleteForecastScenario(id: number): { deleted: true; id: number; name: string };
+  deleteForecastScenario(id: number, origin: AiOrigin): { deleted: true; id: number; name: string };
   /** `null` clears. An id naming no saved scenario refuses. */
-  setForecastProposal(id: number | null): { proposal: { id: number; name: string } | null };
-  setForecastTargetConfidence(value: TargetConfidence): { targetConfidence: TargetConfidence };
+  setForecastProposal(id: number | null, origin: AiOrigin): { proposal: { id: number; name: string } | null };
+  setForecastTargetConfidence(value: TargetConfidence, origin: AiOrigin): { targetConfidence: TargetConfidence };
 };
 
 /** Returned by `runForecastTool` for a name not in `FORECAST_TOOLS`. */
@@ -163,6 +165,8 @@ export function runForecastTool(
   name: string,
   input: Record<string, unknown>,
   d: ForecastToolDispatcher,
+  /** §799 — the calling AI feature, from `runTool`; handed to each writer, never stored. */
+  origin: AiOrigin,
 ): unknown {
   if (!FORECAST_TOOLS.has(name)) return NOT_FORECAST_TOOL;
   if (!d.isForecastEnabled()) throw new Error(FORECAST_OFF_MESSAGE);
@@ -176,17 +180,17 @@ export function runForecastTool(
 
     case "create_forecast_scenario": {
       if (typeof input.name !== "string") throw new Error("name must be a string");
-      return d.createForecastScenario(input.name, requireChanges(input.changes));
+      return d.createForecastScenario(input.name, requireChanges(input.changes), origin);
     }
 
     case "delete_forecast_scenario":
-      return d.deleteForecastScenario(requireTokenedRow(input, d));
+      return d.deleteForecastScenario(requireTokenedRow(input, d), origin);
 
     case "set_forecast_proposal":
-      return d.setForecastProposal(requireProposalId(input));
+      return d.setForecastProposal(requireProposalId(input), origin);
 
     case "set_forecast_target_confidence":
-      return d.setForecastTargetConfidence(requireTarget(input));
+      return d.setForecastTargetConfidence(requireTarget(input), origin);
 
     default: {
       const id = requireTokenedRow(input, d);
@@ -197,7 +201,7 @@ export function runForecastTool(
       return d.updateForecastScenario(id, {
         ...(input.name !== undefined ? { name: input.name as string } : {}),
         ...(input.changes !== undefined ? { changes: requireChanges(input.changes) } : {}),
-      });
+      }, origin);
     }
   }
 }

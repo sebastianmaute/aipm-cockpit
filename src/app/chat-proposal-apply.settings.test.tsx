@@ -21,6 +21,7 @@ import { useUndoBatch } from "./use-undo-batch";
 import { useUndoStack } from "./undo/use-undo-stack";
 import { emptyWorkspace } from "./workspace";
 import { useWorkspace } from "./workspace-context";
+import { aiOrigin } from "./activity-origin";
 
 const LEAN: FeatureModuleId[] = ["dashboard", "milestones", "raid"];
 const SAVED: FeatureModuleId[] = ["dashboard", "budget"];
@@ -74,7 +75,7 @@ async function stageAndApply(
       rows,
       selected: new Set(opts.selected ?? calls.map((_, i) => i)),
       batch: result.current.batch,
-      getFeatures: () => result.current.features,
+      getFeatures: () => result.current.features, origin: aiOrigin("chatProposal"),
     });
   });
   return { rows, outcome: outcome! };

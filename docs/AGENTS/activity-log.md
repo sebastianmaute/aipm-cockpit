@@ -290,7 +290,7 @@ newest entries until the next save.
   `task.created` n pair (`createdPairs`, `use-undo-stack.ts`) naming the created tasks the undo removed or the
   redo re-inserted, and `reversedForwardDelta` reads it, so an undo that kept some tasks reverses only the ones removed.
   `grep -n COUNT_KINDS src/app/completion-trend.ts` prints the set;
-  `grep -ohE 'logActivityAs\?\.\("ai", "[a-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts | sort | uniq -c`
+  `grep -ohE 'logActivityAi\?\.\(origin, "[a-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts | sort | uniq -c`
   prints the kinds the chat entity writers emit and how often, of which those two intersect the set.
   ★★ **An AI status change to Done still logs `task.updated`, and now logs a completion BESIDE it** —
   `update_task` stamps that one kind whichever fields it touches, exactly as the form save does

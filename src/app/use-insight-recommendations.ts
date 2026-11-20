@@ -528,7 +528,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
         continue;
       }
       try {
-        await runTool(dispatcher, call.name, sent.input);
+        await runTool(dispatcher, call.name, sent.input, aiOrigin("insightRecommendation"));
         committed++;
       } catch (e) {
         if (e instanceof ConcurrencyTokenError) {

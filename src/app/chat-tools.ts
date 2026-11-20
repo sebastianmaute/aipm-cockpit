@@ -35,6 +35,7 @@ import { insightReachesAi } from "./insights/insight-prompt";
 import type { AppView } from "./nav-config";
 import type { Insight } from "./insights/insight";
 import type { ActivityEntry } from "./activity-log";
+import type { AiOrigin } from "./activity-origin";
 import { searchHistory, type ActivitySummary } from "./history-search";
 import type { TimeZone } from "./timezone";
 import { type DashboardSnapshot } from "./ai-dashboard-snapshot";
@@ -401,8 +402,8 @@ export type BudgetBucketSummary = {
 export type ToolDispatcher = {
   listTasks(): readonly Task[];
   getTask(id: number): Task | null;
-  createTask(input: TaskInput): Task;
-  updateTask(id: number, patch: Partial<Task>): Task | null;
+  createTask(input: TaskInput, origin: AiOrigin): Task;
+  updateTask(id: number, patch: Partial<Task>, origin: AiOrigin): Task | null;
   /** §774 — what the last `updateTask` did to planned hours (the notice text), read once; null when nothing to say. */
   takePlannedHoursNote?(): string | null;
   /** §773 — the absence clashes a date-tool call would cause, judged against the CURRENT workspace, so
@@ -417,23 +418,24 @@ export type ToolDispatcher = {
   setTaskDependencies(
     id: number,
     raw: unknown,
+    origin: AiOrigin,
   ): {
     id: number;
     dependencies: TaskDependency[];
     rejected: DepRejection[];
     removed: TaskDependency[];
   } | null;
-  deleteTask(id: number): boolean;
-  deleteAllTasks(): number;
+  deleteTask(id: number, origin: AiOrigin): boolean;
+  deleteAllTasks(origin: AiOrigin): number;
   /** Opens the WBS proposal flow; writes nothing itself. A refusal says why. */
   openWbsPlan(req: { group?: string; instructions?: string }): {
     opened: boolean;
     tasksInScope: number;
     reason?: WbsOpenRefusal;
   };
-  sendInquiry(id: number): { sent: boolean; reason?: string };
+  sendInquiry(id: number, origin: AiOrigin): { sent: boolean; reason?: string };
   setFilters(filters: Filters): void;
-  setLanguage(lang: Lang): void;
+  setLanguage(lang: Lang, origin: AiOrigin): void;
   listRaid(): RaidSummary[];
   /** FULL rows, for the concurrency token only.
    *
@@ -449,54 +451,54 @@ export type ToolDispatcher = {
   listMilestones(): MilestoneSummary[];
   listStakeholders(): StakeholderSummary[];
   listResources(): ResourceSummary[];
-  createRaid(input: RaidInput): RaidSummary;
-  updateRaid(id: number, patch: Partial<RaidInput>): RaidSummary | null;
-  deleteRaid(id: number): boolean;
+  createRaid(input: RaidInput, origin: AiOrigin): RaidSummary;
+  updateRaid(id: number, patch: Partial<RaidInput>, origin: AiOrigin): RaidSummary | null;
+  deleteRaid(id: number, origin: AiOrigin): boolean;
   /** Append ONE escalation to RAID item `id` (§515): the record, its "AI
    *  created" note echo, the planned severity step and a `raid.escalated` row,
    *  as one write. Null when the item does not exist. Never sends mail. */
-  escalateRaid(id: number, recipient: { email: string; name: string }): EscalateRaidResult | null;
-  createChange(input: ChangeInput): ChangeSummary;
-  updateChange(id: number, patch: Partial<ChangeInput>): ChangeSummary | null;
-  deleteChange(id: number): boolean;
-  createMilestone(input: MilestoneInput): MilestoneSummary;
-  updateMilestone(id: number, patch: Partial<MilestoneInput>): MilestoneSummary | null;
-  deleteMilestone(id: number): boolean;
-  createStakeholder(input: StakeholderInput): StakeholderSummary;
-  updateStakeholder(id: number, patch: Partial<StakeholderInput>): StakeholderSummary | null;
-  deleteStakeholder(id: number): boolean;
+  escalateRaid(id: number, recipient: { email: string; name: string }, origin: AiOrigin): EscalateRaidResult | null;
+  createChange(input: ChangeInput, origin: AiOrigin): ChangeSummary;
+  updateChange(id: number, patch: Partial<ChangeInput>, origin: AiOrigin): ChangeSummary | null;
+  deleteChange(id: number, origin: AiOrigin): boolean;
+  createMilestone(input: MilestoneInput, origin: AiOrigin): MilestoneSummary;
+  updateMilestone(id: number, patch: Partial<MilestoneInput>, origin: AiOrigin): MilestoneSummary | null;
+  deleteMilestone(id: number, origin: AiOrigin): boolean;
+  createStakeholder(input: StakeholderInput, origin: AiOrigin): StakeholderSummary;
+  updateStakeholder(id: number, patch: Partial<StakeholderInput>, origin: AiOrigin): StakeholderSummary | null;
+  deleteStakeholder(id: number, origin: AiOrigin): boolean;
 
   /** The FULL stored absence, for the concurrency token only — never a
    *  model-facing read. `AbsenceSummary` drops the two excluded fields, so a
    *  token hashed from one would be blind to them (see `getRaidRow`). */
   getAbsenceRow(id: number): Absence | null;
   listAbsences(): AbsenceSummary[];
-  createAbsence(input: AbsenceInput): AbsenceSummary;
-  updateAbsence(id: number, patch: Partial<AbsenceInput>): AbsenceSummary | null;
-  deleteAbsence(id: number): boolean;
+  createAbsence(input: AbsenceInput, origin: AiOrigin): AbsenceSummary;
+  updateAbsence(id: number, patch: Partial<AbsenceInput>, origin: AiOrigin): AbsenceSummary | null;
+  deleteAbsence(id: number, origin: AiOrigin): boolean;
 
   /** The FULL stored meeting, for the concurrency token only. `listCalendarEvents`
    *  below is the model-facing read; it keeps `recurrence`/`exceptions` but drops
    *  `localModifiedAt`/`outlookEventId`, which the token must still cover. */
   getCalendarEventRow(id: number): CalendarEvent | null;
-  createCalendarEvent(input: CalendarEventInput): CalendarEventSummary;
-  updateCalendarEvent(id: number, patch: Partial<CalendarEventInput>): CalendarEventSummary | null;
-  deleteCalendarEvent(id: number): boolean;
+  createCalendarEvent(input: CalendarEventInput, origin: AiOrigin): CalendarEventSummary;
+  updateCalendarEvent(id: number, patch: Partial<CalendarEventInput>, origin: AiOrigin): CalendarEventSummary | null;
+  deleteCalendarEvent(id: number, origin: AiOrigin): boolean;
 
   /** Apply a safe-subset settings patch; returns the fields actually applied
    *  (after validation/clamping). Throws in a read-only popout. */
-  updateSettings(patch: SettingsUpdateInput): Record<string, unknown>;
+  updateSettings(patch: SettingsUpdateInput, origin: AiOrigin): Record<string, unknown>;
   /** §779 — what `updateSettings` would report as applied for `patch`, computed against the SAME live
    *  settings it patches, writing nothing. Not a tool: the review card's "Also sets" line reads it, so a
    *  value the coercer refuses shows the current value the write keeps, not the default. */
   previewSettings(patch: SettingsUpdateInput): Record<string, unknown>;
-  createResource(input: ResourceInput): ResourceSummary;
+  createResource(input: ResourceInput, origin: AiOrigin): ResourceSummary;
   getResource(id: number): ResourceSummary | null;
   /** The FULL stored resource. `getResource` above returns a SUMMARY and is
    *  the model-facing read; this one exists only to derive the token. */
   getResourceRow(id: number): Resource | null;
-  updateResource(id: number, patch: Partial<ResourceInput>): ResourceSummary | null;
-  deleteResource(id: number): boolean;
+  updateResource(id: number, patch: Partial<ResourceInput>, origin: AiOrigin): ResourceSummary | null;
+  deleteResource(id: number, origin: AiOrigin): boolean;
   /** `originView` (§703): the page an "Ask Claude" send was requested from.
    *  The request switches to the chat tab, so without it the snapshot names
    *  "chat" — or the page, depending on whether the view ref's effect has run
@@ -727,6 +729,10 @@ export async function runTool(
   d: ToolDispatcher,
   name: string,
   rawInput: unknown,
+  /** §799 — which AI feature made this call. REQUIRED, and handed on as an ARGUMENT to every handler that logs:
+   *  two AI operations can overlap in time (a chat turn while an insight recommendation applies), so the shared
+   *  dispatcher must never hold a "current" origin — not as a member, a ref or a module variable. */
+  origin: AiOrigin,
 ): Promise<unknown> {
   const input = (rawInput && typeof rawInput === "object" ? rawInput : {}) as Record<
     string,
@@ -754,12 +760,12 @@ export async function runTool(
   //   with a review card strips its calls BEFORE the card as well, so the card shows what lands.
   // ★ The note rides on `.then`: `chat-panel.tsx`'s §596 comment counts on this file never suspending.
   const personFields = Object.hasOwn(PERSON_FIELDS_BY_TOOL, name) ? PERSON_FIELDS_BY_TOOL[name]! : [];
-  if (personFields.length === 0 || peopleToolsLive(d.isPeopleProtected())) return runToolAsSent(d, name, input, false);
+  if (personFields.length === 0 || peopleToolsLive(d.isPeopleProtected())) return runToolAsSent(d, name, input, false, origin);
   const { input: kept, removed } = stripPersonFields(name, input, personStripContext(d, name, input));
   // An update that held ONLY person fields is empty once stripped: applying it would stamp the row, count a
   // write and log "AI updated" with no change. Nothing is applied; the model gets the note.
   if (removed.length > 0 && isEmptyUpdate(name, kept)) return Promise.resolve(withPersonFieldsNote({ id: kept.id, applied: false }, removed));
-  return runToolAsSent(d, name, kept, true).then(
+  return runToolAsSent(d, name, kept, true, origin).then(
     (result) => withPersonFieldsNote(result, removed),
     (e: unknown) => {
       // A plain `Error` is the model-facing validation message, so it gains the reason. A typed error
@@ -809,10 +815,11 @@ async function runToolAsSent(
   name: string,
   input: Record<string, unknown>,
   peopleStripped: boolean,
+  origin: AiOrigin,
 ): Promise<unknown> {
-  const forecast = runForecastTool(name, input, d);
+  const forecast = runForecastTool(name, input, d, origin);
   if (forecast !== NOT_FORECAST_TOOL) return forecast;
-  const project = runProjectTool(name, input, d);
+  const project = runProjectTool(name, input, d, origin);
   if (project !== NOT_PROJECT_TOOL) return project;
 
   switch (name) {
@@ -855,7 +862,7 @@ async function runToolAsSent(
         labels: Array.isArray(input.labels)
           ? sanitizeLabels(input.labels)
           : undefined,
-      })), clashes);
+      }, origin)), clashes);
     }
 
     case "update_task": {
@@ -876,7 +883,7 @@ async function runToolAsSent(
       const patch = buildPatch(input);
       // §773 — judged against the row as it stands, before the write moves its date.
       const clashes = d.absenceClashesFor?.(name, input);
-      const updated = d.updateTask(id, patch);
+      const updated = d.updateTask(id, patch, origin);
       if (!updated) throw new Error(`task #${id} not found`);
       // The STORED row keeps the address (a reassignment copies the directory person's in);
       // only the model-facing result drops it.
@@ -898,7 +905,7 @@ async function runToolAsSent(
       // Token-guarded like the six `update_*` tools — `dependencies` is
       // token-COVERED and model-supplied. Reasoning: requireTaskWriteToken.
       requireTaskWriteToken(d.getTask(id), id, input);
-      const result = d.setTaskDependencies(id, input.dependencies);
+      const result = d.setTaskDependencies(id, input.dependencies, origin);
       if (!result) throw new Error(`Task #${id} not found`);
       return result;
     }
@@ -906,7 +913,7 @@ async function runToolAsSent(
     case "delete_task": {
       const id = Number(input.id);
       if (!Number.isFinite(id)) throw new Error("id must be a number");
-      const ok = d.deleteTask(id);
+      const ok = d.deleteTask(id, origin);
       if (!ok) throw new Error(`task #${id} not found`);
       return { deleted: id };
     }
@@ -926,14 +933,14 @@ async function runToolAsSent(
     }
 
     case "delete_all_tasks": {
-      const count = d.deleteAllTasks();
+      const count = d.deleteAllTasks(origin);
       return { deleted: count };
     }
 
     case "send_inquiry": {
       const id = Number(input.id);
       if (!Number.isFinite(id)) throw new Error("id must be a number");
-      return d.sendInquiry(id);
+      return d.sendInquiry(id, origin);
     }
 
     case "set_filters": {
@@ -947,7 +954,7 @@ async function runToolAsSent(
       if (l !== "en-US" && l !== "en-GB" && l !== "de") {
         throw new Error("unsupported language");
       }
-      d.setLanguage(l);
+      d.setLanguage(l, origin);
       return { language: l };
     }
 
@@ -1047,7 +1054,7 @@ async function runToolAsSent(
     //    XInput` cast let the model write `localModifiedAt`/`outlookEventId`
     //    verbatim. See `createInputWithoutId`'s docstring for the split.
     case "create_raid_item":
-      return d.createRaid(createInputWithoutId<RaidInput>(input, "raid"));
+      return d.createRaid(createInputWithoutId<RaidInput>(input, "raid"), origin);
 
     case "update_raid_item": {
       const id = requireId(input);
@@ -1056,7 +1063,7 @@ async function runToolAsSent(
       const current = d.getRaidRow(id);
       if (!current) throw new Error(`RAID item #${id} not found`);
       requireToken("raid", current, input, `RAID item #${id}`);
-      const updated = d.updateRaid(id, patchWithoutId(input, "raid"));
+      const updated = d.updateRaid(id, patchWithoutId(input, "raid"), origin);
       if (!updated) throw new Error(`RAID item #${id} not found`);
       return updated;
     }
@@ -1069,39 +1076,39 @@ async function runToolAsSent(
       if (!current) throw new Error(`RAID item #${id} not found`);
       requireToken("raid", current, input, `RAID item #${id}`);
       const recipient = requireEscalationRecipient(input);
-      const result = d.escalateRaid(id, recipient);
+      const result = d.escalateRaid(id, recipient, origin);
       if (!result) throw new Error(`RAID item #${id} not found`);
       return result;
     }
 
     case "delete_raid_item": {
       const id = requireId(input);
-      if (!d.deleteRaid(id)) throw new Error(`RAID item #${id} not found`);
+      if (!d.deleteRaid(id, origin)) throw new Error(`RAID item #${id} not found`);
       return { deleted: id };
     }
 
     case "create_change":
-      return d.createChange(createInputWithoutId<ChangeInput>(input, "change"));
+      return d.createChange(createInputWithoutId<ChangeInput>(input, "change"), origin);
 
     case "update_change": {
       const id = requireId(input);
       const current = d.getChangeRow(id);
       if (!current) throw new Error(`change #${id} not found`);
       requireToken("change", current, input, `change #${id}`);
-      const updated = d.updateChange(id, patchWithoutId(input, "change"));
+      const updated = d.updateChange(id, patchWithoutId(input, "change"), origin);
       if (!updated) throw new Error(`change #${id} not found`);
       return updated;
     }
 
     case "delete_change": {
       const id = requireId(input);
-      if (!d.deleteChange(id)) throw new Error(`change #${id} not found`);
+      if (!d.deleteChange(id, origin)) throw new Error(`change #${id} not found`);
       return { deleted: id };
     }
 
     case "create_milestone": {
       const clashes = d.absenceClashesFor?.(name, input);
-      return withAbsenceClashes(d.createMilestone(createInputWithoutId<MilestoneInput>(input, "milestone")), clashes);
+      return withAbsenceClashes(d.createMilestone(createInputWithoutId<MilestoneInput>(input, "milestone"), origin), clashes);
     }
 
     case "update_milestone": {
@@ -1110,19 +1117,19 @@ async function runToolAsSent(
       if (!current) throw new Error(`milestone #${id} not found`);
       requireToken("milestone", current, input, `milestone #${id}`);
       const clashes = d.absenceClashesFor?.(name, input);
-      const updated = d.updateMilestone(id, patchWithoutId(input, "milestone"));
+      const updated = d.updateMilestone(id, patchWithoutId(input, "milestone"), origin);
       if (!updated) throw new Error(`milestone #${id} not found`);
       return withAbsenceClashes(updated, clashes);
     }
 
     case "delete_milestone": {
       const id = requireId(input);
-      if (!d.deleteMilestone(id)) throw new Error(`milestone #${id} not found`);
+      if (!d.deleteMilestone(id, origin)) throw new Error(`milestone #${id} not found`);
       return { deleted: id };
     }
 
     case "create_resource":
-      return d.createResource(createInputWithoutId<ResourceInput>(input, "resource"));
+      return d.createResource(createInputWithoutId<ResourceInput>(input, "resource"), origin);
 
     case "get_resource": {
       const id = requireId(input);
@@ -1137,33 +1144,33 @@ async function runToolAsSent(
       const current = d.getResourceRow(id);
       if (!current) throw new Error(`resource #${id} not found`);
       requireToken("resource", current, input, `resource #${id}`);
-      const updated = d.updateResource(id, patchWithoutId(input, "resource") as Partial<ResourceInput>);
+      const updated = d.updateResource(id, patchWithoutId(input, "resource") as Partial<ResourceInput>, origin);
       if (!updated) throw new Error(`resource #${id} not found`);
       return updated;
     }
 
     case "delete_resource": {
       const id = requireId(input);
-      if (!d.deleteResource(id)) throw new Error(`resource #${id} not found`);
+      if (!d.deleteResource(id, origin)) throw new Error(`resource #${id} not found`);
       return { deleted: id };
     }
 
     case "create_stakeholder":
-      return d.createStakeholder(createInputWithoutId<StakeholderInput>(input, "stakeholder"));
+      return d.createStakeholder(createInputWithoutId<StakeholderInput>(input, "stakeholder"), origin);
 
     case "update_stakeholder": {
       const id = requireId(input);
       const current = d.getStakeholderRow(id);
       if (!current) throw new Error(`stakeholder #${id} not found`);
       requireToken("stakeholder", current, input, `stakeholder #${id}`);
-      const updated = d.updateStakeholder(id, patchWithoutId(input, "stakeholder"));
+      const updated = d.updateStakeholder(id, patchWithoutId(input, "stakeholder"), origin);
       if (!updated) throw new Error(`stakeholder #${id} not found`);
       return updated;
     }
 
     case "delete_stakeholder": {
       const id = requireId(input);
-      if (!d.deleteStakeholder(id)) throw new Error(`stakeholder #${id} not found`);
+      if (!d.deleteStakeholder(id, origin)) throw new Error(`stakeholder #${id} not found`);
       return { deleted: id };
     }
 
@@ -1179,45 +1186,45 @@ async function runToolAsSent(
       return withRowTokens("absence", d.listAbsences(), (id) => d.getAbsenceRow(id));
 
     case "create_absence":
-      return d.createAbsence(createInputWithoutId<AbsenceInput>(input, "absence"));
+      return d.createAbsence(createInputWithoutId<AbsenceInput>(input, "absence"), origin);
 
     case "update_absence": {
       const id = requireId(input);
       const current = d.getAbsenceRow(id);
       if (!current) throw new Error(`absence #${id} not found`);
       requireToken("absence", current, input, `absence #${id}`);
-      const updated = d.updateAbsence(id, patchWithoutId(input, "absence"));
+      const updated = d.updateAbsence(id, patchWithoutId(input, "absence"), origin);
       if (!updated) throw new Error(`absence #${id} not found`);
       return updated;
     }
 
     case "delete_absence": {
       const id = requireId(input);
-      if (!d.deleteAbsence(id)) throw new Error(`absence #${id} not found`);
+      if (!d.deleteAbsence(id, origin)) throw new Error(`absence #${id} not found`);
       return { deleted: id };
     }
 
     case "create_calendar_event":
-      return d.createCalendarEvent(createInputWithoutId<CalendarEventInput>(input, "calendarEvent"));
+      return d.createCalendarEvent(createInputWithoutId<CalendarEventInput>(input, "calendarEvent"), origin);
 
     case "update_calendar_event": {
       const id = requireId(input);
       const current = d.getCalendarEventRow(id);
       if (!current) throw new Error(`calendar event #${id} not found`);
       requireToken("calendarEvent", current, input, `calendar event #${id}`);
-      const updated = d.updateCalendarEvent(id, patchWithoutId(input, "calendarEvent"));
+      const updated = d.updateCalendarEvent(id, patchWithoutId(input, "calendarEvent"), origin);
       if (!updated) throw new Error(`calendar event #${id} not found`);
       return updated;
     }
 
     case "delete_calendar_event": {
       const id = requireId(input);
-      if (!d.deleteCalendarEvent(id)) throw new Error(`calendar event #${id} not found`);
+      if (!d.deleteCalendarEvent(id, origin)) throw new Error(`calendar event #${id} not found`);
       return { deleted: id };
     }
 
     case "update_settings": {
-      const applied = d.updateSettings(input as SettingsUpdateInput);
+      const applied = d.updateSettings(input as SettingsUpdateInput, origin);
       if (Object.keys(applied).length === 0) {
         throw new Error("no recognized settings fields to update");
       }
@@ -1230,7 +1237,7 @@ async function runToolAsSent(
       // still surfaces as "unknown tool" rather than resolving silently.
       if (isDocumentTool(name)) {
         refuseHiddenDecisionSection(name, input, d);
-        return runDocumentTool(d, name, input);
+        return runDocumentTool(d, name, input, origin);
       }
       throw new Error(`unknown tool: ${name}`);
   }

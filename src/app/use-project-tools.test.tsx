@@ -17,6 +17,7 @@ import { useUndoStack, type CaptureCompositeOpts } from "./undo/use-undo-stack";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import { useWorkspace } from "./workspace-context";
+import { aiOrigin } from "./activity-origin";
 
 const STORED: ProjectMeta = {
   name: "Apollo",
@@ -48,14 +49,14 @@ function mount(opts: { writer?: Writer; isReadOnly?: boolean; epoch?: { value: n
   const writer = vi.fn<Writer>(opts.writer ?? (async () => true));
   const projectWriterRef = { current: writer as Writer | null };
   const epoch = opts.epoch ?? { value: 0 };
-  const logActivityAs = vi.fn();
+  const logActivityAi = vi.fn();
   const captureComposite = vi.fn<(o: CaptureCompositeOpts) => void>();
   const showToast = vi.fn();
   const view = renderHook(
     () => ({
       dispatcher: useChatDispatcher(makeDispatcherArgs({
         isReadOnly: opts.isReadOnly ?? false,
-        logActivityAs,
+        logActivityAi,
         undo: { captureComposite },
         projectWriterRef,
         getScopeEpoch: () => epoch.value,
@@ -66,7 +67,7 @@ function mount(opts: { writer?: Writer; isReadOnly?: boolean; epoch?: { value: n
     }),
     { wrapper: dispatcherWrapperWith({ project: STORED }) },
   );
-  return { ...view, writer, logActivityAs, captureComposite, showToast, epoch };
+  return { ...view, writer, logActivityAi, captureComposite, showToast, epoch };
 }
 
 /** The one undo fragment the AI update captured, driven the way `compositeUndoRunner` drives a lone fragment:
@@ -86,7 +87,7 @@ describe("useProjectTools — updateProjectMeta (§715)", () => {
     const h = mount();
     let stored: ProjectMeta | undefined;
     await act(async () => {
-      stored = await h.result.current.dispatcher.updateProjectMeta(NEXT);
+      stored = await h.result.current.dispatcher.updateProjectMeta(NEXT, aiOrigin("chat"));
     });
     expect(h.writer).toHaveBeenCalledTimes(1);
     expect(h.writer).toHaveBeenCalledWith(NEXT);
@@ -99,13 +100,13 @@ describe("useProjectTools — updateProjectMeta (§715)", () => {
     const h = mount({ writer: async () => false });
     let error: unknown;
     await act(async () => {
-      await h.result.current.dispatcher.updateProjectMeta(NEXT).catch((e: unknown) => { error = e; });
+      await h.result.current.dispatcher.updateProjectMeta(NEXT, aiOrigin("chat")).catch((e: unknown) => { error = e; });
     });
     expect(h.writer).toHaveBeenCalledTimes(1);
     expect((error as Error).message).toBe(SAVE_FAILED);
     expect(h.result.current.dispatcher.getProjectMeta()).toBe(STORED);
     expect(h.result.current.ws.project).toBe(STORED);
-    expect(h.logActivityAs).not.toHaveBeenCalled();
+    expect(h.logActivityAi).not.toHaveBeenCalled();
     expect(h.captureComposite).not.toHaveBeenCalled();
   });
 
@@ -115,19 +116,19 @@ describe("useProjectTools — updateProjectMeta (§715)", () => {
     const h = mount({ epoch, writer: async () => { epoch.value = 2; return true; } });
     let error: unknown;
     await act(async () => {
-      await h.result.current.dispatcher.updateProjectMeta(NEXT).catch((e: unknown) => { error = e; });
+      await h.result.current.dispatcher.updateProjectMeta(NEXT, aiOrigin("chat")).catch((e: unknown) => { error = e; });
     });
     expect((error as Error).message).toBe(SCOPE_MOVED);
     // The result is discarded: the record read back is not the one written for the other project.
     expect(h.result.current.dispatcher.getProjectMeta()).toBe(STORED);
-    expect(h.logActivityAs).not.toHaveBeenCalled();
+    expect(h.logActivityAi).not.toHaveBeenCalled();
     expect(h.captureComposite).not.toHaveBeenCalled();
   });
 
   test("an unmoved scope epoch around the write is not a switch", async () => {
     const h = mount({ epoch: { value: 7 } });
     await act(async () => {
-      await h.result.current.dispatcher.updateProjectMeta(NEXT);
+      await h.result.current.dispatcher.updateProjectMeta(NEXT, aiOrigin("chat"));
     });
     expect(h.result.current.dispatcher.getProjectMeta()).toBe(NEXT);
   });
@@ -136,7 +137,7 @@ describe("useProjectTools — updateProjectMeta (§715)", () => {
     const h = mount({ isReadOnly: true });
     let error: unknown;
     await act(async () => {
-      await h.result.current.dispatcher.updateProjectMeta(NEXT).catch((e: unknown) => { error = e; });
+      await h.result.current.dispatcher.updateProjectMeta(NEXT, aiOrigin("chat")).catch((e: unknown) => { error = e; });
     });
     expect((error as Error).message).toBe(READ_ONLY);
     expect(h.writer).not.toHaveBeenCalled();
@@ -150,13 +151,13 @@ describe("useProjectTools — updateProjectMeta (§715)", () => {
       () => useChatDispatcher(makeDispatcherArgs({ projectWriterRef: ref, getScopeEpoch: () => 0 })),
       { wrapper: dispatcherWrapperWith({ project: STORED }) },
     );
-    await expect(view.result.current.updateProjectMeta(NEXT)).rejects.toThrow(SAVE_FAILED);
+    await expect(view.result.current.updateProjectMeta(NEXT, aiOrigin("chat"))).rejects.toThrow(SAVE_FAILED);
     expect(h.writer).not.toHaveBeenCalled();
   });
 
   test("update_project through runTool relays the failure to the model", async () => {
     const h = mount({ writer: async () => false });
-    const call = runTool(h.result.current.dispatcher, "update_project", { expectedToken: entityToken("project", STORED), customer: "Globex" });
+    const call = runTool(h.result.current.dispatcher, "update_project", { expectedToken: entityToken("project", STORED), customer: "Globex" }, aiOrigin("chat"));
     await expect(act(async () => { await call; })).rejects.toThrow(SAVE_FAILED);
   });
 });
@@ -168,14 +169,14 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
 
   test("a successful AI update logs project.updated with the changed fields", async () => {
     const h = mount();
-    await act(async () => { await h.result.current.dispatcher.updateProjectMeta(TWO_FIELDS); });
-    expect(h.logActivityAs).toHaveBeenCalledTimes(1);
-    expect(h.logActivityAs).toHaveBeenCalledWith("ai", "project.updated", "customer, endDate");
+    await act(async () => { await h.result.current.dispatcher.updateProjectMeta(TWO_FIELDS, aiOrigin("chat")); });
+    expect(h.logActivityAi).toHaveBeenCalledTimes(1);
+    expect(h.logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "project.updated", "customer, endDate");
   });
 
   test("a successful AI update captures one project undo entry, stamped with the UNDO epoch it was read in", async () => {
     const h = mount({ epoch: { value: 4 }, undoEpoch: { value: 7 } });
-    await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT); });
+    await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT, aiOrigin("chat")); });
     expect(h.captureComposite).toHaveBeenCalledTimes(1);
     expect(h.captureComposite.mock.calls[0][0]).toMatchObject({
       kind: "project.updated", entityKey: "project", primaryCount: 1, name: "Apollo", readEpoch: 7,
@@ -184,14 +185,14 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
 
   test("an update that changes nothing logs nothing and captures nothing", async () => {
     const h = mount();
-    await act(async () => { await h.result.current.dispatcher.updateProjectMeta({ ...STORED }); });
-    expect(h.logActivityAs).not.toHaveBeenCalled();
+    await act(async () => { await h.result.current.dispatcher.updateProjectMeta({ ...STORED }, aiOrigin("chat")); });
+    expect(h.logActivityAi).not.toHaveBeenCalled();
     expect(h.captureComposite).not.toHaveBeenCalled();
   });
 
   test("undo after an AI project update restores the previous meta through the writer", async () => {
     const h = mount();
-    await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT); });
+    await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT, aiOrigin("chat")); });
     let redo: () => void = () => {};
     act(() => { redo = capturedRestore(h)(); });
     await settle();
@@ -205,7 +206,7 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
 
   test("undo reverts only the fields the update changed, keeping a later form edit", async () => {
     const h = mount();
-    await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT); });
+    await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT, aiOrigin("chat")); });
     act(() => h.result.current.ws.setProject({ ...NEXT, description: "Edited in the form" }));
     act(() => { capturedRestore(h)(); });
     await settle();
@@ -221,7 +222,7 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
 
     test("undo drops Claude's GDPR and keeps the form's NIS2", async () => {
       const h = mount();
-      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(WITH_GDPR); });
+      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(WITH_GDPR, aiOrigin("chat")); });
       act(() => h.result.current.ws.setProject(FORM_ADDED));
       act(() => { capturedRestore(h)(); });
       await settle();
@@ -230,7 +231,7 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
 
     test("redo puts GDPR back and still keeps NIS2", async () => {
       const h = mount();
-      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(WITH_GDPR); });
+      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(WITH_GDPR, aiOrigin("chat")); });
       act(() => h.result.current.ws.setProject(FORM_ADDED));
       let redo: () => void = () => {};
       act(() => { redo = capturedRestore(h)(); });
@@ -243,7 +244,7 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
 
     test("a non-racing undo restores exactly the before value", async () => {
       const h = mount();
-      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(WITH_GDPR); });
+      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(WITH_GDPR, aiOrigin("chat")); });
       act(() => { capturedRestore(h)(); });
       await settle();
       expect(h.writer.mock.calls[1][0]).toEqual(STORED);
@@ -254,7 +255,7 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
     clearDiagLog();
     let calls = 0;
     const h = mount({ writer: async () => { calls += 1; return calls === 1; } });
-    await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT); });
+    await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT, aiOrigin("chat")); });
     act(() => { capturedRestore(h)(); });
     await settle();
     expect(readDiagLog().some((e) => e.code === "undo.projectRestoreFailed")).toBe(true);
@@ -265,7 +266,7 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
     clearDiagLog();
     let calls = 0;
     const h = mount({ writer: async () => { calls += 1; if (calls > 1) throw new Error("boom"); return true; } });
-    await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT); });
+    await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT, aiOrigin("chat")); });
     act(() => { capturedRestore(h)(); });
     await settle();
     expect(h.showToast).toHaveBeenCalledWith("error", expect.stringContaining("boom"));
@@ -293,7 +294,7 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
 
     test("Ctrl+Z writes the previous record through the writer", async () => {
       const h = mountWithStack({ value: 1 });
-      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT); });
+      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT, aiOrigin("chat")); });
       expect(h.result.current.undo.stack.map((m) => m.label)).toEqual(['Edit project "Apollo"']);
       act(() => h.result.current.undo.undo());
       await settle();
@@ -305,7 +306,7 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
     // must be stamped with that reader, not the plain scope epoch.
     test("an AI update is undoable when the undo epoch differs from the scope epoch", async () => {
       const h = mountWithStack({ value: 1 }, { value: 4 });
-      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT); });
+      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT, aiOrigin("chat")); });
       expect(h.result.current.undo.stack).toHaveLength(1);
       act(() => h.result.current.undo.undo());
       await settle();
@@ -316,14 +317,14 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
       const undoEpoch = { value: 4 };
       const h = mountWithStack({ value: 1 }, undoEpoch);
       h.writer.mockImplementation(async () => { undoEpoch.value = 5; return true; });
-      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT); });
+      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT, aiOrigin("chat")); });
       expect(h.result.current.undo.stack).toHaveLength(0);
     });
 
     test("an undo after a project switch writes nothing into the project open now", async () => {
       const epoch = { value: 1 };
       const h = mountWithStack(epoch);
-      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT); });
+      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT, aiOrigin("chat")); });
       epoch.value = 2;
       act(() => h.result.current.undo.undo());
       await settle();
@@ -349,7 +350,7 @@ describe("useProjectTools — a token-less update_project through the real apply
     const rows = stage(h.result.current.ws.project);
     let outcome: Awaited<ReturnType<typeof applyProposal>> | undefined;
     await act(async () => {
-      outcome = await applyProposal({ dispatcher: h.result.current.dispatcher, rows, selected: new Set([0]), batch });
+      outcome = await applyProposal({ dispatcher: h.result.current.dispatcher, rows, selected: new Set([0]), batch, origin: aiOrigin("chatProposal") });
     });
     expect(outcome!.rows[0]).toMatchObject({ ok: true });
     expect(h.writer).toHaveBeenCalledWith({ ...STORED, customer: "Globex" });
@@ -361,7 +362,7 @@ describe("useProjectTools — a token-less update_project through the real apply
     act(() => h.result.current.ws.setProject({ ...STORED, description: "Changed in the form" }));
     let outcome: Awaited<ReturnType<typeof applyProposal>> | undefined;
     await act(async () => {
-      outcome = await applyProposal({ dispatcher: h.result.current.dispatcher, rows, selected: new Set([0]), batch });
+      outcome = await applyProposal({ dispatcher: h.result.current.dispatcher, rows, selected: new Set([0]), batch, origin: aiOrigin("chatProposal") });
     });
     expect(outcome!.rows[0]).toMatchObject({ ok: false, stale: true });
     expect(h.writer).not.toHaveBeenCalled();

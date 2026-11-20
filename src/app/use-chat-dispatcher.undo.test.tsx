@@ -22,6 +22,7 @@ import {
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { capturePart, useUndoStack } from "./undo/use-undo-stack";
 import { useWorkspace } from "./workspace-context";
+import { aiOrigin } from "./activity-origin";
 
 // ★★★ THE MINTER IS MODULE-SCOPED, so a create in one test raises the mark for
 // every later one and a hardcoded minted id is order-dependent. `mintId` takes
@@ -81,7 +82,7 @@ describe("AI writes capture undo", () => {
         taskName: "Third",
         assignee: "M. Bennett",
         dueDate: "2026-09-30",
-      });
+      }, aiOrigin("chat"));
     });
 
     // ★ POSITIVE OBSERVABLE FIRST — a `not.toHaveBeenCalled()` is vacuous when
@@ -112,7 +113,7 @@ describe("AI writes capture undo", () => {
     //   either way — the build-vs-tsc split AGENTS.md warns about).
     let updated: Task | null | undefined;
     act(() => {
-      updated = result.current.updateTask(2, { taskName: "After" });
+      updated = result.current.updateTask(2, { taskName: "After" }, aiOrigin("chat"));
     });
 
     // Positive observable: the edit really landed, so what follows is an
@@ -279,7 +280,7 @@ function ids(rows: readonly { id: number }[]): number[] {
 const SITES: SiteRow[] = [
   {
     site: "updateTask",
-    act: (d) => { d.updateTask(2, { taskName: "After" }); },
+    act: (d) => { d.updateTask(2, { taskName: "After" }, aiOrigin("chat")); },
     verify: (d) => { expect(d.getTask(2)?.taskName).toBe("After"); },
     restored: (d) => {
       expect(d.getTask(2)?.taskName).toBe("Before");
@@ -289,7 +290,7 @@ const SITES: SiteRow[] = [
   },
   {
     site: "setTaskDependencies",
-    act: (d) => { d.setTaskDependencies(2, [{ taskId: 1, type: "FS" }]); },
+    act: (d) => { d.setTaskDependencies(2, [{ taskId: 1, type: "FS" }], aiOrigin("chat")); },
     verify: (d) => { expect(d.getTask(2)?.dependencies?.length).toBe(1); },
     // ★ `seedTask` sets no `dependencies` key at all, so the pre-op image has
     //   none and a correct revert leaves the field undefined. A merged-row
@@ -302,7 +303,7 @@ const SITES: SiteRow[] = [
   },
   {
     site: "deleteTask",
-    act: (d) => { d.deleteTask(2); },
+    act: (d) => { d.deleteTask(2, aiOrigin("chat")); },
     verify: (d) => {
       expect(d.getTask(2)).toBeNull();
       // ★★ THE CASCADE RAN, AND RAN TARGETED. Task 3's inbound link to the
@@ -335,7 +336,7 @@ const SITES: SiteRow[] = [
   },
   {
     site: "deleteAllTasks",
-    act: (d) => { d.deleteAllTasks(); },
+    act: (d) => { d.deleteAllTasks(aiOrigin("chat")); },
     verify: (d) => { expect(d.listTasks()).toHaveLength(0); },
     // ★★ The one site where the ORDER assertion cannot be satisfied by a
     //   `Math.max(0, -1)` accident: three rows come back, so a head-collapsing
@@ -359,7 +360,7 @@ const SITES: SiteRow[] = [
   },
   {
     site: "updateResource",
-    act: (d) => { d.updateResource(2, { department: "PMO" }); },
+    act: (d) => { d.updateResource(2, { department: "PMO" }, aiOrigin("chat")); },
     verify: (d) => { expect(d.getResourceRow(2)?.department).toBe("PMO"); },
     // ★ `seedResource` sets no `department`, so a correct revert clears it.
     restored: (d) => {
@@ -370,7 +371,7 @@ const SITES: SiteRow[] = [
   },
   {
     site: "deleteResource",
-    act: (d) => { d.deleteResource(2); },
+    act: (d) => { d.deleteResource(2, aiOrigin("chat")); },
     verify: (d) => { expect(d.getResourceRow(2)).toBeNull(); },
     restored: (d) => {
       expect(ids(d.listResources())).toEqual([1, 2, 3]);
@@ -380,7 +381,7 @@ const SITES: SiteRow[] = [
   },
   {
     site: "updateRaid",
-    act: (d) => { d.updateRaid(2, { title: "After" }); },
+    act: (d) => { d.updateRaid(2, { title: "After" }, aiOrigin("chat")); },
     verify: (d) => { expect(d.getRaidRow(2)?.title).toBe("After"); },
     restored: (d) => {
       expect(d.getRaidRow(2)?.title).toBe("R2");
@@ -390,7 +391,7 @@ const SITES: SiteRow[] = [
   },
   {
     site: "escalateRaid",
-    act: (d) => { d.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); },
+    act: (d) => { d.escalateRaid(2, { email: "jane@example.com", name: "Jane" }, aiOrigin("chat")); },
     verify: (d) => {
       expect(d.getRaidRow(2)?.escalations).toHaveLength(1);
       expect(d.getRaidRow(2)?.severity).toBe("Critical");
@@ -415,7 +416,7 @@ const SITES: SiteRow[] = [
   },
   {
     site: "deleteRaid",
-    act: (d) => { d.deleteRaid(2); },
+    act: (d) => { d.deleteRaid(2, aiOrigin("chat")); },
     verify: (d) => { expect(d.getRaidRow(2)).toBeNull(); },
     restored: (d) => {
       expect(ids(d.listRaid())).toEqual([1, 2, 3]);
@@ -425,7 +426,7 @@ const SITES: SiteRow[] = [
   },
   {
     site: "updateChange",
-    act: (d) => { d.updateChange(2, { title: "After" }); },
+    act: (d) => { d.updateChange(2, { title: "After" }, aiOrigin("chat")); },
     verify: (d) => { expect(d.getChangeRow(2)?.title).toBe("After"); },
     restored: (d) => {
       expect(d.getChangeRow(2)?.title).toBe("C2");
@@ -435,7 +436,7 @@ const SITES: SiteRow[] = [
   },
   {
     site: "deleteChange",
-    act: (d) => { d.deleteChange(2); },
+    act: (d) => { d.deleteChange(2, aiOrigin("chat")); },
     verify: (d) => { expect(d.getChangeRow(2)).toBeNull(); },
     restored: (d) => {
       expect(ids(d.listChanges())).toEqual([1, 2, 3]);
@@ -445,7 +446,7 @@ const SITES: SiteRow[] = [
   },
   {
     site: "updateMilestone",
-    act: (d) => { d.updateMilestone(2, { name: "After" }); },
+    act: (d) => { d.updateMilestone(2, { name: "After" }, aiOrigin("chat")); },
     verify: (d) => { expect(d.getMilestoneRow(2)?.name).toBe("After"); },
     restored: (d) => {
       expect(d.getMilestoneRow(2)?.name).toBe("M2");
@@ -455,7 +456,7 @@ const SITES: SiteRow[] = [
   },
   {
     site: "deleteMilestone",
-    act: (d) => { d.deleteMilestone(2); },
+    act: (d) => { d.deleteMilestone(2, aiOrigin("chat")); },
     verify: (d) => { expect(d.getMilestoneRow(2)).toBeNull(); },
     restored: (d) => {
       expect(ids(d.listMilestones())).toEqual([1, 2, 3]);
@@ -465,7 +466,7 @@ const SITES: SiteRow[] = [
   },
   {
     site: "updateStakeholder",
-    act: (d) => { d.updateStakeholder(2, { name: "After" }); },
+    act: (d) => { d.updateStakeholder(2, { name: "After" }, aiOrigin("chat")); },
     verify: (d) => { expect(d.getStakeholderRow(2)?.name).toBe("After"); },
     restored: (d) => {
       expect(d.getStakeholderRow(2)?.name).toBe("S2");
@@ -475,7 +476,7 @@ const SITES: SiteRow[] = [
   },
   {
     site: "deleteStakeholder",
-    act: (d) => { d.deleteStakeholder(2); },
+    act: (d) => { d.deleteStakeholder(2, aiOrigin("chat")); },
     verify: (d) => { expect(d.getStakeholderRow(2)).toBeNull(); },
     restored: (d) => {
       expect(ids(d.listStakeholders())).toEqual([1, 2, 3]);
@@ -534,7 +535,7 @@ describe("every AI update and delete captures undo", () => {
       { wrapper: dispatcherWrapperWith(SEED) },
     );
 
-    act(() => { result.current.updateRaid(2, { title: "After" }); });
+    act(() => { result.current.updateRaid(2, { title: "After" }, aiOrigin("chat")); });
     expect(result.current.getRaidRow(2)?.title).toBe("After");
 
     const opts = captureComposite.mock.calls[0][0];
@@ -555,7 +556,7 @@ describe("every AI update and delete captures undo", () => {
       { wrapper: dispatcherWrapperWith(SEED) },
     );
 
-    act(() => { result.current.deleteChange(2); });
+    act(() => { result.current.deleteChange(2, aiOrigin("chat")); });
     expect(result.current.listChanges().map((c) => c.id)).toEqual([1, 3]);
 
     const opts = captureComposite.mock.calls[0][0];
@@ -614,7 +615,7 @@ const CREATE_SITES: CreateRow[] = [
     //   the reason the site list in this file is built from the code and not
     //   from one file's method names.
     create: (d) => {
-      const row = d.createResource({ firstName: "Ida", lastName: "Rhodes" });
+      const row = d.createResource({ firstName: "Ida", lastName: "Rhodes" }, aiOrigin("chat"));
       return { id: row.id, name: row.firstName };
     },
     name: "Ida",
@@ -623,7 +624,7 @@ const CREATE_SITES: CreateRow[] = [
   {
     site: "createRaid",
     create: (d) => {
-      const row = d.createRaid({ category: "R", title: "R4" });
+      const row = d.createRaid({ category: "R", title: "R4" }, aiOrigin("chat"));
       return { id: row.id, name: row.title };
     },
     name: "R4",
@@ -632,7 +633,7 @@ const CREATE_SITES: CreateRow[] = [
   {
     site: "createChange",
     create: (d) => {
-      const row = d.createChange({ title: "C4" });
+      const row = d.createChange({ title: "C4" }, aiOrigin("chat"));
       return { id: row.id, name: row.title };
     },
     name: "C4",
@@ -644,7 +645,7 @@ const CREATE_SITES: CreateRow[] = [
     //   milestone without one — a name-only input throws rather than creating,
     //   and the absence assertion would then be the vacuity it is meant to catch.
     create: (d) => {
-      const row = d.createMilestone({ name: "M4", date: "2026-07-31" });
+      const row = d.createMilestone({ name: "M4", date: "2026-07-31" }, aiOrigin("chat"));
       return { id: row.id, name: row.name };
     },
     name: "M4",
@@ -653,7 +654,7 @@ const CREATE_SITES: CreateRow[] = [
   {
     site: "createStakeholder",
     create: (d) => {
-      const row = d.createStakeholder({ name: "S4" });
+      const row = d.createStakeholder({ name: "S4" }, aiOrigin("chat"));
       return { id: row.id, name: row.name };
     },
     name: "S4",
@@ -777,7 +778,7 @@ describe("AI writes round-trip through the real undo stack", () => {
     expect(result.current.undo.stack).toHaveLength(0);
 
     act(() => {
-      result.current.dispatcher.updateTask(2, { blockers: "Vendor delay" });
+      result.current.dispatcher.updateTask(2, { blockers: "Vendor delay" }, aiOrigin("chat"));
     });
 
     // Positive observable: the write landed, through the blocker log.
@@ -787,7 +788,7 @@ describe("AI writes round-trip through the real undo stack", () => {
 
     // Control: the same write plus a real field DOES push one entry.
     act(() => {
-      result.current.dispatcher.updateTask(2, { blockers: "Legal review", priority: "High" });
+      result.current.dispatcher.updateTask(2, { blockers: "Legal review", priority: "High" }, aiOrigin("chat"));
     });
     expect(result.current.undo.stack).toHaveLength(1);
   });
@@ -801,7 +802,7 @@ describe("AI writes round-trip through the real undo stack", () => {
 
     // TWO fields, so the round trip cannot pass by reverting a single one.
     act(() => {
-      result.current.dispatcher.updateTask(2, { taskName: "After", priority: "High" });
+      result.current.dispatcher.updateTask(2, { taskName: "After", priority: "High" }, aiOrigin("chat"));
     });
 
     expect(result.current.dispatcher.getTask(2)?.taskName).toBe("After");
@@ -835,7 +836,7 @@ describe("AI writes round-trip through the real undo stack", () => {
     // ★ id 2 of 1-2-3. Deleting the head or the tail makes index 0 (or `length`)
     //   accidentally correct, so such a fixture cannot tell a correct restore
     //   index from a `Math.max(0, -1)` fallback — the middle row can.
-    act(() => { result.current.dispatcher.deleteTask(2); });
+    act(() => { result.current.dispatcher.deleteTask(2, aiOrigin("chat")); });
 
     expect(result.current.dispatcher.listTasks().map((row) => row.id)).toEqual([1, 3]);
     expect(result.current.undo.stack).toHaveLength(1);
@@ -866,7 +867,7 @@ describe("AI writes round-trip through the real undo stack", () => {
 
   test("undoing an AI escalation removes its note, and redo re-applies entry, note and severity", () => {
     const { result } = renderRealUndo(SEED);
-    act(() => { result.current.dispatcher.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); });
+    act(() => { result.current.dispatcher.escalateRaid(2, { email: "jane@example.com", name: "Jane" }, aiOrigin("chat")); });
     const written = result.current.dispatcher.getRaidRow(2);
     expect(written?.noteLog).toHaveLength(1);
     expect(written?.escalations).toHaveLength(1);
@@ -888,7 +889,7 @@ describe("AI writes round-trip through the real undo stack", () => {
 
   test("a HUMAN note added after an AI escalation survives its undo and its redo", () => {
     const { result } = renderRealUndo(SEED);
-    act(() => { result.current.dispatcher.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); });
+    act(() => { result.current.dispatcher.escalateRaid(2, { email: "jane@example.com", name: "Jane" }, aiOrigin("chat")); });
     const aiNote = result.current.dispatcher.getRaidRow(2)?.noteLog?.[0];
     expect(aiNote?.authorName).toBe("AI created");
 
@@ -924,7 +925,7 @@ describe("AI writes round-trip through the real undo stack", () => {
     };
     const { result } = renderRealUndo(seed);
     expect(result.current.dispatcher.getRaidRow(2)?.noteLog).toEqual([dup, dup]); // the seed landed as-is
-    act(() => { result.current.dispatcher.escalateRaid(2, { email: "jane@example.com", name: "Jane" }); });
+    act(() => { result.current.dispatcher.escalateRaid(2, { email: "jane@example.com", name: "Jane" }, aiOrigin("chat")); });
     const aiNote = result.current.dispatcher.getRaidRow(2)?.noteLog?.[2];
     expect(aiNote?.authorName).toBe("AI created");
     act(() => {
@@ -1001,7 +1002,7 @@ describe("capturing a create would duplicate the row", () => {
         taskName: "Third",
         assignee: "M. Bennett",
         dueDate: "2026-09-30",
-      });
+      }, aiOrigin("chat"));
     });
 
     expect(created?.id).toBe(3);
@@ -1073,7 +1074,7 @@ describe("an AI write that would close a RAID cause cycle (§674)", () => {
     // resync from state and so hide a tool that skipped the guard.
     let sameTurn: readonly number[] | undefined;
     act(() => {
-      result.current.dispatcher.updateRaid(1, { title: "R1 edited", causedByRaidIds: [2] });
+      result.current.dispatcher.updateRaid(1, { title: "R1 edited", causedByRaidIds: [2] }, aiOrigin("chat"));
       sameTurn = result.current.dispatcher.getRaidRow(1)?.causedByRaidIds;
     });
     expect(sameTurn).toEqual([]);
@@ -1095,7 +1096,7 @@ describe("an AI write that would close a RAID cause cycle (§674)", () => {
     let created: { id: number } | null = null;
     let sameTurn: readonly number[] | undefined;
     act(() => {
-      created = result.current.dispatcher.createRaid({ category: "R", title: "R3", status: "Open", causedByRaidIds: [2] });
+      created = result.current.dispatcher.createRaid({ category: "R", title: "R3", status: "Open", causedByRaidIds: [2] }, aiOrigin("chat"));
       sameTurn = created ? result.current.dispatcher.getRaidRow(created.id)?.causedByRaidIds : undefined;
     });
     expect(created).toMatchObject({ id: 3 });

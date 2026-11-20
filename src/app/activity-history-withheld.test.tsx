@@ -15,6 +15,7 @@ import { stringifyResult } from "./chat-api";
 import { runTool, type ToolDispatcher } from "./chat-tools";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
 import { withheldActivityField } from "./ai-withheld-fields";
+import { aiOrigin } from "./activity-origin";
 
 function manualEdit<T extends object>(kind: ActivityKind, previous: T, next: T, ...args: (string | number)[]): ActivityEntry[] {
   return appendActivityEntry([], kind, args, diffFields(previous, next), "user");
@@ -40,7 +41,7 @@ async function searchHistoryText(log: readonly ActivityEntry[], input: Record<st
     isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false,
     getTimezone: () => "UTC",
   } as unknown as ToolDispatcher;
-  return stringifyResult(await runTool(d, "search_history", input));
+  return stringifyResult(await runTool(d, "search_history", input, aiOrigin("chat")));
 }
 
 describe("search_history leaves out logged changes to withheld fields (AI-05)", () => {

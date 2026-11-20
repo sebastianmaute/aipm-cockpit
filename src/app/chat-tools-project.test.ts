@@ -4,6 +4,7 @@ import { PROJECT_TOOL_DEFS } from "./chat-tool-defs-project";
 import { NOT_PROJECT_TOOL, runProjectTool, type ProjectToolDispatcher } from "./chat-tools-project";
 import { PROJECT_AI_EXCLUDED, PROJECT_AI_FIELDS } from "./project-ai-fields";
 import type { ProjectMeta } from "./types";
+import { aiOrigin } from "./activity-origin";
 
 const STORED: ProjectMeta = {
   name: "Apollo",
@@ -35,7 +36,7 @@ function fake(stored: ProjectMeta | null = STORED) {
 
 /** The handled branch of `runProjectTool`, awaited; a name it does not own fails the test. */
 async function call(name: string, input: Record<string, unknown>, d: ProjectToolDispatcher) {
-  const result = runProjectTool(name, input, d);
+  const result = runProjectTool(name, input, d, aiOrigin("chat"));
   if (result === NOT_PROJECT_TOOL) throw new Error(`${name} was not routed`);
   return (await result) as Record<string, unknown>;
 }
@@ -141,7 +142,7 @@ describe("the project token", () => {
 describe("routing", () => {
   it("returns the sentinel for a name it does not own, without touching the dispatcher", () => {
     const d = fake();
-    expect(runProjectTool("list_tasks", {}, d)).toBe(NOT_PROJECT_TOOL);
+    expect(runProjectTool("list_tasks", {}, d, aiOrigin("chat"))).toBe(NOT_PROJECT_TOOL);
     expect(d.getProjectMeta).not.toHaveBeenCalled();
   });
 });

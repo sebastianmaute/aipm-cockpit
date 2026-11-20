@@ -23,6 +23,7 @@ import {
 } from "./chat-tools";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 import { projectForInlineEdit } from "./inline-ai-edit/projection";
+import { aiOrigin } from "./activity-origin";
 
 /** A value found nowhere else in the workspace. An e-mail field holds an address-shaped one. */
 function secret(entity: string, field: string, version = "a"): string {
@@ -128,7 +129,7 @@ describe("no withheld value reaches the model (guard)", () => {
   });
 
   it.each(CHAT_CALLS)("chat tool %s", async (name, input) => {
-    const text = stringifyResult(await runTool(dispatcher(editLog()), name, input));
+    const text = stringifyResult(await runTool(dispatcher(editLog()), name, input, aiOrigin("chat")));
     expect(text.length).toBeGreaterThan(20); // control: the tool answered
     for (const s of allSecrets(ENTITIES, false, name !== "search_history")) expect(text, `${name} sent ${s}`).not.toContain(s);
   });

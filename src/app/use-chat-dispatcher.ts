@@ -13,7 +13,7 @@ import {
 import { resourceLogName } from "./chat-tool-summaries";
 import { historySearchEnabled } from "./settings-types";
 import { summarizeForRecap } from "./activity-recap";
-import { aiOrigin } from "./activity-origin";
+import type { AiOrigin } from "./activity-origin";
 import { assertJiraManagedUnchanged, buildTaskCleanPatch } from "./chat-task-patch";
 import { deriveMode, isModuleEnabled, isViewEnabled, sanitizeFeatures } from "./feature-modules";
 import { computeSettingsPatch } from "./chat-settings-patch";
@@ -277,9 +277,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   // (Hoisted as useCallback for Tasks 3/5 ergonomics; other stubs stay inline.)
   // ★ Hoisted to a local const: exhaustive-deps demands the whole `args` object
   // once a callback reads TWO of its members, so depend on the member itself.
-  const logActivityAs = args.logActivityAs;
+  const logActivityAi = args.logActivityAi;
   const sendInquiry = useCallback(
-    (id: number): { sent: boolean; reason?: string } => {
+    (id: number, origin: AiOrigin): { sent: boolean; reason?: string } => {
       if (args.isReadOnly) return { sent: false, reason: "read-only" };
       const task = tasksRef.current.find((row) => row.id === id);
       if (!task) return { sent: false, reason: "task-not-found" };
@@ -316,10 +316,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       // user row describe the same event identically. The EN string's plural
       // wording reads oddly at a count of 1 — that quirk is inherited from the
       // shared kind deliberately; a singular-only kind is not worth minting.
-      logActivityAs?.("ai", "bulk.inquiries", 1);
+      logActivityAi?.(origin, "bulk.inquiries", 1);
       return { sent: true };
     },
-    [args.isReadOnly, logActivityAs, setTasks],
+    [args.isReadOnly, logActivityAi, setTasks],
   );
   const applyFilters = useCallback(
     (f: Filters): void => {
@@ -345,12 +345,12 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const readOnlyError = () =>
     new Error(t(settingsRef.current.language, "popoutReadOnly"));
 
-  const documentTools = useDocumentTools(args.isReadOnly, args.logActivityAs, args.allowDestructiveSave);
+  const documentTools = useDocumentTools(args.isReadOnly, args.logActivityAi, args.allowDestructiveSave);
   // ★ The two refs are PASSED, not re-minted there — use-register-tools.ts's
   // header says why. Its own four register refs live in that file.
   const registerTools = useRegisterTools({
     isReadOnly: args.isReadOnly,
-    logActivityAs: args.logActivityAs,
+    logActivityAi: args.logActivityAi,
     allowDestructiveSave: args.allowDestructiveSave,
     clockRef,
     settingsRef,
@@ -371,7 +371,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   // `forecastSimulation`, so what the request offers and what the executor serves are one predicate.
   const forecastTools = useForecastTools({
     isReadOnly: args.isReadOnly,
-    logActivityAs: args.logActivityAs,
+    logActivityAi: args.logActivityAi,
     settingsRef,
     featuresRef,
     undoRef,
@@ -385,7 +385,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   // header says why it cannot be a `setProject` here.
   const projectTools = useProjectTools({
     isReadOnly: args.isReadOnly,
-    logActivityAs: args.logActivityAs,
+    logActivityAi: args.logActivityAi,
     settingsRef,
     undoRef,
     projectWriterRef: args.projectWriterRef,
@@ -393,9 +393,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     getUndoEpoch: args.getUndoEpoch,
     showToast: args.showToast,
   });
-  // ★★★ Every writer below ends its SUCCESS path with one `logActivityAs?.`
+  // ★★★ Every writer below ends its SUCCESS path with one `logActivityAi?.`
   // call, AFTER the setter and AFTER every reject guard. Arity is UNCHECKED by
-  // the type system and is NOT uniform across kinds — read `logActivityAs` on
+  // the type system and is NOT uniform across kinds — read `logActivityAi` on
   // `ChatDispatcherArgs` before adding or editing one.
 
   // AI people protection: a STABLE getter over the open project's live setting (the transport's own source).
@@ -427,7 +427,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const ws = backstopWorkspace({ tasks: tasksRef.current, milestones: milestonesRef.current, resources, absences });
         return callAbsenceClashes({ name, input }, ws, { absences, resources, holidaySet: holidaySetRef.current });
       },
-      createTask: (input) => {
+      createTask: (input, origin) => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
         const list = tasksRef.current;
         const id = mintId("task", list);
@@ -488,10 +488,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         //   rows, creating a third and undoing yields FOUR rows. Adding a
         //   capture here is a regression, not a completion of the pattern.
         setTasks(next);
-        args.logActivityAs?.("ai", "task.created", newTask.id, newTask.taskName);
+        args.logActivityAi?.(origin, "task.created", newTask.id, newTask.taskName);
         return newTask;
       },
-      updateTask: (id, modelPatch) => {
+      updateTask: (id, modelPatch, origin) => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
         const existing = tasksRef.current.find((row) => row.id === id);
         if (!existing) return null;
@@ -566,15 +566,15 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         }
         tasksRef.current = next;
         setTasks(next);
-        // §799 Task 3 threads the real per-call origin; until then the chat names itself with no link.
-        hoursStep?.commit(aiOrigin("chat"));
-        args.logActivityAs?.("ai", "task.updated", merged.id, merged.taskName);
+        // §799 — the hours move names the same AI feature as the update that caused it.
+        hoursStep?.commit(origin);
+        args.logActivityAi?.(origin, "task.updated", merged.id, merged.taskName);
         // ★ The `"ai"` actor is required: this file logs MODEL writes, and
         // threading the user actor here would misattribute them.
-        if (transition) args.logActivityAs?.("ai", transition, merged.id, merged.taskName);
+        if (transition) args.logActivityAi?.(origin, transition, merged.id, merged.taskName);
         return merged;
       },
-      setTaskDependencies: (id, raw) => {
+      setTaskDependencies: (id, raw, origin) => {
         if (args.isReadOnly) throw readOnlyError();
         const list = tasksRef.current;
         const target = list.find((row) => row.id === id);
@@ -646,10 +646,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // over this file structurally cannot find. Past BOTH early returns
         // above: each leaves the task untouched, so a row would claim an edit
         // that never landed.
-        args.logActivityAs?.("ai", "task.updated", id, target.taskName);
+        args.logActivityAi?.(origin, "task.updated", id, target.taskName);
         return { id, dependencies: applied, rejected, removed };
       },
-      deleteTask: (id) => {
+      deleteTask: (id, origin) => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
         // `find`, not `some`: the activity row names the task, and after the
         // filter below there is nothing left to read the name off.
@@ -707,7 +707,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           setEditingId(null);
           setForm(emptyForm());
         }
-        args.logActivityAs?.("ai", "task.deleted", doomed.id, doomed.taskName);
+        args.logActivityAi?.(origin, "task.deleted", doomed.id, doomed.taskName);
         // ★★ Arm the one-shot destructive-save bypass ONLY on a real removal.
         //    Tasks count toward the save-time guards, and several delete_task
         //    calls in one assistant turn land in a single save debounce window
@@ -726,7 +726,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // hook's own list is synced only after commit (cold-review C5).
         return openWbsPlanRef.current({ ...req, liveTasks: tasksRef.current });
       },
-      deleteAllTasks: () => {
+      deleteAllTasks: (origin) => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
         const count = tasksRef.current.length;
         // Captured ABOVE the reassignment, so `fromArray` is the pre-op array
@@ -742,7 +742,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
             // the distinction is the ACTIVITY vocabulary versus the UNDO one.
             // The human mass delete keeps them apart deliberately
             // (`use-bulk-operations.ts`): it CAPTURES `task.deleted` with a
-            // count and LOGS `bulk.delete` separately — see the `logActivityAs`
+            // count and LOGS `bulk.delete` separately — see the `logActivityAi`
             // call below, which still uses the activity kind and is correct.
             // Reusing the activity kind here made this the first thing in the
             // codebase ever to hand `pushEntry` a `bulk.delete`, and both
@@ -784,7 +784,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // still right; only the reason was stale. An undo entry expires with
         // the session, so the activity row remains the durable account.
         if (count > 0) {
-          args.logActivityAs?.("ai", "bulk.delete", count);
+          args.logActivityAi?.(origin, "bulk.delete", count);
           // Clearing every task is the archetypal case the bypass exists for.
           // Gated on `count > 0` for the same reason the activity row is:
           // deleting nothing is not a delete, and arming for it leaks a
@@ -795,18 +795,18 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       },
       sendInquiry,
       setFilters: applyFilters,
-      setLanguage: (l) => {
+      setLanguage: (l, origin) => {
         args.setSettings((s) => ({ ...s, language: l }));
         // A persisted `settings.language` write, so it logs the same kind
         // `updateSettings` does. NO ARGS — "Settings updated" has no
         // placeholder.
-        args.logActivityAs?.("ai", "settings.updated");
+        args.logActivityAi?.(origin, "settings.updated");
         args.onSettingsLoggedByAi?.(); // §160 — suppress the debounced duplicate.
       },
 
       previewSettings: (patch: SettingsUpdateInput) => computeSettingsPatch(patch, settingsRef.current).applied,
 
-      updateSettings: (patch: SettingsUpdateInput) => {
+      updateSettings: (patch: SettingsUpdateInput, origin) => {
         if (args.isReadOnly) throw readOnlyError();
         const cur = settingsRef.current;
         const { changes, applied } = computeSettingsPatch(patch, cur);
@@ -829,7 +829,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           // ★ NO ARGS — "Settings updated" has no placeholder, and the
           // user-side row omits field values too (secrets). Inside the
           // `applied` guard: a patch that changed nothing is not a change.
-          args.logActivityAs?.("ai", "settings.updated");
+          args.logActivityAi?.(origin, "settings.updated");
           // ★ §160 — inside the SAME `applied` guard, so a credit is only ever issued
           //   alongside a real settings-identity change (see its contract note).
           args.onSettingsLoggedByAi?.();
@@ -839,7 +839,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       ...registerTools,
 
       listResources: () => resourcesRef.current.map(toResourceSummary),
-      createResource: (input: ResourceInput) => {
+      createResource: (input: ResourceInput, origin) => {
         if (args.isReadOnly) throw readOnlyError();
         // ★★ §422 — refused BEFORE the id is minted, by the one shared rule
         //  `findTornEmail` (`sanitize-core.ts`) with no stored list: an ARRAY
@@ -870,7 +870,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // create would DUPLICATE the row on undo rather than remove it.
         resourcesRef.current = next;
         setResources(next);
-        args.logActivityAs?.("ai", "resource.created", item.id, resourceLogName(item));
+        args.logActivityAi?.(origin, "resource.created", item.id, resourceLogName(item));
         return toResourceSummary(item);
       },
       getResource: (id: number) => {
@@ -881,7 +881,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       // the model-facing read and returns a SUMMARY, which drops fields an
       // edit can touch — hashing that would be a false PERMIT for each one.
       getResourceRow: (id) => resourcesRef.current.find((r) => r.id === id) ?? null,
-      updateResource: (id: number, patch: Partial<ResourceInput>) => {
+      updateResource: (id: number, patch: Partial<ResourceInput>, origin) => {
         if (args.isReadOnly) throw readOnlyError();
         const existing = resourcesRef.current.find((r) => r.id === id);
         if (!existing) return null;
@@ -990,10 +990,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         });
         resourcesRef.current = next;
         setResources(next);
-        args.logActivityAs?.("ai", "resource.updated", merged.id, resourceLogName(merged));
+        args.logActivityAi?.(origin, "resource.updated", merged.id, resourceLogName(merged));
         return toResourceSummary(merged);
       },
-      deleteResource: (id: number) => {
+      deleteResource: (id: number, origin) => {
         if (args.isReadOnly) throw readOnlyError();
         // §788: the sweep is permanent while a delete made during the load hold is lost with the workspace it edited, so a
         // delete is refused in that window (the epoch only moves once a swap's load has finished, and a Reload never moves it).
@@ -1025,7 +1025,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         });
         resourcesRef.current = next;
         setResources(next);
-        args.logActivityAs?.("ai", "resource.deleted", doomed.id, resourceLogName(doomed));
+        args.logActivityAi?.(origin, "resource.deleted", doomed.id, resourceLogName(doomed));
         args.allowDestructiveSave?.();
         args.onResourcesDeleted?.([doomed.id]);
         return true;
@@ -1131,14 +1131,14 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // Empty deps otherwise: every reactive value is read via a ref. Identity is
     // stable. `documentTools` is a REAL dep, not a ref-routed value — it is
     // itself a useMemo'd object (use-document-tools.ts) that changes identity
-    // when isReadOnly/mutateDocuments/logActivityAs change, and the spread above
+    // when isReadOnly/mutateDocuments/logActivityAi change, and the spread above
     // captures it by closure; omitting it here would freeze the FIRST render's
     // document tools into every later dispatcher even after a popout toggled
     // read-only.
     // ★★ `registerTools` is the SAME SHAPE, and is listed for the same reason —
     // but do NOT read it as load-bearing TODAY, which is what a first draft of
     // this comment claimed. REASONED, not measured: use-register-tools.ts moves
-    // identity on `isReadOnly` or `logActivityAs`, and BOTH already reach this
+    // identity on `isReadOnly` or `logActivityAi`, and BOTH already reach this
     // array — the first directly, the second through `documentTools`, which
     // carries the logger among its own deps. So every trigger that can move
     // `registerTools` already rebuilds this memo.

@@ -20891,7 +20891,7 @@ The two paths that DO log, for contrast:
 
 ```bash
 grep -c 'logActivity("task.updated"' src/app/use-task-submit.ts                 # 3 — the form save
-grep -n 'logActivityAs?.("ai", "task.updated"' src/app/use-chat-dispatcher.ts   # 2 — the AI write tools
+grep -n 'logActivityAi?.(origin, "task.updated"' src/app/use-chat-dispatcher.ts # 2 — the AI write tools
 ```
 
 ★★ **`captureFieldEdit` IS NOT THE LOG, and the two are easy to confuse because the undo entry it

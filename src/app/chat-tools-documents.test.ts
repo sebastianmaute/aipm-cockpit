@@ -4,6 +4,7 @@ import { DOCUMENT_TOOL_DEFS } from "./chat-tool-defs-documents";
 import { sanitizeAiDocumentRichText } from "./ai-rich-text";
 import { blockToken } from "./document-block-token";
 import type { DocBlock } from "./document-model";
+import { aiOrigin } from "./activity-origin";
 
 const doc = {
   id: 1,
@@ -215,7 +216,7 @@ describe("boundary guards", () => {
     // array check deleted this test still passed, on a different error, from a
     // different branch. Measured, not reasoned: weakening requireOps to
     // `return []` left the loose form GREEN.
-    await expect(runDocumentTool(d, "update_document", { id: 1, ops: "delete everything" })).rejects.toThrow(
+    await expect(runDocumentTool(d, "update_document", { id: 1, ops: "delete everything" }, aiOrigin("chat"))).rejects.toThrow(
       /ops must be an array/i,
     );
     expect(d.updateDocument).not.toHaveBeenCalled();
@@ -224,7 +225,7 @@ describe("boundary guards", () => {
     // a dispatcher that could never be reached would satisfy it too. This
     // proves the same dispatcher IS reachable through the same call shape.
     await expect(
-      runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "append", block: { type: "pageBreak" } }] }),
+      runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "append", block: { type: "pageBreak" } }] }, aiOrigin("chat")),
     ).resolves.toMatchObject({ applied: 1 });
     expect(d.updateDocument).toHaveBeenCalledTimes(1);
   });
@@ -238,21 +239,21 @@ describe("boundary guards", () => {
   it("throws on a non-array ops even when a title would otherwise carry the write", async () => {
     const d = makeDispatcher();
     await expect(
-      runDocumentTool(d, "update_document", { id: 1, title: "Renamed", ops: { op: "replaceAll" } }),
+      runDocumentTool(d, "update_document", { id: 1, title: "Renamed", ops: { op: "replaceAll" } }, aiOrigin("chat")),
     ).rejects.toThrow(/ops must be an array/i);
     expect(d.updateDocument).not.toHaveBeenCalled();
     // Paired positive — see the test above.
-    await expect(runDocumentTool(d, "update_document", { id: 1, title: "Renamed" })).resolves.toBeTruthy();
+    await expect(runDocumentTool(d, "update_document", { id: 1, title: "Renamed" }, aiOrigin("chat"))).resolves.toBeTruthy();
     expect(d.updateDocument).toHaveBeenCalledTimes(1);
   });
 
   it("throws when the document does not exist", async () => {
     const d = makeDispatcher({ getDocument: vi.fn(() => null) });
-    await expect(runDocumentTool(d, "get_document", { id: 9 })).rejects.toThrow(/not found/i);
+    await expect(runDocumentTool(d, "get_document", { id: 9 }, aiOrigin("chat"))).rejects.toThrow(/not found/i);
   });
 
   it("requires a numeric id", async () => {
-    await expect(runDocumentTool(makeDispatcher(), "delete_document", {})).rejects.toThrow(
+    await expect(runDocumentTool(makeDispatcher(), "delete_document", {}, aiOrigin("chat"))).rejects.toThrow(
       /id must be a number/i,
     );
   });
@@ -278,7 +279,7 @@ describe("boundary guards", () => {
       // pins is that a partial application's `rejected` list reaches the
       // caller, not the range guard that produced the canned string.
       ops: [{ op: "append", block: { type: "pageBreak" } }, { op: "delete", index: 9, expectHash: "t9" }],
-    });
+    }, aiOrigin("chat"));
     expect(out).toMatchObject({ applied: 1, rejected: ["op 1: delete index 9 out of range"] });
   });
 
@@ -300,7 +301,7 @@ describe("boundary guards", () => {
       // be PRESENT so the refusal under test is the dispatcher's `applied: 0`,
       // not this layer's missing-expectHash guard; the paired
       // `toHaveBeenCalledTimes(1)` below is what proves the difference.
-      runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "delete", index: 9, expectHash: "t9" }] }),
+      runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "delete", index: 9, expectHash: "t9" }] }, aiOrigin("chat")),
     ).rejects.toThrow(/no operation could be applied/i);
     // Paired positive: the throw is the ROUTING layer's, not a failure to
     // reach the dispatcher — it was called, and its refusal is what threw.
@@ -328,31 +329,31 @@ describe("boundary guards", () => {
       // ★ Placeholder token — the dispatcher is mocked, so nothing compares
       // it; it must merely be present to reach the dispatcher at all.
       ops: [{ op: "delete", index: 9, expectHash: "t9" }],
-    });
+    }, aiOrigin("chat"));
     expect(out).toMatchObject({ applied: 0, rejected: ["op 0: delete index 9 out of range"] });
   });
 
   it("renames with no ops at all", async () => {
     const update = vi.fn(() => ({ id: 1, title: "Status", blockCount: 1, applied: 0, rejected: [], removed: 0 }));
     const d = makeDispatcher({ updateDocument: update });
-    await expect(runDocumentTool(d, "update_document", { id: 1, title: "Renamed" })).resolves.toMatchObject({
+    await expect(runDocumentTool(d, "update_document", { id: 1, title: "Renamed" }, aiOrigin("chat"))).resolves.toMatchObject({
       id: 1,
     });
-    expect(update).toHaveBeenCalledWith(1, [], "Renamed");
+    expect(update).toHaveBeenCalledWith(1, [], "Renamed", aiOrigin("chat"));
   });
 
   it("refuses an update that asks for nothing", async () => {
     const d = makeDispatcher();
-    await expect(runDocumentTool(d, "update_document", { id: 1 })).rejects.toThrow(/supply ops, a title/i);
+    await expect(runDocumentTool(d, "update_document", { id: 1 }, aiOrigin("chat"))).rejects.toThrow(/supply ops, a title/i);
     expect(d.updateDocument).not.toHaveBeenCalled();
     // Paired positive — see the non-array test.
-    await expect(runDocumentTool(d, "update_document", { id: 1, title: "T" })).resolves.toBeTruthy();
+    await expect(runDocumentTool(d, "update_document", { id: 1, title: "T" }, aiOrigin("chat"))).resolves.toBeTruthy();
     expect(d.updateDocument).toHaveBeenCalledTimes(1);
   });
 
   it("throws when the document to update does not exist", async () => {
     const d = makeDispatcher({ updateDocument: vi.fn(() => null) });
-    await expect(runDocumentTool(d, "update_document", { id: 9, title: "T" })).rejects.toThrow(/not found/i);
+    await expect(runDocumentTool(d, "update_document", { id: 9, title: "T" }, aiOrigin("chat"))).rejects.toThrow(/not found/i);
   });
 
   // ★★★ THE CHAT FILE CARD'S PARSE CONTRACT, pinned at the seam rather than
@@ -367,7 +368,7 @@ describe("boundary guards", () => {
     const out = (await runDocumentTool(makeDispatcher(), "update_document", {
       id: 1,
       ops: [{ op: "append", block: { type: "pageBreak" } }],
-    })) as { id: number; title: string; blockCount: number };
+    }, aiOrigin("chat"))) as { id: number; title: string; blockCount: number };
 
     expect(Number.isInteger(out.id) && out.id > 0).toBe(true);
     expect(typeof out.title === "string" && out.title.trim().length > 0).toBe(true);
@@ -381,14 +382,14 @@ describe("boundary guards", () => {
     const out = await runDocumentTool(d, "update_document", {
       id: 1,
       ops: [{ op: "replaceAll", blocks: [{ type: "pageBreak" }] }],
-    });
+    }, aiOrigin("chat"));
     expect(out).toMatchObject({ removed: 4 });
   });
 });
 
 describe("the read and create routes", () => {
   it("lists documents", async () => {
-    await expect(runDocumentTool(makeDispatcher(), "list_documents", {})).resolves.toEqual([
+    await expect(runDocumentTool(makeDispatcher(), "list_documents", {}, aiOrigin("chat"))).resolves.toEqual([
       { id: 1, title: "Status", blockCount: 1, updatedAt: doc.updatedAt },
     ]);
   });
@@ -399,7 +400,7 @@ describe("the read and create routes", () => {
   // returned tokens INSTEAD of blocks would satisfy the token test below while
   // making update_document unusable.
   it("reads one document in full", async () => {
-    await expect(runDocumentTool(makeDispatcher(), "get_document", { id: 1 })).resolves.toEqual({
+    await expect(runDocumentTool(makeDispatcher(), "get_document", { id: 1 }, aiOrigin("chat"))).resolves.toEqual({
       ...doc,
       blockTokens: doc.blocks.map(blockToken),
     });
@@ -417,7 +418,7 @@ describe("the read and create routes", () => {
     const marked = { ...doc, aiGenerated: true as const };
     const res = (await runDocumentTool(makeDispatcher({ getDocument: () => marked }), "get_document", {
       id: 1,
-    })) as Record<string, unknown>;
+    }, aiOrigin("chat"))) as Record<string, unknown>;
     expect("aiGenerated" in res).toBe(false);
     expect(res.title).toBe("Status");
   });
@@ -432,7 +433,7 @@ describe("the read and create routes", () => {
     };
     const res = (await runDocumentTool(makeDispatcher({ getDocument: () => twoBlocks }), "get_document", {
       id: 1,
-    })) as { blocks: DocBlock[]; blockTokens: string[] };
+    }, aiOrigin("chat"))) as { blocks: DocBlock[]; blockTokens: string[] };
     expect(res.blockTokens).toEqual(twoBlocks.blocks.map(blockToken));
     // ★ ORDER, not just membership: a token array the model indexes in
     // parallel with `blocks` is wrong in the most dangerous way if it is
@@ -445,12 +446,12 @@ describe("the read and create routes", () => {
 
   it("requires a non-blank title to create", async () => {
     const d = makeDispatcher();
-    await expect(runDocumentTool(d, "create_document", { title: "   " })).rejects.toThrow(
+    await expect(runDocumentTool(d, "create_document", { title: "   " }, aiOrigin("chat"))).rejects.toThrow(
       /title is required/i,
     );
     expect(d.createDocument).not.toHaveBeenCalled();
     // Paired positive — see the non-array test.
-    await expect(runDocumentTool(d, "create_document", { title: "New" })).resolves.toMatchObject({ id: 2 });
+    await expect(runDocumentTool(d, "create_document", { title: "New" }, aiOrigin("chat"))).resolves.toMatchObject({ id: 2 });
     expect(d.createDocument).toHaveBeenCalledTimes(1);
   });
 
@@ -463,30 +464,30 @@ describe("the read and create routes", () => {
     await runDocumentTool(makeDispatcher({ createDocument: create }), "create_document", {
       title: "  New  ",
       blocks,
-    });
-    expect(create).toHaveBeenCalledWith("New", blocks);
+    }, aiOrigin("chat"));
+    expect(create).toHaveBeenCalledWith("New", blocks, aiOrigin("chat"));
   });
 
   it("throws when the document to delete does not exist", async () => {
     const d = makeDispatcher({ deleteDocument: vi.fn(() => ({ deleted: false, restorableVersionId: null })) });
-    await expect(runDocumentTool(d, "delete_document", { id: 9 })).rejects.toThrow(/not found/i);
+    await expect(runDocumentTool(d, "delete_document", { id: 9 }, aiOrigin("chat"))).rejects.toThrow(/not found/i);
   });
 
   it("returns the restorable version id on a delete", async () => {
-    await expect(runDocumentTool(makeDispatcher(), "delete_document", { id: 1 })).resolves.toEqual({
+    await expect(runDocumentTool(makeDispatcher(), "delete_document", { id: 1 }, aiOrigin("chat"))).resolves.toEqual({
       deleted: true,
       restorableVersionId: 7,
     });
   });
 
   it("throws on a name it does not route", async () => {
-    await expect(runDocumentTool(makeDispatcher(), "burn_document", {})).rejects.toThrow(
+    await expect(runDocumentTool(makeDispatcher(), "burn_document", {}, aiOrigin("chat"))).rejects.toThrow(
       /unknown document tool/i,
     );
   });
 
   it("tolerates a non-object input", async () => {
-    await expect(runDocumentTool(makeDispatcher(), "delete_document", "nonsense")).rejects.toThrow(
+    await expect(runDocumentTool(makeDispatcher(), "delete_document", "nonsense", aiOrigin("chat"))).rejects.toThrow(
       /id must be a number/i,
     );
   });
@@ -505,7 +506,7 @@ describe("the read and create routes", () => {
 // tells the user so. Unlike the ops-array case above — which discards rather
 // than destroys — this one loses content.
 describe("per-op payload guards", () => {
-  const update = (ops: unknown) => runDocumentTool(makeDispatcher(), "update_document", { id: 1, ops });
+  const update = (ops: unknown) => runDocumentTool(makeDispatcher(), "update_document", { id: 1, ops }, aiOrigin("chat"));
 
   it("refuses a replaceAll whose blocks field is missing", async () => {
     await expect(update([{ op: "replaceAll" }])).rejects.toThrow(/replaceAll requires a blocks array/i);
@@ -537,8 +538,8 @@ describe("per-op payload guards", () => {
   // refusal case above still passed.
   it("still accepts an EXPLICIT empty replaceAll and reaches the dispatcher", async () => {
     const d = makeDispatcher();
-    await expect(runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "replaceAll", blocks: [] }] })).resolves.toMatchObject({ id: 1 });
-    expect(d.updateDocument).toHaveBeenCalledWith(1, [{ op: "replaceAll", blocks: [] }], undefined);
+    await expect(runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "replaceAll", blocks: [] }] }, aiOrigin("chat"))).resolves.toMatchObject({ id: 1 });
+    expect(d.updateDocument).toHaveBeenCalledWith(1, [{ op: "replaceAll", blocks: [] }], undefined, aiOrigin("chat"));
   });
 
   it("still accepts a well-formed block op, and a delete op that carries no block at all", async () => {
@@ -555,8 +556,8 @@ describe("per-op payload guards", () => {
       { op: "append", block: { type: "pageBreak" } },
       { op: "delete", index: 0, expectHash: "t0" },
     ];
-    await expect(runDocumentTool(d, "update_document", { id: 1, ops })).resolves.toMatchObject({ id: 1 });
-    expect(d.updateDocument).toHaveBeenCalledWith(1, ops, undefined);
+    await expect(runDocumentTool(d, "update_document", { id: 1, ops }, aiOrigin("chat"))).resolves.toMatchObject({ id: 1 });
+    expect(d.updateDocument).toHaveBeenCalledWith(1, ops, undefined, aiOrigin("chat"));
   });
 
   // ★★★ `typeof x === "object"` IS NOT A BLOCK TEST, and this guard shared the
@@ -581,8 +582,8 @@ describe("per-op payload guards", () => {
       { op: "append", block: { type: "heading", level: 1, text: "H" } },
       { op: "append", block: { type: "paragraph", html: "<p>x</p>" } },
     ];
-    await expect(runDocumentTool(d, "update_document", { id: 1, ops })).resolves.toMatchObject({ id: 1 });
-    expect(d.updateDocument).toHaveBeenCalledWith(1, ops, undefined);
+    await expect(runDocumentTool(d, "update_document", { id: 1, ops }, aiOrigin("chat"))).resolves.toMatchObject({ id: 1 });
+    expect(d.updateDocument).toHaveBeenCalledWith(1, ops, undefined, aiOrigin("chat"));
   });
 
   // ★★ THE TRIM ASYMMETRY. `create_document` trimmed its title; this route did
@@ -601,16 +602,16 @@ describe("per-op payload guards", () => {
         // actually reaches the dispatcher to show it.
         ops: [{ op: "delete", index: 0, expectHash: "t0" }],
         title: "   ",
-      }),
+      }, aiOrigin("chat")),
     ).resolves.toMatchObject({ id: 1 });
-    expect(d.updateDocument).toHaveBeenCalledWith(1, [{ op: "delete", index: 0, expectHash: "t0" }], undefined);
+    expect(d.updateDocument).toHaveBeenCalledWith(1, [{ op: "delete", index: 0, expectHash: "t0" }], undefined, aiOrigin("chat"));
   });
 
   it("refuses a whitespace-only title with NO ops, rather than passing an empty rename down", async () => {
     // ★ Without ops there is nothing left to do, so this is the "supply ops, a
     // title, or both" case — a clearer refusal than letting the engine reject a
     // blank rename one layer down.
-    await expect(runDocumentTool(makeDispatcher(), "update_document", { id: 1, title: "   " })).rejects.toThrow(
+    await expect(runDocumentTool(makeDispatcher(), "update_document", { id: 1, title: "   " }, aiOrigin("chat"))).rejects.toThrow(
       /supply ops, a title, or both/i,
     );
   });
@@ -619,8 +620,8 @@ describe("per-op payload guards", () => {
     // ★ The control: a fix that dropped every title would satisfy both cases
     // above while silently disabling rename-via-update entirely.
     const d = makeDispatcher();
-    await expect(runDocumentTool(d, "update_document", { id: 1, title: "  Renamed  " })).resolves.toMatchObject({ id: 1 });
-    expect(d.updateDocument).toHaveBeenCalledWith(1, [], "Renamed");
+    await expect(runDocumentTool(d, "update_document", { id: 1, title: "  Renamed  " }, aiOrigin("chat"))).resolves.toMatchObject({ id: 1 });
+    expect(d.updateDocument).toHaveBeenCalledWith(1, [], "Renamed", aiOrigin("chat"));
   });
 
   // ★★★ REFUSE ON ABSENCE — the mirror of `requireToken` on the six entity
@@ -645,7 +646,7 @@ describe("per-op payload guards", () => {
       // ★ `[\s\S]` rather than the `/s` dotAll flag: this repo's tsc target is
       // below es2018, so `/s` is a TS1501 error — and vitest never
       // typechecks, so it runs GREEN while `npx tsc --noEmit` (CI) fails.
-      await expect(runDocumentTool(d, "update_document", { id: 1, ops: [op] })).rejects.toThrow(
+      await expect(runDocumentTool(d, "update_document", { id: 1, ops: [op] }, aiOrigin("chat"))).rejects.toThrow(
         /expectHash[\s\S]*get_document/,
       );
       // ★★ Refused BEFORE the write, which is the whole point — a guard that
@@ -661,7 +662,7 @@ describe("per-op payload guards", () => {
     it.each([[""], ["   "]])("refuses a blank expectHash %j rather than passing it down", async (bad) => {
       const d = makeDispatcher();
       await expect(
-        runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "delete", index: 0, expectHash: bad }] }),
+        runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "delete", index: 0, expectHash: bad }] }, aiOrigin("chat")),
       ).rejects.toThrow(/expectHash/);
       expect(d.updateDocument).not.toHaveBeenCalled();
     });
@@ -675,10 +676,10 @@ describe("per-op payload guards", () => {
       ["move", { op: "move", from: 0, to: 1, expectHash: "t0" }],
     ])("accepts a %s that carries one, passing it through UNTOUCHED", async (_kind, op) => {
       const d = makeDispatcher();
-      await expect(runDocumentTool(d, "update_document", { id: 1, ops: [op] })).resolves.toMatchObject({ id: 1 });
+      await expect(runDocumentTool(d, "update_document", { id: 1, ops: [op] }, aiOrigin("chat"))).resolves.toMatchObject({ id: 1 });
       // ★ Through to the dispatcher verbatim: the engine is what compares the
       // token, so this layer must not normalise or strip it.
-      expect(d.updateDocument).toHaveBeenCalledWith(1, [op], undefined);
+      expect(d.updateDocument).toHaveBeenCalledWith(1, [op], undefined, aiOrigin("chat"));
     });
 
     // ★★★ THE OTHER CONTROL. append/insert/replaceAll have NO target block to
@@ -693,8 +694,8 @@ describe("per-op payload guards", () => {
       ["replaceAll", { op: "replaceAll", blocks: [] }],
     ])("accepts a %s with no expectHash — it has no target block", async (_kind, op) => {
       const d = makeDispatcher();
-      await expect(runDocumentTool(d, "update_document", { id: 1, ops: [op] })).resolves.toMatchObject({ id: 1 });
-      expect(d.updateDocument).toHaveBeenCalledWith(1, [op], undefined);
+      await expect(runDocumentTool(d, "update_document", { id: 1, ops: [op] }, aiOrigin("chat"))).resolves.toMatchObject({ id: 1 });
+      expect(d.updateDocument).toHaveBeenCalledWith(1, [op], undefined, aiOrigin("chat"));
     });
   });
 
@@ -703,7 +704,7 @@ describe("per-op payload guards", () => {
     // threw AFTER the write would satisfy every `rejects.toThrow` here while
     // the document was already wiped.
     const d = makeDispatcher();
-    await expect(runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "replaceAll" }] })).rejects.toThrow();
+    await expect(runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "replaceAll" }] }, aiOrigin("chat"))).rejects.toThrow();
     expect(d.updateDocument).not.toHaveBeenCalled();
   });
 });

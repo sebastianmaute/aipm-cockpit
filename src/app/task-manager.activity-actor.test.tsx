@@ -56,6 +56,7 @@ vi.mock("./workspace-section", async (importOriginal) => ({
 }));
 
 import TaskManager from "./task-manager";
+import { aiOrigin } from "./activity-origin";
 
 function props(): Record<string, unknown> {
   if (!captured.props) throw new Error("WorkspaceSection never rendered");
@@ -282,8 +283,8 @@ describe("§160 — an AI settings write suppresses its OWN duplicate row and no
   it("logs the user's next settings change after the AI wrote TWO in one batch", async () => {
     const d = props().dispatcher as ToolDispatcher;
     act(() => {
-      d.updateSettings({ showViewHints: false });
-      d.updateSettings({ hideExternalTasks: true });
+      d.updateSettings({ showViewHints: false }, aiOrigin("chat"));
+      d.updateSettings({ hideExternalTasks: true }, aiOrigin("chat"));
     });
     // Drain the AI turn's own effect run before measuring the user's.
     await settle(SETTINGS_LOG_DEBOUNCE_MS + 200);
@@ -307,7 +308,7 @@ describe("§160 — an AI settings write suppresses its OWN duplicate row and no
     });
     await settle(Math.floor(SETTINGS_LOG_DEBOUNCE_MS / 3));
     act(() => {
-      d.updateSettings({ showViewHints: false });
+      d.updateSettings({ showViewHints: false }, aiOrigin("chat"));
     });
     await settle(SETTINGS_LOG_DEBOUNCE_MS + 200);
     const rows = log()
@@ -336,7 +337,7 @@ describe("§160 — an AI settings write suppresses its OWN duplicate row and no
     const d = props().dispatcher as ToolDispatcher;
     const rows = await actorlessSettingsRows(() => {
       act(() => {
-        d.updateSettings({ showViewHints: false });
+        d.updateSettings({ showViewHints: false }, aiOrigin("chat"));
       });
     });
     expect(rows).toHaveLength(0);

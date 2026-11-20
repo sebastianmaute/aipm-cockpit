@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { type Workspace } from "./workspace";
 import { type ToolDispatcher, runTool } from "./chat-tools";
+import { aiOrigin } from "./activity-origin";
 import { entityToken } from "./ai-entity-token";
 import { ConcurrencyTokenError } from "./chat-tools-updates";
 import { type AiConfig, isAiEnabled } from "./settings-types";
@@ -333,11 +334,11 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
         // from one sanitize per side in `describeEntityCalls`, so the patch
         // carries precisely what the card promised.
         for (const l of rowLinks) patch[l.field] = linkPatchValue(d, l);
-        await runTool(deps.dispatcher, d.updateTool, patch);
+        await runTool(deps.dispatcher, d.updateTool, patch, aiOrigin("inlineEdit"));
         applied++;
       }
-      for (const c of plan.creates) { await runTool(deps.dispatcher, c.toolName, c.input); applied++; }
-      for (const del of plan.deletes) { await runTool(deps.dispatcher, del.toolName, { id: del.id }); applied++; }
+      for (const c of plan.creates) { await runTool(deps.dispatcher, c.toolName, c.input, aiOrigin("inlineEdit")); applied++; }
+      for (const del of plan.deletes) { await runTool(deps.dispatcher, del.toolName, { id: del.id }, aiOrigin("inlineEdit")); applied++; }
       // ★★★ NO ACTIVITY ROW HERE — and re-adding one is a regression, not a
       // completion. Every `runTool` above already logs its own entity row
       // stamped `actor: "ai"` (`use-chat-dispatcher`), so an `ai.inlineEdit`

@@ -7,6 +7,7 @@ import {
 } from "./chat-tool-defs";
 import { RESOURCES_HIDDEN_INSTRUCTION, STAKEHOLDERS_HIDDEN_INSTRUCTION, toolNamesFor, toolsFor, buildStableSystemBlocks, buildTurnContext, type ToolFlags } from "./chat-api";
 import { runTool, type ToolDispatcher } from "./chat-tools";
+import { aiOrigin } from "./activity-origin";
 
 const SPEC_MINIMUM = [
   "list_resources", "get_resource", "create_resource", "update_resource", "delete_resource",
@@ -145,7 +146,7 @@ describe("executor gate", () => {
   it("refuses every people tool under protection and touches no state", async () => {
     for (const name of PEOPLE_TOOLS) {
       const { d, calls } = spyDispatcher(true);
-      await expect(runTool(d, name, { id: 1, firstName: "A", lastName: "B", name: "X" }), name).rejects.toThrow(PEOPLE_TOOL_REFUSAL);
+      await expect(runTool(d, name, { id: 1, firstName: "A", lastName: "B", name: "X" }, aiOrigin("chat")), name).rejects.toThrow(PEOPLE_TOOL_REFUSAL);
       expect(calls, name).toEqual([]);
     }
   });
@@ -153,7 +154,7 @@ describe("executor gate", () => {
   // The positive control: the same dispatcher, allowed, reaches the dispatcher.
   it("serves a people tool when the project allows people", async () => {
     const { d, calls } = spyDispatcher(false);
-    await runTool(d, "list_resources", {});
+    await runTool(d, "list_resources", {}, aiOrigin("chat"));
     expect(calls).toContain("listResources");
   });
 });
@@ -322,7 +323,7 @@ describe("hidden Resources and Stakeholders functions (§810)", () => {
   it("the executor refuses every Resources tool while Resources is hidden, naming Resources, and touches no state", async () => {
     for (const name of RESOURCES_TOOLS) {
       const { d, calls } = hiddenDispatcher({ resources: true });
-      await expect(runTool(d, name, ARGS), name).rejects.toThrow(RESOURCES_HIDDEN_TOOL_REFUSAL);
+      await expect(runTool(d, name, ARGS, aiOrigin("chat")), name).rejects.toThrow(RESOURCES_HIDDEN_TOOL_REFUSAL);
       expect(calls, name).toEqual([]);
     }
     expect(RESOURCES_HIDDEN_TOOL_REFUSAL).toMatch(/Resources/);
@@ -332,7 +333,7 @@ describe("hidden Resources and Stakeholders functions (§810)", () => {
   it("the executor refuses every stakeholder tool while Stakeholders is hidden, naming Stakeholders", async () => {
     for (const name of STAKEHOLDER_TOOLS) {
       const { d, calls } = hiddenDispatcher({ stakeholders: true });
-      const err = await runTool(d, name, ARGS).then(() => null, (e: unknown) => e);
+      const err = await runTool(d, name, ARGS, aiOrigin("chat")).then(() => null, (e: unknown) => e);
       expect(err, name).toBeInstanceOf(PeopleToolRefusedError);
       expect((err as Error).message, name).toBe(STAKEHOLDERS_HIDDEN_TOOL_REFUSAL);
       expect(calls, name).toEqual([]);
@@ -343,35 +344,35 @@ describe("hidden Resources and Stakeholders functions (§810)", () => {
 
   it("get_contact_email refuses a stakeholder while Stakeholders is hidden, and serves a task assignee", async () => {
     const hidden = hiddenDispatcher({ stakeholders: true });
-    const err = await runTool(hidden.d, "get_contact_email", { entity: "stakeholder", id: 1 }).then(() => null, (e: unknown) => e);
+    const err = await runTool(hidden.d, "get_contact_email", { entity: "stakeholder", id: 1 }, aiOrigin("chat")).then(() => null, (e: unknown) => e);
     expect(err).toBeInstanceOf(PeopleToolRefusedError);
     expect((err as Error).message).toBe(STAKEHOLDERS_HIDDEN_TOOL_REFUSAL);
     expect(hidden.calls).toEqual([]);
-    await runTool(hidden.d, "get_contact_email", { entity: "task", id: 1 });
+    await runTool(hidden.d, "get_contact_email", { entity: "task", id: 1 }, aiOrigin("chat"));
     expect(hidden.calls).toEqual(["getTask"]);
     // CONTROL: Stakeholders shown, the stakeholder's address is read.
     const shown = hiddenDispatcher({});
-    await runTool(shown.d, "get_contact_email", { entity: "stakeholder", id: 1 });
+    await runTool(shown.d, "get_contact_email", { entity: "stakeholder", id: 1 }, aiOrigin("chat"));
     expect(shown.calls).toEqual(["getStakeholderRow"]);
   });
 
   it("get_contact_email's entity error names stakeholder only while Stakeholders is shown", async () => {
-    const hidden = await runTool(hiddenDispatcher({ stakeholders: true }).d, "get_contact_email", { entity: "x", id: 1 }).then(() => null, (e: Error) => e.message);
+    const hidden = await runTool(hiddenDispatcher({ stakeholders: true }).d, "get_contact_email", { entity: "x", id: 1 }, aiOrigin("chat")).then(() => null, (e: Error) => e.message);
     expect(hidden).toBe("entity must be one of task, resource, raid, absence");
-    const shown = await runTool(hiddenDispatcher({}).d, "get_contact_email", { entity: "x", id: 1 }).then(() => null, (e: Error) => e.message);
+    const shown = await runTool(hiddenDispatcher({}).d, "get_contact_email", { entity: "x", id: 1 }, aiOrigin("chat")).then(() => null, (e: Error) => e.message);
     expect(shown).toBe("entity must be one of task, stakeholder, resource, raid, absence");
   });
 
   it("Resources hidden alone does not refuse a stakeholder tool", async () => {
     const { d, calls } = hiddenDispatcher({ resources: true });
-    await runTool(d, "list_stakeholders", {});
+    await runTool(d, "list_stakeholders", {}, aiOrigin("chat"));
     expect(calls).toContain("listStakeholders");
   });
 
   it("Simple mode (both hidden) still serves search, chat search, the inquiry and the escalation", async () => {
     for (const name of NEVER_BY_A_FUNCTION) {
       const { d, calls } = hiddenDispatcher({ resources: true, stakeholders: true });
-      const err = await runTool(d, name, ARGS).then(() => null, (e: unknown) => e);
+      const err = await runTool(d, name, ARGS, aiOrigin("chat")).then(() => null, (e: unknown) => e);
       expect(err instanceof PeopleToolRefusedError, name).toBe(false);
       expect(calls.length, name).toBeGreaterThan(0);
     }
@@ -379,14 +380,14 @@ describe("hidden Resources and Stakeholders functions (§810)", () => {
 
   it("CONTROL: the same dispatcher with both functions shown serves a Resources and a stakeholder tool", async () => {
     const { d, calls } = hiddenDispatcher({});
-    await runTool(d, "list_resources", {});
-    await runTool(d, "list_stakeholders", {});
+    await runTool(d, "list_resources", {}, aiOrigin("chat"));
+    await runTool(d, "list_stakeholders", {}, aiOrigin("chat"));
     expect(calls).toEqual(expect.arrayContaining(["listResources", "listStakeholders"]));
   });
 
   it("a non-people tool is still served while both functions are hidden", async () => {
     const { d, calls } = hiddenDispatcher({ resources: true, stakeholders: true });
-    await runTool(d, "list_tasks", {});
+    await runTool(d, "list_tasks", {}, aiOrigin("chat"));
     expect(calls).toContain("listTasks");
   });
 });

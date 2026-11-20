@@ -65,7 +65,7 @@ export function makeDispatcherArgs(
     getBudgetRollup: () => null,
     getAllocationsSnapshot: stubGetAllocationsSnapshot,
     getForecastInput: stubGetForecastInput,
-    logActivityAs: vi.fn(),
+    logActivityAi: vi.fn(),
     /** ★★ REQUIRED on `ChatDispatcherArgs` (deliberately — see the field's own
      *  note there), so the default lives here rather than in every caller: a
      *  test that does not assert on undo capture stays untouched, and the type

@@ -1090,7 +1090,7 @@ function TaskManagerInner() {
     clock,
     onSettingsLoggedByAi, setSelectedIds, setSettings,
     isReadOnly: isPopout, openWbsPlan: wbsPlan.open, projectWriterRef, getScopeEpoch, getUndoEpoch: readScopeEpochForUndo, showToast, reassignHours, onResourcesDeleted: crossProject.forgetPeople, isLoadHeld: () => isSwapInFlight() || loadPendingRef.current,
-    currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, holidaysReady, logActivityAs,
+    currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, holidaysReady, logActivityAi,
     // ★ `delete_document` is a second removal route into a COUNTED slice — see
     //   the arming site in `use-document-tools.ts`.
     allowDestructiveSave,

@@ -12,6 +12,7 @@ import * as planMod from "./inline-ai-edit/plan";
 import { useInlineAiEdit, type InlineAiEditDeps } from "./use-inline-ai-edit";
 import { useInlineEntityEdit, type InlineEntityEditDeps } from "./use-inline-entity-edit";
 import { entityToken } from "./ai-entity-token";
+import { aiOrigin } from "./activity-origin";
 import { t, loadI18n } from "./i18n";
 import { type Task } from "./types";
 import type { ReactNode } from "react";
@@ -200,7 +201,7 @@ it("apply routes each block through runTool and logs + toasts, then closes", asy
   // breakage this threading exists to fix.
   expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_task", {
     id: 42, status: "Done", expectedToken: entityToken("task", task),
-  });
+  }, aiOrigin("inlineEdit"));
   expect(deps.showToast).toHaveBeenCalledWith("info", expect.stringContaining("Fix login bug"));
   expect(result.current.phase).toBe("idle");
 });
@@ -360,7 +361,7 @@ describe("useInlineEntityEdit — raid", () => {
     await act(async () => { await result.current.apply(); });
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", {
       id: 7, title: "New", expectedToken: entityToken("raid", raidItem),
-    });
+    }, aiOrigin("inlineEdit"));
     expect(result.current.phase).toBe("idle");
   });
 
@@ -402,7 +403,7 @@ describe("useInlineEntityEdit — raid", () => {
       id: 7,
       description: "<p>one</p><p>two</p>",
       expectedToken: entityToken("raid", raidItem),
-    });
+    }, aiOrigin("inlineEdit"));
   });
 
   it("applies a sanitizer-INDUCED reset, which carries no raw, from its after", async () => {
@@ -429,7 +430,7 @@ describe("useInlineEntityEdit — raid", () => {
     await act(async () => { await result.current.apply(); });
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", {
       id: 7, category: "I", status: "Open", expectedToken: entityToken("raid", item),
-    });
+    }, aiOrigin("inlineEdit"));
   });
 
   // ★★★ A NON-EMPTY PLAN THAT EVERY APPLY BRANCH SKIPS MUST NOT REPORT SUCCESS.
@@ -507,7 +508,7 @@ describe("useInlineEntityEdit — raid", () => {
     await act(async () => { await result.current.apply(); });
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", {
       id: 7, linkedTaskIds: [2], expectedToken: entityToken("raid", linked),
-    });
+    }, aiOrigin("inlineEdit"));
     // `applied` really was incremented — otherwise the success toast is gated
     // off and the write above would be reported to the user as nothing.
     expect(deps.showToast).toHaveBeenCalledWith("info", expect.anything());
@@ -602,7 +603,7 @@ describe("useInlineEntityEdit — raid", () => {
     expect(runToolSpy.mock.calls.map((c) => c[1])).toEqual(["create_raid_item"]);
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "create_raid_item", {
       category: "R", title: "Risk B", linkedTaskIds: [7],
-    });
+    }, aiOrigin("inlineEdit"));
   });
 
   it("keeps a create's links out of a patch the open row is getting anyway", async () => {
@@ -721,7 +722,7 @@ describe("useInlineEntityEdit — a single-FK link (resource.roleId)", () => {
     const { runToolSpy, deps } = await applyRoleWrite(12);
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_resource", {
       id: 3, roleId: 12, expectedToken: entityToken("resource", ada),
-    });
+    }, aiOrigin("inlineEdit"));
   });
 
   it("clears a single-FK link with null, not with an empty array", async () => {
@@ -730,7 +731,7 @@ describe("useInlineEntityEdit — a single-FK link (resource.roleId)", () => {
     const { runToolSpy, deps } = await applyRoleWrite(null);
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_resource", {
       id: 3, roleId: null, expectedToken: entityToken("resource", ada),
-    });
+    }, aiOrigin("inlineEdit"));
   });
 });
 
@@ -944,7 +945,7 @@ describe("inline task edit withholds assigneeEmail", () => {
     await act(async () => { await result.current.apply(); });
     expect(stored.status).toBe("Done");
     expect(stored.assigneeEmail).toBe("ann@example.com");
-    expect(runToolSpy).toHaveBeenCalledWith(dispatcher, "update_task", expect.objectContaining({ expectedToken: entityToken("task", opened) }));
+    expect(runToolSpy).toHaveBeenCalledWith(dispatcher, "update_task", expect.objectContaining({ expectedToken: entityToken("task", opened) }), aiOrigin("inlineEdit"));
     expect(patches.every((p) => !("assigneeEmail" in p))).toBe(true);
   });
 });

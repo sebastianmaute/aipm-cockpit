@@ -6,13 +6,14 @@ import { entityToken } from "./ai-entity-token";
 import { requireToken } from "./chat-tools-updates";
 import { applyProjectPatch, PROJECT_AI_FIELDS, type ProjectAiField } from "./project-ai-fields";
 import type { ProjectMeta } from "./types";
+import type { AiOrigin } from "./activity-origin";
 
 export type ProjectToolDispatcher = {
   /** The stored record, or null while no project is open. */
   getProjectMeta(): ProjectMeta | null;
   /** Writes the whole judged record and resolves with it as stored. Rejects with `Error(<message the model can
    *  relay>)` on failure, and in a read-only window. */
-  updateProjectMeta(next: ProjectMeta): Promise<ProjectMeta>;
+  updateProjectMeta(next: ProjectMeta, origin: AiOrigin): Promise<ProjectMeta>;
 };
 
 /** Returned by `runProjectTool` for a name it does not own. */
@@ -41,13 +42,13 @@ async function getProject(d: ProjectToolDispatcher) {
 
 /** ★ Token BEFORE the judge, so a stale call reports the token and nothing else. A patch whose every field is
  *  refused (or that names none) writes nothing: the stored record comes back unchanged with the reasons. */
-async function updateProject(input: Record<string, unknown>, d: ProjectToolDispatcher) {
+async function updateProject(input: Record<string, unknown>, d: ProjectToolDispatcher, origin: AiOrigin) {
   const stored = requireProject(d);
   requireToken("project", stored, input, "project");
   const { next, rows, unknownKeys } = applyProjectPatch(stored, input);
   const refused = rows.flatMap((r) => (r.verdict.kind === "refused" ? [{ field: r.field, reason: r.verdict.reason }] : []));
   const writes = rows.some((r) => r.verdict.kind !== "refused");
-  const project = writes ? await d.updateProjectMeta(next) : stored;
+  const project = writes ? await d.updateProjectMeta(next, origin) : stored;
   return { project: offeredFields(project), refused, ignored: unknownKeys };
 }
 
@@ -55,12 +56,14 @@ export function runProjectTool(
   name: string,
   input: Record<string, unknown>,
   d: ProjectToolDispatcher,
+  /** §799 — the calling AI feature, from `runTool`; handed to the writer, never stored. */
+  origin: AiOrigin,
 ): Promise<unknown> | typeof NOT_PROJECT_TOOL {
   switch (name) {
     case "get_project":
       return getProject(d);
     case "update_project":
-      return updateProject(input, d);
+      return updateProject(input, d, origin);
     default:
       return NOT_PROJECT_TOOL;
   }

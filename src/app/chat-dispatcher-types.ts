@@ -2,7 +2,7 @@
 // use-chat-dispatcher.ts to keep that file under the file-size ratchet.
 
 import type { Dispatch, RefObject, SetStateAction } from "react";
-import type { LogActivityAsFn } from "./activity-log-context";
+import type { LogActivityAiFn } from "./activity-log-context";
 import type { AppView } from "./nav-config";
 import type { ProjectClock } from "./timezone";
 import { type Settings } from "./settings-types";
@@ -100,7 +100,12 @@ export interface ChatDispatcherArgs {
    *  ★★ ACTOR-AWARE, and it REPLACED the actor-less `logActivity` this file used
    *  to carry rather than sitting beside it: every row the dispatcher writes is
    *  the assistant's, so an actor-less variant here would have no caller left
-   *  and would only invite one. Consumed by the 20 entity writers AND by
+   *  and would only invite one. §799 then replaced `logActivityAs` with the AI
+   *  logger, for the same reason: every row also names the AI FEATURE whose
+   *  `runTool` call ran the writer. That origin is an ARGUMENT of each writer,
+   *  passed by `runToolAsSent` — never stored on the shared dispatcher, in a ref
+   *  or in a module variable, because two AI operations can overlap in time.
+   *  Consumed by the 20 entity writers AND by
    *  `useDocumentTools` for the `ai.documentWrite` row — that one is redundant
    *  with its kind and stamped anyway, since a consumer filtering on ACTOR must
    *  not have to special-case a kind.
@@ -110,7 +115,7 @@ export interface ChatDispatcherArgs {
    *  `raid.updated` ("RAID #{0} updated ({1}): {2}") renders a literal "{2}" in
    *  the Activity panel and in the model's own history feed. The per-kind
    *  contract is pinned ONLY by `use-chat-dispatcher.test.tsx`. */
-  logActivityAs?: LogActivityAsFn;
+  logActivityAi?: LogActivityAiFn;
   /** ★★ Arms the one-shot destructive-save bypass (`use-storage-backend.ts`) —
    *  threaded through to `useDocumentTools`, which is the only consumer today.
    *  `documents` counts toward `workspaceRecordCount`, and several
@@ -126,7 +131,7 @@ export interface ChatDispatcherArgs {
    *  React batch; "closer together than 500ms" is all the argument needs and it
    *  survives a batching change. The threshold arithmetic is NOT intuitive —
    *  `use-document-tools.ts`'s arming site carries the runnable check.
-   *  Optional, like `logActivityAs`: a test harness or a popout supplies no
+   *  Optional, like `logActivityAi`: a test harness or a popout supplies no
    *  bypass at all. */
   allowDestructiveSave?: () => void;
   /** §788 — called with the id of a person the `delete_resource` tool actually removed (never for an unknown id), so their
