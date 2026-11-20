@@ -253,7 +253,7 @@ export function applyPreserved<T extends { id: number }>(
  */
 /** Structural deep-equality for plain rows (primitives, arrays, plain objects) —
  *  used to confirm a row's IDENTITY before redo removes it. Pure. */
-function rowsEqual(a: unknown, b: unknown): boolean {
+export function rowsEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
   if (Array.isArray(a) !== Array.isArray(b)) return false;
@@ -282,7 +282,7 @@ function rowsEqual(a: unknown, b: unknown): boolean {
  *  ★ KNOWN RESIDUE: a recycled-id row differing from the recovered image ONLY on
  *  write-through fields is still destroyed. Reaching that needs a new row whose
  *  every other field coincidentally matches a deleted one. */
-function rowsEqualExcept(a: unknown, b: unknown, ignore: readonly string[]): boolean {
+export function rowsEqualExcept(a: unknown, b: unknown, ignore: readonly string[]): boolean {
   if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) {
     return rowsEqual(a, b);
   }
