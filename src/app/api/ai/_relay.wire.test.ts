@@ -55,10 +55,19 @@ function browserRequest(headers: Record<string, string> = { "x-api-key": KEY }):
   });
 }
 
-/** The client's reading of `relayAnswer`: the thrown error, or the Response it returned. */
+/** The client's reading of `relayAnswer`: the thrown error, or the Response it returned. Since §798 the
+ *  transport retries a rate-limit answer, so every attempt gets its own copy of the relay's answer, and
+ *  the retry waits run on fake timers. */
 async function clientReads(relayAnswer: Response): Promise<unknown> {
-  vi.stubGlobal("fetch", vi.fn(async () => relayAnswer));
-  return postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+  vi.stubGlobal("fetch", vi.fn(async () => relayAnswer.clone()));
+  vi.useFakeTimers();
+  try {
+    const read = postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    await vi.runAllTimersAsync();
+    return await read;
+  } finally {
+    vi.useRealTimers();
+  }
 }
 
 beforeEach(() => {

@@ -446,7 +446,11 @@ async function sendWithRetry<T extends ReadAnswer>(
       return answer;
     }
     logDiag("info", "ai.retry", { status: answer.res.status, attempt: n, waitMs });
-    onRetryWait?.(waitMs);
+    try {
+      onRetryWait?.(waitMs);
+    } catch {
+      // The caller's wait notice never breaks a send (like the usage listeners).
+    }
     await sleepAbortable(waitMs, signal);
   }
 }

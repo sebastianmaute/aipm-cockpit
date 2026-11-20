@@ -154,10 +154,19 @@ async function readCappedBody(request: Request): Promise<Uint8Array | null> {
   return Buffer.concat(chunks);
 }
 
+/** The upstream `retry-after` (a single string value only), which the browser's retry honours
+ *  (§798). A value a Headers object refuses throws, which `onResponse`'s catch turns into a 502. */
+function upstreamRetryAfter(res: UpstreamResponse): string | undefined {
+  const value = res.headers["retry-after"];
+  return typeof value === "string" ? value : undefined;
+}
+
 function passThroughHeaders(res: UpstreamResponse): Headers {
   const headers = new Headers({ "cache-control": "no-store" });
   const type = res.headers["content-type"];
   if (typeof type === "string") headers.set("content-type", type);
+  const retryAfter = upstreamRetryAfter(res);
+  if (retryAfter !== undefined) headers.set("retry-after", retryAfter);
   return headers;
 }
 
@@ -227,7 +236,10 @@ function forward(
       if (status === 429) {
         // The gateway's own rate limit (Anthropic's own 429 is Anthropic-shaped and passed
         // through above): its own code, so the browser names the gateway, not Anthropic.
-        finish(fail(502, AI_GATEWAY_RATE_LIMITED));
+        const limited = fail(502, AI_GATEWAY_RATE_LIMITED);
+        const retryAfter = upstreamRetryAfter(res);
+        if (retryAfter !== undefined) limited.headers.set("retry-after", retryAfter);
+        finish(limited);
         return;
       }
       finish(fail(502, status === 401 || status === 403 ? AI_GATEWAY_REJECTED : AI_GATEWAY_ERROR));

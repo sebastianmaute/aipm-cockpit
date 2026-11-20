@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AiDeploymentError, AiGatewayError, getAiModels, postAiMessages, subscribeAiUsage } from "./ai-transport";
 import { setAiDeploymentState, type AiDeploymentState } from "./ai-deployment";
-import { AiTimeoutError, AI_RELAY_RATE_LIMITED } from "./ai-errors";
+import { AiTimeoutError, AI_GATEWAY_RATE_LIMITED, AI_RELAY_RATE_LIMITED } from "./ai-errors";
 import { AI_REQUEST_TIMEOUT_MS } from "./ai-retry";
 import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../test/ai-status-fetch";
@@ -141,6 +141,29 @@ describe("postAiMessages retries a rate limit or overload", () => {
     expect((run.result() as { value: Response }).value.status).toBe(429);
     expect(sends(f)).toHaveLength(1);
     expect(onRetryWait).not.toHaveBeenCalled();
+  });
+
+  it("the gateway's own limit (502 ai-gateway-rate-limited) is retried", async () => {
+    setAiDeploymentState(GATEWAY);
+    const f = stubFetch([() => json({ error: AI_GATEWAY_RATE_LIMITED }, 502, { "retry-after": "1" }), () => json({ ok: true })], () => GATEWAY);
+    const run = settle(postAiMessages({ privacy: UNPROTECTED, apiKey: KEY, body: "{}", path: "chat" }));
+    await vi.advanceTimersByTimeAsync(999);
+    expect(sends(f)).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(sends(f)).toHaveLength(2);
+    expect((run.result() as { value: Response }).value.status).toBe(200);
+  });
+
+  it("a throwing onRetryWait never breaks the retry", async () => {
+    const onRetryWait = vi.fn(() => {
+      throw new Error("ui listener");
+    });
+    const f = stubFetch([() => limited({ "retry-after": "1" }), () => json({ ok: true })]);
+    const run = settle(postAiMessages({ privacy: UNPROTECTED, apiKey: KEY, body: "{}", path: "chat", onRetryWait }));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(onRetryWait).toHaveBeenCalledWith(1000);
+    expect(sends(f)).toHaveLength(2);
+    expect((run.result() as { value: Response }).value.status).toBe(200);
   });
 
   it("the relay's own limit is retried", async () => {
