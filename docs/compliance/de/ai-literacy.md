@@ -135,7 +135,9 @@ Kollegin oder ein Kollege sie vorschlüge? [Aussage des Maintainers]
   außen ohne eine solche Kennzeichnung, etwa aus einer importierten Datei angelegten Einträgen, tut er das
   nicht. [geprüft: `stagesWhenUntrusted` und `resultCarriesExternalText` in `src/app/chat-send-record.ts`]
 - **Lange Wartezeiten und Fehler.** Jeder Versuch einer KI-Anfrage ist auf 5 Minuten begrenzt; läuft die Zeit
-  ab, meldet die App, dass Claude nicht geantwortet hat, und Sie können es erneut versuchen. Eine Anfrage, die
+  ab, meldet eine KI-Funktion, dass Claude nicht geantwortet hat, und Sie können es erneut versuchen (die
+  Modellliste fällt stillschweigend auf die eingebaute Liste zurück, und die Zusammenfassung behält ihr eigenes
+  kürzeres Limit und ihre bisherige Behandlung). Eine Anfrage, die
   abgelehnt wird, weil der Dienst ausgelastet ist oder ein Ratenlimit greift, wird insgesamt bis zu dreimal
   versucht, nach der Wartezeit, die der Dienst nennt, sonst nach etwa 2 s und dann 4 s (der Chat zeigt den
   Countdown); eine verlangte Wartezeit über 60 s wird nicht abgewartet, und der Fehler erscheint sofort. Stopp

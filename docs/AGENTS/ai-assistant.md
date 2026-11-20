@@ -82,7 +82,8 @@
   ends a wait at once (`sleepAbortable`). The relay passes an upstream `retry-after` through (`passThroughHeaders` in
   `_relay.ts`, and on the gateway's own 429 -> 502 `AI_GATEWAY_RATE_LIMITED`). The chat shows the wait as "Claude is
   busy, trying again in N s…" (`onRetryWait` on `postAiMessages` / `callClaude`, countdown in `use-retry-wait.ts`);
-  other features retry silently.
+  other features retry silently. ★ The message is shown by the AI features, not everywhere: the model list (`use-chat-models.ts`)
+  falls back silently to the built-in list on any failure except `AiKeyCheckUnavailableError`, and the digest's own 20 s limit (`use-digest.ts`) keeps its existing silent handling.
   Route `direct` is the browser calling Anthropic as before (incl.
   `anthropic-dangerous-direct-browser-access`); route `gateway` posts to the same-origin relay
   (`/api/ai/messages`, `/api/ai/models`). The relay's own non-Anthropic-shaped failures become
