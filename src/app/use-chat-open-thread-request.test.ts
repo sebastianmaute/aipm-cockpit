@@ -1,7 +1,7 @@
 // §799 — the chat consumes an "open this thread" request from the Activity view exactly once.
 import { describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { StrictMode, createElement, type ReactNode } from "react";
+import { StrictMode } from "react";
 import {
   useChatOpenThreadRequest,
   type OpenThreadRequest,
@@ -15,7 +15,9 @@ function setup(initial: Partial<UseChatOpenThreadRequestDeps>, opts: { strict?: 
     request: null, blocked: false, threadIds: ["t1", "t2"], activeThreadId: "t1", selectThread, onConsumed,
     ...initial,
   };
-  const wrapper = opts.strict ? ({ children }: { children: ReactNode }) => createElement(StrictMode, null, children) : undefined;
+  // ★ StrictMode must be the ROOT's direct child (see strictmode.meta.test.tsx): composed inside a wrapper function
+  // the mount is single-invoked and the test is green whether or not the guard exists.
+  const wrapper = opts.strict ? StrictMode : undefined;
   const hook = renderHook((deps: UseChatOpenThreadRequestDeps) => useChatOpenThreadRequest(deps), {
     initialProps: base, wrapper,
   });
@@ -92,6 +94,13 @@ describe("useChatOpenThreadRequest", () => {
 
   it("while blocked, a request for the thread already open needs no notice", () => {
     const { result, selectThread, onConsumed } = setup({ request: { threadId: "t1", nonce: 1 }, blocked: true });
+    expect(result.current).toBe(false);
+    expect(selectThread).not.toHaveBeenCalled();
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+  });
+
+  it("while blocked, a request for an unlisted thread needs no notice", () => {
+    const { result, selectThread, onConsumed } = setup({ request: { threadId: "gone", nonce: 1 }, blocked: true });
     expect(result.current).toBe(false);
     expect(selectThread).not.toHaveBeenCalled();
     expect(onConsumed).toHaveBeenCalledTimes(1);

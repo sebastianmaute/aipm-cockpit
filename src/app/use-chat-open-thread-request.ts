@@ -37,7 +37,7 @@ export function useChatOpenThreadRequest(deps: UseChatOpenThreadRequestDeps): bo
   const [refused, setRefused] = useState(false);
   if (request !== null && request !== seen) {
     setSeen(request);
-    setRefused(blocked && request.threadId !== activeThreadId);
+    setRefused(blocked && request.threadId !== activeThreadId && threadIds.includes(request.threadId));
   } else if (refused && !blocked) {
     setRefused(false);
   }
