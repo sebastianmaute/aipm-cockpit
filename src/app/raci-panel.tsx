@@ -29,6 +29,10 @@ import { useRaciSuggest } from "./use-raci-suggest";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { ViewCallout } from "./view-callout";
 import { Button } from "./button";
+import type { AppView } from "./nav-config";
+import type { FeatureModuleId } from "./feature-modules";
+import { raciSetupSteps } from "./view-setup";
+import { RaciSetupChecklist } from "./view-setup-checklists";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -62,13 +66,17 @@ export interface RaciPanelProps {
   /** §717 — the app's live settings (`workspace-section`'s): one settings copy per surface, not a second
    *  `useSettings()` of the panel's own. Required, so a new caller cannot silently fall back to one. */
   settings: Settings;
+  /** §734 — the setup checklist's links. Undefined in a popout: no links. */
+  onSetupGo?: (view: AppView) => void;
+  features?: readonly FeatureModuleId[];
+  onCommitFeatures?: (features: FeatureModuleId[]) => void;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function RaciPanel({ lang, stakeholders, milestones, tasks, raid, changes, resources, roles, disciplines, grades, documents, onSave, onCaptureBulk, logActivityAs, showHints, isPopout, onLearnMore, settings }: RaciPanelProps) {
+export function RaciPanel({ lang, stakeholders, milestones, tasks, raid, changes, resources, roles, disciplines, grades, documents, onSave, onCaptureBulk, logActivityAs, showHints, isPopout, onLearnMore, settings, onSetupGo, features, onCommitFeatures }: RaciPanelProps) {
 
   // AI-assisted "Suggest RACI" (Stakeholders → RACI toolbar only). Called
   // UNCONDITIONALLY — before the two empty-state early returns below — so the
@@ -175,19 +183,23 @@ export function RaciPanel({ lang, stakeholders, milestones, tasks, raid, changes
 
   const { ref: paneRef, reset: resetPaneSize } = useResizable("aipm-cockpit:raci-size");
 
-  // Empty states — no resize affordance needed
-  if (milestones.length === 0) {
+  // Empty states — no resize affordance needed. The line names the first missing input; the §734
+  // checklist under it names both, so fixing the first no longer reveals the second only afterwards.
+  if (milestones.length === 0 || stakeholders.length === 0) {
     return (
-      <div className={`${VIEW_PANE_CLASS} p-10 text-center text-sm text-muted-foreground`}>
-        {t(lang, "raciNoMilestones")}
-      </div>
-    );
-  }
-
-  if (stakeholders.length === 0) {
-    return (
-      <div className={`${VIEW_PANE_CLASS} p-10 text-center text-sm text-muted-foreground`}>
-        {t(lang, "raciNoStakeholders")}
+      <div className={VIEW_PANE_CLASS}>
+        <p className="p-10 pb-4 text-center text-sm text-muted-foreground">
+          {t(lang, milestones.length === 0 ? "raciNoMilestones" : "raciNoStakeholders")}
+        </p>
+        <div className="mx-auto w-full max-w-xl">
+          <RaciSetupChecklist
+            lang={lang}
+            steps={raciSetupSteps({ milestones, stakeholders })}
+            onGo={isPopout ? undefined : onSetupGo}
+            features={features}
+            onCommitFeatures={isPopout ? undefined : onCommitFeatures}
+          />
+        </div>
       </div>
     );
   }

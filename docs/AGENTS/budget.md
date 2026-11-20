@@ -678,7 +678,7 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   M1); `unresolvedPeople` itself is still computed without them. Routing by role alone once created a Dev line beside Ann's Senior
   line and counted her January twice. Residue (40). Blockers: `follows-plan`
   (budget follows plan is on), `closed`, `same-row-period` (a validator collision), `nothing-to-apply`.
-- **`applyForecastImport` is the only writer**, and it writes only budget hours and allocation
+- **`applyForecastImport` (`forecast-apply.ts`) is the only writer**, and it writes only budget hours and allocation
   membership (a missing allocation is created with empty actuals) — never rates, the plan, other
   buckets, stored actual hours or resources. It does not read
   `blockers`; the caller must not call it while any exist. ★★ `apply()` RE-PLANS FROM LIVE STATE: it looks

@@ -10,6 +10,14 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Added
+
+- **Setup checklists for the Gantt chart, the RACI matrix and the Resources views.** Their empty states named one
+  missing input at a time, or none. Each now shows its whole setup order in the shape of the Budget checklist, ticked
+  from your project data: dated tasks, dependencies and milestones for the Gantt chart (which keeps a collapsed line
+  while a step remains, until you hide it); milestones, stakeholders and assignments for the RACI matrix; roles with a
+  rate, disciplines and grades, and people for Resources, with links to the views that do each step (§736, §734, §731).
+
 ### Changed
 
 - **AI requests now have a time limit and retry a rate limit or overload.** Each AI request attempt is limited to 5
@@ -32,6 +40,13 @@ longer carries its own changelog comment.
   stay unsigned, as every release so far has been (§487); the README's "Code signing" section and `SECURITY.md` say
   what stands in for a signature. The app's own update-signature check is kept, dormant, for a future signing provider.
   §793 (the unsigned uninstaller) is closed as moot.
+
+### Fixed
+
+- **Storage can no longer leave Turso in place while the project portfolio is on Turso.** Switching Settings →
+  Storage from Turso to a local kind left the portfolio on Turso over a local copy, so switching or creating a project
+  still went to Turso and renaming the copy renamed the Turso project. The switch now refuses and points to
+  Settings → Integrations → Portfolio storage, which leaves Turso correctly (§791).
 
 ## [1.21.1] - 2026-11-17 "French"
 

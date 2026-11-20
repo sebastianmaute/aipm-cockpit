@@ -1339,3 +1339,47 @@ describe("GanttPanel row-unique accessible names", () => {
     expect(connector?.closest("svg")?.getAttribute("height")).toBe(String(2 * ROW_HEIGHT_PX));
   });
 });
+
+// ---------- §736 setup checklist -------------------------------------------
+
+describe("GanttPanel — setup checklist (§736)", () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => window.localStorage.clear());
+  const L = "en-US" as const;
+  const region = () => screen.queryByRole("region", { name: t(L, "ganttSetupTitle") });
+  const DATED_WITH_DEP: Task[] = [
+    { ...BASE_TASKS[0], id: 1 },
+    { ...BASE_TASKS[0], id: 2, dependencies: [{ taskId: 1, type: "FS" as const }] },
+  ];
+  const MILESTONE = { id: 1, name: "Go-live", date: dayPlus(10), linkedTaskIds: [] } as unknown as Milestone;
+
+  it("an empty chart names every step, not only the first, beside the add box", () => {
+    render(<GanttPanel {...BASE_PROPS} tasks={[]} onAddTask={vi.fn()} />);
+    const list = region();
+    expect(list).not.toBeNull();
+    expect(within(list!).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(list!).getByText(t(L, "ganttSetupMilestones"))).toBeInTheDocument();
+    expect(screen.getByText(t(L, "ganttEmpty"))).toBeInTheDocument();
+  });
+
+  it("a drawn chart shows one collapsed line while a step remains, and hiding it is remembered per project", async () => {
+    // A project switch remounts every panel (the §548 load hold), so each project is a fresh mount here.
+    const first = render(<GanttPanel {...BASE_PROPS} tasks={DATED_WITH_DEP} setupProjectKey="p1" />);
+    expect(screen.getByText(t(L, "ganttSetupCollapsed", 2, 3))).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: t(L, "ganttSetupDismiss") }));
+    expect(region()).toBeNull();
+    first.unmount();
+    const second = render(<GanttPanel {...BASE_PROPS} tasks={DATED_WITH_DEP} setupProjectKey="p2" />);
+    expect(region()).not.toBeNull();
+    second.unmount();
+    render(<GanttPanel {...BASE_PROPS} tasks={DATED_WITH_DEP} setupProjectKey="p1" />);
+    expect(region()).toBeNull();
+  });
+
+  it("shows nothing once every step is done, or when the milestone step does not apply", () => {
+    const { rerender } = render(<GanttPanel {...BASE_PROPS} tasks={DATED_WITH_DEP} milestones={[MILESTONE]} />);
+    expect(region()).toBeNull();
+    rerender(<GanttPanel {...BASE_PROPS} tasks={DATED_WITH_DEP} milestonesApplicable={false} />);
+    expect(region()).toBeNull();
+  });
+});

@@ -79,6 +79,9 @@ import {
 } from "./resources-panel-columns";
 import { PlanningTable, type PlanRow } from "./resources-panel-rows";
 import { PlanningToolbar, CalendarToolbar } from "./resources-panel-toolbar";
+import type { AppView } from "./nav-config";
+import { resourcesSetupSteps } from "./view-setup";
+import { ResourcesSetupChecklist } from "./view-setup-checklists";
 
 interface Props {
   lang: Lang;
@@ -131,6 +134,8 @@ interface Props {
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed?: Partial<Resource>) => void;
+  /** §731 — the setup checklist's links (to Roles and the directory). Undefined in a popout: no links. */
+  onSetupGo?: (view: AppView) => void;
   /** Open the calendar-event editor for a NEW meeting (the toolbar's
    *  "+ Add meeting" button). Omit in popouts — the panel itself gates it on
    *  `isPopout`, so a caller need not double-guard (mirrors `onAddAbsence`). */
@@ -227,6 +232,7 @@ function ResourcesPanelInner({
   onSetPlanWindow,
   onEditResource,
   onAddResource,
+  onSetupGo,
   onAddCalendarEvent,
   onEditCalendarEvent,
   onSaveCalendarEvent,
@@ -645,7 +651,12 @@ function ResourcesPanelInner({
       )}
       {view === "workload" && renderWorkloadHeader()}
       {isEmpty && view !== "planning" && (
-        <EmptyState title={t(lang, "resourcesEmpty")} />
+        <>
+          <EmptyState title={t(lang, "resourcesEmpty")} />
+          <div className="mx-auto w-full max-w-xl">
+            <ResourcesSetupChecklist lang={lang} steps={resourcesSetupSteps({ roles, disciplines, grades, resources })} peopleLink onGo={isPopout ? undefined : onSetupGo} />
+          </div>
+        </>
       )}
       {view === "planning" && (
         <>

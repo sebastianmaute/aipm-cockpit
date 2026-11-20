@@ -1185,15 +1185,15 @@
   ★ It is NOT refused while the cross-project data loads and needs no other project loaded (rows outlive the other projects);
   it rides `commit`, so a reload that read the rows first is corrected through `runWritesRef`.
   ★★★ **THE WHOLE FEATURE IS OFF UNLESS THE LIVE `storageKind` IS `"turso"`, NOT JUST `portfolioMode`.** `portfolioMode` is frozen at
-  startup and an in-place storage switch (Turso to Browser) leaves `portfolioMode`, `tursoConfig` and `tursoProjectId` looking like
-  Turso while the open workspace is a local copy. So `useCrossProjectPeople` takes `storageKind` (task-manager passes
+  startup, and an in-place storage switch (Turso to Browser) made before §791 left `portfolioMode`, `tursoConfig` and `tursoProjectId`
+  looking like Turso while the open workspace is a local copy. So `useCrossProjectPeople` takes `storageKind` (task-manager passes
   `settings.storageConfig.kind`) and folds it into `portfolio`: off Turso the status is `"unavailable"`, nothing is loaded, `request`
   does nothing, `confirm`/`reject`/`undo` refuse, the person's section renders nothing, and `singleProject` is FALSE (it is only for a
   Turso database with one project, so the digest never claims "this is the only project"; it says "ELSEWHERE: other projects cannot be
   seen in this storage mode" and the window shows no elsewhere note). `forgetPeople` gates on the same `portfolio`. The hook re-enables
   when the live kind returns to `turso` (pinned at the hook). Converting back into a Turso database that holds projects is refused ([§790](../open-followups.md#790-converting-a-local-copy-back-to-turso-writes-through-the-wrong-layout-and-may-empty-a-shared-database--closed-2026-11-02)).
-  `portfolioMode` stays frozen and still contradicts the comment in `portfolio-mode-switch.ts` after such a switch; only this feature is
-  made safe, and auditing the other readers is [§791](../open-followups.md#791-the-portfolio-flag-stays-on-turso-after-an-in-place-storage-switch-and-its-other-readers-are-unaudited).
+  Since [§791](../open-followups.md#791-the-portfolio-flag-stays-on-turso-after-an-in-place-storage-switch-and-its-other-readers-are-unaudited--closed-2026-11-20) that switch is refused while the portfolio is on Turso, so the state survives only
+  on a device that reached it earlier; this live-kind gate stays as the guard for such a device.
   ★ The AI `delete_resource` is refused while the LOAD HOLD is on (`isLoadHeld` = `isSwapInFlight() || loadPendingRef.current`, so a
   project swap, a same-project Reload, a backend rebuild and the first load), because the sweep is permanent while the delete is lost
   with the workspace it edited; only that tool is gated, and a cross-project reload is not the hold.
