@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { loadI18n, t } from "./i18n";
 import {
   AI_MAX_ATTEMPTS,
   AI_REQUEST_TIMEOUT_MS,
@@ -137,5 +138,20 @@ describe("sleepAbortable", () => {
     ctl.abort();
     await expect(sleepAbortable(10_000, ctl.signal)).rejects.toMatchObject({ name: "AbortError" });
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+// The timeout message names the limit in words; the constant sets it. Callers render the key without
+// arguments, so the number cannot be a placeholder: this keeps the two from drifting apart.
+describe("the timeout message names the time limit", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("EN and DE aiRequestTimedOut name AI_REQUEST_TIMEOUT_MS in minutes", () => {
+    const minutes = AI_REQUEST_TIMEOUT_MS / 60_000;
+    expect(Number.isInteger(minutes)).toBe(true);
+    expect(Number(/(\d+) minutes/.exec(t("en-US", "aiRequestTimedOut"))?.[1])).toBe(minutes);
+    expect(Number(/(\d+) Minuten/.exec(t("de", "aiRequestTimedOut"))?.[1])).toBe(minutes);
   });
 });

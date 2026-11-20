@@ -135,6 +135,47 @@ describe("the chat's retry wait", () => {
     expect(screen.queryByText("Done.")).toBeNull();
   });
 
+  // A send that a project switch cancels during its wait ends (its `finally` runs) before the next send
+  // can start: the composer stays locked while it is in flight, and `submitPrompt` bails while
+  // `abortRef` is set. So the old send clears its own wait line, and the next send starts clean.
+  it("a project switch during the wait ends that send first; the next send's row is its own", async () => {
+    let answer: (r: Response) => void = () => {};
+    const second = new Promise<Response>((resolve) => { answer = resolve; });
+    const f = stubFetch([() => limited(12), () => second]);
+    const view = renderChat();
+    send("en-US", "Status?");
+    await flush();
+    expect(screen.getByText(t("en-US", "chatRetryWait", 12))).toBeTruthy();
+    // While the first send is in flight there is no Send button to start another one.
+    expect(screen.queryByRole("button", { name: t("en-US", "chatSend") })).toBeNull();
+    // Nor does Enter in the composer: the second submit bails and nothing more goes out.
+    const composer = screen.getByPlaceholderText(t("en-US", "chatPlaceholder"));
+    fireEvent.change(composer, { target: { value: "Again?" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    await flush();
+    expect(sends(f)).toHaveLength(1);
+    expect(screen.getByText(t("en-US", "chatRetryWait", 12))).toBeTruthy();
+
+    view.rerender(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI} dispatcher={makeDispatcher()} projectId="p2" />);
+    await flush();
+    expect(screen.queryByText(/trying again in/)).toBeNull();
+
+    send("en-US", "And now?");
+    await flush();
+    expect(sends(f)).toHaveLength(2);
+    expect(screen.getByText(t("en-US", "chatThinking"))).toBeTruthy();
+    expect(screen.queryByText(/trying again in/)).toBeNull();
+
+    // The cancelled send's wait is gone for good: nothing more goes out when it would have ended.
+    await advance(12_000);
+    expect(sends(f)).toHaveLength(2);
+    expect(screen.queryByText(/trying again in/)).toBeNull();
+
+    answer(done());
+    await flush();
+    expect(screen.getByText("Done.")).toBeTruthy();
+  });
+
   it("a timeout shows the timeout message, not Stopped", async () => {
     const f = stubFetch([() => new Promise<Response>(() => {})]);
     renderChat();

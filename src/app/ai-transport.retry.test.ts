@@ -8,6 +8,7 @@ import { AI_REQUEST_TIMEOUT_MS } from "./ai-retry";
 import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { __setAiStatusRequestForTests } from "./ai-status-request";
+import { withPeopleAllowed } from "./ai-people-protection";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import type { Resource } from "./types";
 
@@ -340,6 +341,34 @@ describe("privacy and usage across a retry", () => {
       expect(s).not.toMatch(/Rosalind|Quenby/);
       expect(s).toContain(placeholder);
     }
+    const res = (run.result() as { value: Response }).value;
+    expect(((await res.json()) as { content: { text: string }[] }).content[0].text).toBe("Ask Rosalind Quenby now");
+  });
+
+  it("a people lock that appears between attempts: the retry is redacted and the reply restored with its privacy", async () => {
+    // An allowing project's privacy is unprotected; `ifForced` builds its protected privacy when the
+    // server forces protection. Attempt 1 goes out unforced, attempt 2's status answers peopleForced.
+    const privacy = aiPrivacyFor([{ key: "p798-lock", ws: { ...ws, settingsOverrides: withPeopleAllowed(undefined, true) } }]);
+    expect(privacy.protected).toBe(false);
+    const f = stubFetch(
+      [
+        () => limited({ "retry-after": "0" }),
+        (init) => {
+          const placeholder = /\[Person \d+\]/.exec(String(init?.body))?.[0] ?? "none";
+          return json({ content: [{ type: "text", text: `Ask ${placeholder} now` }] });
+        },
+      ],
+      (n) => (n === 1 ? DIRECT_AI_STATUS : { ...DIRECT_AI_STATUS, peopleForced: true }),
+    );
+    const body = JSON.stringify({ messages: [{ role: "user", content: "Rosalind Quenby is late" }] });
+    const run = settle(postAiMessages({ privacy, apiKey: KEY, body, path: "chat" }));
+    await vi.advanceTimersByTimeAsync(10);
+    const sent = sends(f).map((c) => String(c[1]?.body));
+    expect(sent).toHaveLength(2);
+    expect(statusCalls(f)).toHaveLength(2);
+    expect(sent[0]).toContain("Rosalind Quenby");
+    expect(sent[1]).not.toMatch(/Rosalind|Quenby/);
+    expect(sent[1]).toMatch(/\[Person \d+\]/);
     const res = (run.result() as { value: Response }).value;
     expect(((await res.json()) as { content: { text: string }[] }).content[0].text).toBe("Ask Rosalind Quenby now");
   });

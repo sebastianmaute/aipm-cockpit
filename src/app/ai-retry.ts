@@ -1,7 +1,8 @@
 // src/app/ai-retry.ts — pure, i18n-free, React-free policy for the AI transport's time limit and
 // its bounded retry of rate-limit / overload answers (§798). No fetch, no logging.
 
-/** Per-attempt time limit for one AI request, headers and body included. */
+/** Per-attempt time limit for one AI request, headers and body included. The message `aiRequestTimedOut`
+ *  (EN + DE) names it in minutes; `ai-retry.test.ts` fails when the two disagree. */
 export const AI_REQUEST_TIMEOUT_MS = 300_000;
 /** Attempts in all: the first send plus at most two retries. */
 export const AI_MAX_ATTEMPTS = 3;
