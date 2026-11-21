@@ -4728,6 +4728,41 @@ describe("cache-token usage recording", () => {
     expect(fp.stableText).toBe(body.system[0].text);
   });
 
+  // §702 — with operating guides off no view guide is sent, so the two layouts send the same bytes: a send stays in
+  // the default layout's counter even when the (then disabled) switch was left on.
+  it("counts a send under the default layout while guides are off, whatever viewGuidesInTurn says", async () => {
+    const recordChatSendSpy = vi.fn();
+    vi.mocked(useAiUsageActions).mockReturnValue({
+      ...DEFAULT_AI_USAGE_CONTEXT,
+      recordChatSend: recordChatSendSpy,
+    });
+    spyAiFetch().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "done" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+        }),
+    } as unknown as Response);
+
+    render(
+      <ChatPanel
+        {...SCOPE_PROPS}
+        lang="en-US"
+        ai={{ ...AI_WITH_KEY, groundInGuides: false, viewGuidesInTurn: true }}
+        guides={[]}
+        dispatcher={makeDispatcher()}
+      />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "first" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(recordChatSendSpy).toHaveBeenCalledTimes(1));
+    const [fp] = recordChatSendSpy.mock.calls[0] as [SendFingerprint, number];
+    expect(fp.layout).toBe("system");
+  });
+
   // A send that goes stale WITHOUT being cancelled — a workspace scope change;
   // a project or thread switch cancels instead. The view-switch counter must
   // get the request together with its cache write, or a switch would be

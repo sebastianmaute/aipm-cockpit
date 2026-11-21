@@ -765,8 +765,9 @@ function ChatPanelInner({
         ok: !isError,
       };
     };
-    // §702: `settings.ai.viewGuidesInTurn` picks where the view's guides go (`buildChatPromptLayout`).
-    const viewGuidesInTurn = ai.viewGuidesInTurn === true;
+    // §702: `settings.ai.viewGuidesInTurn` picks where the view's guides go (`buildChatPromptLayout`). With guides
+    // off there is no view guide, both layouts send the same bytes, and the send is counted under the default one.
+    const viewGuidesInTurn = ai.viewGuidesInTurn === true && ai.groundInGuides;
     const { system, turnContext, viewText } = buildChatPromptLayout(
       lang, snapshot, guides, ai.groundInGuides, toolFlags, viewGuidesInTurn,
     );

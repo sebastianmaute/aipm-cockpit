@@ -277,7 +277,10 @@ describe("AiSection", () => {
   it("disables the view-guides-in-turn toggle while operating guides are off (no view guide is sent then)", () => {
     const off = { ...defaultSettings, ai: { ...defaultSettings.ai, groundInGuides: false } };
     render(<AiSection lang="en-US" settings={off} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(t("en-US", "aiViewGuidesInTurn"))).toBeDisabled();
+    const toggle = screen.getByLabelText(t("en-US", "aiViewGuidesInTurn"));
+    expect(toggle).toBeDisabled();
+    // The reason is announced, not only shown: the hint (which names the dependency) describes the control.
+    expect(toggle).toHaveAccessibleDescription(t("en-US", "aiViewGuidesInTurnHelp"));
   });
 
   it("hides the view-guides-in-turn toggle while the AI master switch is off", () => {

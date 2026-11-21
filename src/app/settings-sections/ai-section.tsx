@@ -164,6 +164,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const apiKeyNoteId = useId();
   const hardCapHelpId = useId();
   const modelHintId = useId();
+  const viewGuidesInTurnHintId = useId();
   const recBackgroundHintId = useId();
   const consentPausedNoticeId = useId();
   const recPausedNoticeId = useId();
@@ -773,6 +774,8 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
             checked={settings.ai.viewGuidesInTurn === true}
             // With operating guides off no view guide is sent, so where it would go means nothing.
             disabled={!settings.ai.groundInGuides}
+            // Always linked: the hint names the dependency, so it also says why the box is disabled.
+            aria-describedby={viewGuidesInTurnHintId}
             onChange={() =>
               onChange({
                 ...settings,
@@ -782,7 +785,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           />
           <span className="text-xs text-foreground">{t(lang, "aiViewGuidesInTurn")}</span>
         </label>
-        <FieldHint className="mt-1">{t(lang, "aiViewGuidesInTurnHelp")}</FieldHint>
+        <FieldHint id={viewGuidesInTurnHintId} className="mt-1">{t(lang, "aiViewGuidesInTurnHelp")}</FieldHint>
 
         {/* Action Center AI suggestions toggle (default ON; undefined = on) */}
         <label className="mt-3 flex items-center gap-2">
