@@ -18,9 +18,10 @@ gewöhnliche Änderung sofort an, sofern nicht das Projekt oder die Bereitstellu
 geplante Stunden von Personen und Verschiebungen offener Aufgaben zwischen ihnen vor, und der RACI-Vorschlag
 schlägt eine Rolle je Person und Meilenstein vor (E56, *im Code gelesen*). Wie sich diese Funktionen und Ihre
 Nutzung zu Anhang III der KI-Verordnung verhalten, ordnet Ihre Organisation ein; diese Seite liefert die Fakten
-dafür, keine Schlussfolgerung. Nichts in diesen Kurzinformationen misst Genauigkeit, Verzerrung oder
-Wiederholbarkeit dieser Vorschläge, und die App tut nichts dafür, dass eine Anfrage zweimal dieselbe Antwort
-ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
+dafür, keine Schlussfolgerung. Nichts in diesen Kurzinformationen misst Genauigkeit oder Verzerrung dieser
+Vorschläge. Fünfmal mit derselben Eingabe ausgeführt, lieferte die Optimierung der Arbeitspakete mit Claude Sonnet 5
+jedes Mal einen anderen Vorschlag und mit Claude Sonnet 5.5 einen weit stabileren (§812; E27, *gemessen*), und die
+App tut nichts dafür, dass eine Anfrage zweimal dieselbe Antwort ergibt (E61, *im Code gelesen*).
 
 ## Was hinausgeht und wer es freigibt
 
@@ -78,8 +79,9 @@ ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
    Zusammenfassung sind gekennzeichnet (E73, *getestet (Unit)*). Aufgaben, Berichtstext, Chat-Antworten,
    kopierter Text und die Exporte des Arbeitsbereichs sind es nicht; legen Sie also fest, wie sie
    gekennzeichnet werden, sobald sie die App verlassen (E55, *im Code gelesen*).
-2. **§812:** Ob die Optimierung der Arbeitspakete ihr Ergebnis wiederholt, ist nicht gemessen (E27,
-   *nicht belegt*).
+2. **§812:** Der Vorschlag der Optimierung der Arbeitspakete schwankt für dieselbe Eingabe mit Claude Sonnet 5
+   und deutlich weniger mit Claude Sonnet 5.5, und ob die App eine niedrigere Temperatur anfordern soll, ist nicht
+   entschieden (E27, *gemessen*).
 3. **Fremder Text ohne Kennzeichnung:** Fremder Text ohne Kennzeichnung seiner Herkunft löst die Prüfpflicht
    nicht aus; eine aus Jira synchronisierte Aufgabe tut es (E48, *getestet (Unit)*). Nur die Prüfung jeder
    Änderung deckt ihn ab (E71, *getestet (Unit)*).

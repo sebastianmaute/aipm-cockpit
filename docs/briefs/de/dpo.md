@@ -91,11 +91,14 @@ Fragen, die nur Ihre Organisation beantworten kann.
 
 ## Noch nicht belegt / offene Lücken
 
-1. **§813:** Das Löschen von Chats ist live nur für seine Datenbankanweisungen belegt, nicht für die
-   Oberflächen, echte Löschläufe, die Sicherungen des Anbieters oder was der Modellanbieter aufbewahrt (E30,
-   *getestet (Live-Datenbank)*).
-2. **§814:** Für die Ablehnung von Bildern und PDFs bei Personenschutz und die Stunden anderer Projekte in der
-   Ressourcenplanung gibt es kein beobachtetes Verhalten aus einem gemessenen Lauf (E39, *nicht belegt*).
+1. **Sicherungen und Modellanbieter:** Je ein Live-Lauf beider Löschungen entfernte genau die erwarteten Chats
+   (E74, *gemessen*), aber der Datenbankanbieter kann einen gelöschten Chat in den Standardtarifen von Turso noch
+   1 bis 90 Tage wiederherstellen (E75, *vom Anbieter angegeben*), und was der Modellanbieter aufbewahrt, liegt außerhalb der
+   Löschung der App (E30, *getestet (Live-Datenbank)*).
+2. **§814:** Für Diktat und Sprachbefehle gibt es kein beobachtetes Verhalten aus einem gemessenen Lauf (E76,
+   *nicht belegt*). Einmal gemessen: Bei Personenschutz werden Bilder und PDFs schon beim Anhängen abgelehnt, und
+   nichts wird gesendet; ohne Personenschutz sendet „Mit KI planen“ für eine Person, die auch in einem anderen Projekt arbeitet, den
+   Namen dieses Projekts und ihre dortigen Stunden je Monat (E39, *gemessen*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
 

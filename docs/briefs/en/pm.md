@@ -11,8 +11,9 @@
 The AI drafts and proposes work for you: most features change nothing until you apply their proposal, but a
 single ordinary change in the chat applies at once unless your project reviews every AI write (E56,
 *read in code*; E47, *tested (unit)*; E71, *tested (unit)*). Its answers can
-differ between runs: the app does nothing to make the same request give the same answer, and whether the work
-breakdown optimisation repeats has not been measured (E61, *read in code*; E27, *not proven*). AI text in your
+differ between runs: the app does nothing to make the same request give the same answer, and run five times on
+the same input, the work breakdown optimisation gave a different proposal each time on Claude Sonnet 5 and a far more
+stable one on Claude Sonnet 5.5 (E61, *read in code*; E27, *measured*). AI text in your
 report carries no mark, so telling a steering committee what the AI drafted is up to you (E55, *read in code*;
 E62, *read in code*). Your use costs about $5, $13 or $33 a month
 at light, typical or heavy use, an estimate from assumed usage (E25, *estimated*) and 2 to 6 measured calls per
@@ -69,9 +70,11 @@ feature on one demo project (E37, *measured*).
 
 ## Not yet proven / open gaps
 
-1. **§812:** whether the work breakdown optimisation repeats has not been measured (E27, *not proven*).
-2. **§814:** the hours from other projects in the allocation proposal have no observed behaviour from a
-   measured run (E39, *not proven*).
+1. **§812:** the work breakdown optimisation's proposal for the same input varies, much less on Claude Sonnet 5.5
+   than on Claude Sonnet 5; review each one on its own (E27, *measured*).
+2. **§814:** dictation and voice commands have no observed behaviour from a measured run (E76, *not proven*).
+   Measured with protection off: Plan with AI sends, for a person who also works in another project, that project's name and the
+   person's monthly hours there (E39, *measured*).
 3. **Marking is partial:** only project documents the AI wrote and the digest mail with its summary are marked
    (E73, *tested (unit)*); tasks, report text, chat replies and the workspace exports are not (E55, *read in code*).
 

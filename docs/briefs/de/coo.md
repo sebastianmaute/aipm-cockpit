@@ -45,10 +45,12 @@ Form einer Telefonnummer im Browser vor dem Senden durch Platzhalter ersetzt (E1
 ## Noch nicht belegt / offene Lücken
 
 1. **§811:** Die Zeit, die die KI spart, ist nicht gemessen (E26, *nicht belegt*).
-2. **§812:** Ob „Arbeitspakete mit KI optimieren“ sein Ergebnis wiederholt, ist nicht gemessen (E27,
-   *nicht belegt*).
-3. **§814:** Sechs Pfade haben weder gemessene Kosten noch beobachtetes Verhalten, darunter die wöchentliche
-   harte Obergrenze (E39, *nicht belegt*).
+2. **§812:** Der Vorschlag von „Arbeitspakete mit KI optimieren“ schwankt für dieselbe Eingabe mit Claude Sonnet 5
+   und deutlich weniger mit Claude Sonnet 5.5; ob das Modell mit einer niedrigeren Temperatur angefragt werden
+   soll, ist nicht entschieden (E27, *gemessen*).
+3. **§814:** Diktat und Sprachbefehle haben weder gemessene Kosten noch beobachtetes Verhalten (E76,
+   *nicht belegt*); die wöchentliche harte Obergrenze wurde gemessen und hielt die Hintergrund-KI an (E39,
+   *gemessen*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
 
@@ -67,8 +69,8 @@ Form einer Telefonnummer im Browser vor dem Senden durch Platzhalter ersetzt (E1
     daher vorher (E43, *im Code gelesen*).
   - *Dauer und Größe:* nach Ihrer Wahl, etwa 6–12 Wochen und 10–30 Projektleitungen.
   - *Messen:* Ausgaben je nutzender Person und Woche; Zeit je Aufgabe gegenüber der Ausgangsbasis; wie viele
-    KI-Vorschläge angenommen werden und wie viele Nacharbeit brauchen; Wiederholbarkeit des Vorschlags für den
-    Projektstrukturplan (§812; E27, *nicht belegt*).
+    KI-Vorschläge angenommen werden und wie viele Nacharbeit brauchen; wie stark der Vorschlag für den
+    Projektstrukturplan in Ihren eigenen Projekten schwankt (§812; E27, *gemessen*).
   - *Abbruch und Freigabe:* abbrechen, wenn Ausgaben, Nacharbeit oder ein Befund zum Personenschutz eine vorher
     von Ihnen festgelegte Grenze überschreiten (die Kurzinformationen nennen keine Werte; keiner ist gemessen);
     Freigabe durch Betriebsrat, DSB, CISO und die Budgetverantwortlichen.

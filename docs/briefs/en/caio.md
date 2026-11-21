@@ -16,8 +16,10 @@ the project or the deployment has every AI write reviewed (E56, *read in code*; 
 proposal ("Plan with AI") proposes people's planned hours and moves of open tasks between them, and the RACI
 suggestion proposes a role per person and milestone (E56, *read in code*). How these, and your use of them, read
 against Annex III of the AI Act is your organisation's classification; this page gives the facts for it, not a
-conclusion. Nothing in these briefs measures the accuracy, bias or repeatability of those proposals, and the
-app does nothing to make a request give the same answer twice (§812; E27, *not proven*; E61, *read in code*).
+conclusion. Nothing in these briefs measures the accuracy or bias of those proposals. Run five times on the same
+input, the work breakdown optimisation gave a different proposal each time on Claude Sonnet 5 and a far more stable
+one on Claude Sonnet 5.5 (§812; E27, *measured*), and the app does nothing to make a request give the same answer
+twice (E61, *read in code*).
 
 ## What leaves, and who approves it
 
@@ -68,7 +70,9 @@ app does nothing to make a request give the same answer twice (§812; E27, *not 
 1. **Marking is partial:** only project documents the AI wrote and the digest mail with its summary are marked
    (E73, *tested (unit)*). Tasks, report text, chat replies, copied text and the workspace exports are not, so
    decide how they are labelled once they leave the app (E55, *read in code*).
-2. **§812:** whether the work breakdown optimisation repeats its result is not measured (E27, *not proven*).
+2. **§812:** the work breakdown optimisation's proposal for the same input varies on Claude Sonnet 5 and much less
+   on Claude Sonnet 5.5, and whether the app should ask the model for a lower temperature is not decided (E27,
+   *measured*).
 3. **Unmarked outside text:** outside text with no mark of its origin does not start the review hold; a
    Jira-synced task does (E48, *tested (unit)*). Only reviewing every write covers it (E71, *tested (unit)*).
 

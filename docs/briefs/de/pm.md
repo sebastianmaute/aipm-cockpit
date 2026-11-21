@@ -13,8 +13,9 @@ Die KI entwirft Arbeit für Sie und schlägt sie vor: Die meisten Funktionen än
 Vorschlag übernehmen, eine einzelne gewöhnliche Änderung im Chat wird aber sofort angewendet, sofern Ihr Projekt
 nicht jede KI-Änderung prüfen lässt (E56, *im Code gelesen*; E47, *getestet (Unit)*; E71, *getestet (Unit)*).
 Die Antworten der KI können sich von Lauf zu Lauf unterscheiden: Die
-App tut nichts dafür, dass dieselbe Anfrage dieselbe Antwort ergibt, und ob die Optimierung der Arbeitspakete
-gleich ausfällt, wurde nicht gemessen (E61, *im Code gelesen*; E27, *nicht belegt*). KI-Text in Ihrem Bericht
+App tut nichts dafür, dass dieselbe Anfrage dieselbe Antwort ergibt, und fünfmal mit derselben Eingabe
+ausgeführt, lieferte die Optimierung der Arbeitspakete mit Claude Sonnet 5 jedes Mal einen anderen Vorschlag und mit
+Claude Sonnet 5.5 einen weit stabileren (E61, *im Code gelesen*; E27, *gemessen*). KI-Text in Ihrem Bericht
 trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen hat, liegt also bei Ihnen (E55,
 *im Code gelesen*; E62, *im Code gelesen*). Ihre Nutzung kostet etwa
 5 $, 13 $ oder 33 $ im Monat bei leichter, typischer oder intensiver Nutzung, geschätzt aus angenommener Nutzung
@@ -82,9 +83,11 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
 
 ## Noch nicht belegt / offene Lücken
 
-1. **§812:** Ob die Optimierung der Arbeitspakete gleich ausfällt, wurde nicht gemessen (E27, *nicht belegt*).
-2. **§814:** Für die Stunden aus anderen Projekten im Vorschlag für die Ressourcenplanung gibt es kein
-   beobachtetes Verhalten aus einem gemessenen Lauf (E39, *nicht belegt*).
+1. **§812:** Der Vorschlag der Optimierung der Arbeitspakete schwankt für dieselbe Eingabe, mit Claude Sonnet 5.5
+   deutlich weniger als mit Claude Sonnet 5; prüfen Sie jeden für sich (E27, *gemessen*).
+2. **§814:** Für Diktat und Sprachbefehle gibt es kein beobachtetes Verhalten aus einem gemessenen Lauf (E76,
+   *nicht belegt*). Gemessen ohne Personenschutz: „Mit KI planen“ sendet für eine Person, die auch in einem anderen Projekt arbeitet,
+   den Namen dieses Projekts und ihre dortigen Stunden je Monat (E39, *gemessen*).
 3. **Die Kennzeichnung ist teilweise:** Nur Projektdokumente, die die KI schreibt, und die Digest-Mail mit ihrer
    Zusammenfassung sind gekennzeichnet (E73, *getestet (Unit)*); Aufgaben, Berichtstext, Chat-Antworten und die
    Exporte des Arbeitsbereichs nicht (E55, *im Code gelesen*).

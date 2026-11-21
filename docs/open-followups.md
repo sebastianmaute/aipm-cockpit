@@ -1046,9 +1046,9 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§806](#806-the-ai-relay-and-dictation-routes-have-no-request-limit--closed-2026-11-14) | The AI relay and dictation routes have no request limit | — | — | **CLOSED** 2026-11-14 |
 | [§810](#810-hiding-a-projects-resources-function-keeps-neither-the-chats-people-tools-nor-the-absence-list-from-the-ai--closed-2026-11-16) | Hiding a project's Resources function keeps neither the chat's people tools nor the absence list from the AI | — | — | **CLOSED** 2026-11-16 |
 | [§811](#811-the-time-the-ai-features-save-is-not-measured) | The time the AI features save is not measured | — | — | open |
-| [§812](#812-whether-optimize-work-breakdown-with-ai-repeats-is-not-measured) | Whether Optimize work breakdown with AI repeats is not measured | — | — | open |
-| [§813](#813-erasure-and-retention-of-saved-chats-are-proven-live-only-for-the-statements-the-erasure-spec-covers) | Erasure and retention of saved chats are proven live only for the statements the erasure spec covers | — | — | open |
-| [§814](#814-several-ai-paths-have-no-recorded-cost-or-observed-behaviour-from-a-measured-run) | Several AI paths have no recorded cost or observed behaviour from a measured run | — | — | open |
+| [§812](#812-optimize-work-breakdown-with-ai-gives-different-proposals-for-the-same-input-and-no-response-to-that-is-decided) | Optimize work breakdown with AI gives different proposals for the same input, and no response to that is decided | — | — | open |
+| [§813](#813-erasure-and-retention-of-saved-chats-are-proven-live-only-for-the-statements-the-erasure-spec-covers--closed-2026-11-21) | Erasure and retention of saved chats are proven live only for the statements the erasure spec covers | — | — | **CLOSED** 2026-11-21 |
+| [§814](#814-dictation-and-voice-commands-have-no-recorded-cost-or-observed-behaviour-from-a-measured-run) | Dictation and voice commands have no recorded cost or observed behaviour from a measured run | — | — | open |
 | [§815](#815-ai-starter-content-applied-when-a-project-is-created-writes-no-activity-entry) | AI starter content applied when a project is created writes no activity entry | — | — | open |
 <!-- INDEX:END -->
 
@@ -46501,25 +46501,29 @@ Size M.
 
 **Source:** preparing the AI briefs, 2026-11-14.
 
-## 812. Whether Optimize work breakdown with AI repeats is not measured
+## 812. Optimize work breakdown with AI gives different proposals for the same input, and no response to that is decided
 
-**Status:** OPEN 2026-11-14, found while preparing the AI briefs; never machine-verified. The register has no earlier entry on it; `optimize_wbs` (§3) was a different question and is closed.
+**Status:** OPEN 2026-11-14; measured 2026-11-21, the decision is open. Measured on app commit abec13ba1 against the demo project: two requests, five runs each with the same input, on `claude-sonnet-5` and on `claude-sonnet-5-5`, people protection off, direct route. The aggregates are in `docs/briefs/figures-2026-11-21.json` (`wbsRepeat`) and in the briefs' evidence row E27. On Claude Sonnet 5 every run gave a different proposal: between two runs the existing tasks touched overlapped by a median Jaccard index of 0.78 and 0.55, the titles of new tasks and pieces by 0.08 and 0.33, and one request's link count ranged from 7 to 18. On Claude Sonnet 5.5 the proposals were far more stable (tasks touched 0.875 and 1; one request gave the same five links in every run) and of a different kind for the same request (mostly regroupings, where Sonnet 5 proposed mostly splits). The app sends no `temperature` (`git grep -n temperature -- src/app` prints nothing), so the API default applies.
+
+What is open is the response. A lower temperature is not available on every model: Anthropic's API documentation says Claude Sonnet 5.5 answers a non-default `temperature` with HTTP 400, and API version `2026-10-21` refuses `temperature`, `top_p` and `top_k` on every model. So the realistic choices are to leave it as it is, to tell the user in the feature that proposals vary, or to steer the default model, and that is the owner's decision.
+
+**Earlier:** OPEN 2026-11-14, found while preparing the AI briefs; never machine-verified. The register has no earlier entry on it; `optimize_wbs` (§3) was a different question and is closed.
 
 **Work item:** #987
 
 Optimize work breakdown with AI (`wbs-plan/wbs-plan.ts`) asks the model, in one forced tool call, to propose changes to a project's existing tasks: splits, regroupings, new tasks, estimates and links. The model's answer is expected to differ between runs, and no recorded run repeats the same input to see how far the proposals differ. A brief cannot say whether the same input gives the same proposal, or how much of it.
 
-What it would take: run a fixed set of projects through the feature several times each, compare the proposals (number of splits, new tasks, estimates, links) with a stated measure of difference, and report the spread. Decide whether the app should ask the model for a lower temperature if the spread is large.
+What it would take: run a fixed set of projects through the feature several times each, compare the proposals (number of splits, new tasks, estimates, links) with a stated measure of difference, and report the spread (done 2026-11-21, see the status). Decide what the app does about the spread; asking for a lower temperature is not possible on Claude Sonnet 5.5 (see the status).
 
 Size S.
 
 **Source:** preparing the AI briefs, 2026-11-14.
 
-## 813. Erasure and retention of saved chats are proven live only for the statements the erasure spec covers
+## 813. Erasure and retention of saved chats are proven live only for the statements the erasure spec covers — CLOSED 2026-11-21
 
-**Status:** OPEN 2026-11-14, found while preparing the AI briefs. `e2e/chat-threads-erasure-live.spec.ts` (listed in `LIVE_TURSO_DESTRUCTIVE` in `playwright.config.ts`) has 9 tests (`grep -cE '^\s*test\(' e2e/chat-threads-erasure-live.spec.ts` prints 9) and passed on main for the first time in the `live-turso` workflow run 43576528909 on 2026-11-14; the pull request run 43573323480 came first. The workflow (`.github/workflows/live-turso.yml`) runs `npm run e2e:live-destructive` against a throwaway Turso database on every pull request and push to main, but it is not a required check, and the required `ci` workflow skips the spec (`LIVE_TURSO_DESTRUCTIVE` in `playwright.config.ts`).
+**Status:** CLOSED 2026-11-21. The three things this entry asked for are done. (1) A live run against the throwaway Turso database, on app commit abec13ba1, with a retention of 30 days and twelve seeded chats (five older than 30 days, five recent, one undated, one dated two days ahead): the server's daily sweep (`runChatSweep` in `src/app/api/ai/_chat-sweep.ts`, started with `AIPM_CHAT_SWEEP_TURSO_URL` and `AIPM_CHAT_SWEEP_TURSO_TOKEN` set) logged "chat sweep: 7 expired" and left exactly the five recent chats; on a fresh seeding, with the server's sweep not configured, loading the app in Turso mode ran the browser's sweep (`useChatRetentionSweep` in `src/app/use-chat-retention-sweep.ts`), which deleted the same seven and kept the same five. The aggregates are in `docs/briefs/figures-2026-11-21.json` (`chatSweeps`) and the briefs' evidence row E74. It was a one-off run, not an automated test. (2) Turso's documentation, read 2026-11-21, gives point-in-time restore windows of 1 day (free plan), 10 days (Developer), 30 days (Scaler), 90 days (Pro) and a custom period (Enterprise), and 5 days to recover a deleted database on paid plans, so a chat the sweep deleted can still be restored from Turso's history for the plan's window (briefs' row E75). (3) The briefs say that what the model vendor keeps is outside the app's erasure (row E30, and the DPO page's questions for Anthropic). Not observed separately: the browser clearing the drafts of chat names.
 
-**Work item:** #988
+**Earlier:** OPEN 2026-11-14, found while preparing the AI briefs. `e2e/chat-threads-erasure-live.spec.ts` (listed in `LIVE_TURSO_DESTRUCTIVE` in `playwright.config.ts`) has 9 tests (`grep -cE '^\s*test\(' e2e/chat-threads-erasure-live.spec.ts` prints 9) and passed on main for the first time in the `live-turso` workflow run 43576528909 on 2026-11-14; the pull request run 43573323480 came first. The workflow (`.github/workflows/live-turso.yml`) runs `npm run e2e:live-destructive` against a throwaway Turso database on every pull request and push to main, but it is not a required check, and the required `ci` workflow skips the spec (`LIVE_TURSO_DESTRUCTIVE` in `playwright.config.ts`).
 
 What the spec covers, on a real libSQL database: deleting one thread (`deleteThreadStatements`), including a legacy owner-less row; deleting every thread of one owner across projects (`deleteOwnerThreadsStatements`); the cap of 50 threads per owner (`pruneThreadsStatements`, called with a literal 50 in the spec, not `CHAT_THREAD_CAP`) and the separate legacy group; retention expiry (`expireThreadsStatements`, `retentionCutoff`) for one project and for all projects, including undated rows and rows dated more than a day ahead; the project hard-delete sweep (`projectSideTableSweepStatements`); and the per-owner select behind find and erase (`ownerThreadsSelect`).
 
@@ -46531,15 +46535,17 @@ Size M.
 
 **Source:** preparing the AI briefs, 2026-11-14.
 
-## 814. Several AI paths have no recorded cost or observed behaviour from a measured run
+## 814. Dictation and voice commands have no recorded cost or observed behaviour from a measured run
 
-**Status:** OPEN 2026-11-14, found while preparing the AI briefs; never machine-verified. As of 2026-11-14 the six paths below have no recorded cost or observed behaviour from the measured runs of the AI features on that date.
+**Status:** OPEN 2026-11-14, narrowed 2026-11-21 to dictation and voice commands. Five of the six paths below were run on 2026-11-21 on app commit abec13ba1, on `claude-sonnet-5` and `claude-sonnet-5-5` (the two relay refusals on `claude-sonnet-5` only), with the outcome recorded and a refusal counted only where the refusal itself was seen. The aggregates are in `docs/briefs/figures-2026-11-21.json` (`paths`) and the briefs' evidence row E39. (1) With people protection on, an image and a PDF are refused when attached, with a notice, and nothing is sent. (3) Plan with AI sends, for a person who also works in another project of the same database, that project's name and the person's planned hours there per month. (4) The relay refuses a key of another Anthropic organisation (HTTP 403, `ai-key-wrong-organization`) and a key Anthropic rejects (HTTP 401), each with a message, and forwards neither. (5) With Resources hidden the chat is offered no resource tool; a model that looks up the tasks and the dashboard figures still reads each task's assignee and the planned and booked rates there, as §810's closure and the rates setting (briefs' rows E59 and E72) describe. (6) With the weekly hard cap reached, a background insight run sends nothing and shows the cap notice; the same run without the cap sends. Path (2), dictation and voice commands, was not run: no speech-to-text key was available (briefs' row E76).
+
+**Earlier:** OPEN 2026-11-14, found while preparing the AI briefs; never machine-verified. As of 2026-11-14 the six paths below have no recorded cost or observed behaviour from the measured runs of the AI features on that date.
 
 **Work item:** #989
 
 Six paths have no recorded cost or observed behaviour from a measured run, so a brief cannot state them as verified: (1) the refusal of images and PDFs while people protection is on (`holdsUnredactableContent` and `AiPeopleProtectedContentError` in `ai-privacy.ts`, applied in `chat-panel.tsx` and `ai-transport.ts`); (2) dictation and voice commands (the `/api/stt` route and `parseCommand` in `voice.ts`); (3) hours from other projects in Plan with AI (`alloc-elsewhere-suggestions.tsx`, `alloc-plan-modal.tsx`); (4) a key the relay refuses or cannot verify (`src/app/api/ai/_relay.ts`); (5) a project with its Resources function switched off (see §810 for what the AI still receives); (6) the weekly hard cap on background AI work (`AiWeeklyCapReachedError` in `ai-consent.ts`).
 
-What it would take: run each path once with a recorded outcome and cost, or state in the brief that it was not run.
+What it would take, now only for (2): a speech-to-text key for the run, then one dictation and one voice command, each with its outcome and cost recorded.
 
 Size M.
 

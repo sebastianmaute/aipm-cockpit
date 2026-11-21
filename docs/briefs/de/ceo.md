@@ -53,8 +53,10 @@ nur Ihre Organisation beantworten kann.
   echtes Gateway betrieben (§802; E12, *nicht belegt*).
 - **Aufbewahrung:** Gespeicherte Chats gibt es nur mit einer Turso-Datenbank und dem Wiederherstellungsschlüssel
   des Betreibers (E28, *im Code gelesen*). Der Browser löscht sie 30 Tage nach ihrer letzten Änderung (der Betreiber
-  kann 1 bis 3650 einstellen), ebenso der Server, wo eingerichtet (E29, *im Code gelesen*); live belegt sind nur
-  die Datenbankanweisungen (§813; E30, *getestet (Live-Datenbank)*). Das Ende des Piloten löscht keinen Chat:
+  kann 1 bis 3650 einstellen), ebenso der Server, wo eingerichtet (E29, *im Code gelesen*). Die
+  Datenbankanweisungen sind auf einer Live-Datenbank getestet (E30, *getestet (Live-Datenbank)*), und je ein
+  Live-Lauf beider Löschungen entfernte genau die erwarteten Chats (E74, *gemessen*); der Datenbankanbieter kann
+  einen gelöschten Chat in den Standardtarifen von Turso noch 1 bis 90 Tage wiederherstellen (E75, *vom Anbieter angegeben*). Das Ende des Piloten löscht keinen Chat:
   Sie verschwinden, wenn die Frist abläuft oder der Betreiber sie löscht (E29, *im Code gelesen*; E57,
   *im Code gelesen*).
 
@@ -62,10 +64,11 @@ nur Ihre Organisation beantworten kann.
 
 1. **§811:** Die Zeit, die die KI spart, ist nicht gemessen (E26, *nicht belegt*).
 2. **§802:** Der Gateway-Weg lief noch nie gegen ein echtes Gateway (E12, *nicht belegt*).
-3. **§814:** Sechs Pfade haben weder gemessene Kosten noch beobachtetes Verhalten, darunter die wöchentliche
-   harte Obergrenze (E39, *nicht belegt*).
-4. **§813:** Das Löschen von Chats ist live nur für seine Datenbankanweisungen belegt (E30,
-   *getestet (Live-Datenbank)*).
+3. **§814:** Diktat und Sprachbefehle haben weder gemessene Kosten noch beobachtetes Verhalten (E76,
+   *nicht belegt*); die wöchentliche harte Obergrenze wurde gemessen und hielt die Hintergrund-KI an (E39,
+   *gemessen*).
+4. **Sicherungen:** Ein gelöschter Chat bleibt für die Frist des Tarifs, in den Standardtarifen von Turso 1 bis 90 Tage, aus dem
+   Verlauf des Datenbankanbieters wiederherstellbar (E75, *vom Anbieter angegeben*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
 
@@ -86,8 +89,8 @@ nur Ihre Organisation beantworten kann.
     einem Demoprojekt mit einem Modell (E37, *gemessen*; E33, *gemessen*); nichts in der App setzt es durch (E38,
     *im Code gelesen*).
   - *Messen:* Ausgaben je nutzender Person und Woche; Zeit je Aufgabe gegenüber einer Ausgangsbasis; Annahme- und
-    Nacharbeitsquote der KI-Vorschläge; Wiederholbarkeit des Vorschlags für den Projektstrukturplan (§812; E27,
-    *nicht belegt*).
+    Nacharbeitsquote der KI-Vorschläge; wie stark der Vorschlag für den Projektstrukturplan in Ihren eigenen
+    Projekten schwankt (§812; E27, *gemessen*).
   - *Abbruch und Freigabe:* abbrechen, wenn Ausgaben, Nacharbeit oder ein Befund zum Personenschutz eine vorher
     von Ihnen festgelegte Grenze überschreiten (die Kurzinformationen nennen keine Werte; keiner ist gemessen);
     Freigabe durch Betriebsrat, DSB, CISO und die Budgetverantwortlichen.

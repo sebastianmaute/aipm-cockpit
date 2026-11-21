@@ -47,16 +47,20 @@ Anthropic, transfers and a works agreement are questions only your organisation 
   gateway (§802; E12, *not proven*).
 - **Retention:** saved chats exist only with a Turso database and the operator's recovery key (E28,
   *read in code*). The browser deletes them 30 days after their last change (the operator can set 1 to 3650),
-  and so does the server where set up (E29, *read in code*); live proof covers only the database statements
-  (§813; E30, *tested (live database)*). Ending the pilot deletes no chat: they go when retention runs out or
+  and so does the server where set up (E29, *read in code*). The database statements are tested on a live
+  database (E30, *tested (live database)*), and one live run of each deletion removed exactly the expected chats
+  (E74, *measured*); the database provider can still restore a deleted chat for 1 to 90 days on Turso's standard
+  plans (E75, *stated by the provider*). Ending the pilot deletes no chat: they go when retention runs out or
   the operator erases them (E29, *read in code*; E57, *read in code*).
 
 ## Not yet proven / open gaps
 
 1. **§811:** the time the AI saves is not measured (E26, *not proven*).
 2. **§802:** the gateway route has never run against a real gateway (E12, *not proven*).
-3. **§814:** six paths have no measured cost or behaviour, among them the weekly hard cap (E39, *not proven*).
-4. **§813:** chat erasure is proven live only for its database statements (E30, *tested (live database)*).
+3. **§814:** dictation and voice commands have no measured cost or behaviour (E76, *not proven*); the weekly
+   hard cap was measured and stopped background AI (E39, *measured*).
+4. **Backups:** a deleted chat stays restorable from the database provider's history for the plan's window, 1
+   to 90 days on Turso's standard plans (E75, *stated by the provider*).
 
 ## What to check or ask for before saying yes
 
@@ -75,7 +79,7 @@ Anthropic, transfers and a works agreement are questions only your organisation 
     assumed usage (E25, *estimated*) and 2 to 6 calls per feature on one demo project with one model (E37,
     *measured*; E33, *measured*); nothing in the app enforces it (E38, *read in code*).
   - *Measure:* spend per user per week; time per task against a baseline; acceptance and rework rate of AI
-    proposals; repeatability of the work breakdown proposal (§812; E27, *not proven*).
+    proposals; how much the work breakdown proposal varies on your own projects (§812; E27, *measured*).
   - *Stop and sign-off:* stop when spend, rework or a protection finding passes a limit you set beforehand (the
     briefs give no values; none is measured); sign-off by the works council, the DPO, the CISO and the budget
     owner.

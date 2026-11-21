@@ -82,9 +82,8 @@ Registers.
 | §487 | The Windows installer is unsigned: no signing provider is chosen, so every install shows an unknown-publisher warning |
 | §802 | The AI gateway route has never been run against a real gateway |
 | §811 | The time the AI features save is not measured |
-| §812 | Whether Optimize work breakdown with AI repeats is not measured |
-| §813 | Erasure and retention of saved chats are proven live only for the statements the erasure spec covers |
-| §814 | Several AI paths have no recorded cost or observed behaviour from a measured run |
+| §812 | Optimize work breakdown with AI gives different proposals for the same input, and no response to that is decided |
+| §814 | Dictation and voice commands have no recorded cost or observed behaviour from a measured run |
 | §815 | AI starter content applied when a project is created writes no activity entry |
 <!-- PACK:open-gaps:END -->
 

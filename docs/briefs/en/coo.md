@@ -39,8 +39,10 @@ address, valid IBAN and phone-shaped number are replaced by placeholders in the 
 ## Not yet proven / open gaps
 
 1. **§811:** the time the AI saves is not measured (E26, *not proven*).
-2. **§812:** whether Optimize work breakdown with AI repeats its result is not measured (E27, *not proven*).
-3. **§814:** six paths have no measured cost or behaviour, the weekly hard cap among them (E39, *not proven*).
+2. **§812:** the proposal of Optimize work breakdown with AI for the same input varies on Claude Sonnet 5 and much
+   less on Claude Sonnet 5.5; whether to ask the model for a lower temperature is not decided (E27, *measured*).
+3. **§814:** dictation and voice commands have no measured cost or behaviour (E76, *not proven*); the weekly
+   hard cap was measured and stopped background AI (E39, *measured*).
 
 ## What to check or ask for before saying yes
 
@@ -56,7 +58,8 @@ address, valid IBAN and phone-shaped number are replaced by placeholders in the 
     (E43, *read in code*).
   - *Duration and size:* your choice, for example 6–12 weeks and 10–30 project managers.
   - *Measure:* spend per user per week; time per task against the baseline; how many AI proposals are accepted
-    and how many need rework; repeatability of the work breakdown proposal (§812; E27, *not proven*).
+    and how many need rework; how much the work breakdown proposal varies on your own projects (§812; E27,
+    *measured*).
   - *Stop and sign-off:* stop when spend, rework or a protection finding passes a limit you set beforehand (the
     briefs give no values; none is measured); sign-off by the works council, the DPO, the CISO and the budget
     owner.
