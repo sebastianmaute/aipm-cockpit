@@ -531,7 +531,7 @@ describe("AiUsagePanel", () => {
 });
 
 // §702: the week's view-switch counter, rendered under the weekly bar.
-type SendSeed = { viewText: string; startedAt: number; cacheWrite: number; requests: number };
+type SendSeed = { viewText: string; startedAt: number; cacheWrite: number; requests: number; layout?: "system" | "turn" };
 
 function SeedSends({ sends, children }: { sends: SendSeed[]; children: ReactNode }) {
   const { recordChatSend } = useAiUsageContext();
@@ -543,6 +543,7 @@ function SeedSends({ sends, children }: { sends: SendSeed[]; children: ReactNode
       recordChatSend(
         {
           threadKey: "p|t",
+          layout: s.layout ?? "system",
           model: "m",
           toolNames: "t",
           stableText: "S",
@@ -667,6 +668,33 @@ describe("AiUsagePanel — view-switch counter (§702)", () => {
     expect(screen.getByText("Cache-write tokens per message").nextElementSibling).toHaveTextContent(
       "— on a switch, 400 on other warm messages",
     );
+  });
+
+  // §702 — sends with the view's guides in each message are counted apart, so a week in each layout can be compared.
+  it("shows the turn layout's week under its own caption, and captions both when both have sends", () => {
+    const turn = THREE_SENDS.map((s) => ({ ...s, layout: "turn" as const }));
+    const { unmount } = render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />, {
+      wrapper: sendsWrapper("en-US", turn),
+    });
+    expect(screen.getByText("Guides with each message")).toBeInTheDocument();
+    expect(screen.queryByText("Guides in the cached prompt")).not.toBeInTheDocument();
+    expect(screen.getByText("View switches with a warm cache").nextElementSibling).toHaveTextContent(
+      "1 (1 in 6 API requests)",
+    );
+    unmount();
+    // The first render stored its sends; start the second from an empty week.
+    localStorage.clear();
+
+    const mixed = [...THREE_SENDS, { viewText: "C", startedAt: 400_000, cacheWrite: 50, requests: 4, layout: "turn" as const }];
+    render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />, {
+      wrapper: sendsWrapper("en-US", mixed),
+    });
+    expect(screen.getByText("Guides in the cached prompt")).toBeInTheDocument();
+    expect(screen.getByText("Guides with each message")).toBeInTheDocument();
+    const sends = screen.getAllByText("Chat messages completed this week").map((el) => el.nextElementSibling?.textContent);
+    expect(sends).toEqual(["3 (6 API requests)", "1 (4 API requests)"]);
+    // The break-even line is said once, not per layout.
+    expect(screen.getAllByText(/more often than about one in 46 API requests/)).toHaveLength(1);
   });
 
   describe("in German", () => {

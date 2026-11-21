@@ -164,6 +164,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const apiKeyNoteId = useId();
   const hardCapHelpId = useId();
   const modelHintId = useId();
+  const viewGuidesInTurnHintId = useId();
   const recBackgroundHintId = useId();
   const consentPausedNoticeId = useId();
   const recPausedNoticeId = useId();
@@ -764,6 +765,27 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           />
           <span className="text-xs text-foreground">{t(lang, "aiGroundInGuides")}</span>
         </label>
+
+        {/* §702 — where the chat sends the view's guides (slice G2, `buildChatPromptLayout`). Default OFF: only an
+            explicit true turns it on, and turning it off writes undefined, as on a fresh install. */}
+        <label className="mt-3 flex items-center gap-2">
+          <Checkbox
+            aria-label={t(lang, "aiViewGuidesInTurn")}
+            checked={settings.ai.viewGuidesInTurn === true}
+            // With operating guides off no view guide is sent, so where it would go means nothing.
+            disabled={!settings.ai.groundInGuides}
+            // Always linked: the hint names the dependency, so it also says why the box is disabled.
+            aria-describedby={viewGuidesInTurnHintId}
+            onChange={() =>
+              onChange({
+                ...settings,
+                ai: { ...settings.ai, viewGuidesInTurn: settings.ai.viewGuidesInTurn === true ? undefined : true },
+              })
+            }
+          />
+          <span className="text-xs text-foreground">{t(lang, "aiViewGuidesInTurn")}</span>
+        </label>
+        <FieldHint id={viewGuidesInTurnHintId} className="mt-1">{t(lang, "aiViewGuidesInTurnHelp")}</FieldHint>
 
         {/* Action Center AI suggestions toggle (default ON; undefined = on) */}
         <label className="mt-3 flex items-center gap-2">

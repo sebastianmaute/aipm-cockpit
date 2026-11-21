@@ -46,8 +46,7 @@ import {
 import { flattenIngestBlocks, ingestFile } from "./attachment-ingest";
 import { buildAttachmentSummary } from "./chat-attachment-summary";
 import {
-  buildStableSystemBlocks,
-  buildTurnContext,
+  buildChatPromptLayout,
   callClaude,
   appendUserNote,
   closeDanglingToolUses,
@@ -766,8 +765,12 @@ function ChatPanelInner({
         ok: !isError,
       };
     };
-    const system = buildStableSystemBlocks(lang, snapshot, guides, ai.groundInGuides, toolFlags);
-    const turnContext = buildTurnContext(lang, snapshot, guides, ai.groundInGuides, toolFlags);
+    // §702: `settings.ai.viewGuidesInTurn` picks where the view's guides go (`buildChatPromptLayout`). With guides
+    // off there is no view guide, both layouts send the same bytes, and the send is counted under the default one.
+    const viewGuidesInTurn = ai.viewGuidesInTurn === true && ai.groundInGuides;
+    const { system, turnContext, viewText } = buildChatPromptLayout(
+      lang, snapshot, guides, ai.groundInGuides, toolFlags, viewGuidesInTurn,
+    );
     // ★★★ WIRE-ONLY. `messages` stays the PERSISTED history; the turn context is
     //     injected into the outgoing copy alone. Persisting it would leave stale
     //     "Today is ..." down the transcript AND rewrite history's tail on every
@@ -795,10 +798,11 @@ function ChatPanelInner({
     let counterCacheWrite = 0;
     const sendFingerprint = (): SendFingerprint => ({
       threadKey: `${sendProjectId ?? ""}|${sendThreadId ?? ""}`,
+      layout: viewGuidesInTurn ? "turn" : "system",
       model: ai.model,
       toolNames: [...toolNamesFor(toolFlags)].join(","),
       stableText: system[0]?.text ?? "",
-      viewText: system.slice(1).map((b) => b.text).join("\n\n"),
+      viewText,
       startedAt: firstRequestAt ?? lastRequestAt,
       lastRequestAt,
       priorTurns: newHistory.length - 1,

@@ -4,6 +4,13 @@
 // measured instead of modelled. Pure and i18n-free; `AiUsageProvider` owns the
 // storage and `AiUsagePanel` renders the week.
 //
+// ★★ TWO LAYOUTS SINCE G2 WAS BUILT BEHIND `settings.ai.viewGuidesInTurn` (off
+//    by default). The text below describes the default ("system") layout. In
+//    the "turn" layout the view's guides ride the turn context, so `system`
+//    never changes and a switch is expected to cost no extra cache write; the
+//    counter still classifies it by the guide text (`viewText`) and keeps those
+//    sends in their own buckets, so a week in each layout can be compared.
+//
 // ★★ WHY THIS IS THE EVENT TO COUNT. `buildStableSystemBlocks` sends the
 //    always-on guides as `system` block 0 and the current view's guides as
 //    block 1. Anthropic matches the cache prefix tools → system → messages, so
@@ -63,17 +70,27 @@ export const VIEW_SWITCH_CACHE_TTL_MS = 5 * 60 * 1000;
  *  with SENDS would understate G2's cost and argue for it too early. */
 export const G2_BREAK_EVEN_REQUESTS_PER_SWITCH = 46;
 
+/** §702 — where the send put the current view's guides (`buildChatPromptLayout`): "system" is the shipped layout
+ *  (`system` block 1), "turn" is slice G2 (the head of the turn context, `settings.ai.viewGuidesInTurn`). Each
+ *  layout's sends are counted in their own buckets, so a week with each can be compared. */
+export type ViewGuideLayout = "system" | "turn";
+
 /** What one chat send put in front of the transcript, and when. */
 export type SendFingerprint = {
   /** Project and thread, so a send in another thread never counts. */
   threadKey: string;
+  /** Where the view's guides went. A send in the other layout than its thread's previous send is cold: whether
+   *  its prefix matched the cache is not the question this counter answers, and the toggle changes rarely. */
+  layout: ViewGuideLayout;
   /** The model the requests named: every model keeps its own cache. */
   model: string;
   /** The names of the tools the requests carried, joined in request order. */
   toolNames: string;
   /** `system` block 0's text. */
   stableText: string;
-  /** Every later `system` block's text joined; `""` when the view has none. */
+  /** The current view's guide text, wherever the layout put it (`buildChatPromptLayout`'s `viewText`); `""` when
+   *  the view has none. ★ In the turn layout `system` never changes with the view, so this is the only field that
+   *  can tell a switch apart there. */
   viewText: string;
   /** Epoch ms just before the send's first ANSWERED request went out. */
   startedAt: number;
@@ -103,6 +120,7 @@ export function classifySend(
   if (next.priorTurns <= 0) return "cold";
   if (next.priorTurns <= prev.priorTurns) return "cold";
   if (prev.threadKey !== next.threadKey) return "cold";
+  if (prev.layout !== next.layout) return "cold";
   if (next.startedAt - prev.lastRequestAt >= ttlMs) return "cold";
   if (prev.model !== next.model) return "cold";
   if (prev.toolNames !== next.toolNames) return "cold";

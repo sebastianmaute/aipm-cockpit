@@ -58,6 +58,9 @@ export type AiConfig = {
    *  once this week's usage reaches it, those runs pause until the week resets. Absent means no hard cap. */
   weeklyHardCap?: number;
   groundInGuides: boolean;
+  /** §702 — the chat sends the current view's guides at the head of each message instead of in the cached system
+   *  prompt (slice G2, `buildChatPromptLayout`). Default OFF (undefined = off): only an explicit true turns it on. */
+  viewGuidesInTurn?: boolean;
   actionSuggestions?: boolean; // Action Center "Analyze with AI" button. Default ON (undefined = on).
   scheduledJobs?: boolean; // Scheduled Claude jobs (SP5). Default OFF (opt-in) — recurring billed calls.
   insightRecommendations?: boolean; // Background insight recommendations (SP2). Default OFF (opt-in) — recurring billed calls.
@@ -188,6 +191,7 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     weeklyHardCap: coerceHardCap(obj.weeklyHardCap),
     enabled: obj.enabled === true,
     groundInGuides: obj.groundInGuides !== false,
+    viewGuidesInTurn: obj.viewGuidesInTurn === true ? true : undefined,
     scheduledJobs: obj.scheduledJobs === true,
     insightRecommendations: obj.insightRecommendations === true,
     insightRecommendationIntervalMinutes: clampInsightRecInterval(obj.insightRecommendationIntervalMinutes),

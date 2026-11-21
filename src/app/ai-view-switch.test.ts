@@ -18,6 +18,7 @@ const MIN = 60_000;
 function prev(over: Partial<SendFingerprint> = {}): SendFingerprint {
   return {
     threadKey: "p1:t1",
+    layout: "system",
     model: "claude-model-a",
     toolNames: "list_tasks,update_task",
     stableText: "STABLE",
@@ -41,6 +42,18 @@ describe("classifySend", () => {
 
   it("is warm when nothing in front of the transcript changed", () => {
     expect(classifySend(prev(), next())).toBe("warm");
+  });
+
+  // §702 — in the turn layout `system` never changes with the view, so the view's guide text (`viewText`) is what
+  // tells a switch apart: the counter still sees one, and keeps it in that layout's buckets.
+  it("still sees a view switch in the turn layout", () => {
+    expect(classifySend(prev({ layout: "turn" }), next({ layout: "turn", viewText: "VIEW-B" }))).toBe("switch");
+    expect(classifySend(prev({ layout: "turn" }), next({ layout: "turn" }))).toBe("warm");
+  });
+
+  it("is cold when the layout itself changed between the two sends (the prefix is rewritten either way)", () => {
+    expect(classifySend(prev({ layout: "system" }), next({ layout: "turn" }))).toBe("cold");
+    expect(classifySend(prev({ layout: "turn" }), next({ layout: "system", viewText: "VIEW-B" }))).toBe("cold");
   });
 
   it("is cold when there is no previous send in this thread", () => {

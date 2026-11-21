@@ -3193,6 +3193,9 @@ const enUS = {
   aiBehaviourHeading: "Assistant behaviour",
   aiGuidesDesc: "Operating guides are markdown documents that steer how Claude behaves as your senior project manager. Add your own, scope them to a mode, module, or view, and order them by priority. When grounding is on, Claude reads every enabled, in-scope guide.",
   aiGroundInGuides: "Ground Claude in operating guides",
+  // §702 — where the chat sends the current view's guides (`settings.ai.viewGuidesInTurn`).
+  aiViewGuidesInTurn: "Send the view's guides with each message",
+  aiViewGuidesInTurnHelp: "Off: the current view's operating guides sit in the cached prompt, so switching views mid-conversation writes the whole conversation to the cache again. On: they go with each message instead, uncached, so a view switch costs nothing extra but every request carries them. Off by default; needs operating guides on. The counter under the weekly bar keeps each setting's week apart, so you can compare what a view switch costs in each.",
   aiGuideAdd: "Add guide",
   aiGuideName: "Name",
   aiGuideContent: "Content (markdown)",
@@ -5288,6 +5291,8 @@ const enUS = {
   aiViewSwitchRatio: "{0} (1 in {1} API requests)",
   aiViewSwitchCacheWrites: "Cache-write tokens per message",
   aiViewSwitchCacheWritesValue: "{0} on a switch, {1} on other warm messages",
+  aiViewSwitchLayoutSystem: "Guides in the cached prompt",
+  aiViewSwitchLayoutTurn: "Guides with each message",
   aiViewSwitchHint: "Moving the view's guides out of the cached prompt pays off when view switches happen more often than about one in {0} API requests.",
   aiViewSwitchHintGuidesOff: "{0} is off, so no view guides are sent and there is nothing to move out of the cached prompt.",
   aiSessionCap: "Session token cap",

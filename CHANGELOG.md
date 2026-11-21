@@ -12,6 +12,11 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **A setting to send the view's guides with each chat message.** Settings → AI → "Send the view's guides with
+  each message" moves the current view's operating guides out of the cached part of the chat prompt and into each
+  message, so switching views mid-conversation no longer writes the whole conversation to the cache again; every
+  request then carries the guides uncached. It is off by default and needs operating guides on; the usage panel
+  counts each setting's week apart, so the cost of a view switch in each can be compared (§702).
 - **Setup checklists for the Gantt chart, the RACI matrix and the Resources views.** Their empty states named one
   missing input at a time, or none. Each now shows its whole setup order in the shape of the Budget checklist, ticked
   from your project data: dated tasks, dependencies and milestones for the Gantt chart (which keeps a collapsed line
