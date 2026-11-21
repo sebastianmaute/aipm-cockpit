@@ -55,7 +55,8 @@ to watch spend: nothing in the app stops interactive AI at a spend limit (E38, *
 ## Not yet proven / open gaps
 
 1. **§802:** the gateway route has never run against a real gateway (E12, *not proven*).
-2. **§814:** six paths have no measured cost or behaviour, a refused key among them (E39, *not proven*).
+2. **§814:** dictation and voice commands have no measured cost or behaviour (E76, *not proven*); a refused
+   key was measured: the relay refuses it with a message and forwards nothing (E39, *measured*).
 3. **Request limits are shared and per process:** unless you set `AIPM_TRUSTED_PROXY_HOPS`, all callers of each
    of the six limited routes, the relay's and dictation's included, share one count (Jira and Confluence share
    one between them), so one caller can use it up for everyone; only the relay's and dictation's limits can be

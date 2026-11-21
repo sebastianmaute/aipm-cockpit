@@ -65,8 +65,9 @@ Schalter und die Beobachtung der Ausgaben: Nichts in der App hält interaktive K
 ## Noch nicht belegt / offene Lücken
 
 1. **§802:** Der Gateway-Weg lief noch nie gegen ein echtes Gateway (E12, *nicht belegt*).
-2. **§814:** Sechs Pfade haben weder gemessene Kosten noch beobachtetes Verhalten, darunter ein abgelehnter
-   Schlüssel (E39, *nicht belegt*).
+2. **§814:** Diktat und Sprachbefehle haben weder gemessene Kosten noch beobachtetes Verhalten (E76,
+   *nicht belegt*); ein abgelehnter Schlüssel wurde gemessen: Das Relay lehnt ihn mit einer Meldung ab und leitet
+   nichts weiter (E39, *gemessen*).
 3. **Anfragegrenzen sind geteilt und gelten je Prozess:** Sofern Sie `AIPM_TRUSTED_PROXY_HOPS` nicht setzen,
    teilen sich alle Aufrufer jeder der sechs begrenzten Routen, auch des Relays und des Diktats, eine Zählung
    (Jira und Confluence teilen sich eine gemeinsame), sodass ein Aufrufer sie für alle aufbrauchen kann; nur die

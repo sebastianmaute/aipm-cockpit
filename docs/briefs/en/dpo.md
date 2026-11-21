@@ -79,10 +79,14 @@ with Anthropic, transfers and a works agreement are questions only your organisa
 
 ## Not yet proven / open gaps
 
-1. **§813:** chat erasure is proven live only for its database statements, not for the screens, real sweeps,
-   the provider's backups or what the model vendor keeps (E30, *tested (live database)*).
-2. **§814:** the refusal of images and PDFs under protection, and the other projects' hours in allocation, have
-   no observed behaviour from a measured run (E39, *not proven*).
+1. **Backups and the vendor:** one live run of each deletion removed exactly the expected chats (E74,
+   *measured*), but the database provider can still restore a deleted chat for 1 to 90 days on Turso's standard
+   plans (E75, *stated by the provider*), and what the model vendor keeps is outside the app's erasure (E30,
+   *tested (live database)*).
+2. **§814:** dictation and voice commands have no observed behaviour from a measured run (E76, *not proven*).
+   Measured once: with protection on, images and PDFs are refused when attached and nothing is sent; with protection
+   off, Plan with AI sends, for a person who also works in another project, that project's name and the person's monthly
+   hours there (E39, *measured*).
 
 ## What to check or ask for before saying yes
 

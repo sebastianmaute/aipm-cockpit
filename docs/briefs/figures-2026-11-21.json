@@ -1,0 +1,91 @@
+{
+  "runDate": "2026-11-21",
+  "commit": "abec13ba1b7fda4b3c66fa5de1063d44bc460bf6",
+  "models": ["claude-sonnet-5", "claude-sonnet-5-5"],
+  "project": "the built-in demo project",
+  "spentUsd": { "claude-sonnet-5": 0.5274, "claude-sonnet-5-5": 0.6294 },
+  "wbsRepeat": {
+    "feature": "Optimize work breakdown with AI",
+    "protection": "off",
+    "route": "direct",
+    "runsPerRequestAndModel": 5,
+    "temperature": "not set by the app (the API default applies)",
+    "similarity": "Jaccard index between two runs, over the existing tasks a proposal touches and over the titles of new tasks and split pieces (lower-cased); 1 means identical, 0 means nothing in common; two runs that both propose no new title count as 1",
+    "requests": [
+      "Restructure the open pilot and rollout tasks: split anything over a week, group them, and link dependencies.",
+      "Add estimates to every open task that has none, and link the tasks that must finish before another can start."
+    ],
+    "byModel": {
+      "claude-sonnet-5": {
+        "validAnswers": 10,
+        "excluded": 0,
+        "results": [
+          {
+            "request": 0,
+            "splits": { "min": 5, "max": 6, "median": 5 },
+            "newTasks": { "min": 1, "max": 2, "median": 2 },
+            "regroupings": { "min": 1, "max": 3, "median": 2 },
+            "estimates": { "min": 0, "max": 0, "median": 0 },
+            "links": { "min": 5, "max": 9, "median": 6 },
+            "tasksTouchedJaccard": { "min": 0.47, "median": 0.78 },
+            "newTitlesJaccard": { "min": 0, "median": 0.08 }
+          },
+          {
+            "request": 1,
+            "splits": { "min": 1, "max": 1, "median": 1 },
+            "newTasks": { "min": 0, "max": 1, "median": 1 },
+            "regroupings": { "min": 0, "max": 0, "median": 0 },
+            "estimates": { "min": 1, "max": 1, "median": 1 },
+            "links": { "min": 7, "max": 18, "median": 17 },
+            "tasksTouchedJaccard": { "min": 0.43, "median": 0.55 },
+            "newTitlesJaccard": { "min": 0.29, "median": 0.33 }
+          }
+        ]
+      },
+      "claude-sonnet-5-5": {
+        "validAnswers": 10,
+        "excluded": 1,
+        "excludedNote": "the first request was sent with a forced tool choice, which this model answers with HTTP 400; the app then asked again with an automatic tool choice",
+        "results": [
+          {
+            "request": 0,
+            "splits": { "min": 1, "max": 1, "median": 1 },
+            "newTasks": { "min": 0, "max": 0, "median": 0 },
+            "regroupings": { "min": 6, "max": 7, "median": 7 },
+            "estimates": { "min": 0, "max": 0, "median": 0 },
+            "links": { "min": 5, "max": 7, "median": 7 },
+            "tasksTouchedJaccard": { "min": 0.875, "median": 0.875 },
+            "newTitlesJaccard": { "min": 0.2, "median": 0.5 }
+          },
+          {
+            "request": 1,
+            "splits": { "min": 0, "max": 0, "median": 0 },
+            "newTasks": { "min": 0, "max": 0, "median": 0 },
+            "regroupings": { "min": 0, "max": 0, "median": 0 },
+            "estimates": { "min": 0, "max": 0, "median": 0 },
+            "links": { "min": 5, "max": 5, "median": 5 },
+            "tasksTouchedJaccard": { "min": 1, "median": 1 },
+            "newTitlesJaccard": { "min": 1, "median": 1, "note": "no run proposed a new title" }
+          }
+        ]
+      }
+    }
+  },
+  "paths": [
+    { "path": "images and PDFs attached in the chat, people protection on", "models": ["claude-sonnet-5", "claude-sonnet-5-5"], "outcome": "refused when attached; nothing staged, no request sent", "evidence": "the protection notice was shown for both files" },
+    { "path": "the same image, people protection off (control)", "models": ["claude-sonnet-5", "claude-sonnet-5-5"], "outcome": "sent" },
+    { "path": "Plan with AI, a person who also works in a second project of the same database", "models": ["claude-sonnet-5", "claude-sonnet-5-5"], "outcome": "sent; the request names the other project and carries that person's planned hours there per month" },
+    { "path": "relay with a key from another Anthropic organisation", "models": ["claude-sonnet-5"], "outcome": "refused by the relay (HTTP 403, ai-key-wrong-organization); nothing forwarded" },
+    { "path": "relay with a key Anthropic rejects", "models": ["claude-sonnet-5"], "outcome": "refused (HTTP 401); nothing forwarded" },
+    { "path": "chat in a project with its Resources function switched off", "models": ["claude-sonnet-5", "claude-sonnet-5-5"], "outcome": "sent; no resource tool offered", "byModel": { "claude-sonnet-5": "answered without a look-up; no person's name and no rate figure in the request", "claude-sonnet-5-5": "looked up the tasks, the dashboard figures and the budget buckets; the task list named each task's assignee and the dashboard figures carried the planned and booked rates" } },
+    { "path": "weekly hard cap reached, background insight run", "models": ["claude-sonnet-5", "claude-sonnet-5-5"], "outcome": "refused: the capped run sent no request; the same run without the cap sent its requests", "evidence": "the cap notice was shown; 3 insight candidates existed" },
+    { "path": "dictation and voice commands", "outcome": "not run: no speech-to-text key was available" }
+  ],
+  "chatSweeps": {
+    "database": "a throwaway Turso database",
+    "retentionDays": 30,
+    "seeded": { "olderThanRetention": 5, "recent": 5, "undated": 1, "datedTwoDaysAhead": 1 },
+    "serverSweep": { "deleted": 7, "kept": 5, "allAsExpected": true },
+    "browserSweep": { "deleted": 7, "kept": 5, "allAsExpected": true, "note": "run on a separate seeding, with the server's own sweep not configured" }
+  }
+}
