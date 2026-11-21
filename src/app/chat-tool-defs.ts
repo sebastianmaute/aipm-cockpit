@@ -540,8 +540,10 @@ export const TOOL_DEFS = [
     //      state and logged NOTHING, and the description had to say so or the
     //      model would deny its own work. THAT GAP IS CLOSED: the dispatcher's
     //      entity writers now log with `actor: "ai"` — verify with
-    //      `grep -c 'logActivityAs?.("ai"' src/app/use-chat-dispatcher.ts
-    //      src/app/use-register-tools.ts`, which returns 11 and 12 — 23 writers,
+    //      `grep -c 'logActivityAi?.(origin' src/app/use-chat-dispatcher.ts
+    //      src/app/use-register-tools.ts`, which returned 12 and 19 — 31 sites — on 2026-11-20 (§799: the
+    //      AI logger, which also stamps the calling feature; it was the actor-taking human logger before, and the
+    //      11 and 12 once quoted here had already gone stale),
     //      against the 1 a bare `grep -c logActivity` found when this caveat was
     //      written. ★★ TWO CHANGES from that original spelling, both deliberate.
     //      BOTH FILES: the register writers were extracted to the second, so a

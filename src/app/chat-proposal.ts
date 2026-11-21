@@ -443,7 +443,7 @@ export function isDestructiveCall(call: ProposedCall): boolean {
  *   three document writes take no undo capture at all and rely on
  *   `documentVersions` instead (recorded on `ENTITY_WRITE_TOOLS` above); and
  *   `send_inquiry` has NEITHER — its handler in `use-chat-dispatcher.ts` calls
- *   `setTasks` and then `logActivityAs` with no `captureComposite` and no
+ *   `setTasks` and then `logActivityAi` with no `captureComposite` and no
  *   version history, so its `Task.inquiriesSent` increment is reversible by
  *   nothing in the app. It stays exempt as a SINGLE call deliberately: one
  *   inquiry is the user's own routine action, and two already stage as a bulk

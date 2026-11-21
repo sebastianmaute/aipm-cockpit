@@ -683,7 +683,7 @@ describe("MeetingReportPanel on the real save hook — clearing the editor (AI-0
         lang: "en-US", isPopout: false, settings: defaultSettings, projectFeatures: undefined, committee: c, resources: [], absences: [], today: "2026-06-01", setSteeringCommittee: setC,
         tursoConfig: null, m365Configured: true, acquireToken: async () => "t", showToast: vi.fn(),
         getDashboardModel: () => ({}) as DashboardModel, aiKey: "", aiModel: "m", guides: [], projectId: "p1",
-        getScopeEpoch: () => 0, captureComposite: vi.fn(), logActivityAs: vi.fn(),
+        getScopeEpoch: () => 0, captureComposite: vi.fn(), logActivityAi: vi.fn(),
       });
       latest = c?.meetings[0].report;
       return (

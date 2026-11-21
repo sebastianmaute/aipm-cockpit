@@ -28,6 +28,7 @@
 // through `remapStagedCall` against the ids the creates ACTUALLY minted, and a
 // row still naming an unresolved one is refused rather than replayed.
 import { runTool, type ToolDispatcher } from "./chat-tools";
+import type { AiOrigin } from "./activity-origin";
 import { TOOL_DEFS } from "./chat-tool-defs";
 import { ConcurrencyTokenError } from "./chat-tools-updates";
 import { namesPendingMint, remapStagedCall } from "./chat-proposal";
@@ -307,6 +308,10 @@ export interface ApplyProposalArgs {
    *  a functions row lands, the next one is checked against that row's `after`, not re-read. Absent = no
    *  check (a unit test's opt-out); `chat-panel.tsx` always passes it. */
   readonly getFeatures?: () => readonly FeatureModuleId[] | undefined;
+  /** §799 — the AI feature every replayed row is stored under, handed to `runTool` per row. REQUIRED: the caller
+   *  names it (the chat's review card passes the staging request's `origins.proposal`, which may carry a
+   *  thread/request link), so this module never invents one. */
+  readonly origin: AiOrigin;
 }
 
 /** The real id a create tool's result carries, or `undefined` when it carries
@@ -382,7 +387,7 @@ function resolveMintedId(
  * points strictly backward, which is exactly what makes one forward pass enough.
  */
 export async function applyProposal(args: ApplyProposalArgs): Promise<ApplyProposalResult> {
-  const { dispatcher, rows, selected, batch, isScopeStale, getFeatures } = args;
+  const { dispatcher, rows, selected, batch, isScopeStale, getFeatures, origin } = args;
   const applied: AppliedRow[] = [];
 
   // create tool → (provisional id → the id the real minter handed out). Filled
@@ -512,7 +517,7 @@ export async function applyProposal(args: ApplyProposalArgs): Promise<ApplyPropo
           applied.push({ index, ok: false, error: ALL_FIELDS_REJECTED_ERROR });
           continue;
         }
-        const result = await runTool(dispatcher, guarded.name, sent.input);
+        const result = await runTool(dispatcher, guarded.name, sent.input, origin);
         resolveMintedId(row, result, real, pending);
         if (row.functions !== undefined) functionsNow = row.functions.after;
         applied.push({ index, ok: true });

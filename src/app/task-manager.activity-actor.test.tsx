@@ -39,6 +39,7 @@ import { useEffect } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityEntry } from "./activity-log";
+import type { LogActivityAiFn } from "./activity-log-context";
 import type { ChangeItem, Stakeholder } from "./types";
 import type { Settings } from "./settings-types";
 import type { ToolDispatcher } from "./chat-tools";
@@ -56,6 +57,7 @@ vi.mock("./workspace-section", async (importOriginal) => ({
 }));
 
 import TaskManager from "./task-manager";
+import { aiOrigin } from "./activity-origin";
 
 function props(): Record<string, unknown> {
   if (!captured.props) throw new Error("WorkspaceSection never rendered");
@@ -148,16 +150,14 @@ describe("task-manager stamps the actor on the loggers it threads", () => {
 
   // ★★ The CONTROL, and it is load-bearing: without it a `logActivityAs` that
   // ignored its argument and hard-coded `"user"` would pass both tests above.
-  // The same contract carries the AI channel, so pin that the two disagree.
-  it('keeps the AI channel distinct — logActivityAs("ai") is not user-stamped', () => {
-    const logAs = props().logActivityAs as (
-      actor: "user" | "ai" | "integration",
-      kind: string,
-      ...args: (string | number)[]
-    ) => void;
-    const entries = appended(() => logAs("ai", "task.updated", 4242, "From the assistant"));
+  // The same contract carries the AI channel, so pin that the two disagree. §799: the AI channel is
+  // `logActivityAi` now (the human logger cannot take "ai"), and it stamps the feature as well.
+  it('keeps the AI channel distinct — logActivityAi is not user-stamped and names its feature', () => {
+    const logAi = props().logActivityAi as LogActivityAiFn;
+    const entries = appended(() => logAi({ feature: "chat" }, "task.updated", 4242, "From the assistant"));
     expect(entries).toHaveLength(1);
     expect(entries[0].actor).toBe("ai");
+    expect(entries[0].origin).toEqual({ feature: "chat" });
   });
 
   // ★ `logActivityChanges` is a SEPARATE wrapper (`logActivityChangesUser`) with
@@ -282,8 +282,8 @@ describe("§160 — an AI settings write suppresses its OWN duplicate row and no
   it("logs the user's next settings change after the AI wrote TWO in one batch", async () => {
     const d = props().dispatcher as ToolDispatcher;
     act(() => {
-      d.updateSettings({ showViewHints: false });
-      d.updateSettings({ hideExternalTasks: true });
+      d.updateSettings({ showViewHints: false }, aiOrigin("chat"));
+      d.updateSettings({ hideExternalTasks: true }, aiOrigin("chat"));
     });
     // Drain the AI turn's own effect run before measuring the user's.
     await settle(SETTINGS_LOG_DEBOUNCE_MS + 200);
@@ -307,7 +307,7 @@ describe("§160 — an AI settings write suppresses its OWN duplicate row and no
     });
     await settle(Math.floor(SETTINGS_LOG_DEBOUNCE_MS / 3));
     act(() => {
-      d.updateSettings({ showViewHints: false });
+      d.updateSettings({ showViewHints: false }, aiOrigin("chat"));
     });
     await settle(SETTINGS_LOG_DEBOUNCE_MS + 200);
     const rows = log()
@@ -336,7 +336,7 @@ describe("§160 — an AI settings write suppresses its OWN duplicate row and no
     const d = props().dispatcher as ToolDispatcher;
     const rows = await actorlessSettingsRows(() => {
       act(() => {
-        d.updateSettings({ showViewHints: false });
+        d.updateSettings({ showViewHints: false }, aiOrigin("chat"));
       });
     });
     expect(rows).toHaveLength(0);

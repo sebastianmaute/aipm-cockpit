@@ -12,10 +12,11 @@
 // The writer is async while an undo runner is synchronous, so the fragment starts the write and TRACKS it (§759):
 // the stack says "Undone"/"Redone" only once it is stored, puts the entry back on a failure (rolling back any array
 // fragment of the same composite), and drops a finish that lands after a project switch (docs/AGENTS/undo.md).
-import type { LogActivityAsFn } from "./activity-log-context";
+import type { LogActivityAiFn, LogActivityAsFn } from "./activity-log-context";
 import { logDiag } from "./diagnostics";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 import type { ProjectMeta } from "./types";
+import type { ActivityBy } from "./use-reassign-hours";
 import { mergeFieldValue } from "./undo/merge-field-value";
 import type { CompositeFragment } from "./undo/use-undo-stack";
 
@@ -36,14 +37,24 @@ export function changedProjectFields(before: ProjectMeta, next: ProjectMeta): (k
   return keys.filter((k) => comparable(before[k]) !== comparable(next[k]));
 }
 
+/** The sinks `logProjectUpdate` writes through: the user's logger for the form, the AI's for `update_project`. */
+export interface ProjectUpdateLog {
+  readonly logActivityAs?: LogActivityAsFn;
+  readonly logActivityAi?: LogActivityAiFn;
+}
+
 /** The one activity row for a project-record edit: the changed keys joined by ", " (model-independent field keys,
- *  rendered through `activityProjectUpdated`). Nothing is logged when nothing changed. */
+ *  rendered through `activityProjectUpdated`). Nothing is logged when nothing changed. `by` is `"user"` or the
+ *  origin of the AI call that wrote the record (§799), which the AI row carries. */
 export function logProjectUpdate(
-  logActivityAs: LogActivityAsFn | undefined,
-  actor: "user" | "ai",
+  log: ProjectUpdateLog,
+  by: ActivityBy,
   fields: readonly (keyof ProjectMeta)[],
 ): void {
-  if (fields.length > 0) logActivityAs?.(actor, "project.updated", fields.join(", "));
+  if (fields.length === 0) return;
+  const summary = fields.join(", ");
+  if (by === "user") log.logActivityAs?.("user", "project.updated", summary);
+  else log.logActivityAi?.(by, "project.updated", summary);
 }
 
 /** The project form's save: write, then log as the user only when the write stored the record in the project
@@ -60,7 +71,7 @@ export async function saveProjectFromForm(args: {
   const written = await write(next);
   if (dropStaleScopeWrite(getScopeEpoch, startEpoch, "project.formSave")) return;
   if (!written || !before) return;
-  logProjectUpdate(logActivityAs, "user", changedProjectFields(before, next));
+  logProjectUpdate({ logActivityAs }, "user", changedProjectFields(before, next));
 }
 
 /** Claude's edit as ONE undo fragment. Undo moves each changed field toward its BEFORE value on the live record,

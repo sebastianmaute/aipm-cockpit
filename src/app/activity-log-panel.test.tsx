@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeAll, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi, beforeAll, beforeEach, afterEach } from "vitest";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ActivityLogPanel } from "./activity-log-panel";
 import { ConfirmProvider } from "./confirm-dialog";
@@ -9,6 +9,11 @@ import { formatExpiryDate } from "./date-format";
 import { expectButtonOrder } from "../test/toolbar-order";
 import { activityMessageKey, type ActivityEntry } from "./activity-log";
 import { buttonClassFor } from "../test/button-variant";
+import { expectRowUniqueNames } from "../test/row-unique-names";
+import { clearChatThreads, publishChatThreads } from "./chat-threads-registry";
+import type { ChatThread } from "./chat-threads";
+import { formatDisplayTimestamp } from "./tz-display";
+import { rowLabel } from "./row-tokens";
 
 // Synchronous rAF so the confirm dialog's Modal focus-management effect runs
 // immediately (the branded confirm is built on the shared Modal).
@@ -1023,5 +1028,124 @@ describe("ActivityLogPanel Clear log on the shared Button", () => {
     expect(screen.getByRole("button", { name: t("en-US", "activityClear") }).className).toBe(
       buttonClassFor({ variant: "destructive", size: "xs" }),
     );
+  });
+});
+
+// §799 — an AI row names the feature that wrote it; a chat row whose request is still in a loaded thread
+// links to that thread.
+describe("ActivityLogPanel — AI origin", () => {
+  const AT = "2026-05-28T10:00:00.000Z";
+  const LATER = "2026-05-28T11:30:00.000Z";
+  const chatOrigin = (requestId: string, threadId = "t1") => ({ feature: "chat", threadId, requestId });
+  const aiEntry = (id: string, origin: unknown, timestamp = AT) =>
+    entry({ id, timestamp, kind: "task.updated", args: ["Task A"], actor: "ai", origin } as Partial<ActivityEntry>);
+  const userItem = (requestId: string) => ({ kind: "user" as const, text: "q", requestId });
+  const THREAD: ChatThread = {
+    id: "t1", projectId: "p1", ownerId: null, name: "", createdAt: "c", updatedAt: "u", history: [],
+    display: [userItem("r1"), userItem("r2"), userItem("r3")],
+  };
+  const publishOwn = () => publishChatThreads("p1", { threads: [THREAD], activeThreadId: "t1", available: true });
+  const openChatName = (label: string, timestamp: string) =>
+    rowLabel(t("en-US", "activityOriginOpenChat", label), formatDisplayTimestamp(timestamp, "Asia/Kolkata", "en-US", { withSeconds: true }));
+
+  afterEach(() => {
+    clearChatThreads();
+  });
+
+  it("shows the feature label on an AI row", () => {
+    renderPanel(
+      <ActivityLogPanel lang="en-US" entries={[aiEntry("1", { feature: "inlineEdit" })]} onClear={() => {}} chatProjectId="p1" />,
+    );
+    expect(screen.getByText(t("en-US", "activityOriginInlineEdit"))).toBeInTheDocument();
+  });
+
+  it("shows the German feature label", async () => {
+    await loadI18n("de");
+    renderPanel(
+      <ActivityLogPanel lang="de" entries={[aiEntry("1", { feature: "allocationPlan" })]} onClear={() => {}} chatProjectId="p1" />,
+    );
+    expect(screen.getByText("Zuordnungsplan")).toBeInTheDocument();
+  });
+
+  it("shows an unknown feature as another AI feature", () => {
+    renderPanel(
+      <ActivityLogPanel lang="en-US" entries={[aiEntry("1", { feature: "fromTheFuture" })]} onClear={() => {}} chatProjectId="p1" />,
+    );
+    expect(screen.getByText(t("en-US", "activityOriginUnknown"))).toBeInTheDocument();
+  });
+
+  it("shows no origin on a user row", () => {
+    const own = entry({ id: "1", actor: "user", origin: { feature: "inlineEdit" } } as Partial<ActivityEntry>);
+    renderPanel(<ActivityLogPanel lang="en-US" entries={[own]} onClear={() => {}} chatProjectId="p1" />);
+    expect(screen.queryByText(t("en-US", "activityOriginInlineEdit"))).toBeNull();
+  });
+
+  it("links a resolvable chat row by its feature and time, and opens its thread", async () => {
+    publishOwn();
+    const onOpenChatThread = vi.fn();
+    renderPanel(
+      <ActivityLogPanel lang="en-US" entries={[aiEntry("1", chatOrigin("r1"))]} onClear={() => {}}
+        chatProjectId="p1" onOpenChatThread={onOpenChatThread} />,
+    );
+    const link = screen.getByRole("button", { name: openChatName(t("en-US", "activityOriginChat"), AT) });
+    expect(link).toHaveTextContent(t("en-US", "activityOriginChat"));
+    await userEvent.click(link);
+    expect(onOpenChatThread).toHaveBeenCalledWith("t1");
+  });
+
+  it("names two chat links row-uniquely, at different times and at the same time", () => {
+    publishOwn();
+    renderPanel(
+      <ActivityLogPanel
+        lang="en-US"
+        entries={[aiEntry("1", chatOrigin("r1")), aiEntry("2", chatOrigin("r2")), aiEntry("3", chatOrigin("r3"), LATER)]}
+        onClear={() => {}}
+        chatProjectId="p1"
+        onOpenChatThread={() => {}}
+      />,
+    );
+    const names = screen
+      .getAllByRole("button", { name: new RegExp(`^${t("en-US", "activityOriginOpenChat", "Chat")}`) })
+      .map((b) => b.getAttribute("aria-label"));
+    expect(names).toHaveLength(3);
+    expect(names).toContain(openChatName("Chat", LATER));
+    expectRowUniqueNames({ minControls: 3, requireCollisionSeed: true });
+  });
+
+  it("shows plain text, with no button, for a chat row whose request is gone", () => {
+    publishOwn();
+    renderPanel(
+      <ActivityLogPanel lang="en-US" entries={[aiEntry("1", chatOrigin("r-cleared"))]} onClear={() => {}}
+        chatProjectId="p1" onOpenChatThread={() => {}} />,
+    );
+    expect(screen.getByText(t("en-US", "activityOriginChat"))).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Open chat/ })).toBeNull();
+  });
+
+  it("shows plain text without an open handler, or for another project's threads", () => {
+    publishOwn();
+    const { unmount } = renderPanel(
+      <ActivityLogPanel lang="en-US" entries={[aiEntry("1", chatOrigin("r1"))]} onClear={() => {}} chatProjectId="p1" />,
+    );
+    expect(screen.queryByRole("button", { name: /^Open chat/ })).toBeNull();
+    unmount();
+    renderPanel(
+      <ActivityLogPanel lang="en-US" entries={[aiEntry("1", chatOrigin("r1"))]} onClear={() => {}}
+        chatProjectId="p2" onOpenChatThread={() => {}} />,
+    );
+    expect(screen.queryByRole("button", { name: /^Open chat/ })).toBeNull();
+    expect(screen.getByText(t("en-US", "activityOriginChat"))).toBeInTheDocument();
+  });
+
+  it("turns the plain label into a link when the threads are published after mount", () => {
+    renderPanel(
+      <ActivityLogPanel lang="en-US" entries={[aiEntry("1", chatOrigin("r1"))]} onClear={() => {}}
+        chatProjectId="p1" onOpenChatThread={() => {}} />,
+    );
+    expect(screen.queryByRole("button", { name: /^Open chat/ })).toBeNull();
+    act(() => publishOwn());
+    expect(screen.getByRole("button", { name: openChatName("Chat", AT) })).toBeInTheDocument();
+    act(() => clearChatThreads());
+    expect(screen.queryByRole("button", { name: /^Open chat/ })).toBeNull();
   });
 });

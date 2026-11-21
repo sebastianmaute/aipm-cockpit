@@ -209,6 +209,21 @@ describe("encodeThreadRow / decodeThreadRows", () => {
     expect(out.map((t) => t.id)).toEqual(["t2"]);
   });
 
+  // §799 — a malformed requestId on a stored user item is dropped; the item and the thread survive.
+  it("decodes a thread whose user item carries a numeric requestId, keeping the item without it (§799)", async () => {
+    const display = [{ kind: "user", text: "hi", requestId: 5 }, { kind: "user", text: "ok", requestId: "r1" }];
+    const own = await encodeThreadRow({ ...thread, display } as unknown as ChatThread, alice, spkiB64);
+    const legacy: StoredThreadRow = {
+      id: "l1", project_id: "p1", owner_id: "", name: "Old chat", created_at: "c", updated_at: "u",
+      history_json: "[]", display_json: JSON.stringify(display), key_owner: "", key_operator: "",
+    };
+    const out = await decodeThreadRows(asResult([own, legacy]), alice);
+    expect(out.map((t) => t.id)).toEqual(["t1", "l1"]);
+    for (const th of out) {
+      expect(th.display).toEqual([{ kind: "user", text: "hi" }, { kind: "user", text: "ok", requestId: "r1" }]);
+    }
+  });
+
   it("refuses to encode a thread owned by somebody else", async () => {
     await expect(encodeThreadRow({ ...thread, ownerId: "bob" }, alice, spkiB64)).rejects.toThrow();
   });

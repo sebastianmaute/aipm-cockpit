@@ -2586,6 +2586,19 @@ const enUS = {
   activityActorAi: "AI assistant",
   activityActorIntegration: "Integration",
   activityActorUnknown: "Unattributed",
+  // §799 — which AI feature wrote an entry, shown under the actor. `activityOriginWbsPlan` is the
+  // work breakdown button's own wording (`wbsPlanButton`). {0} of `activityOriginOpenChat` is the label.
+  activityOriginChat: "Chat",
+  activityOriginChatProposal: "Chat (reviewed changes)",
+  activityOriginInlineEdit: "Inline edit",
+  activityOriginInsightRecommendation: "Insight recommendation",
+  activityOriginAllocationPlan: "Allocation plan",
+  activityOriginWbsPlan: "Optimize with AI",
+  activityOriginTaskDedup: "Duplicate check",
+  activityOriginRaciSuggest: "RACI suggestion",
+  activityOriginMeetingReport: "Meeting report",
+  activityOriginUnknown: "Other AI feature",
+  activityOriginOpenChat: "Open chat: {0}",
   // Accessible name for the actor filter's "All" radio. The group filter has an
   // "All" radio too, and two radios sharing an accessible name is a WCAG 2.4.6
   // failure no axe rule can detect. WCAG 2.5.3 (label-in-name) is CONTAINMENT,
@@ -6243,6 +6256,8 @@ const enUS = {
   // stopped being applyable and the transcript keeps the record that it existed.
   chatProposalExpired: "This proposal is no longer active.",
   chatProposalDiscarded: "Proposal discarded.",
+  // §799 — an Activity link asked for another chat while an answer runs: the chat does not switch.
+  chatOpenThreadBusy: "Finish or stop the current answer to open that chat.",
   chatProposalScopeChanged: "This plan was made for a different project and was not applied.",
   deployVarAiGatewayUrl: "Sends this deployment's AI requests to the given https gateway address instead of directly to Anthropic; an unusable value makes AI requests fail until it is fixed.",
   deployVarAiGatewayToken: "Token the server sends to the AI gateway with each request; it never reaches the browser, and without a gateway address it is an invalid setting.",

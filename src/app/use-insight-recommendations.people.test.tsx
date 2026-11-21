@@ -53,7 +53,7 @@ async function confirm(peopleProtected: boolean) {
     tasks: [], raid: [], milestones: [], changes: [], stakeholders: [SAM],
     baselineHistory: [], resourcesById: new Map(),
     insights: store.read(), setInsights: store.setInsights, dispatcher,
-    showToast: vi.fn(), logActivityAs: vi.fn(),
+    showToast: vi.fn(), logActivityAi: vi.fn(),
     onAcknowledgeInsight: vi.fn(), onActInsight: vi.fn(), onDismissInsight: vi.fn(),
   };
   const { result } = renderHook(() => useInsightRecommendations(deps));
@@ -71,7 +71,7 @@ describe("a people call refused by protection at confirm", () => {
     expect(store.read()[0]!.recommendation?.status).toBe("proposed");
     const toasts = (deps.showToast as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[1]));
     expect(toasts.some((m) => m.startsWith(t("en-US", "insightRecommendationApplyFailed")))).toBe(false);
-    expect(deps.logActivityAs).not.toHaveBeenCalled();
+    expect(deps.logActivityAi).not.toHaveBeenCalled();
   });
 
   // The control: allowed, the same stored call lands and the insight advances.

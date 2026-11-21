@@ -22,7 +22,7 @@
 // own per-tool `isReadOnly` guards) — document tool writes have no undo capture,
 // so a popout mirror must never be able to reach mutateDocuments at all.
 import { useMemo, useRef, useEffect } from "react";
-import type { LogActivityAsFn } from "./activity-log-context";
+import type { LogActivityAiFn } from "./activity-log-context";
 import { sanitizeAiDocBlocks } from "./ai-document-blocks";
 import { MAX_BLOCKS_PER_DOC } from "./document-model";
 import type { DocOp } from "./document-mutations";
@@ -107,7 +107,7 @@ function remapOpIndex(entry: string, callerIndexOf: readonly number[]): string {
   return `op ${callerIndex}:${entry.slice(match[0].length)}`;
 }
 
-/** ★★★ `logActivityAs` is THREADED (ChatDispatcherArgs → useChatDispatcher →
+/** ★★★ `logActivityAi` is THREADED (ChatDispatcherArgs → useChatDispatcher →
  *  here), never obtained by calling `useActivityLog()` in this file: that hook
  *  owns its own `useState`, so a second call would build an independent log
  *  that the Activity panel — which renders task-manager's instance — never
@@ -139,7 +139,7 @@ function remapOpIndex(entry: string, callerIndexOf: readonly number[]): string {
  *  that list would silently go stale the next time an `ai.*` kind is added. */
 export function useDocumentTools(
   isReadOnly: boolean,
-  logActivityAs?: LogActivityAsFn,
+  logActivityAi?: LogActivityAiFn,
   /** ★★ The one-shot destructive-save bypass — see the arming site in
    *  `deleteDocument` below for why this route needs it and the panel route is
    *  not enough. */
@@ -187,7 +187,7 @@ export function useDocumentTools(
 
       getDocument: (id) => documentsRef.current.find((d) => d.id === id) ?? null,
 
-      createDocument: (title, blocks) => {
+      createDocument: (title, blocks, origin) => {
         if (isReadOnly) throw readOnlyError();
         // ★★ The model may send either HTML or plain text in a paragraph
         // block. sanitizeAiDocBlocks is the allow-list boundary — the
@@ -244,11 +244,11 @@ export function useDocumentTools(
         // trimmed title before calling this, so this is a defensive invariant
         // check, not an expected path.
         if (!doc) throw new Error("title is required");
-        logActivityAs?.("ai", "ai.documentWrite", doc.id, doc.title);
+        logActivityAi?.(origin, "ai.documentWrite", doc.id, doc.title);
         return { id: doc.id, title: doc.title, blockCount: doc.blocks.length };
       },
 
-      updateDocument: (id, ops, title) => {
+      updateDocument: (id, ops, title, origin) => {
         if (isReadOnly) throw readOnlyError();
         const before = documentsRef.current.find((d) => d.id === id);
         if (!before) return null;
@@ -428,7 +428,7 @@ export function useDocumentTools(
         // the title it already has — returns `changed:false` and mutates
         // nothing, so a row here would assert an edit that did not occur.
         if (result.changed) {
-          logActivityAs?.("ai", "ai.documentWrite", id, after?.title ?? before.title);
+          logActivityAi?.(origin, "ai.documentWrite", id, after?.title ?? before.title);
         }
         return {
           id,
@@ -444,7 +444,7 @@ export function useDocumentTools(
         };
       },
 
-      deleteDocument: (id) => {
+      deleteDocument: (id, origin) => {
         if (isReadOnly) throw readOnlyError();
         // Read the title BEFORE the mutation — after it the row is gone from
         // `result.documents`, and the activity entry names what was deleted.
@@ -483,7 +483,7 @@ export function useDocumentTools(
           // `documents-panel.tsx` was fixed for). Gating on `changed` means a
           // state change is guaranteed, so the save that spends it is too.
           allowDestructiveSaveRef.current?.();
-          logActivityAs?.("ai", "ai.documentWrite", id, before?.title ?? "");
+          logActivityAi?.(origin, "ai.documentWrite", id, before?.title ?? "");
         }
         const newest = result.versions[result.versions.length - 1];
         return {
@@ -492,6 +492,6 @@ export function useDocumentTools(
         };
       },
     }),
-    [isReadOnly, mutateDocuments, logActivityAs],
+    [isReadOnly, mutateDocuments, logActivityAi],
   );
 }

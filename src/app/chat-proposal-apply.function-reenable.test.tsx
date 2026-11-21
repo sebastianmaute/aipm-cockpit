@@ -18,6 +18,7 @@ import { useUndoBatch } from "./use-undo-batch";
 import { useUndoStack } from "./undo/use-undo-stack";
 import { emptyWorkspace } from "./workspace";
 import { useWorkspace } from "./workspace-context";
+import { aiOrigin } from "./activity-origin";
 
 const HIDDEN: FeatureModuleId[] = ["dashboard", "raid"];
 
@@ -50,18 +51,18 @@ describe("turning a hidden function back on through the AI (§810)", () => {
     const reEnable: ProposedCall = { name: "update_settings", input: { enabledModules: [...HIDDEN, "resources"] } };
     expect(stages(result.current.dispatcher, [reEnable])).toBe(true);
     // Staged, not run: the executor still reads the saved functions and refuses a Resources tool in this send.
-    await expect(runTool(result.current.dispatcher, "list_resources", {})).rejects.toThrow(RESOURCES_HIDDEN_TOOL_REFUSAL);
+    await expect(runTool(result.current.dispatcher, "list_resources", {}, aiOrigin("chat"))).rejects.toThrow(RESOURCES_HIDDEN_TOOL_REFUSAL);
 
     // The owner applies the card: the function is on and the tool is served.
     const rows = describeProposal([reEnable], { ...emptyWorkspace(), features: HIDDEN }, buildPlanRows([reEnable], []));
     await act(async () => {
       await applyProposal({
         dispatcher: result.current.dispatcher, rows, selected: new Set([0]),
-        batch: result.current.batch, getFeatures: () => result.current.features,
+        batch: result.current.batch, getFeatures: () => result.current.features, origin: aiOrigin("chatProposal"),
       });
     });
     expect(result.current.features).toContain("resources");
-    await expect(runTool(result.current.dispatcher, "list_resources", {})).resolves.toEqual([]);
+    await expect(runTool(result.current.dispatcher, "list_resources", {}, aiOrigin("chat"))).resolves.toEqual([]);
   });
 
   test("a lone call that turns Stakeholders on stages while Stakeholders is hidden", () => {

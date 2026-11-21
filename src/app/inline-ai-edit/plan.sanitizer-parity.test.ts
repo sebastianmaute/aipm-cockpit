@@ -1056,8 +1056,8 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
       //  throws `The URL must be of scheme file`, which surfaces as "no tests"
       //  at a non-zero exit rather than as a readable failure.
       const src = readFileSync(join(import.meta.dirname, "..", "use-chat-dispatcher.ts"), "utf8");
-      const start = src.indexOf("updateResource: (id: number, patch: Partial<ResourceInput>) => {");
-      const end = src.indexOf("deleteResource: (id: number) => {", start);
+      const start = src.indexOf("updateResource: (id: number, patch: Partial<ResourceInput>, origin) => {");
+      const end = src.indexOf("deleteResource: (id: number, origin) => {", start);
       // ★ ANTI-VACUITY FIRST. Both `indexOf` calls return -1 on a rename, and a
       //  -1/-1 slice is `""` — against which every "no guard here" assertion
       //  below passes for the wrong reason. Assert the slice was really found,

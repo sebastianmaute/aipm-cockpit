@@ -12,6 +12,16 @@ values for up to 12 fields — internal audit detail that must not reach a clien
 document — so it is storage-only on every EXPORT and DOCUMENT path, and it is absent from
 `TABLE_NAMES` because it has no table of its own, NOT because it sits outside the workspace.
 
+★★ **AN AI ENTRY MAY CARRY AN `origin` (§799).** `ActivityEntry.origin` (`AiOrigin`, `src/app/activity-origin.ts`) names the
+AI feature that wrote the entry and, for a chat entry in Turso mode, the `threadId` and `requestId` of the request
+behind it. It holds no user-authored text, only ids and a feature name. `appendActivityEntry` adds no `origin` key
+when there is none (byte stability, like `actor`), and it is a field of the entry's own JSON, so it needs no write
+path of its own. `sanitizeActivityEntry` drops a malformed origin and keeps the entry, keeps an unknown string
+`feature` (forward compatibility, like `kind` and `actor`), and keeps a link only when BOTH ids are non-empty
+strings. Like the entry it is storage-only on every export: only the internal audit download below carries it
+(`activity-audit.ts`), and the model never sees it (`activity-prompt.ts` is unchanged). Who writes it and how the
+Activity view links it: [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md).
+
 ★★ **THE ONE EXCEPTION IS AN INTERNAL AUDIT DOWNLOAD, NOT AN EXPORT (open-followups §510, owner decision
 2026-10-04).** Settings → Storage, in expert mode only, offers "Download activity log (internal)":
 `activity-audit.ts` builds a JSON file marked internal (`ACTIVITY_AUDIT_CLASSIFICATION`, and INTERNAL in
@@ -290,7 +300,7 @@ newest entries until the next save.
   `task.created` n pair (`createdPairs`, `use-undo-stack.ts`) naming the created tasks the undo removed or the
   redo re-inserted, and `reversedForwardDelta` reads it, so an undo that kept some tasks reverses only the ones removed.
   `grep -n COUNT_KINDS src/app/completion-trend.ts` prints the set;
-  `grep -ohE 'logActivityAs\?\.\("ai", "[a-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts | sort | uniq -c`
+  `grep -ohE 'logActivityAi\?\.\(origin, "[a-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts | sort | uniq -c`
   prints the kinds the chat entity writers emit and how often, of which those two intersect the set.
   ★★ **An AI status change to Done still logs `task.updated`, and now logs a completion BESIDE it** —
   `update_task` stamps that one kind whichever fields it touches, exactly as the form save does

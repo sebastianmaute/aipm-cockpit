@@ -45,7 +45,7 @@
 // popout owns no undo stack of its own, so a write reaching a setter there
 // would still be unrecoverable in that window.
 import { useCallback, useEffect, useMemo, useRef, type Dispatch, type RefObject, type SetStateAction } from "react";
-import type { LogActivityAsFn } from "./activity-log-context";
+import type { LogActivityAiFn } from "./activity-log-context";
 import {
   aiEscalationNoteAuthor,
   buildEscalationEntry,
@@ -141,7 +141,7 @@ export type RegisterToolDispatcher = Pick<
 export interface RegisterToolsDeps {
   /** True in a popout/mirror window — every write below refuses. */
   isReadOnly: boolean;
-  logActivityAs?: LogActivityAsFn;
+  logActivityAi?: LogActivityAiFn;
   /** Arms the one-shot destructive-save bypass. Optional: the dispatcher
    *  renders in contexts (tests, popouts) that supply none. */
   allowDestructiveSave?: () => void;
@@ -191,7 +191,7 @@ function linkRaidOwner(item: Pick<RaidItem, "owner" | "ownerEmail">, resources: 
 
 export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatcher {
   const {
-    isReadOnly, logActivityAs, clockRef, settingsRef, allowDestructiveSave, undoRef, resourcesRef, raidRef, stakeholdersRef,
+    isReadOnly, logActivityAi, clockRef, settingsRef, allowDestructiveSave, undoRef, resourcesRef, raidRef, stakeholdersRef,
     absencesRef, milestonesRef,
   } = deps;
   const {
@@ -246,9 +246,9 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
     [settingsRef],
   );
 
-  // ★★★ Every writer below ends its SUCCESS path with one `logActivityAs?.`
+  // ★★★ Every writer below ends its SUCCESS path with one `logActivityAi?.`
   // call, AFTER the setter and AFTER every reject guard. Arity is UNCHECKED by
-  // the type system and is NOT uniform across kinds — read `logActivityAs` on
+  // the type system and is NOT uniform across kinds — read `logActivityAi` on
   // `ChatDispatcherArgs` before adding or editing one.
 
   return useMemo<RegisterToolDispatcher>(
@@ -274,7 +274,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       // time, takes `applyUndoRestoreWithRemap`'s id-reuse branch and splices in
       // a SECOND copy. The full reasoning, measured, is at `createTask` in
       // use-chat-dispatcher.ts. Every update and delete here DOES capture.
-      createRaid: (input) => {
+      createRaid: (input, origin) => {
         if (isReadOnly) throw readOnlyError();
         refuseEmailWrite("ownerEmail", (input as { ownerEmail?: unknown }).ownerEmail, undefined);
         const id = mintId("raid", raidRef.current);
@@ -319,10 +319,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         raidRef.current = next;
         setRaid(next);
         // THREE args — "RAID #{0} created ({1}): {2}".
-        logActivityAs?.("ai", "raid.created", item.id, item.category, item.title);
+        logActivityAi?.(origin, "raid.created", item.id, item.category, item.title);
         return toRaidSummary(stored);
       },
-      updateRaid: (id, modelPatch) => {
+      updateRaid: (id, modelPatch, origin) => {
         if (isReadOnly) throw readOnlyError();
         const existing = raidRef.current.find((r) => r.id === id);
         if (!existing) return null;
@@ -393,7 +393,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         });
         raidRef.current = next;
         setRaid(next);
-        logActivityAs?.("ai", "raid.updated", merged.id, merged.category, merged.title);
+        logActivityAi?.(origin, "raid.updated", merged.id, merged.category, merged.title);
         return toRaidSummary(stored);
       },
       // ★★★ APPEND-ONLY (§515) — the one AI path that writes `escalations`. It
@@ -441,7 +441,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       //  read above and the updater, `prev.map(apply)` writes nothing, yet this
       //  still returns success, logs `raid.escalated` and captures an undo entry
       //  for a write that did not happen — the same exposure as `handleEscalate`.
-      escalateRaid: (id, { email, name }) => {
+      escalateRaid: (id, { email, name }, origin) => {
         if (isReadOnly) throw readOnlyError();
         const existing = raidRef.current.find((r) => r.id === id);
         if (!existing) return null;
@@ -479,7 +479,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         });
         raidRef.current = raidRef.current.map(apply);
         setRaid((prev) => prev.map(apply));
-        logActivityAs?.("ai", "raid.escalated", id, ...escalationActivityArgs(existing, plan));
+        logActivityAi?.(origin, "raid.escalated", id, ...escalationActivityArgs(existing, plan));
         return {
           id,
           severity: plan.raisesSeverity && plan.to ? plan.to : existing.severity,
@@ -492,7 +492,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       //    so a delete that empties one — or several deletes inside one save
       //    debounce window — is refused unless the bypass is armed. Armed
       //    AFTER the early return, so a miss never arms (open-followups §285).
-      deleteRaid: (id) => {
+      deleteRaid: (id, origin) => {
         if (isReadOnly) throw readOnlyError();
         // `find`, not `some` — the row names the item, and the filter below
         // destroys the only copy of its category and title.
@@ -515,12 +515,12 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         });
         raidRef.current = next;
         setRaid(next);
-        logActivityAs?.("ai", "raid.deleted", doomed.id, doomed.category, doomed.title);
+        logActivityAi?.(origin, "raid.deleted", doomed.id, doomed.category, doomed.title);
         allowDestructiveSave?.();
         return true;
       },
 
-      createChange: (input) => {
+      createChange: (input, origin) => {
         if (isReadOnly) throw readOnlyError();
         // ★★ `sanitizeModelChangeItem`, NOT the plain sanitizer, and the two are
         // not interchangeable here. A create has no stored value to protect, so
@@ -547,10 +547,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         const next = [...changesRef.current, item];
         changesRef.current = next;
         setChanges(next);
-        logActivityAs?.("ai", "change.created", item.id, item.title);
+        logActivityAi?.(origin, "change.created", item.id, item.title);
         return toChangeSummary(item);
       },
-      updateChange: (id, patch) => {
+      updateChange: (id, patch, origin) => {
         if (isReadOnly) throw readOnlyError();
         const existing = changesRef.current.find((c) => c.id === id);
         if (!existing) return null;
@@ -625,10 +625,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         });
         changesRef.current = next;
         setChanges(next);
-        logActivityAs?.("ai", "change.updated", stamped.id, stamped.title);
+        logActivityAi?.(origin, "change.updated", stamped.id, stamped.title);
         return toChangeSummary(stamped);
       },
-      deleteChange: (id) => {
+      deleteChange: (id, origin) => {
         if (isReadOnly) throw readOnlyError();
         const doomed = changesRef.current.find((c) => c.id === id);
         if (!doomed) return false;
@@ -647,12 +647,12 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         });
         changesRef.current = next;
         setChanges(next);
-        logActivityAs?.("ai", "change.deleted", doomed.id, doomed.title);
+        logActivityAi?.(origin, "change.deleted", doomed.id, doomed.title);
         allowDestructiveSave?.();
         return true;
       },
 
-      createMilestone: (input) => {
+      createMilestone: (input, origin) => {
         if (isReadOnly) throw readOnlyError();
         const id = mintId("milestone", milestonesRef.current);
         const item = sanitizeMilestone({
@@ -669,10 +669,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         setMilestones(next);
         // ★ CREATE is the two-arg outlier ("Created milestone #{0} – {1}");
         // update and delete take the id ALONE — see below.
-        logActivityAs?.("ai", "milestone.created", item.id, item.name);
+        logActivityAi?.(origin, "milestone.created", item.id, item.name);
         return toMilestoneSummary(item);
       },
-      updateMilestone: (id, patch) => {
+      updateMilestone: (id, patch, origin) => {
         if (isReadOnly) throw readOnlyError();
         const existing = milestonesRef.current.find((m) => m.id === id);
         if (!existing) return null;
@@ -734,10 +734,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         // ★★ ONE arg. "Updated milestone #{0}" has no {1}, and
         // milestones-panel.tsx passes the id alone — a name would be dropped
         // silently and make the AI row and the user row disagree.
-        logActivityAs?.("ai", "milestone.updated", merged.id);
+        logActivityAi?.(origin, "milestone.updated", merged.id);
         return toMilestoneSummary(merged);
       },
-      deleteMilestone: (id) => {
+      deleteMilestone: (id, origin) => {
         if (isReadOnly) throw readOnlyError();
         // ★★ `find`, not the `some` this used to be: the capture below needs
         // the ROW, and after the filter there is no copy of it left to take.
@@ -761,12 +761,12 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         milestonesRef.current = next;
         setMilestones(next);
         // ★★ ONE arg — "Deleted milestone #{0}", same as the panel's own row.
-        logActivityAs?.("ai", "milestone.deleted", id);
+        logActivityAi?.(origin, "milestone.deleted", id);
         allowDestructiveSave?.();
         return true;
       },
 
-      createStakeholder: (input) => {
+      createStakeholder: (input, origin) => {
         if (isReadOnly) throw readOnlyError();
         // BUDGET_NAME_MAX (200), not the default EMAIL_MAX (320) — `sanitizeStakeholder`
         // caps `email` there via `sanitizeText`, not `sanitizeEmail`.
@@ -785,10 +785,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         const next = [...stakeholdersRef.current, item];
         stakeholdersRef.current = next;
         setStakeholders(next);
-        logActivityAs?.("ai", "stakeholder.created", item.id, item.name);
+        logActivityAi?.(origin, "stakeholder.created", item.id, item.name);
         return toStakeholderSummary(item);
       },
-      updateStakeholder: (id, patch) => {
+      updateStakeholder: (id, patch, origin) => {
         if (isReadOnly) throw readOnlyError();
         const existing = stakeholdersRef.current.find((s) => s.id === id);
         if (!existing) return null;
@@ -820,10 +820,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         });
         stakeholdersRef.current = next;
         setStakeholders(next);
-        logActivityAs?.("ai", "stakeholder.updated", merged.id, merged.name);
+        logActivityAi?.(origin, "stakeholder.updated", merged.id, merged.name);
         return toStakeholderSummary(merged);
       },
-      deleteStakeholder: (id) => {
+      deleteStakeholder: (id, origin) => {
         if (isReadOnly) throw readOnlyError();
         const doomed = stakeholdersRef.current.find((s) => s.id === id);
         if (!doomed) return false;
@@ -842,7 +842,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         });
         stakeholdersRef.current = next;
         setStakeholders(next);
-        logActivityAs?.("ai", "stakeholder.deleted", doomed.id, doomed.name);
+        logActivityAi?.(origin, "stakeholder.deleted", doomed.id, doomed.name);
         allowDestructiveSave?.();
         return true;
       },
@@ -874,7 +874,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       // creates above carry, for the same measured reason: the undo direction
       // never removes, so a create captured as a `removed` image splices in a
       // SECOND copy at undo time.
-      createAbsence: (input) => {
+      createAbsence: (input, origin) => {
         if (isReadOnly) throw readOnlyError();
         const id = mintId("absence", absencesRef.current);
         // `sanitizeAbsence` returns null without an assignee or with an
@@ -896,10 +896,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         setAbsences(next);
         // ★★ FOUR args — "Absence #{0} created for {1}: {2} – {3}", the same
         // arity `use-resource-planner.ts` logs from the panel's own save.
-        logActivityAs?.("ai", "absence.created", item.id, item.assignee, item.startDate, item.endDate);
+        logActivityAi?.(origin, "absence.created", item.id, item.assignee, item.startDate, item.endDate);
         return toAbsenceSummary(item);
       },
-      updateAbsence: (id, patch) => {
+      updateAbsence: (id, patch, origin) => {
         if (isReadOnly) throw readOnlyError();
         const existing = absencesRef.current.find((a) => a.id === id);
         if (!existing) return null;
@@ -932,10 +932,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         });
         absencesRef.current = next;
         setAbsences(next);
-        logActivityAs?.("ai", "absence.updated", merged.id, merged.assignee, merged.startDate, merged.endDate);
+        logActivityAi?.(origin, "absence.updated", merged.id, merged.assignee, merged.startDate, merged.endDate);
         return toAbsenceSummary(merged);
       },
-      deleteAbsence: (id) => {
+      deleteAbsence: (id, origin) => {
         if (isReadOnly) throw readOnlyError();
         const doomed = absencesRef.current.find((a) => a.id === id);
         if (!doomed) return false;
@@ -956,12 +956,12 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         setAbsences(next);
         // ★★ TWO args here, not four — "Absence #{0} deleted for {1}". The
         // arity is NOT uniform across this entity's three kinds.
-        logActivityAs?.("ai", "absence.deleted", doomed.id, doomed.assignee);
+        logActivityAi?.(origin, "absence.deleted", doomed.id, doomed.assignee);
         allowDestructiveSave?.();
         return true;
       },
 
-      createCalendarEvent: (input) => {
+      createCalendarEvent: (input, origin) => {
         if (isReadOnly) throw readOnlyError();
         // ★★★ `mintId` REDUCES over the list it is given and THROWS on
         // `undefined`, so the default is mandatory here, not defensive style.
@@ -987,10 +987,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         const next = [...(calendarEventsRef.current ?? []), item];
         calendarEventsRef.current = next;
         setCalendarEvents(next);
-        logActivityAs?.("ai", "calendarEvent.created", item.id, item.title);
+        logActivityAi?.(origin, "calendarEvent.created", item.id, item.title);
         return toCalendarEventSummary(item);
       },
-      updateCalendarEvent: (id, patch) => {
+      updateCalendarEvent: (id, patch, origin) => {
         if (isReadOnly) throw readOnlyError();
         const events = calendarEventsRef.current ?? [];
         const existing = events.find((e) => e.id === id);
@@ -1020,10 +1020,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         });
         calendarEventsRef.current = next;
         setCalendarEvents(next);
-        logActivityAs?.("ai", "calendarEvent.updated", merged.id, merged.title);
+        logActivityAi?.(origin, "calendarEvent.updated", merged.id, merged.title);
         return toCalendarEventSummary(merged);
       },
-      deleteCalendarEvent: (id) => {
+      deleteCalendarEvent: (id, origin) => {
         if (isReadOnly) throw readOnlyError();
         const events = calendarEventsRef.current ?? [];
         const doomed = events.find((e) => e.id === id);
@@ -1046,7 +1046,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         });
         calendarEventsRef.current = next;
         setCalendarEvents(next);
-        logActivityAs?.("ai", "calendarEvent.deleted", doomed.id, doomed.title);
+        logActivityAi?.(origin, "calendarEvent.deleted", doomed.id, doomed.title);
         allowDestructiveSave?.();
         return true;
       },
@@ -1066,16 +1066,16 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
     // this line: `grep -n "const allowDestructiveSave" src/app/use-storage-backend.ts`
     // must show the useCallback wrapper.
     //
-    // ★★ `logActivityAs` IS THE DEP THIS EXTRACTION COULD HAVE DROPPED. Before
-    // the move these bodies read `args.logActivityAs` from use-chat-dispatcher's
+    // ★★ `logActivityAi` IS THE DEP THIS EXTRACTION COULD HAVE DROPPED. Before
+    // the move these bodies read `args.logActivityAi` from use-chat-dispatcher's
     // own closure, which was refreshed whenever `documentTools` changed identity
-    // — and `logActivityAs` is one of THAT hook's deps. So a changed logger
+    // — and `logActivityAi` is one of THAT hook's deps. So a changed logger
     // reached the register writers indirectly. Memoizing here on `[isReadOnly]`
     // alone would sever that path.
     //
     // ★★ READ THAT AS LATENT, NOT LIVE — an earlier draft of this comment said
     // the omission "would have left every register write logging through a stale
-    // function", and that overclaims. `logActivityAs` is a `useCallback` over the
+    // function", and that overclaims. `logActivityAi` is a `useCallback` over the
     // raw `setActivityLog` setter (use-activity-log.ts), so its identity never
     // moves for the life of the provider and the trigger cannot fire today. The
     // dep is carried because that is the difference between safe and safe BY
@@ -1084,7 +1084,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
     // never actually exercised.
     [
       isReadOnly,
-      logActivityAs,
+      logActivityAi,
       allowDestructiveSave,
       readOnlyError,
       clockRef,

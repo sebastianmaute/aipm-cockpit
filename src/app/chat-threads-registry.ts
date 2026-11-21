@@ -9,10 +9,12 @@
 //   files that have none. Precedent: `project-appearance-prefs.ts`, which the
 //   dispatcher already reads through `useViewDigest`.
 //
-// ★★ NO `useSyncExternalStore`, no listener set, no snapshot cache, no equality
-//   function — the precedent needs all four because components RENDER from it.
-//   Nothing renders from chat search: `getSnapshot()` reads at send time. Adding
-//   reactivity here would be machinery with no consumer.
+// ★★ ONE LISTENER SET, and only since §799: the Activity view now RENDERS from
+//   this store (an AI row links to its chat while the request is in a loaded
+//   thread), through `useSyncExternalStore(subscribeChatThreads, …)`. No snapshot
+//   cache is needed: `readChatThreads` returns the stored object, or the frozen
+//   `EMPTY`, so the snapshot is reference-stable between publishes. Chat search
+//   still reads at send time and does not subscribe.
 //
 // ★★★ ONE SLOT, and what that does and does NOT buy. Publishing for a new
 //   project replaces the slot outright, so there is nothing to evict and a read
@@ -48,9 +50,23 @@ const EMPTY: PublishedThreads = Object.freeze({
 });
 
 let slot: { projectId: string; value: PublishedThreads } | null = null;
+const listeners = new Set<() => void>();
+
+function notify(): void {
+  for (const listener of [...listeners]) listener();
+}
+
+/** §799 — called after every publish and every clear that drops the slot. Returns the unsubscribe. */
+export function subscribeChatThreads(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
 
 export function publishChatThreads(projectId: string, value: PublishedThreads): void {
   slot = { projectId, value };
+  notify();
 }
 
 /** The live threads for `projectId`, or an unavailable empty value. */
@@ -67,6 +83,7 @@ export function readChatThreads(projectId: string): PublishedThreads {
  */
 export function clearChatThreads(): void {
   slot = null;
+  notify();
 }
 
 /**
@@ -84,5 +101,7 @@ export function clearChatThreads(): void {
  *   cleanup for the old one.
  */
 export function clearChatThreadsFor(projectId: string): void {
-  if (slot !== null && slot.projectId === projectId) slot = null;
+  if (slot === null || slot.projectId !== projectId) return;
+  slot = null;
+  notify();
 }

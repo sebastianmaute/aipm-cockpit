@@ -156,6 +156,12 @@ export interface FieldChange {
  *  actor therefore needs an own-property guard, never a bare index. */
 export type ActivityActor = "user" | "ai" | "integration";
 
+/** §799 — the actors the HUMAN loggers (`logActivityAs`, `logActivityChangesAs`) accept. `"ai"` is excluded so an
+ *  AI write cannot be logged without an origin: it must go through `logActivityAi`, and tsc names any that does not. */
+export type HumanActor = Exclude<ActivityActor, "ai">;
+
+import { sanitizeAiOrigin, type AiOrigin } from "./activity-origin";
+
 export interface ActivityEntry {
   /** Globally unique: `"<deviceId>-<sessionNonce>-<counter>"`. Was a number,
    *  monotonic only within ONE device's log — which is exactly why two
@@ -185,6 +191,9 @@ export interface ActivityEntry {
    *  release, and absence is NOT "user" — those entries have a genuinely
    *  unknown actor. Never default it at read time. */
   actor?: ActivityActor;
+  /** §799 — the AI feature that wrote this entry (and, for chat in Turso mode, the thread/request). Absent on
+   *  every entry written before it, and on any non-AI entry. */
+  origin?: AiOrigin;
   /** Optional per-field diff for UPDATE events (audit detail). Omitted when the
    *  update produced no field changes. */
   changes?: readonly FieldChange[];
@@ -639,7 +648,7 @@ export function sanitizeActivityEntry(v: unknown): ActivityEntry | null {
   if (!v || typeof v !== "object") return null;
   const e = v as {
     id?: unknown; timestamp?: unknown; kind?: unknown; args?: unknown;
-    changes?: unknown; actor?: unknown;
+    changes?: unknown; actor?: unknown; origin?: unknown;
   };
   if (typeof e.id !== "string" || e.id.length === 0) return null;
   if (typeof e.timestamp !== "string") return null;
@@ -656,6 +665,8 @@ export function sanitizeActivityEntry(v: unknown): ActivityEntry | null {
   // ORIGINAL object by reference, so a repair omitted here does not happen at
   // all on the overwhelmingly common `changes === undefined` path.
   const timestampBad = timestamp !== e.timestamp;
+  const origin = e.origin === undefined ? undefined : sanitizeAiOrigin(e.origin);
+  const originBad = e.origin !== undefined && origin !== e.origin;
   const actorBad = e.actor !== undefined && typeof e.actor !== "string";
   // ★★ DENSIFY FIRST. `Array.prototype.some`/`map` SKIP HOLES, so a sparse
   //   `args` (`new Array(2)`) reported clean, took the by-reference fast path
@@ -676,11 +687,15 @@ export function sanitizeActivityEntry(v: unknown): ActivityEntry | null {
   //   array first. Accepted — `args` is a handful of elements.
   const args: unknown[] = Array.from(e.args);
   const argsBad = args.some((a) => typeof a !== "string" && typeof a !== "number");
-  if (e.changes === undefined && !actorBad && !argsBad && !timestampBad) return v as ActivityEntry;
+  if (e.changes === undefined && !actorBad && !argsBad && !timestampBad && !originBad) return v as ActivityEntry;
 
   const repaired: Record<string, unknown> = { ...(v as object) };
   if (timestampBad) repaired.timestamp = timestamp;
   if (actorBad) delete repaired.actor;
+  if (originBad) {
+    if (origin) repaired.origin = origin;
+    else delete repaired.origin;
+  }
   // ★★★ COERCE IN PLACE — never FILTER, and never drop the entry (§164).
   //   `args` is POSITIONAL: renderers call `t(lang, key, ...entry.args)` and the
   //   dict interpolates `{0}`/`{1}`. Removing a bad element therefore SHIFTS
@@ -758,6 +773,7 @@ export function appendActivityEntry(
   args: (string | number)[],
   changes?: readonly FieldChange[],
   actor?: ActivityActor,
+  origin?: AiOrigin,
 ): ActivityEntry[] {
   const entry: ActivityEntry = {
     id: `${getDeviceId()}-${getSessionNonce()}-${++counter}`,
@@ -766,6 +782,7 @@ export function appendActivityEntry(
     args,
     ...(changes && changes.length > 0 ? { changes } : {}),
     ...(actor ? { actor } : {}),
+    ...(origin ? { origin } : {}),
   };
   const next = [...current, entry];
   return next.length > ACTIVITY_MAX_ENTRIES

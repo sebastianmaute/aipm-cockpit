@@ -1036,7 +1036,7 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§796](#796-tasks-created-by-optimize-work-breakdown-with-ai-cannot-be-undone--closed-2026-11-20) | Tasks created by Optimize work breakdown with AI cannot be undone | — | — | **CLOSED** 2026-11-20 |
 | [§797](#797-external-text-that-the-chats-tools-read-does-not-trigger-the-review-hold--closed-2026-11-15) | External text that the chat's tools read does not trigger the review hold | — | — | **CLOSED** 2026-11-15 |
 | [§798](#798-most-ai-requests-have-no-client-time-limit-and-none-is-retried-on-a-rate-limit-or-overload--closed-2026-11-20) | Most AI requests have no client time limit, and none is retried on a rate limit or overload | — | — | **CLOSED** 2026-11-20 |
-| [§799](#799-an-activity-entry-written-by-the-ai-does-not-link-to-the-chat-message-that-caused-it) | An activity entry written by the AI does not link to the chat message that caused it | — | — | open |
+| [§799](#799-an-activity-entry-written-by-the-ai-does-not-link-to-the-chat-message-that-caused-it--closed-2026-11-20) | An activity entry written by the AI does not link to the chat message that caused it | — | — | **CLOSED** 2026-11-20 |
 | [§800](#800-the-content-security-policy-allows-whole-host-families-by-wildcard--closed-2026-11-15) | The Content Security Policy allows whole host families by wildcard | — | — | **CLOSED** 2026-11-15 |
 | [§801](#801-text-the-ai-writes-carries-no-machine-readable-marking--closed-2026-11-17) | Text the AI writes carries no machine-readable marking | — | — | **CLOSED** 2026-11-17 |
 | [§802](#802-the-ai-gateway-route-has-never-been-run-against-a-real-gateway) | The AI gateway route has never been run against a real gateway | — | — | open |
@@ -1049,6 +1049,7 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§812](#812-whether-optimize-work-breakdown-with-ai-repeats-is-not-measured) | Whether Optimize work breakdown with AI repeats is not measured | — | — | open |
 | [§813](#813-erasure-and-retention-of-saved-chats-are-proven-live-only-for-the-statements-the-erasure-spec-covers) | Erasure and retention of saved chats are proven live only for the statements the erasure spec covers | — | — | open |
 | [§814](#814-several-ai-paths-have-no-recorded-cost-or-observed-behaviour-from-a-measured-run) | Several AI paths have no recorded cost or observed behaviour from a measured run | — | — | open |
+| [§815](#815-ai-starter-content-applied-when-a-project-is-created-writes-no-activity-entry) | AI starter content applied when a project is created writes no activity entry | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -20891,7 +20892,7 @@ The two paths that DO log, for contrast:
 
 ```bash
 grep -c 'logActivity("task.updated"' src/app/use-task-submit.ts                 # 3 — the form save
-grep -n 'logActivityAs?.("ai", "task.updated"' src/app/use-chat-dispatcher.ts   # 2 — the AI write tools
+grep -n 'logActivityAi?.(origin, "task.updated"' src/app/use-chat-dispatcher.ts # 2 — the AI write tools
 ```
 
 ★★ **`captureFieldEdit` IS NOT THE LOG, and the two are easy to confuse because the undo entry it
@@ -46362,11 +46363,11 @@ Size M.
 
 **Source:** compliance pack gap check, 2026-11-13.
 
-## 799. An activity entry written by the AI does not link to the chat message that caused it
+## 799. An activity entry written by the AI does not link to the chat message that caused it — CLOSED 2026-11-20
 
-**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -nE "^\s*(actor|changes)\?:" src/app/activity-log.ts` prints the two optional fields an entry carries beyond its kind and arguments (and their uses in the sanitiser and the append helper); neither names a chat thread or message.
+**Status:** CLOSED 2026-11-20. An entry the AI writes now records which AI feature wrote it, in an optional `origin` beside `actor: "ai"` (`AiOrigin` and `AI_FEATURES` in `src/app/activity-origin.ts`: chat, chat proposal, inline edit, insight recommendation, allocation plan, work breakdown, duplicate check, RACI suggestion, meeting report). It carries no user-written text: no prompt, thread name or job name. In Turso mode a chat entry also carries the id of its chat thread and of the one chat request that caused it (`threadId` and `requestId`, present together or not at all; `chatSendOrigins` in `src/app/activity-origin.ts`, the request id minted once per send by `newRequestId` in `src/app/chat-threads.ts` and kept on the user's display item). In file mode, which has no saved threads, the entry names the feature only. The origin is passed to each write as an argument — `runTool` in `src/app/chat-tools.ts` takes it and hands it to every handler, and `logActivityAi` in `src/app/use-activity-log.ts` is the only logger that writes an AI entry (the human loggers no longer accept `"ai"`, `HumanActor`) — so two AI operations overlapping in time cannot stamp each other's entries. The Activity view shows the feature under the actor and, while that request is still in a loaded thread of this project (`resolveOriginLink` in `src/app/activity-origin-link.ts`), an "Open chat" button that opens the chat on that thread (`useChatOpenThreadRequest`); while an answer is running it does not switch threads or stop the answer, and says so. After "Clear chat", an entry written before the clear shows no link. `sanitizeActivityEntry` drops a malformed origin and keeps the entry, and strips a half link to the bare feature. The origin rides the entry's own JSON, so it needs no new column or write path. It is storage-only like the entry; the internal audit download (`activity-audit.ts`) carries it, an export and the model's activity search do not. Residual: an entry written before this change has no origin, and an entry whose chat was deleted, cleared or expired shows the feature without a link. Verified with `npx vitest run src/app/activity-origin.test.ts src/app/activity-origin-link.test.ts src/app/use-chat-open-thread-request.test.ts src/app/chat-panel.activity-origin.test.tsx src/app/activity-log-panel.test.tsx`, and `grep -rn "origin: AiOrigin" src/app/chat-tools.ts` lists the tool handlers that take it.
 
-**Work item:** #974
+**Earlier:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -nE "^\s*(actor|changes)\?:" src/app/activity-log.ts` prints the two optional fields an entry carries beyond its kind and arguments (and their uses in the sanitiser and the append helper); neither names a chat thread or message.
 
 The activity log records that the AI made a change, and what changed, but not which conversation or message asked for it. Someone reviewing an AI change cannot get from the log entry to the request behind it. (The 500-entry cap is a separate, accepted limit: §510.)
 
@@ -46543,3 +46544,17 @@ What it would take: run each path once with a recorded outcome and cost, or stat
 Size M.
 
 **Source:** preparing the AI briefs, 2026-11-14.
+
+## 815. AI starter content applied when a project is created writes no activity entry
+
+**Status:** OPEN 2026-11-21, found while closing §799 (AI activity entries record their origin). Reproduced by reading: `create-project-wizard.tsx` turns the AI starter content into a seed with `proposalToSeed`, `new-project-workspace.ts` applies it when the project is created, and `grep -n -i "activity" src/app/new-project-workspace.ts src/app/create-project-wizard.tsx` prints nothing, so the new project's activity log has no entry for it.
+
+**Work item:** #1018
+
+Every other AI feature that changes an existing project writes an entry with actor `ai` and an `origin` naming the feature (§799). The starter content a person accepts in the new-project wizard does not: the project starts with AI-written content and a log that does not say so. The briefs and the compliance pack therefore scope their statement about the activity log to AI features that change an existing project and name this exception.
+
+Expected: an AI entry with its own feature value in `origin`, holding no user-authored text, only the feature name (no thread or request link, the wizard has none). It needs a new `AiOrigin` feature value and a decision whether the new project's log starts with one summary entry or one per created item.
+
+Size S.
+
+**Source:** second whole-branch review of §799, 2026-11-21.

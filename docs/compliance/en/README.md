@@ -70,12 +70,12 @@ and the pack's check fails when a listed entry is closed or missing. [verified:
 | Register entry | Title |
 |---|---|
 | §487 | The Windows installer is unsigned: no signing provider is chosen, so every install shows an unknown-publisher warning |
-| §799 | An activity entry written by the AI does not link to the chat message that caused it |
 | §802 | The AI gateway route has never been run against a real gateway |
 | §811 | The time the AI features save is not measured |
 | §812 | Whether Optimize work breakdown with AI repeats is not measured |
 | §813 | Erasure and retention of saved chats are proven live only for the statements the erasure spec covers |
 | §814 | Several AI paths have no recorded cost or observed behaviour from a measured run |
+| §815 | AI starter content applied when a project is created writes no activity entry |
 <!-- PACK:open-gaps:END -->
 
 What each gap means for you. Each sentence restates its register entry in `docs/open-followups.md`,
@@ -83,8 +83,6 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
 
 - **§487** — No installer released so far is code-signed, so Windows cannot show you who published it.
   Check each download with the GitHub attestation commands in `SECURITY.md` instead.
-- **§799** — The activity log shows that the AI changed something and what changed, but not which chat
-  message asked for it. A reviewer cannot trace an AI change back to its request from the log.
 - **§802** — Routing AI through an organisation's gateway has been tested against fakes and a local
   server only. How a real gateway behaves with the app has not been confirmed by a run.
 

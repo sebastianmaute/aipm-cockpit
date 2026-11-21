@@ -15,6 +15,7 @@ import { entityToken } from "./ai-entity-token";
 import { runTool } from "./chat-tools";
 import { t, tPlural } from "./i18n";
 import type { Resource, Task } from "./types";
+import { aiOrigin } from "./activity-origin";
 
 const ada: Resource = { id: 7, firstName: "Ada", lastName: "L", email: "old@x.com", roleId: null, utilizationMode: "percent", utilization: {} };
 const seed: TestSeed = {
@@ -79,7 +80,7 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
     act(() => { human.result.current.directory.handleSaveResource({ ...ada, email: "new@x.com" }); });
 
     const { ai, showToastAction: aiToast } = renderAi();
-    act(() => { ai.result.current.d.updateResource(7, { email: "new@x.com" }); });
+    act(() => { ai.result.current.d.updateResource(7, { email: "new@x.com" }, aiOrigin("chat")); });
 
     expect(snapshot(ai.result.current.ws)).toEqual(snapshot(human.result.current.ws));
     const tasks = ai.result.current.ws.tasks;
@@ -121,7 +122,7 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
 
     act(() => { human.result.current.directory.handleEditResource(ada); });
     act(() => { human.result.current.directory.handleSaveResource({ ...ada, email: "new@x.com" }); });
-    act(() => { ai.result.current.d.updateResource(7, { email: "new@x.com" }); });
+    act(() => { ai.result.current.d.updateResource(7, { email: "new@x.com" }, aiOrigin("chat")); });
 
     for (const { ws } of [human.result.current, ai.result.current]) {
       const stamp = ws.resources[0].localModifiedAt;
@@ -151,7 +152,7 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
       const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction });
       return { undo, d: useChatDispatcher(makeDispatcherArgs({ undo })), ws: useWorkspace() };
     }, { wrapper: dispatcherWrapperWith(shaped) });
-    act(() => { ai.result.current.d.updateResource(7, { title: "Lead" }); });
+    act(() => { ai.result.current.d.updateResource(7, { title: "Lead" }, aiOrigin("chat")); });
     expect(ai.result.current.ws.resources[0].title).toBe("Lead"); // control: the edit landed
     expect(ai.result.current.ws.tasks[0].assigneeEmail).toBe("Ada L <old@x.com>");
     expect(showToastAction).toHaveBeenLastCalledWith("info", tPlural("en-US", "undoToastEdit", 1, 1), expect.anything());
@@ -174,7 +175,7 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
 
     act(() => { human.result.current.directory.handleEditResource(ada); });
     act(() => { human.result.current.directory.handleSaveResource({ ...ada, email: "new@x.com" }); });
-    act(() => { ai.result.current.d.updateResource(7, { email: "new@x.com" }); });
+    act(() => { ai.result.current.d.updateResource(7, { email: "new@x.com" }, aiOrigin("chat")); });
     for (const { ws } of [human.result.current, ai.result.current]) {
       expect(ws.resources[0].email).toBe("new@x.com"); // control: the correction landed
       expect(ws.tasks[0].assigneeEmail).toBe("new@x.com");
@@ -189,7 +190,7 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
 
   it("keeps the plain edit toast on the AI path when nothing propagates", () => {
     const { ai, showToastAction } = renderAi();
-    act(() => { ai.result.current.d.updateResource(7, { title: "Lead" }); });
+    act(() => { ai.result.current.d.updateResource(7, { title: "Lead" }, aiOrigin("chat")); });
     expect(showToastAction).toHaveBeenLastCalledWith("info", tPlural("en-US", "undoToastEdit", 1, 1), expect.anything());
     expect(ai.result.current.ws.tasks[0].assigneeEmail).toBe("OLD@x.com ");
   });
@@ -203,8 +204,8 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
     await act(async () => {
       const d = ai.result.current.d;
       const staleToken = entityToken("raid", d.getRaidRow(1)!);
-      d.updateResource(7, { email: "new@x.com" });
-      await expect(runTool(d, "update_raid_item", { id: 1, expectedToken: staleToken, title: "Overwrite" }))
+      d.updateResource(7, { email: "new@x.com" }, aiOrigin("chat"));
+      await expect(runTool(d, "update_raid_item", { id: 1, expectedToken: staleToken, title: "Overwrite" }, aiOrigin("chat")))
         .rejects.toThrow(/changed since you read it/);
       expect(d.getRaidRow(1)?.ownerEmail).toBe("new@x.com");
     });
@@ -223,9 +224,9 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
     let createdId = 0;
     await act(async () => {
       const d = ai.result.current.d;
-      const created = await runTool(d, "create_raid_item", { title: "Created this turn", owner: "Ada L", ownerEmail: "old@x.com" }) as { id: number };
+      const created = await runTool(d, "create_raid_item", { title: "Created this turn", owner: "Ada L", ownerEmail: "old@x.com" }, aiOrigin("chat")) as { id: number };
       createdId = created.id;
-      d.updateResource(7, { email: "new@x.com" });
+      d.updateResource(7, { email: "new@x.com" }, aiOrigin("chat"));
       expect(d.getRaidRow(createdId)?.title).toBe("Created this turn");
       expect(d.listRaid().map((r) => r.id)).toEqual([1, createdId]);
     });
@@ -239,8 +240,8 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
     await act(async () => {
       const d = ai.result.current.d;
       const token = entityToken("raid", d.getRaidRow(1)!);
-      await runTool(d, "update_raid_item", { id: 1, expectedToken: token, title: "Renamed this turn" });
-      d.updateResource(7, { email: "new@x.com" });
+      await runTool(d, "update_raid_item", { id: 1, expectedToken: token, title: "Renamed this turn" }, aiOrigin("chat"));
+      d.updateResource(7, { email: "new@x.com" }, aiOrigin("chat"));
     });
     expect(ai.result.current.ws.raid[0]).toMatchObject({ title: "Renamed this turn", ownerEmail: "new@x.com" });
     act(() => { ai.result.current.undo.undo(); });
@@ -257,7 +258,7 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
       stakeholder: entityToken("stakeholder", ai.result.current.ws.stakeholders[0]),
       absence: entityToken("absence", ai.result.current.ws.absences[0]),
     };
-    act(() => { ai.result.current.d.updateResource(7, { email: "new@x.com" }); });
+    act(() => { ai.result.current.d.updateResource(7, { email: "new@x.com" }, aiOrigin("chat")); });
     expect(entityToken("task", ai.result.current.ws.tasks[0])).not.toBe(before.task);
     expect(entityToken("task", ai.result.current.ws.tasks[2])).toBe(before.untouched);
     expect(entityToken("raid", ai.result.current.ws.raid[0])).not.toBe(before.raid);

@@ -60,6 +60,7 @@ import { useWorkspace } from "../workspace-context";
 import { emptyWorkspace, type Workspace } from "../workspace";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
 import { describeEntityCalls, type EditPlan, previewNormalizerFor } from "./plan";
+import { aiOrigin } from "../activity-origin";
 
 describe("the sweep's own coverage", () => {
   // ★★ THE ONE MAINTAINED THING IN THE SWEEP, AND ITS GUARD. A new FIELD is
@@ -335,7 +336,7 @@ async function replayOneField(
   let threw: string | undefined;
   await act(async () => {
     try {
-      await runTool(result.current.d, tool, { ...input, expectedToken: entityToken(kind, before) });
+      await runTool(result.current.d, tool, { ...input, expectedToken: entityToken(kind, before) }, aiOrigin("chat"));
     } catch (e) {
       threw = e instanceof Error ? e.message : String(e);
     }

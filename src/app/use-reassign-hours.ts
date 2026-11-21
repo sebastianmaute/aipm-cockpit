@@ -48,14 +48,18 @@
 //   Recording what was WRITTEN (not what was planned) in the undo entry would close the
 //   undo and redo cases; it was considered and left for later.
 import { useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
-import type { ActivityActor, ActivityKind } from "./activity-log";
-import type { LogActivityAsFn } from "./activity-log-context";
+import type { ActivityKind } from "./activity-log";
+import type { AiOrigin } from "./activity-origin";
+import type { LogActivityAiFn, LogActivityAsFn } from "./activity-log-context";
 import { type Lang } from "./i18n";
 import { applyShownDeltas, planHoursMoves, plannedShownDeltas, type HoursMovePlan, type OwnerChange, type ResourceUtilEdit } from "./reassign-hours";
 import { defaultPeriodLabel, hoursMoveNotice } from "./reassign-hours-notice";
 import { linkPersonForWrite, resourceDisplayName } from "./resource-foundation";
 import type { Absence, Resource, ResourcePlan, Task } from "./types";
 import { captureFieldPart, type CaptureCompositeOpts, type CompositeFragment, type UndoEntityKey } from "./undo/use-undo-stack";
+
+/** Who a reassign is logged for: `"user"` (a gesture) or the AI feature's origin (§799). */
+export type ActivityBy = "user" | AiOrigin;
 
 export interface ReassignHoursDeps {
   lang: Lang;
@@ -73,6 +77,8 @@ export interface ReassignHoursDeps {
   holidaySet: ReadonlySet<string>;
   captureComposite?: (opts: CaptureCompositeOpts) => void;
   logActivityAs?: LogActivityAsFn;
+  /** §799 — the sink for an AI origin; `logActivityAs` stays for `"user"`. */
+  logActivityAi?: LogActivityAiFn;
   showToast: (kind: "info" | "error", text: string) => void;
 }
 
@@ -81,7 +87,7 @@ export interface HoursMoveStep {
   resourcesPart: CompositeFragment | null;
   /** Writes the resources (functional setter) and logs the activity. Call once, after the task write.
    *  ★ Commit each step before the next `prepare`: two `prepare` calls before either commits plan from the same state. */
-  commit(actor: ActivityActor): void;
+  commit(by: ActivityBy): void;
   /** Text for the caller's toastText (or for showToast when it captures nothing); null when silent. */
   notice: string | null;
   plan: HoursMovePlan;
@@ -115,7 +121,7 @@ export interface ReassignHours {
    *  confirmation keeps the Undo button instead of replacing the undo toast with a second one.
    *  Returns how many task edits it applied (an entry was recorded, or its notice shown in a popout). 0 when no edit
    *  changed anything, or while loading: then nothing was written and the caller records its own parts. */
-  reassignTasks(edits: readonly OwnerEdit[], actor: ActivityActor, opts?: ReassignTasksOpts): number;
+  reassignTasks(edits: readonly OwnerEdit[], by: ActivityBy, opts?: ReassignTasksOpts): number;
   /** For a `prepare` caller: records `entry.taskPart` plus the step's resources part as ONE undo entry whose
    *  toast is the notice (in a popout, or with no undo, it shows the notice alone). Returns false and records
    *  nothing when the step neither moved hours nor has a notice: the caller then keeps its own capture. */
@@ -207,7 +213,7 @@ function changesOwner(c: OwnerChange): boolean {
 }
 
 export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
-  const { lang, today, isPopout, loadPending, tasks, setTasks, resources, setResources, plan, absences, workdayHours, holidaySet, captureComposite, logActivityAs, showToast } = deps;
+  const { lang, today, isPopout, loadPending, tasks, setTasks, resources, setResources, plan, absences, workdayHours, holidaySet, captureComposite, logActivityAs, logActivityAi, showToast } = deps;
 
   // Latest-value refs (R10): re-synced to the live state after each commit that
   // changes it, advanced synchronously by every write below.
@@ -254,7 +260,7 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
       resourcesPart: captureFieldPart<Resource>({ setter: setResources, edits: hoursPlan.edits, stampField: "localModifiedAt" }),
       notice,
       plan: hoursPlan,
-      commit: (actor) => {
+      commit: (by) => {
         if (committed) return; // a second call would apply the patch twice and log twice
         committed = true;
         advanceTaskCopy(changes);
@@ -272,12 +278,15 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
           });
         }
         const summary = moved ? activitySummary(hoursPlan, resourceName) : "";
-        if (summary) logActivityAs?.(actor, "resource.hoursMoved", summary);
+        if (summary) {
+          if (by === "user") logActivityAs?.("user", "resource.hoursMoved", summary);
+          else logActivityAi?.(by, "resource.hoursMoved", summary);
+        }
       },
     };
   };
 
-  const reassignTasks = (edits: readonly OwnerEdit[], actor: ActivityActor, opts?: ReassignTasksOpts): number => {
+  const reassignTasks = (edits: readonly OwnerEdit[], by: ActivityBy, opts?: ReassignTasksOpts): number => {
     if (loadPending) return 0;
     const byId = new Map(tasksRef.current.map((x) => [x.id, x]));
     const taskEdits: { id: number; before: OwnerFields; after: OwnerFields }[] = [];
@@ -304,7 +313,7 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
     });
     tasksRef.current = withOwners(tasksRef.current);
     setTasks(withOwners);
-    step.commit(actor);
+    step.commit(by);
 
     captureOrNotify(step, {
       leadText: typeof opts?.toastText === "function" ? opts.toastText(taskEdits.length) : opts?.toastText,

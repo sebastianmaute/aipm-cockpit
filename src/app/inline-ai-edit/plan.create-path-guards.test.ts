@@ -81,6 +81,7 @@ import { useChatDispatcher } from "../use-chat-dispatcher";
 import { useWorkspace } from "../workspace-context";
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
 import { describeEntityCalls } from "./plan";
+import { aiOrigin } from "../activity-origin";
 
 type CreateCase = {
   /** ★ `TokenEntity`, not `string`, so the `TOKEN_EXCLUDED` derivation below
@@ -223,7 +224,7 @@ async function createWith(c: CreateCase): Promise<Record<string, unknown> | unde
     { wrapper: dispatcherWrapperWith({}) },
   );
   await act(async () => {
-    await runTool(result.current.d, c.tool, { ...c.valid, [c.field]: c.probe });
+    await runTool(result.current.d, c.tool, { ...c.valid, [c.field]: c.probe }, aiOrigin("chat"));
   });
   const rows = snapshot(result.current.ws)[c.wsKey] as ReadonlyArray<Record<string, unknown>> | undefined;
   return rows?.[0];
@@ -510,7 +511,7 @@ describe("a create card previews only the attendees the create stores (§460)", 
       ws: snapshot(result.current.ws),
     });
     await act(async () => {
-      await runTool(result.current.d, "create_calendar_event", input);
+      await runTool(result.current.d, "create_calendar_event", input, aiOrigin("chat"));
     });
     return { card, rows: snapshot(result.current.ws).calendarEvents ?? [] };
   }

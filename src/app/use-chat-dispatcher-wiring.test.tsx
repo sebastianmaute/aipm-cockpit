@@ -111,7 +111,7 @@ function makeDeps(over: Partial<ChatDispatcherWiringDeps> = {}): ChatDispatcherW
     currentView: "open-points",
     settingsProjectId: "proj-1",
     holidaySet: HOLIDAYS,
-    logActivityAs: vi.fn(),
+    logActivityAi: vi.fn(),
     allowDestructiveSave: vi.fn(),
     undo: { captureComposite: vi.fn() },
     openWbsPlan: vi.fn(() => ({ opened: true, tasksInScope: 1 })),
@@ -156,7 +156,7 @@ describe("useChatDispatcherWiring — the useChatDispatcher args", () => {
     expect(args().currentView).toBe("open-points");
     expect(args().settingsProjectId).toBe("proj-1");
     expect(args().holidaySet).toBe(HOLIDAYS);
-    expect(args().logActivityAs).toBe(d.logActivityAs);
+    expect(args().logActivityAi).toBe(d.logActivityAi);
     expect(args().allowDestructiveSave).toBe(d.allowDestructiveSave);
     expect(args().undo).toBe(d.undo);
     expect(args().openWbsPlan).toBe(d.openWbsPlan);

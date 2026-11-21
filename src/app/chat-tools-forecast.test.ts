@@ -10,6 +10,7 @@ import { blockToken } from "./document-block-token";
 import type { DocBlock } from "./document-model";
 import { DEFAULT_HISTORY_WINDOW, MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
 import { MAX_FORECAST_SCENARIOS, type ForecastScenario } from "./forecast-scenarios";
+import { aiOrigin } from "./activity-origin";
 
 // §502 part 4 — six since the three decision writes joined (delete, proposal, target confidence).
 const FORECAST_NAMES = [
@@ -123,13 +124,13 @@ describe("the model-facing texts", () => {
 
 describe("runForecastTool", () => {
   it("returns the sentinel for a name that is not a forecast tool", () => {
-    expect(runForecastTool("list_tasks", {}, makeDispatcher())).toBe(NOT_FORECAST_TOOL);
+    expect(runForecastTool("list_tasks", {}, makeDispatcher(), aiOrigin("chat"))).toBe(NOT_FORECAST_TOOL);
   });
 
   it("refuses every forecast tool while the simulation is off, touching nothing", () => {
     for (const name of FORECAST_NAMES) {
       const d = makeDispatcher({ isForecastEnabled: () => false });
-      expect(() => runForecastTool(name, { id: 3, expectedToken: "x" }, d)).toThrow(FORECAST_OFF_MESSAGE);
+      expect(() => runForecastTool(name, { id: 3, expectedToken: "x" }, d, aiOrigin("chat"))).toThrow(FORECAST_OFF_MESSAGE);
       expect(d.getForecast).not.toHaveBeenCalled();
       expect(d.getForecastScenarioRow).not.toHaveBeenCalled();
       expect(d.createForecastScenario).not.toHaveBeenCalled();
@@ -142,55 +143,55 @@ describe("runForecastTool", () => {
 
   it("reads with no whatIf as null", () => {
     const d = makeDispatcher();
-    runForecastTool("get_forecast", {}, d);
+    runForecastTool("get_forecast", {}, d, aiOrigin("chat"));
     expect(d.getForecast).toHaveBeenCalledWith(null, {});
   });
 
   // §502 tooling: the view's toolbar settings and the by-group fold-out are readable, each refused when malformed.
   it("passes historyWindow, unit and byGroup through, and refuses a value outside each set", () => {
     const d = makeDispatcher();
-    runForecastTool("get_forecast", { historyWindow: "all", unit: "effort", byGroup: true }, d);
+    runForecastTool("get_forecast", { historyWindow: "all", unit: "effort", byGroup: true }, d, aiOrigin("chat"));
     expect(d.getForecast).toHaveBeenCalledWith(null, { historyWindow: "all", unit: "effort", byGroup: true });
-    runForecastTool("get_forecast", { historyWindow: 30 }, d);
+    runForecastTool("get_forecast", { historyWindow: 30 }, d, aiOrigin("chat"));
     expect(d.getForecast).toHaveBeenLastCalledWith(null, { historyWindow: 30 });
     const bad = makeDispatcher();
-    expect(() => runForecastTool("get_forecast", { historyWindow: 45 }, bad)).toThrow("historyWindow must be one of 30, 60, 90, all");
-    expect(() => runForecastTool("get_forecast", { historyWindow: "60" }, bad)).toThrow("historyWindow must be one of");
-    expect(() => runForecastTool("get_forecast", { unit: "hours" }, bad)).toThrow("unit must be one of tasks, effort");
-    expect(() => runForecastTool("get_forecast", { byGroup: "yes" }, bad)).toThrow("byGroup must be true or false");
+    expect(() => runForecastTool("get_forecast", { historyWindow: 45 }, bad, aiOrigin("chat"))).toThrow("historyWindow must be one of 30, 60, 90, all");
+    expect(() => runForecastTool("get_forecast", { historyWindow: "60" }, bad, aiOrigin("chat"))).toThrow("historyWindow must be one of");
+    expect(() => runForecastTool("get_forecast", { unit: "hours" }, bad, aiOrigin("chat"))).toThrow("unit must be one of tasks, effort");
+    expect(() => runForecastTool("get_forecast", { byGroup: "yes" }, bad, aiOrigin("chat"))).toThrow("byGroup must be true or false");
     expect(bad.getForecast).not.toHaveBeenCalled();
   });
 
   it("prefixes a bad whatIf row's error", () => {
     const d = makeDispatcher();
     expect(() =>
-      runForecastTool("get_forecast", { whatIf: [{ kind: "scope", tasks: "3", on: "2026-11-02" }] }, d),
+      runForecastTool("get_forecast", { whatIf: [{ kind: "scope", tasks: "3", on: "2026-11-02" }] }, d, aiOrigin("chat")),
     ).toThrow("whatIf changes[0]: tasks must be a number");
     expect(d.getForecast).not.toHaveBeenCalled();
   });
 
   it("creates through the dispatcher with parsed changes", () => {
     const d = makeDispatcher();
-    runForecastTool("create_forecast_scenario", { name: "A", changes: row.changes }, d);
-    expect(d.createForecastScenario).toHaveBeenCalledWith("A", row.changes);
+    runForecastTool("create_forecast_scenario", { name: "A", changes: row.changes }, d, aiOrigin("chat"));
+    expect(d.createForecastScenario).toHaveBeenCalledWith("A", row.changes, aiOrigin("chat"));
   });
 
   it("refuses a create without a string name", () => {
-    expect(() => runForecastTool("create_forecast_scenario", { name: 4, changes: [] }, makeDispatcher())).toThrow(
+    expect(() => runForecastTool("create_forecast_scenario", { name: 4, changes: [] }, makeDispatcher(), aiOrigin("chat"))).toThrow(
       "name must be a string",
     );
   });
 
   describe("update_forecast_scenario", () => {
     it("reports an unknown id as not found before any token check", () => {
-      expect(() => runForecastTool("update_forecast_scenario", { id: 9 }, makeDispatcher())).toThrow(
+      expect(() => runForecastTool("update_forecast_scenario", { id: 9 }, makeDispatcher(), aiOrigin("chat"))).toThrow(
         "forecast scenario 9 not found",
       );
     });
 
     it("refuses a missing token", () => {
       const d = makeDispatcher();
-      expect(() => runForecastTool("update_forecast_scenario", { id: 3, name: "x" }, d)).toThrow(
+      expect(() => runForecastTool("update_forecast_scenario", { id: 3, name: "x" }, d, aiOrigin("chat"))).toThrow(
         ConcurrencyTokenError,
       );
       expect(d.updateForecastScenario).not.toHaveBeenCalled();
@@ -199,7 +200,7 @@ describe("runForecastTool", () => {
     it("refuses a wrong token", () => {
       const d = makeDispatcher();
       expect(() =>
-        runForecastTool("update_forecast_scenario", { id: 3, expectedToken: "nope", name: "x" }, d),
+        runForecastTool("update_forecast_scenario", { id: 3, expectedToken: "nope", name: "x" }, d, aiOrigin("chat")),
       ).toThrow(ConcurrencyTokenError);
       expect(d.updateForecastScenario).not.toHaveBeenCalled();
     });
@@ -207,7 +208,7 @@ describe("runForecastTool", () => {
     it("needs name or changes once the token holds", () => {
       const d = makeDispatcher();
       const expectedToken = entityToken("forecastScenario", row);
-      expect(() => runForecastTool("update_forecast_scenario", { id: 3, expectedToken }, d)).toThrow(
+      expect(() => runForecastTool("update_forecast_scenario", { id: 3, expectedToken }, d, aiOrigin("chat"))).toThrow(
         "send name, changes, or both",
       );
     });
@@ -215,15 +216,15 @@ describe("runForecastTool", () => {
     it("renames with a valid token and passes only the fields sent", () => {
       const d = makeDispatcher();
       const expectedToken = entityToken("forecastScenario", row);
-      runForecastTool("update_forecast_scenario", { id: 3, expectedToken, name: "B" }, d);
-      expect(d.updateForecastScenario).toHaveBeenCalledWith(3, { name: "B" });
+      runForecastTool("update_forecast_scenario", { id: 3, expectedToken, name: "B" }, d, aiOrigin("chat"));
+      expect(d.updateForecastScenario).toHaveBeenCalledWith(3, { name: "B" }, aiOrigin("chat"));
     });
 
     it("replaces changes with a valid token", () => {
       const d = makeDispatcher();
       const expectedToken = entityToken("forecastScenario", row);
-      runForecastTool("update_forecast_scenario", { id: 3, expectedToken, changes: [] }, d);
-      expect(d.updateForecastScenario).toHaveBeenCalledWith(3, { changes: [] });
+      runForecastTool("update_forecast_scenario", { id: 3, expectedToken, changes: [] }, d, aiOrigin("chat"));
+      expect(d.updateForecastScenario).toHaveBeenCalledWith(3, { changes: [] }, aiOrigin("chat"));
     });
   });
 });
@@ -233,14 +234,14 @@ describe("the decision writes (§502 part 4)", () => {
     it("refuses a stale token, deleting nothing", () => {
       const d = makeDispatcher();
       const stale = entityToken("forecastScenario", { ...row, name: "Old name" });
-      expect(() => runForecastTool("delete_forecast_scenario", { id: 3, expectedToken: stale }, d)).toThrow(
+      expect(() => runForecastTool("delete_forecast_scenario", { id: 3, expectedToken: stale }, d, aiOrigin("chat"))).toThrow(
         ConcurrencyTokenError,
       );
       expect(d.deleteForecastScenario).not.toHaveBeenCalled();
     });
 
     it("reports an unknown id as not found", () => {
-      expect(() => runForecastTool("delete_forecast_scenario", { id: 9, expectedToken: "x" }, makeDispatcher())).toThrow(
+      expect(() => runForecastTool("delete_forecast_scenario", { id: 9, expectedToken: "x" }, makeDispatcher(), aiOrigin("chat"))).toThrow(
         "forecast scenario 9 not found",
       );
     });
@@ -248,24 +249,24 @@ describe("the decision writes (§502 part 4)", () => {
     it("deletes with a valid token", () => {
       const d = makeDispatcher();
       const expectedToken = entityToken("forecastScenario", row);
-      expect(runForecastTool("delete_forecast_scenario", { id: 3, expectedToken }, d)).toEqual({
+      expect(runForecastTool("delete_forecast_scenario", { id: 3, expectedToken }, d, aiOrigin("chat"))).toEqual({
         deleted: true, id: 3, name: "Hire two",
       });
-      expect(d.deleteForecastScenario).toHaveBeenCalledWith(3);
+      expect(d.deleteForecastScenario).toHaveBeenCalledWith(3, aiOrigin("chat"));
     });
   });
 
   describe("set_forecast_proposal", () => {
     it("passes a numeric id, and null to clear", () => {
       const d = makeDispatcher();
-      runForecastTool("set_forecast_proposal", { id: 3 }, d);
-      runForecastTool("set_forecast_proposal", { id: null }, d);
-      expect(vi.mocked(d.setForecastProposal).mock.calls).toEqual([[3], [null]]);
+      runForecastTool("set_forecast_proposal", { id: 3 }, d, aiOrigin("chat"));
+      runForecastTool("set_forecast_proposal", { id: null }, d, aiOrigin("chat"));
+      expect(vi.mocked(d.setForecastProposal).mock.calls).toEqual([[3, aiOrigin("chat")], [null, aiOrigin("chat")]]);
     });
 
     it.each([["a string", "3"], ["absent", undefined], ["NaN", Number.NaN]])("refuses an id that is %s", (_l, id) => {
       const d = makeDispatcher();
-      expect(() => runForecastTool("set_forecast_proposal", { id }, d)).toThrow("id must be a number, or null to clear");
+      expect(() => runForecastTool("set_forecast_proposal", { id }, d, aiOrigin("chat"))).toThrow("id must be a number, or null to clear");
       expect(d.setForecastProposal).not.toHaveBeenCalled();
     });
   });
@@ -273,12 +274,12 @@ describe("the decision writes (§502 part 4)", () => {
   describe("set_forecast_target_confidence", () => {
     it.each([50, 80, 95] as const)("sets %i", (value) => {
       const d = makeDispatcher();
-      expect(runForecastTool("set_forecast_target_confidence", { value }, d)).toEqual({ targetConfidence: value });
+      expect(runForecastTool("set_forecast_target_confidence", { value }, d, aiOrigin("chat"))).toEqual({ targetConfidence: value });
     });
 
     it.each([70, "95", undefined])("refuses %s, writing nothing", (value) => {
       const d = makeDispatcher();
-      expect(() => runForecastTool("set_forecast_target_confidence", { value }, d)).toThrow("value must be one of 50, 80, 95");
+      expect(() => runForecastTool("set_forecast_target_confidence", { value }, d, aiOrigin("chat"))).toThrow("value must be one of 50, 80, 95");
       expect(d.setForecastTargetConfidence).not.toHaveBeenCalled();
     });
   });
@@ -327,9 +328,9 @@ describe("the forecastDecision data section follows the simulation", () => {
 
   it("refuses a create_document or update_document naming it while the simulation is off", async () => {
     const d = docDispatcher(false);
-    await expect(runTool(d as never, "create_document", { title: "T", blocks: [block] })).rejects.toThrow(FORECAST_OFF_MESSAGE);
+    await expect(runTool(d as never, "create_document", { title: "T", blocks: [block] }, aiOrigin("chat"))).rejects.toThrow(FORECAST_OFF_MESSAGE);
     await expect(
-      runTool(d as never, "update_document", { id: 1, ops: [{ op: "insert", index: 0, block }] }),
+      runTool(d as never, "update_document", { id: 1, ops: [{ op: "insert", index: 0, block }] }, aiOrigin("chat")),
     ).rejects.toThrow(FORECAST_OFF_MESSAGE);
     expect(d.createDocument).not.toHaveBeenCalled();
     expect(d.updateDocument).not.toHaveBeenCalled();
@@ -340,23 +341,23 @@ describe("the forecastDecision data section follows the simulation", () => {
   it("lets an update_document re-send a decision block the document already holds while off", async () => {
     const d = docDispatcher(false, [block, tasksBlock]);
     const replaceAll = { id: 1, ops: [{ op: "replaceAll", blocks: [block, tasksBlock, { type: "pageBreak" }] }] };
-    await runTool(d as never, "update_document", replaceAll);
+    await runTool(d as never, "update_document", replaceAll, aiOrigin("chat"));
     const replace = { op: "replace", index: 0, block, expectHash: blockToken(block as DocBlock) };
-    await runTool(d as never, "update_document", { id: 1, ops: [replace] });
+    await runTool(d as never, "update_document", { id: 1, ops: [replace] }, aiOrigin("chat"));
     expect(d.updateDocument).toHaveBeenCalledTimes(2);
   });
 
   it("refuses an update_document adding a decision block beyond the ones it holds while off", async () => {
     const none = docDispatcher(false);
     await expect(
-      runTool(none as never, "update_document", { id: 1, ops: [{ op: "replaceAll", blocks: [block, tasksBlock] }] }),
+      runTool(none as never, "update_document", { id: 1, ops: [{ op: "replaceAll", blocks: [block, tasksBlock] }] }, aiOrigin("chat")),
     ).rejects.toThrow(FORECAST_OFF_MESSAGE);
     const one = docDispatcher(false, [block]);
     await expect(
-      runTool(one as never, "update_document", { id: 1, ops: [{ op: "append", block }] }),
+      runTool(one as never, "update_document", { id: 1, ops: [{ op: "append", block }] }, aiOrigin("chat")),
     ).rejects.toThrow(FORECAST_OFF_MESSAGE);
     await expect(
-      runTool(none as never, "update_document", { id: 2, ops: [{ op: "append", block }] }),
+      runTool(none as never, "update_document", { id: 2, ops: [{ op: "append", block }] }, aiOrigin("chat")),
     ).rejects.toThrow(FORECAST_OFF_MESSAGE);
     expect(none.updateDocument).not.toHaveBeenCalled();
     expect(one.updateDocument).not.toHaveBeenCalled();
@@ -364,13 +365,13 @@ describe("the forecastDecision data section follows the simulation", () => {
 
   it("accepts it while the simulation is on", async () => {
     const d = docDispatcher(true);
-    await runTool(d as never, "create_document", { title: "T", blocks: [block] });
-    expect(d.createDocument).toHaveBeenCalledWith("T", [block]);
+    await runTool(d as never, "create_document", { title: "T", blocks: [block] }, aiOrigin("chat"));
+    expect(d.createDocument).toHaveBeenCalledWith("T", [block], aiOrigin("chat"));
   });
 
   it("CONTROL: a document without it is untouched by the gate while off", async () => {
     const d = docDispatcher(false);
-    await runTool(d as never, "create_document", { title: "T", blocks: [{ type: "dataSection", key: "tasks" }] });
+    await runTool(d as never, "create_document", { title: "T", blocks: [{ type: "dataSection", key: "tasks" }] }, aiOrigin("chat"));
     expect(d.createDocument).toHaveBeenCalled();
   });
 });
@@ -378,6 +379,6 @@ describe("the forecastDecision data section follows the simulation", () => {
 describe("runTool routing", () => {
   it("routes a forecast name to the gate before the unknown-tool throw", async () => {
     const d = makeDispatcher({ isForecastEnabled: () => false });
-    await expect(runTool(d as never, "get_forecast", {})).rejects.toThrow(FORECAST_OFF_MESSAGE);
+    await expect(runTool(d as never, "get_forecast", {}, aiOrigin("chat"))).rejects.toThrow(FORECAST_OFF_MESSAGE);
   });
 });

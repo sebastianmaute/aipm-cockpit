@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { newConsent } from "./ai-consent";
+import { aiOrigin } from "./activity-origin";
 import { renderHook, act, render, screen } from "@testing-library/react";
 import * as recommendCall from "./insights/recommend-call";
 import { AiHttpError } from "./ai-errors";
@@ -78,7 +79,7 @@ function mkDeps(over: Partial<InsightRecommendationDeps> = {}): InsightRecommend
     setInsights: vi.fn(),
     dispatcher: mkDispatcher().dispatcher,
     showToast: vi.fn(),
-    logActivityAs: vi.fn(),
+    logActivityAi: vi.fn(),
     onAcknowledgeInsight: vi.fn(),
     onActInsight: vi.fn(),
     onDismissInsight: vi.fn(),
@@ -171,6 +172,25 @@ describe("a stale recommendation is refused visibly, not swallowed", () => {
     // §351: a full apply records no refused calls — the key is absent.
     expect(store.read()[0].recommendation).not.toHaveProperty("refusedCalls");
     expect(deps.showToast).toHaveBeenCalledWith("info", t("en-US", "insightRecommendationApplied"));
+    // §799 — the recommendation's own row names its feature (its replayed tool calls are the chat's).
+    expect(deps.logActivityAi).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(deps.logActivityAi).mock.calls[0].slice(0, 2)).toEqual([aiOrigin("insightRecommendation"), "ai.insightRecommendation"]);
+  });
+
+  // §799 — the replayed tool call runs with the recommendation's origin, so the entity row the dispatcher
+  //   writes names "insightRecommendation" rather than the chat. Read off the handler's own trailing argument.
+  it("replays its tool calls with the insightRecommendation origin", async () => {
+    const store = mkStore([mkInsight({ recommendation: mkRec({ id: 42, status: "In Progress", expectedToken: entityToken("task", task) }) })]);
+    const d = mkDispatcher();
+    const inner = d.dispatcher as unknown as { updateTask: (...a: unknown[]) => unknown };
+    const updateTask = vi.fn((...a: unknown[]) => inner.updateTask(...a));
+    const dispatcher = { ...(d.dispatcher as unknown as Record<string, unknown>), updateTask } as unknown as InsightRecommendationDeps["dispatcher"];
+    const deps = mkDeps({ insights: store.read(), setInsights: store.setInsights, dispatcher });
+    const { result } = renderHook(() => useInsightRecommendations(deps));
+    act(() => { result.current.setReviewInsightId(1); });
+    await act(async () => { await result.current.confirmInsightRecommendation(); });
+    expect(updateTask).toHaveBeenCalledTimes(1);
+    expect(updateTask.mock.calls[0].at(-1)).toEqual(aiOrigin("insightRecommendation"));
   });
 
   it("refuses a moved row: nothing written, the insight is NOT advanced, and the toast says why", async () => {
@@ -187,7 +207,7 @@ describe("a stale recommendation is refused visibly, not swallowed", () => {
     expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationStale"));
     expect(deps.showToast).not.toHaveBeenCalledWith("error", t("en-US", "insightRecommendationApplyFailed"));
     // No activity row either — nothing happened to log.
-    expect(deps.logActivityAs).not.toHaveBeenCalled();
+    expect(deps.logActivityAi).not.toHaveBeenCalled();
   });
 
   // ★ The partial case keeps the OLD advance rule, deliberately: a create_* may
@@ -261,7 +281,7 @@ describe("§534 — confirm sends only what the review modal showed", () => {
     expect(store.calls).not.toHaveBeenCalled();
     expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationAllRejected"));
     expect(deps.showToast).not.toHaveBeenCalledWith("error", t("en-US", "insightRecommendationApplyFailed"));
-    expect(deps.logActivityAs).not.toHaveBeenCalled();
+    expect(deps.logActivityAi).not.toHaveBeenCalled();
   });
 
   // ★ The MIXED case: one call lands, one is refused whole. Something committed,
@@ -561,7 +581,7 @@ describe("a pre-switch recommendation carrying money is refused after a currency
     expect(store.calls).not.toHaveBeenCalled();
     expect(store.read()[0].recommendation?.status).toBe("proposed");
     expect(deps.showToast).toHaveBeenCalledWith("error", refusedToast());
-    expect(deps.logActivityAs).not.toHaveBeenCalled();
+    expect(deps.logActivityAi).not.toHaveBeenCalled();
   });
 
   it("generated after a same-day switch (stamped with it): applied", async () => {

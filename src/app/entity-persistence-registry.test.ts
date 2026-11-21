@@ -461,6 +461,14 @@ describe("entity persistence registry — activityLog survives every text backen
       kind: "task.updated",
       args: ["T-1"],
       changes: [{ field: "status", from: "To Do", to: "In Progress" }],
+    }, {
+      // §799 — an AI entry whose origin carries the chat link
+      id: "dev1-s1-2",
+      timestamp: "2026-08-01T00:01:00.000Z",
+      kind: "task.updated",
+      args: ["T-2"],
+      actor: "ai",
+      origin: { feature: "chat", threadId: "thread-1", requestId: "req-1" },
     }],
   });
 

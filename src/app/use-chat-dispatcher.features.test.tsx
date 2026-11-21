@@ -9,15 +9,16 @@ import { useWorkspace } from "./workspace-context";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import { defaultSettings, resolveNextActionsConfig, type Settings } from "./settings-types";
 import { dispatcherWrapper, makeDispatcherArgs } from "../test/chat-dispatcher-fixture";
+import { aiOrigin } from "./activity-origin";
 
 const LEAN: FeatureModuleId[] = ["dashboard", "milestones", "raid"];
 
 function renderWithWorkspace(isReadOnly = false) {
   const setSettings = vi.fn();
-  const logActivityAs = vi.fn();
+  const logActivityAi = vi.fn();
   const hook = renderHook(
     () => ({
-      dispatcher: useChatDispatcher(makeDispatcherArgs({ setSettings, logActivityAs, isReadOnly })),
+      dispatcher: useChatDispatcher(makeDispatcherArgs({ setSettings, logActivityAi, isReadOnly })),
       ws: useWorkspace(),
     }),
     { wrapper: dispatcherWrapper() },
@@ -25,7 +26,7 @@ function renderWithWorkspace(isReadOnly = false) {
   /** What the navigation reads: the settings mirror after every functional update the tool queued. */
   const mirror = (start: Settings) =>
     setSettings.mock.calls.reduce((s, [u]) => (typeof u === "function" ? (u as (p: Settings) => Settings)(s) : (u as Settings)), start);
-  return { hook, setSettings, logActivityAs, mirror };
+  return { hook, setSettings, logActivityAi, mirror };
 }
 
 describe("useChatDispatcher — update_settings { enabledModules } writes the project's functions (§779)", () => {
@@ -35,7 +36,7 @@ describe("useChatDispatcher — update_settings { enabledModules } writes the pr
     const { hook, mirror } = renderWithWorkspace();
     expect(hook.result.current.ws.features).toBeUndefined();
     let applied: Record<string, unknown> = {};
-    act(() => { applied = hook.result.current.dispatcher.updateSettings({ enabledModules: LEAN }); });
+    act(() => { applied = hook.result.current.dispatcher.updateSettings({ enabledModules: LEAN }, aiOrigin("chat")); });
     expect(applied).toEqual({ enabledModules: LEAN });
     expect(hook.result.current.ws.features).toEqual(LEAN);
     const start = { features: [...ALL_MODULE_IDS] } as unknown as Settings;
@@ -43,35 +44,35 @@ describe("useChatDispatcher — update_settings { enabledModules } writes the pr
   });
 
   it("logs one settings.updated row, as before", () => {
-    const { hook, logActivityAs } = renderWithWorkspace();
-    act(() => { hook.result.current.dispatcher.updateSettings({ enabledModules: LEAN }); });
-    expect(logActivityAs).toHaveBeenCalledTimes(1);
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "settings.updated");
+    const { hook, logActivityAi } = renderWithWorkspace();
+    act(() => { hook.result.current.dispatcher.updateSettings({ enabledModules: LEAN }, aiOrigin("chat")); });
+    expect(logActivityAi).toHaveBeenCalledTimes(1);
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("chat"), "settings.updated");
   });
 
   it("a patch without enabledModules leaves the project's functions alone", () => {
     const { hook } = renderWithWorkspace();
     act(() => { hook.result.current.ws.setFeatures(LEAN); });
-    act(() => { hook.result.current.dispatcher.updateSettings({ showViewHints: false }); });
+    act(() => { hook.result.current.dispatcher.updateSettings({ showViewHints: false }, aiOrigin("chat")); });
     expect(hook.result.current.ws.features).toEqual(LEAN);
   });
 
   // Mutation: removing the refusal in `computeSettingsPatch` turns this red (a different error, or with
   // both refusals gone a sanitised [] that switches every function off).
   it("a non-array enabledModules is refused and writes nothing", () => {
-    const { hook, setSettings, logActivityAs } = renderWithWorkspace();
+    const { hook, setSettings, logActivityAi } = renderWithWorkspace();
     act(() => { hook.result.current.ws.setFeatures(LEAN); });
-    expect(() => hook.result.current.dispatcher.updateSettings({ enabledModules: "raid" })).toThrow(
+    expect(() => hook.result.current.dispatcher.updateSettings({ enabledModules: "raid" }, aiOrigin("chat"))).toThrow(
       "enabledModules must be a list of module ids",
     );
     expect(hook.result.current.ws.features).toEqual(LEAN);
     expect(setSettings).not.toHaveBeenCalled();
-    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(logActivityAi).not.toHaveBeenCalled();
   });
 
   it("a read-only window (a popout) refuses and writes nothing", () => {
     const { hook, setSettings } = renderWithWorkspace(true);
-    expect(() => hook.result.current.dispatcher.updateSettings({ enabledModules: LEAN })).toThrow();
+    expect(() => hook.result.current.dispatcher.updateSettings({ enabledModules: LEAN }, aiOrigin("chat"))).toThrow();
     expect(hook.result.current.ws.features).toBeUndefined();
     expect(setSettings).not.toHaveBeenCalled();
   });
@@ -82,19 +83,19 @@ describe("useChatDispatcher — previewSettings (§779)", () => {
   // this red (5, the default, instead of the user's 9). The card's "Also sets" line reads this.
   it("reports what updateSettings would apply, against the live settings, and writes nothing", () => {
     const setSettings = vi.fn();
-    const logActivityAs = vi.fn();
+    const logActivityAi = vi.fn();
     const settings: Settings = {
       ...defaultSettings,
       nextActions: { ...resolveNextActionsConfig(undefined), scopePendingRed: 9 },
     };
     const { result } = renderHook(
-      () => useChatDispatcher(makeDispatcherArgs({ settings, setSettings, logActivityAs })),
+      () => useChatDispatcher(makeDispatcherArgs({ settings, setSettings, logActivityAi })),
       { wrapper: dispatcherWrapper() },
     );
     const preview = result.current.previewSettings({ nextActionsWeights: { scopePendingRed: "junk" }, showViewHints: false });
     expect(preview).toEqual({ showViewHints: false, nextActionsWeights: { scopePendingRed: 9 } });
     expect(setSettings).not.toHaveBeenCalled();
-    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(logActivityAi).not.toHaveBeenCalled();
   });
 });
 
@@ -120,7 +121,7 @@ describe("useChatDispatcher — get_app_state reports the project's saved functi
     const { hook } = renderWithWorkspace();
     let snap: ReturnType<typeof hook.result.current.dispatcher.getSnapshot> | undefined;
     act(() => {
-      hook.result.current.dispatcher.updateSettings({ enabledModules: LEAN });
+      hook.result.current.dispatcher.updateSettings({ enabledModules: LEAN }, aiOrigin("chat"));
       snap = hook.result.current.dispatcher.getSnapshot();
     });
     expect(snap?.enabledModules).toEqual(LEAN);

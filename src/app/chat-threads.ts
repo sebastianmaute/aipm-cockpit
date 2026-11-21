@@ -96,6 +96,28 @@ export function fitHistoryToBudget(history: readonly ApiMessage[], maxBytes: num
   return out;
 }
 
+/** §799 — the load-boundary check of the user items' `requestId`. A well-formed one (a non-empty string) is
+ *  kept; any other value is removed from its item, and the item itself, with every other field, is kept: a
+ *  malformed id must never cost the thread or the message. Items without the key are returned as they are.
+ *  A non-array input is `[]`, as `parseJsonArray` treats one. */
+export function sanitizeDisplayRequestIds(display: unknown): DisplayItem[] {
+  if (!Array.isArray(display)) return [];
+  return display.map((item: unknown) => {
+    if (!item || typeof item !== "object" || !("requestId" in item)) return item as DisplayItem;
+    const { requestId, ...rest } = item as { requestId: unknown };
+    return (typeof requestId === "string" && requestId.length > 0 ? item : rest) as DisplayItem;
+  });
+}
+
+/** §799 — mint a chat request id (one per send, never reused). Same fallback as `newThreadId`: an insecure
+ *  context has no `crypto.randomUUID`, and a throw here would fail every send. */
+export function newRequestId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `request-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 /** Mint a new thread id, preferring crypto.randomUUID (mirrors newTemplateId in
  *  settings-sections/templates-section.tsx). */
 export function newThreadId(): string {

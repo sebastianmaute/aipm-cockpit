@@ -6,6 +6,7 @@ import { captureFieldPart, useUndoStack } from "./undo/use-undo-stack";
 import { planHoursMoves, type OwnerChange } from "./reassign-hours";
 import { defaultPeriodLabel, hoursMoveNotice } from "./reassign-hours-notice";
 import type { Resource, ResourcePlan, Task } from "./types";
+import { aiOrigin } from "./activity-origin";
 
 // Sep 1 – Dec 31, monthly. The task spans Sep 1 – Oct 30: 22 workdays in each
 // month, so its 16 h split 8 h / 8 h and NOVEMBER IS NEVER TOUCHED — the period
@@ -38,6 +39,7 @@ interface Opts { isPopout?: boolean; loadPending?: boolean; withUndo?: boolean; 
 
 function setup(opts: Opts = {}) {
   const logActivityAs = vi.fn();
+  const logActivityAi = vi.fn();
   const showToast = vi.fn();
   const showToastAction = vi.fn();
   const captureSpy = vi.fn();
@@ -51,13 +53,13 @@ function setup(opts: Opts = {}) {
         tasks, setTasks, resources, setResources,
         plan: PLAN, absences: [], workdayHours: 8, holidaySet: NO_HOLIDAYS,
         captureComposite: opts.withUndo === false ? undefined : isPopout ? captureSpy : undo.captureComposite,
-        logActivityAs, showToast,
+        logActivityAs, logActivityAi, showToast,
       };
       return { reassign: useReassignHours(deps), undo, tasks, setTasks, resources, setResources };
     },
     { initialProps: { isPopout: opts.isPopout ?? false, loadPending: opts.loadPending ?? false } },
   );
-  return { hook, logActivityAs, showToast, showToastAction, captureSpy };
+  return { hook, logActivityAs, logActivityAi, showToast, showToastAction, captureSpy };
 }
 
 const util = (rs: readonly Resource[], id: number) => rs.find((r) => r.id === id)?.utilization;
@@ -145,6 +147,14 @@ describe("useReassignHours.reassignTasks", () => {
     expect(String(moved[0][2])).toContain("Liam Foster");
   });
 
+  it("an AI origin logs resource.hoursMoved through logActivityAi with that origin, never as a user row", () => {
+    const { hook, logActivityAs, logActivityAi } = setup();
+    act(() => { hook.result.current.reassign.reassignTasks([TO_LIAM], aiOrigin("allocationPlan")); });
+    expect(logActivityAi).toHaveBeenCalledTimes(1);
+    expect(logActivityAi).toHaveBeenCalledWith(aiOrigin("allocationPlan"), "resource.hoursMoved", "Maya Patel -16; Liam Foster +16");
+    expect(logActivityAs).not.toHaveBeenCalled();
+  });
+
   it("stores the moved hours language-neutrally in the activity entry", () => {
     const { hook, logActivityAs } = setup();
     act(() => { hook.result.current.reassign.reassignTasks([TO_LIAM], "user"); });
@@ -204,7 +214,7 @@ describe("useReassignHours.reassignTasks", () => {
         stampField: "localModifiedAt",
       });
       setResources((prev) => prev.map((r) => (r.id === 3 ? { ...r, utilization: { ...r.utilization, "2026-12": 7 } } : r)));
-      recorded = hook.result.current.reassign.reassignTasks([TO_LIAM], "ai", { extraParts: [cellsPart], kind: "bulk.edit", entityKey: "task", primaryCount: 2 });
+      recorded = hook.result.current.reassign.reassignTasks([TO_LIAM], aiOrigin("allocationPlan"), { extraParts: [cellsPart], kind: "bulk.edit", entityKey: "task", primaryCount: 2 });
     });
     expect(recorded).toBe(1);
     let r = hook.result.current;
@@ -225,7 +235,7 @@ describe("useReassignHours.reassignTasks", () => {
   it("returns 0 and records nothing when no task changes", () => {
     const { hook, showToast, showToastAction } = setup();
     let recorded: number | undefined;
-    act(() => { recorded = hook.result.current.reassign.reassignTasks([{ taskId: 10, ...MAYA_OWNS }, { taskId: 999, ...LIAM_OWNS }], "ai"); });
+    act(() => { recorded = hook.result.current.reassign.reassignTasks([{ taskId: 10, ...MAYA_OWNS }, { taskId: 999, ...LIAM_OWNS }], aiOrigin("allocationPlan")); });
     expect(recorded).toBe(0);
     expect(hook.result.current.undo.stack).toHaveLength(0);
     expect(owner(hook.result.current.tasks)).toEqual(MAYA_OWNS);
@@ -238,7 +248,7 @@ describe("useReassignHours.reassignTasks", () => {
     const { hook, showToastAction } = setup({ tasks: [TASK, SMALL] });
     let applied: number | undefined;
     act(() => {
-      applied = hook.result.current.reassign.reassignTasks([TO_LIAM, { taskId: 12, ...MAYA_OWNS }], "ai", {
+      applied = hook.result.current.reassign.reassignTasks([TO_LIAM, { taskId: 12, ...MAYA_OWNS }], aiOrigin("allocationPlan"), {
         toastText: (n) => `applied ${n}`,
         primaryCount: (n) => n + 5,
         kind: "bulk.edit",
@@ -318,16 +328,16 @@ describe("useReassignHours: assigning a task that had no owner", () => {
 
 describe("useReassignHours.prepare", () => {
   it("returns a live step for a real reassignment, and commit writes the hours and logs once", () => {
-    const { hook, logActivityAs } = setup();
+    const { hook, logActivityAi } = setup();
     const step = hook.result.current.reassign.prepare([{ task: { ...TASK, ...LIAM_OWNS } as Task, fromResourceId: 1, toResourceId: 2 }]);
     expect(step.resourcesPart).not.toBeNull();
     expect(step.notice).toBe(expectedNotice());
     expect(util(hook.result.current.resources, 2)).toEqual({}); // nothing written before commit
-    act(() => { step.commit("ai"); });
+    act(() => { step.commit(aiOrigin("allocationPlan")); });
     expect(util(hook.result.current.resources, 1)).toEqual(MOVED_MAYA);
     expect(util(hook.result.current.resources, 2)).toEqual(MOVED_LIAM);
-    expect(logActivityAs.mock.calls.filter((c) => c[1] === "resource.hoursMoved")).toHaveLength(1);
-    expect(logActivityAs).toHaveBeenLastCalledWith("ai", "resource.hoursMoved", expect.any(String));
+    expect(logActivityAi.mock.calls.filter((c) => c[1] === "resource.hoursMoved")).toHaveLength(1);
+    expect(logActivityAi).toHaveBeenLastCalledWith(aiOrigin("allocationPlan"), "resource.hoursMoved", expect.any(String));
   });
 
   it("prepare returns an inert step when nothing moves silently", () => {

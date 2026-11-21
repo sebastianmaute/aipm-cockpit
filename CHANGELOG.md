@@ -28,6 +28,13 @@ longer carries its own changelog comment.
   service names or about 2 s and then 4 s; a wait over 60 s is not waited. Each retry re-checks the AI setting and
   consent and redacts again, and Stop ends a wait. A timeout or a network failure is never retried. The relay now
   passes an upstream `retry-after` on, and the chat shows "Claude is busy, trying again in N s…" while it waits (§798).
+- **The Activity view shows which AI feature made a change, and opens the chat behind it.** An entry the AI writes now
+  records its feature (the chat, a reviewed chat plan, the inline edit, an insight recommendation, the allocation plan,
+  Optimize with AI, the duplicate check, the RACI suggestion or the meeting report) and shows it under the actor. On a
+  Turso project a chat entry also links to the chat request that caused it: "Open chat" opens that conversation, unless
+  an answer is running (it is not interrupted) or the chat was cleared, deleted or has expired. The record holds no
+  prompt or chat text, is stored with the project and left out of every export; only the internal audit download
+  carries it. Entries from before this release show no feature (§799).
 - **Undoing an "Optimize with AI" work breakdown now removes the tasks it created.** A created task that was changed
   since, or is linked from another task, a RAID item, a milestone, a change, a budget bucket, a knowledge item or a
   document, stays, and a notice says how many stayed. Redo puts the removed tasks back and restores the links they had (§796).

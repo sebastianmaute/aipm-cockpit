@@ -91,8 +91,9 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
   separately only with `AIPM_TRUSTED_PROXY_HOPS` set behind proxies that append to `x-forwarded-for`; without
   it, one caller can use up the limit for all (E54, *tested (unit)*; E69, *tested (unit)*). The dictation route refuses an endpoint whose host name
   resolves to a private address, though DNS rebinding remains (E70, *tested (unit)*).
-- For incidents: the activity log names the AI as actor of its chat changes, but no entry links to the chat
-  message behind it (§799; E55, *read in code*).
+- For incidents: the activity log names the AI as actor of its changes to an existing project and the AI feature that made each one (AI starter content applied when a project is created writes no entry yet, register §815);
+  with Turso storage, a chat change also links to the chat request behind it, while that chat is still among the chats loaded for this project and still holds that request; entries from before this release carry neither the feature nor a link
+  (E55, *read in code*).
 - Ask Anthropic what it retains of a request, for how long, and whether it trains on it.
 - Check the SBOM and attestations of the release you install, and tell users about the unknown-publisher
   warning (E50, *tested (unit)*; E51, *tested (unit)*).

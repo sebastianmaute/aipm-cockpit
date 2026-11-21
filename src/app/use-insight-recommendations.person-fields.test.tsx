@@ -52,7 +52,7 @@ function setup(peopleProtected: boolean, input: Record<string, unknown>) {
     tasks: [], raid: [], milestones: [], changes: [], stakeholders: [],
     baselineHistory: [], resourcesById: new Map(),
     insights: list, setInsights: setInsights as unknown as InsightRecommendationDeps["setInsights"], dispatcher,
-    showToast: vi.fn(), logActivityAs: vi.fn(),
+    showToast: vi.fn(), logActivityAi: vi.fn(),
     onAcknowledgeInsight: vi.fn(), onActInsight: vi.fn(), onDismissInsight: vi.fn(),
   };
   const { result } = renderHook(() => useInsightRecommendations(deps));

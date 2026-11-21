@@ -296,6 +296,10 @@ describe("activityLog JSON write path", () => {
   it("round-trips activityLog through JSON", () => {
     const log = [
       { id: "dev1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created" as const, args: ["T-1"] },
+      {
+        id: "dev1-2", timestamp: "2026-08-01T00:01:00.000Z", kind: "task.updated" as const, args: ["T-2"],
+        actor: "ai" as const, origin: { feature: "chat", threadId: "thread-1", requestId: "req-1" },
+      },
     ];
     const ws = { ...emptyWorkspace(), activityLog: log };
     const back = jsonToWorkspace(workspaceToJson(ws));

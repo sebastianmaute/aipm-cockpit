@@ -12,6 +12,7 @@ import {
   type ActivityEntry,
   type ActivityKind,
 } from "./activity-log";
+import { aiOrigin } from "./activity-origin";
 import { de } from "./i18n.de";
 import { t } from "./i18n";
 
@@ -731,5 +732,40 @@ describe("getDeviceId", () => {
       getItemSpy.mockRestore();
       setItemSpy.mockRestore();
     }
+  });
+});
+
+describe("AI origin (§799)", () => {
+  const base = { id: "d-1-1", timestamp: "2026-08-16T10:00:00.000Z", kind: "task.created", args: [1, "x"] };
+
+  test("appendActivityEntry records the origin", () => {
+    const [entry] = appendActivityEntry([], "task.updated", ["x"], undefined, "ai", aiOrigin("chat"));
+    expect(entry.origin).toEqual({ feature: "chat" });
+  });
+
+  test("appendActivityEntry adds no origin key without one", () => {
+    const [entry] = appendActivityEntry([], "task.updated", ["x"], undefined, "ai");
+    expect(Object.hasOwn(entry, "origin")).toBe(false);
+  });
+
+  test("sanitizeActivityEntry keeps a valid origin by reference", () => {
+    const stored = { ...base, origin: { feature: "chat", threadId: "t", requestId: "r" } };
+    expect(sanitizeActivityEntry(stored)).toBe(stored);
+  });
+
+  test("sanitizeActivityEntry drops a malformed origin and keeps the entry", () => {
+    const out = sanitizeActivityEntry({ ...base, origin: "x" });
+    expect(out?.kind).toBe("task.created");
+    expect(Object.hasOwn(out as object, "origin")).toBe(false);
+  });
+
+  test("sanitizeActivityEntry strips an unknown origin key", () => {
+    const out = sanitizeActivityEntry({ ...base, origin: { feature: "chat", note: "x" } });
+    expect(out?.origin).toEqual({ feature: "chat" });
+  });
+
+  test("sanitizeActivityEntry repairs a half link", () => {
+    const out = sanitizeActivityEntry({ ...base, origin: { feature: "chat", threadId: 5, requestId: "r" } });
+    expect(out?.origin).toEqual({ feature: "chat" });
   });
 });

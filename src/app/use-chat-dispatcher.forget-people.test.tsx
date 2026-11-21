@@ -6,6 +6,7 @@ import { __resetMintStateForTests } from "./id-mint-session";
 import type { Resource } from "./types";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useUndoStack } from "./undo/use-undo-stack";
+import { aiOrigin } from "./activity-origin";
 
 const res = (id: number, firstName: string): Resource =>
   ({ id, firstName, lastName: "Bennett", roleId: null, utilizationMode: "percent", utilization: {} }) as Resource;
@@ -22,7 +23,7 @@ describe("useChatDispatcher deleteResource reports the removal (§788)", () => {
     const onResourcesDeleted = vi.fn();
     const { result } = render({ onResourcesDeleted });
     let removed = false;
-    act(() => { removed = result.current.deleteResource(2); });
+    act(() => { removed = result.current.deleteResource(2, aiOrigin("chat")); });
     expect(removed).toBe(true);
     expect(onResourcesDeleted).toHaveBeenCalledTimes(1);
     expect(onResourcesDeleted).toHaveBeenCalledWith([2]);
@@ -32,7 +33,7 @@ describe("useChatDispatcher deleteResource reports the removal (§788)", () => {
     const onResourcesDeleted = vi.fn();
     const { result } = render({ onResourcesDeleted });
     let removed = true;
-    act(() => { removed = result.current.deleteResource(999); });
+    act(() => { removed = result.current.deleteResource(999, aiOrigin("chat")); });
     expect(removed).toBe(false);
     expect(onResourcesDeleted).not.toHaveBeenCalled();
   });
@@ -40,13 +41,13 @@ describe("useChatDispatcher deleteResource reports the removal (§788)", () => {
   test("a read-only dispatcher (popout) refuses and reports nothing", () => {
     const onResourcesDeleted = vi.fn();
     const { result } = render({ onResourcesDeleted, isReadOnly: true });
-    expect(() => result.current.deleteResource(1)).toThrow();
+    expect(() => result.current.deleteResource(1, aiOrigin("chat"))).toThrow();
     expect(onResourcesDeleted).not.toHaveBeenCalled();
   });
 
   test("works without the callback", () => {
     const { result } = render();
-    expect(() => { act(() => { result.current.deleteResource(1); }); }).not.toThrow();
+    expect(() => { act(() => { result.current.deleteResource(1, aiOrigin("chat")); }); }).not.toThrow();
   });
 });
 
@@ -56,7 +57,7 @@ describe("useChatDispatcher deleteResource during the load hold (§788)", () => 
   test("is refused while the load hold is on: nobody is removed and nothing is reported", () => {
     const onResourcesDeleted = vi.fn();
     const { result } = render({ onResourcesDeleted, isLoadHeld: () => true });
-    expect(() => result.current.deleteResource(2)).toThrow();
+    expect(() => result.current.deleteResource(2, aiOrigin("chat"))).toThrow();
     expect(result.current.listResources().map((r) => r.id)).toEqual([1, 2]);
     expect(onResourcesDeleted).not.toHaveBeenCalled();
   });
@@ -64,7 +65,7 @@ describe("useChatDispatcher deleteResource during the load hold (§788)", () => 
   test("goes through when the hold is off (a cross-project reload is not the hold)", () => {
     const onResourcesDeleted = vi.fn();
     const { result } = render({ onResourcesDeleted, isLoadHeld: () => false });
-    act(() => { result.current.deleteResource(2); });
+    act(() => { result.current.deleteResource(2, aiOrigin("chat")); });
     expect(onResourcesDeleted).toHaveBeenCalledWith([2]);
   });
 });
@@ -81,7 +82,7 @@ describe("a redone AI person delete sweeps (§788)", () => {
       },
       { wrapper: dispatcherWrapperWith({ resources: [res(1, "Ada"), res(2, "Grace")] }) },
     );
-    act(() => { result.current.dispatcher.deleteResource(2); });
+    act(() => { result.current.dispatcher.deleteResource(2, aiOrigin("chat")); });
     expect(onResourcesDeleted).toHaveBeenLastCalledWith([2]);
     onResourcesDeleted.mockClear();
     act(() => { result.current.undo.undo(); });

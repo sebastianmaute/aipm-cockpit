@@ -18,7 +18,8 @@ import { SparklesIcon } from "./icons";
 import { type Lang, t, tPlural } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
 import { type Task } from "./types";
-import { type LogActivityAsFn } from "./activity-log-context";
+import { type LogActivityAiFn } from "./activity-log-context";
+import { aiOrigin } from "./activity-origin";
 import { type UndoStackApi } from "./undo/use-undo-stack";
 import { useToastContext } from "./toast-context";
 import { AiHttpError, classifyAiError } from "./ai-errors";
@@ -49,9 +50,9 @@ export interface TasksDedupDeps {
   setTasks: Dispatch<SetStateAction<readonly Task[]>>;
   /** Single-entry undo capture (merged rows removed + keep rows edited). */
   capture?: UndoStackApi["capture"];
-  /** ★ ACTOR-AWARE. This hook writes exactly one kind, `ai.taskDedup`, so it
-   *  KNOWS its actor and stamps it here — see the rule on `useActivityLog`. */
-  logActivityAs?: LogActivityAsFn;
+  /** ★ AI LOGGER (§799). This hook writes exactly one kind, `ai.taskDedup`, so it
+   *  names its own feature (`taskDedup`) — see the rule on `useActivityLog`. */
+  logActivityAi?: LogActivityAiFn;
   /**
    * Already-translated view name to append to the trigger's accessible name
    * (e.g. "Gantt"). Needed once this hook is mounted more than once — in the
@@ -76,7 +77,7 @@ export interface TasksDedup {
 }
 
 export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
-  const { settings, isPopout, lang, tasks, setTasks, capture, logActivityAs, triggerQualifier } = deps;
+  const { settings, isPopout, lang, tasks, setTasks, capture, logActivityAi, triggerQualifier } = deps;
   const showToast = useToastContext();
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -191,10 +192,10 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
       fromArray: before,
       entityKey: "task",
     });
-    logActivityAs?.("ai", "ai.taskDedup", result.removedCount);
+    logActivityAi?.(aiOrigin("taskDedup"), "ai.taskDedup", result.removedCount);
     showToast("info", tPlural(lang, "taskDedupApplied", result.removedCount, result.removedCount));
     reset();
-  }, [phase, groups, selected, tasks, setTasks, capture, logActivityAs, showToast, lang, reset]);
+  }, [phase, groups, selected, tasks, setTasks, capture, logActivityAi, showToast, lang, reset]);
 
   // ★ `triggerQualifier` MUST keep reaching the accessible name. This hook is
   //   mounted TWICE (tasks-section.tsx, gantt-view.tsx) and the classic layout

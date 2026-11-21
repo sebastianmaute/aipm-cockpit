@@ -13,7 +13,7 @@
 // `(owner_id IS NULL OR owner_id = '')` in the SQL itself.
 import { rowObjects, txt, int, type PipelineResultLike, type SqlStmt } from "./turso-schema";
 import { existingColumnsFromPragma, missingColumnAlters } from "./turso-migrate";
-import { minimiseStoredToolResults, type ChatThread } from "./chat-threads";
+import { minimiseStoredToolResults, sanitizeDisplayRequestIds, type ChatThread } from "./chat-threads";
 
 export const CHAT_THREADS_TABLE = "chat_threads";
 
@@ -259,7 +259,7 @@ export function legacyRowToThread(r: Record<string, string>): ChatThread {
     updatedAt: r.updated_at ?? "",
     // AI-08 / AI-05 — a thread saved before the tool results were minimised is minimised here, before it can be re-sent.
     history: minimiseStoredToolResults(parseJsonArray(r.history_json)),
-    display: parseJsonArray(r.display_json),
+    display: sanitizeDisplayRequestIds(parseJsonArray(r.display_json)),
   };
 }
 

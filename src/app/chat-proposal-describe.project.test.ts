@@ -12,6 +12,7 @@ import { applyProjectPatch } from "./project-ai-fields";
 import { BUDGET_NAME_MAX } from "./sanitize-entities";
 import type { ProjectMeta } from "./types";
 import { emptyWorkspace, type Workspace } from "./workspace";
+import { aiOrigin } from "./activity-origin";
 
 const STORED: ProjectMeta = {
   name: "Apollo",
@@ -137,7 +138,7 @@ describe("applying a staged update_project", () => {
     const rows = describeProposal([{ name: "update_project", input: PATCH }], wsWith(STORED));
     const { d, updateProjectMeta, setLive } = fakeDispatcher(STORED);
     setLive({ ...STORED, customer: "Changed after the preview" });
-    const result = await applyProposal({ dispatcher: d, rows, selected: new Set([0]), batch });
+    const result = await applyProposal({ dispatcher: d, rows, selected: new Set([0]), batch, origin: aiOrigin("chatProposal") });
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0]).toMatchObject({ index: 0, ok: false, stale: true });
     expect(updateProjectMeta).not.toHaveBeenCalled();
@@ -146,7 +147,7 @@ describe("applying a staged update_project", () => {
   it("a non-stale staged update_project applies what the card showed and never resends a refused field", async () => {
     const rows = describeProposal([{ name: "update_project", input: PATCH }], wsWith(STORED));
     const { d, updateProjectMeta } = fakeDispatcher(STORED);
-    const result = await applyProposal({ dispatcher: d, rows, selected: new Set([0]), batch });
+    const result = await applyProposal({ dispatcher: d, rows, selected: new Set([0]), batch, origin: aiOrigin("chatProposal") });
     expect(result.rows).toEqual([{ index: 0, ok: true }]);
     expect(updateProjectMeta).toHaveBeenCalledTimes(1);
     const written = updateProjectMeta.mock.calls[0][0];
@@ -162,7 +163,7 @@ describe("applying a staged update_project", () => {
       wsWith(STORED),
     );
     const { d, updateProjectMeta } = fakeDispatcher(STORED);
-    const result = await applyProposal({ dispatcher: d, rows, selected: new Set([0]), batch });
+    const result = await applyProposal({ dispatcher: d, rows, selected: new Set([0]), batch, origin: aiOrigin("chatProposal") });
     expect(result.rows[0].ok).toBe(false);
     expect(updateProjectMeta).not.toHaveBeenCalled();
   });

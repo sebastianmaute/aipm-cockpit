@@ -759,14 +759,36 @@
   mutates state and logs NOTHING. Reproduce with `grep -n "logActivity" src/app/use-chat-dispatcher.ts` —
   **one** hit." That command now returns **28**, so the doc carried the command that disproves it — which is
   the gate working in the only way an ungated doc can be gated, and only if somebody runs it. Every chat
-  entity writer now ends its SUCCESS path with `logActivityAs?.("ai", …)` (tasks · raid · change · milestone
+  entity writer now ends its SUCCESS path with `logActivityAi?.(origin, …)` — actor `ai` plus the origin of the `runTool` call that ran it, passed as an ARGUMENT (§799) (tasks · raid · change · milestone
   · stakeholder · resource · absence · calendarEvent, plus `settings.updated`, `bulk.inquiries` and `bulk.delete`). The
   writers are split across `use-chat-dispatcher.ts` (tasks, resources, settings, bulk) and `use-register-tools.ts`
   (raid, change, milestone, stakeholder, absence, calendarEvent), with `ai.documentWrite` in `use-document-tools.ts`; derive the sites and kinds over all
   three rather than quoting a number:
-  `grep -ohE 'logActivityAs\?\.\("ai", "[A-Za-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts src/app/use-document-tools.ts | sort | uniq -c`.
+  `grep -ohE 'logActivityAi\?\.\(origin, "[A-Za-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts src/app/use-document-tools.ts | sort | uniq -c`.
+  The "every" covers the entity writers in those three files only; other callers of `logActivityAi` (the plan and suggestion
+  hooks, `use-forecast-tools.ts`, `use-reassign-hours.ts`, `project-meta-edit.ts`) are found with
+  `git grep -lE "logActivityAi" -- src/app ':!*.test.*'`.
   ★★ The coverage caveat therefore came OUT of the tool description in the same release, exactly as the
   ★★ below required. RETENTION (b) is unchanged and stays in.
+  ★★★ **THE ORIGIN OF AN AI ENTRY TRAVELS AS AN ARGUMENT, NEVER AS DISPATCHER STATE (§799).** `runTool` takes a
+  REQUIRED `AiOrigin` and passes it to every handler that logs, and `logActivityAi` (`use-activity-log.ts`) is
+  the only logger that writes an `actor: "ai"` entry. The shared `ToolDispatcher` is one object for every
+  concurrent AI operation, so a "current origin" held on it, in a ref or in a module variable would let a chat
+  turn running tools and an insight recommendation applying at the same moment stamp each other's entries
+  (`use-chat-dispatcher.origin.test.tsx` pins both completion orders). The other AI features
+  (`inlineEdit`, `insightRecommendation`, `allocationPlan`, `wbsPlan`, `taskDedup`, `raciSuggest`,
+  `meetingReport`) build their own `aiOrigin(…)`; no scheduled run logs activity. A chat send makes ONE
+  `chatSendOrigins` pair, `chat` for the writes the send runs and `chatProposal` for a plan it stages (applied
+  later, so it keeps the send's own origin), and it keeps that pair as a local value.
+  ★★ **A LINK NEEDS THE REQUEST, AND ONLY IN TURSO MODE.** `requestId` is minted once per send by
+  `newRequestId` onto the user's display item, so a rate-limit retry inside the send (§798) keeps it and no two
+  sends share one. `chatSendOrigins` stamps `threadId` + `requestId` only when `tursoMode` is true: file mode has
+  a retained thread id (`ensureThreadForSend` returns one) but no saved thread to open. The Activity view links an
+  entry through `resolveOriginLink` only while that user item is still in a loaded thread of the open project, so
+  "Clear chat" cannot send an older entry to the request that replaced it. The click reaches the chat through a
+  request object the parent consumes (`useChatOpenThreadRequest`; `panel-chat` is always mounted, so there is no
+  remount to swallow it). While a send or an Apply runs it does NOT switch thread — `selectThread` would abort the
+  running send — and the panel shows `chatOpenThreadBusy` instead.
   ★★ **`ai.inlineEdit` NO LONGER FIRES FROM ANYWHERE, and the kind is deliberately still in the union.**
   This bullet used to say it "fires from `use-inline-entity-edit.ts`"; `892f0d2b` deleted both writers,
   because an inline "Ask Claude" edit was writing TWO entries — the per-`runTool` entity row this branch
@@ -781,7 +803,7 @@
   call. ★ `ai.wbsPlan` (`use-wbs-plan.tsx`) is the exception: it is reached from the Open Points toolbar
   button AND from the `optimize_wbs` chat tool, because that tool only opens the same proposal flow and the
   entry is written when the user applies it, either way. So "the log has `ai.*` kinds" still does not mean
-  "the log covers the chat assistant"; the `logActivityAs` sites above are what mean that.
+  "the log covers the chat assistant"; the `logActivityAi` sites above are what mean that.
   (b) RETENTION: `ACTIVITY_MAX_ENTRIES` drops the oldest, so an empty result for an OLD range is
   indistinguishable from a quiet period.
   ★★ Both WERE fixed in the DESCRIPTION rather than the wiring, on the reasoning that logging chat writes
@@ -959,9 +981,11 @@
   file already gives, which is why its `useMemo` needs no entry for the object this hook returns.
   ★ `use-chat-search-bindings.ts`'s own header says that file has TWO lines of headroom while
   `chat-recap.ts`'s says ONE; **799** is what the counter returns today.
-  ★★ **NO `useSyncExternalStore`, no listener set, no equality function** — the `project-appearance-prefs.ts`
-  precedent needs all of that because components RENDER from it. Nothing renders from chat search: the
-  dispatcher reads the slot at SEND time. Adding reactivity here would be machinery with no consumer.
+  ★★ **ONE LISTENER SET, and only since §799.** Chat search still reads the slot at SEND time and does not
+  subscribe. The Activity view does: an AI row links to its chat while that request is in a loaded thread,
+  so `ActivityLogPanel` renders from the slot through `useSyncExternalStore(subscribeChatThreads, …)`. No
+  snapshot cache or equality function is needed — `readChatThreads` returns the stored object or the frozen
+  `EMPTY`, so the snapshot is reference-stable between publishes.
   ★★★ **ONE SLOT STOPS A STALE KEY BEING READ, NEVER A STALE PAYLOAD BEING WRITTEN.** The store cannot tell
   whose threads a payload holds, so **the PUBLISHER owns payload/key agreement** — and it did not, once:
   `threads` is not reset synchronously when `projectId` flips, so the effect published p1's still-populated

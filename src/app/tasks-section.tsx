@@ -21,7 +21,7 @@ import { useTaskForm } from "./task-form-context";
 import { useTasksInlineAiEdit } from "./use-tasks-inline-ai-edit";
 import { useTasksDedup } from "./use-tasks-dedup";
 import type { ToolDispatcher } from "./chat-tools";
-import type { LogActivityAsFn } from "./activity-log-context";
+import type { LogActivityAiFn } from "./activity-log-context";
 import { BulkEditModal } from "./bulk-edit-modal";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { RowContextProvider, type RowContextValue } from "./task-row";
@@ -175,7 +175,7 @@ export interface TasksSectionProps {
   // useInlineAiEdit instance owned here, plus optional activity logging —
   // both threaded from task-manager.
   dispatcher: ToolDispatcher;
-  logActivityAs?: LogActivityAsFn; // ★ ACTOR-AWARE — its consumer (dedup) writes an `ai.*` kind and stamps its own actor.
+  logActivityAi?: LogActivityAiFn; // ★ AI LOGGER (§799) — its consumer (dedup) writes an `ai.*` kind and names its own feature.
   /** Capture a field-level undo entry for an inline cell edit. */
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
   /** §774 — an inline assignee edit that changes the linked owner moves the task's planned hours. */
@@ -245,7 +245,7 @@ export function TasksSection({
   m365Configured,
   getScopeEpoch,
   dispatcher,
-  logActivityAs,
+  logActivityAi,
   captureFieldEdit,
   reassignHours,
   captureMerge,
@@ -315,7 +315,7 @@ export function TasksSection({
   // "Deduplicate & unify" (plan-then-apply AI merge) — owns its trigger + modal.
   const dedup = useTasksDedup({
     settings, isPopout: isPopout ?? false, lang, tasks, setTasks,
-    capture: captureMerge, logActivityAs,
+    capture: captureMerge, logActivityAi,
   });
 
   const hideExternal = settings.hideExternalTasks ?? false;

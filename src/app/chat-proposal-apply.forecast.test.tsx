@@ -20,6 +20,7 @@ import { useUndoBatch } from "./use-undo-batch";
 import { useUndoStack } from "./undo/use-undo-stack";
 import { emptyWorkspace } from "./workspace";
 import { useWorkspace } from "./workspace-context";
+import { aiOrigin } from "./activity-origin";
 
 const ON = { forecast: { showSimulation: true } };
 
@@ -70,7 +71,7 @@ async function applyPlan(result: Rendered, calls: readonly ProposedCall[], minte
   const selected = refuse === undefined ? all : cascadeDeselect(plan, all, refuse);
   let outcome: Awaited<ReturnType<typeof applyProposal>> | undefined;
   await act(async () => {
-    outcome = await applyProposal({ dispatcher: result.current.dispatcher, rows, selected, batch: result.current.batch });
+    outcome = await applyProposal({ dispatcher: result.current.dispatcher, rows, selected, batch: result.current.batch, origin: aiOrigin("chatProposal") });
   });
   return { outcome: outcome!, selected };
 }

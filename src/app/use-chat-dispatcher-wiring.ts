@@ -56,7 +56,7 @@ type ForwardedArgs = {
 export function useChatDispatcherWiring(deps: ChatDispatcherWiringDeps): ToolDispatcher {
   const {
     dashboardModel, settings, clock, onSettingsLoggedByAi, setSelectedIds, setSettings, isReadOnly,
-    currentView, settingsProjectId, holidaySet, logActivityAs, allowDestructiveSave, undo, openWbsPlan,
+    currentView, settingsProjectId, holidaySet, logActivityAi, allowDestructiveSave, undo, openWbsPlan,
     holidaysReady, projectWriterRef, getScopeEpoch, getUndoEpoch, showToast, reassignHours, onResourcesDeleted, isLoadHeld,
   } = deps;
   const {
@@ -130,7 +130,7 @@ export function useChatDispatcherWiring(deps: ChatDispatcherWiringDeps): ToolDis
       setSelectedIds,
       setSettings,
       isReadOnly,
-      currentView, settingsProjectId, holidaySet, logActivityAs,
+      currentView, settingsProjectId, holidaySet, logActivityAi,
       allowDestructiveSave,
       undo,
       openWbsPlan,

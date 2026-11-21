@@ -49,6 +49,7 @@ import { useChatDispatcher } from "../use-chat-dispatcher";
 import { useWorkspace } from "../workspace-context";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
 import { describeEntityCalls, type EditPlan, previewNormalizerFor } from "./plan";
+import { aiOrigin } from "../activity-origin";
 
 describe("the offered-surface axis", () => {
   // ★★★ FLOOR 1 — the axis has not silently collapsed. Every assertion in both
@@ -306,7 +307,7 @@ async function createWith(
   let threw: string | undefined;
   await act(async () => {
     try {
-      await runTool(result.current.d, tool, input);
+      await runTool(result.current.d, tool, input, aiOrigin("chat"));
     } catch (e) {
       threw = e instanceof Error ? e.message : String(e);
     }
@@ -349,7 +350,7 @@ async function updateWith(
   let threw: string | undefined;
   await act(async () => {
     try {
-      await runTool(result.current.d, tool, { ...input, expectedToken: entityToken(kindOf(entity), before) });
+      await runTool(result.current.d, tool, { ...input, expectedToken: entityToken(kindOf(entity), before) }, aiOrigin("chat"));
     } catch (e) {
       threw = e instanceof Error ? e.message : String(e);
     }

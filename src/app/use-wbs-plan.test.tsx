@@ -15,6 +15,7 @@ vi.mock("./ai-privacy-context", async () => ({
   useOpenProjectPeopleProtected: () => people.get,
 }));
 import { newConsent } from "./ai-consent";
+import { aiOrigin, type AiOrigin } from "./activity-origin";
 import { aiPrivacyFor } from "./ai-privacy";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
@@ -31,7 +32,7 @@ import * as call from "./wbs-plan-call";
 import * as engine from "./wbs-plan/wbs-plan";
 import { type ParsedWbsProposal, type RawWbsItem } from "./wbs-plan/wbs-plan";
 import { loadI18n, t, tPlural } from "./i18n";
-import { sanitizeActivityEntry, type ActivityActor, type ActivityEntry, type ActivityKind } from "./activity-log";
+import { sanitizeActivityEntry, type ActivityEntry, type ActivityKind } from "./activity-log";
 import type { OperatingGuide } from "./operating-guide";
 
 vi.mock("./wbs-plan-call");
@@ -109,7 +110,7 @@ function Harness({ settings = AI_ON, guides = NO_GUIDES, isPopout = false, logAc
     isPopout,
     lang: "en-US",
     captureComposite: undo.captureComposite,
-    logActivityAs: logActivitySpy as never,
+    logActivityAi: logActivitySpy as never,
     getScopeEpoch,
     loadPending,
     today: TODAY,
@@ -255,9 +256,9 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(created!.resourceId).toBeUndefined();
     // ONE log entry per apply (no per-task flood), and the created row can be found again from it: the AI
     // entry carries the applied count, then each created task's id and title, and survives the load sanitiser.
-    expect(logActivitySpy.mock.calls).toEqual([["ai", "ai.wbsPlan", 1, created!.id, "Design B"]]);
-    const [actor, kind, ...args] = logActivitySpy.mock.calls[0] as [ActivityActor, ActivityKind, ...(string | number)[]];
-    const entry: ActivityEntry = { id: "dev-s-1", timestamp: "2026-10-12T09:00:00.000Z", kind, args, actor };
+    expect(logActivitySpy.mock.calls).toEqual([[aiOrigin("wbsPlan"), "ai.wbsPlan", 1, created!.id, "Design B"]]);
+    const [origin, kind, ...args] = logActivitySpy.mock.calls[0] as [AiOrigin, ActivityKind, ...(string | number)[]];
+    const entry: ActivityEntry = { id: "dev-s-1", timestamp: "2026-10-12T09:00:00.000Z", kind, args, actor: "ai", origin };
     expect(sanitizeActivityEntry(JSON.parse(JSON.stringify(entry)))).toEqual(entry);
     expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "wbsPlanApplied", 1, 1));
     // Back to idle — the preview is gone.

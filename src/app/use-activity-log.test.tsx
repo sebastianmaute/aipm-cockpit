@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { useActivityLog } from "./use-activity-log";
+import { aiOrigin } from "./activity-origin";
 
 // handleClearActivityLog no longer confirms here — the branded confirm lives in
 // the panel (which renders under ConfirmProvider; this hook runs above it). The
@@ -30,6 +31,18 @@ describe("useActivityLog", () => {
     it("activityLog is empty initially", () => {
       const { result } = renderLog();
       expect(result.current.activityLog).toHaveLength(0);
+    });
+  });
+
+  describe("the human logger cannot write an AI entry (§799)", () => {
+    it("logActivityAs and logActivityChangesAs reject the \"ai\" actor at compile time", () => {
+      const { result } = renderLog();
+      act(() => {
+        // @ts-expect-error "ai" is not a HumanActor; only logActivityAi may write an AI entry
+        result.current.logActivityAs("ai", "task.updated");
+        // @ts-expect-error "ai" is not a HumanActor; only logActivityAi may write an AI entry
+        result.current.logActivityChangesAs("ai", "task.updated", []);
+      });
     });
   });
 
@@ -83,12 +96,12 @@ describe("useActivityLog", () => {
     it("logActivityAs stamps the actor, and the plain variant omits the key", () => {
       const { result } = renderLog();
       act(() => {
-        result.current.logActivityAs("ai", "task.created", 1, "Task A");
+        result.current.logActivityAs("integration", "task.created", 1, "Task A");
       });
       act(() => {
         result.current.logActivity("task.created", 2, "Task B");
       });
-      expect(result.current.activityLog[0].actor).toBe("ai");
+      expect(result.current.activityLog[0].actor).toBe("integration");
       // ★ `in` rather than toBeUndefined(): the key must be OMITTED so the ~150
       // untouched call sites keep writing byte-identical entries.
       expect("actor" in result.current.activityLog[1]).toBe(false);
@@ -98,11 +111,11 @@ describe("useActivityLog", () => {
       const { result } = renderLog();
       const changes = [{ field: "status", from: "Open", to: "Closed" }];
       act(() => {
-        result.current.logActivityChangesAs("ai", "raid.updated", changes, 5, "R", "Risk");
+        result.current.logActivityChangesAs("integration", "raid.updated", changes, 5, "R", "Risk");
       });
       expect(result.current.activityLog).toHaveLength(1);
       expect(result.current.activityLog[0].changes).toEqual(changes);
-      expect(result.current.activityLog[0].actor).toBe("ai");
+      expect(result.current.activityLog[0].actor).toBe("integration");
       expect(result.current.activityLog[0].args).toEqual([5, "R", "Risk"]);
     });
 
@@ -114,6 +127,27 @@ describe("useActivityLog", () => {
       });
       expect(result.current.activityLog).not.toBe(before);
       expect(result.current.activityLog).toHaveLength(before.length + 1);
+    });
+  });
+
+  describe("logActivityAi", () => {
+    it("stamps actor ai and the origin the caller names", () => {
+      const { result } = renderLog();
+      act(() => {
+        result.current.logActivityAi(aiOrigin("wbsPlan"), "ai.wbsPlan", "x");
+      });
+      expect(result.current.activityLog[0].actor).toBe("ai");
+      expect(result.current.activityLog[0].origin).toEqual({ feature: "wbsPlan" });
+      expect(result.current.activityLog[0].args).toEqual(["x"]);
+    });
+
+    it("two calls in one act both survive, each with its own origin", () => {
+      const { result } = renderLog();
+      act(() => {
+        result.current.logActivityAi(aiOrigin("wbsPlan"), "ai.wbsPlan", "a");
+        result.current.logActivityAi(aiOrigin("taskDedup"), "ai.taskDedup", 2);
+      });
+      expect(result.current.activityLog.map((e) => e.origin?.feature)).toEqual(["wbsPlan", "taskDedup"]);
     });
   });
 

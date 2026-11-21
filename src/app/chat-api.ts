@@ -53,7 +53,9 @@ export type ApiMessage =
   | { role: "assistant"; content: ContentBlock[] };
 
 export type DisplayItem =
-  | { kind: "user"; text: string }
+  /** `requestId` (§799): minted once per send, never reused, persisted with the thread. An activity entry
+   *  the send wrote in Turso mode links to it; a stored one is checked by `sanitizeDisplayRequestIds`. */
+  | { kind: "user"; text: string; requestId?: string }
   | { kind: "assistant"; text: string }
   | { kind: "notice"; text: string }
   | {

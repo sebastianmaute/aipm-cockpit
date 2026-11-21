@@ -15,7 +15,7 @@
 import {
   generateThreadKey, openText, sealText, unwrapForOwner, wrapForOperator, wrapForOwner,
 } from "./chat-crypto";
-import { stripAttachmentsForPersistence, minimiseStoredToolResults, type ChatThread } from "./chat-threads";
+import { stripAttachmentsForPersistence, minimiseStoredToolResults, sanitizeDisplayRequestIds, type ChatThread } from "./chat-threads";
 import {
   isLegacyRow, legacyRowToThread, parseJsonArray, type StoredThreadRow,
 } from "./chat-threads-schema";
@@ -114,7 +114,7 @@ async function openOwnedRow(r: Record<string, string>, id: ChatIdentity): Promis
       createdAt: r.created_at ?? "",
       updatedAt: r.updated_at ?? "",
       history: minimiseStoredToolResults(parseJsonArray(historyJson)),
-      display: parseJsonArray(displayJson),
+      display: sanitizeDisplayRequestIds(parseJsonArray(displayJson)),
     };
   } catch {
     // A row that will not open (wrong key, tampered, malformed) is skipped, never thrown.

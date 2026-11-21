@@ -8,6 +8,7 @@ import { entityToken } from "./ai-entity-token";
 import { PERSON_FIELDS_NOTE_KEY, PERSON_FIELDS_REMOVED_NOTE } from "./ai-person-fields";
 import type { RaidItem, Task } from "./types";
 import type { ForecastScenario } from "./forecast-scenarios";
+import { aiOrigin } from "./activity-origin";
 
 const TASK: Task = {
   id: 3, taskName: "Draft", assignee: "Marco", assigneeEmail: "", dueDate: "2026-11-01", lastUpdateDate: "2026-10-30",
@@ -32,7 +33,7 @@ function dispatcher(peopleProtected: boolean) {
 describe("create_task under people protection", () => {
   it("creates the task with its title and no assignee, and tells the model what it dropped", async () => {
     const { d, createTask } = dispatcher(true);
-    const result = await runTool(d, "create_task", { taskName: "Write spec", assignee: "Marco", assigneeEmail: "m@x.io", dueDate: "2026-11-02" });
+    const result = await runTool(d, "create_task", { taskName: "Write spec", assignee: "Marco", assigneeEmail: "m@x.io", dueDate: "2026-11-02" }, aiOrigin("chat"));
     expect(createTask).toHaveBeenCalledTimes(1);
     const sent = createTask.mock.calls[0]![0];
     expect(sent.taskName).toBe("Write spec");
@@ -43,21 +44,21 @@ describe("create_task under people protection", () => {
 
   it("protection off: the assignee is applied and no note is added (positive control)", async () => {
     const { d, createTask } = dispatcher(false);
-    const result = await runTool(d, "create_task", { taskName: "Write spec", assignee: "Marco", dueDate: "2026-11-02" });
+    const result = await runTool(d, "create_task", { taskName: "Write spec", assignee: "Marco", dueDate: "2026-11-02" }, aiOrigin("chat"));
     expect(createTask.mock.calls[0]![0].assignee).toBe("Marco");
     expect(result).not.toHaveProperty(PERSON_FIELDS_NOTE_KEY);
   });
 
   it("protection off: a missing assignee is still refused, as before", async () => {
     const { d } = dispatcher(false);
-    await expect(runTool(d, "create_task", { taskName: "Write spec", dueDate: "2026-11-02" })).rejects.toThrow(/assignee/);
+    await expect(runTool(d, "create_task", { taskName: "Write spec", dueDate: "2026-11-02" }, aiOrigin("chat"))).rejects.toThrow(/assignee/);
   });
 });
 
 describe("update_task under people protection", () => {
   it("clearing the assignee is acting too: the assignee stays, the other fields apply (R4)", async () => {
     const { d, updateTask } = dispatcher(true);
-    const result = await runTool(d, "update_task", { id: 3, expectedToken: entityToken("task", TASK), assignee: "", priority: "High" });
+    const result = await runTool(d, "update_task", { id: 3, expectedToken: entityToken("task", TASK), assignee: "", priority: "High" }, aiOrigin("chat"));
     const patch = updateTask.mock.calls[0]![1];
     expect(patch).not.toHaveProperty("assignee");
     expect(patch.priority).toBe("High");
@@ -66,7 +67,7 @@ describe("update_task under people protection", () => {
 
   it("protection off: the assignee is cleared as asked (positive control)", async () => {
     const { d, updateTask } = dispatcher(false);
-    await runTool(d, "update_task", { id: 3, expectedToken: entityToken("task", TASK), assignee: "", priority: "High" });
+    await runTool(d, "update_task", { id: 3, expectedToken: entityToken("task", TASK), assignee: "", priority: "High" }, aiOrigin("chat"));
     expect(updateTask.mock.calls[0]![1]).toHaveProperty("assignee", "");
   });
 
@@ -74,7 +75,7 @@ describe("update_task under people protection", () => {
   // dispatcher (no stamped row, no counted write, no "AI updated" log entry with no change).
   it("an update stripped down to its id and token writes nothing and returns the note", async () => {
     const { d, updateTask } = dispatcher(true);
-    const result = await runTool(d, "update_task", { id: 3, expectedToken: entityToken("task", TASK), assignee: "Ann", assigneeEmail: "a@x.io" });
+    const result = await runTool(d, "update_task", { id: 3, expectedToken: entityToken("task", TASK), assignee: "Ann", assigneeEmail: "a@x.io" }, aiOrigin("chat"));
     expect(updateTask).not.toHaveBeenCalled();
     expect((result as Record<string, unknown>)[PERSON_FIELDS_NOTE_KEY]).toBe(PERSON_FIELDS_REMOVED_NOTE(["assignee", "assigneeEmail"]));
     expect(result).toHaveProperty("id", 3);
@@ -82,7 +83,7 @@ describe("update_task under people protection", () => {
 
   it("protection off: the same assignee-only update applies (positive control)", async () => {
     const { d, updateTask } = dispatcher(false);
-    const result = await runTool(d, "update_task", { id: 3, expectedToken: entityToken("task", TASK), assignee: "Ann" });
+    const result = await runTool(d, "update_task", { id: 3, expectedToken: entityToken("task", TASK), assignee: "Ann" }, aiOrigin("chat"));
     expect(updateTask).toHaveBeenCalledTimes(1);
     expect(updateTask.mock.calls[0]![1]).toHaveProperty("assignee", "Ann");
     expect(result).not.toHaveProperty(PERSON_FIELDS_NOTE_KEY);
@@ -94,14 +95,14 @@ describe("escalate_raid_item under people protection", () => {
   it("is refused as a people tool, and nothing is recorded", async () => {
     const { d, escalateRaid } = dispatcher(true);
     await expect(
-      runTool(d, "escalate_raid_item", { id: 5, expectedToken: entityToken("raid", RISK), toEmail: "boss@x.io", toName: "Boss" }),
+      runTool(d, "escalate_raid_item", { id: 5, expectedToken: entityToken("raid", RISK), toEmail: "boss@x.io", toName: "Boss" }, aiOrigin("chat")),
     ).rejects.toBeInstanceOf(PeopleToolRefusedError);
     expect(escalateRaid).not.toHaveBeenCalled();
   });
 
   it("protection off: the escalation is recorded (positive control)", async () => {
     const { d, escalateRaid } = dispatcher(false);
-    await runTool(d, "escalate_raid_item", { id: 5, expectedToken: entityToken("raid", RISK), toEmail: "boss@x.io", toName: "Boss" });
+    await runTool(d, "escalate_raid_item", { id: 5, expectedToken: entityToken("raid", RISK), toEmail: "boss@x.io", toName: "Boss" }, aiOrigin("chat"));
     expect(escalateRaid).toHaveBeenCalledTimes(1);
   });
 });
@@ -130,7 +131,7 @@ describe("update_forecast_scenario under people protection", () => {
 
   it("re-sending the user's own named-person row keeps it, and the other change applies", async () => {
     const { d, updateForecastScenario } = forecastDispatcher(true);
-    const result = await runTool(d, "update_forecast_scenario", call([USER_ROW, AVAILABILITY]));
+    const result = await runTool(d, "update_forecast_scenario", call([USER_ROW, AVAILABILITY]), aiOrigin("chat"));
     expect(sentChanges(updateForecastScenario).map((c) => c.kind)).toEqual(["addPeople", "availability"]);
     expect(sentChanges(updateForecastScenario)[0]!.who!.resourceId).toBe(7);
     expect(result).not.toHaveProperty(PERSON_FIELDS_NOTE_KEY);
@@ -138,14 +139,14 @@ describe("update_forecast_scenario under people protection", () => {
 
   it("a row naming a person the AI chose is dropped with a note, and the rest applies", async () => {
     const { d, updateForecastScenario } = forecastDispatcher(true);
-    const result = await runTool(d, "update_forecast_scenario", call([USER_ROW, NEW_PERSON_ROW, AVAILABILITY]));
+    const result = await runTool(d, "update_forecast_scenario", call([USER_ROW, NEW_PERSON_ROW, AVAILABILITY]), aiOrigin("chat"));
     expect(sentChanges(updateForecastScenario).map((c) => c.who?.resourceId ?? c.kind)).toEqual([7, "availability"]);
     expect((result as Record<string, unknown>)[PERSON_FIELDS_NOTE_KEY]).toBe(PERSON_FIELDS_REMOVED_NOTE(["changes[].who.resourceId"]));
   });
 
   it("protection off: the AI's named-person row is applied (positive control)", async () => {
     const { d, updateForecastScenario } = forecastDispatcher(false);
-    await runTool(d, "update_forecast_scenario", call([USER_ROW, NEW_PERSON_ROW, AVAILABILITY]));
+    await runTool(d, "update_forecast_scenario", call([USER_ROW, NEW_PERSON_ROW, AVAILABILITY]), aiOrigin("chat"));
     expect(sentChanges(updateForecastScenario).map((c) => c.who?.resourceId ?? c.kind)).toEqual([7, 9, "availability"]);
   });
 
@@ -153,21 +154,21 @@ describe("update_forecast_scenario under people protection", () => {
   // unchanged; a list emptied purely by the strip writes nothing for `changes`.
   it("omitting the stored person row does not remove it: it is re-added unchanged", async () => {
     const { d, updateForecastScenario } = forecastDispatcher(true);
-    const result = await runTool(d, "update_forecast_scenario", call([AVAILABILITY]));
+    const result = await runTool(d, "update_forecast_scenario", call([AVAILABILITY]), aiOrigin("chat"));
     expect(sentChanges(updateForecastScenario)).toEqual([AVAILABILITY, USER_ROW]);
     expect((result as Record<string, unknown>)[PERSON_FIELDS_NOTE_KEY]).toBe(PERSON_FIELDS_REMOVED_NOTE(["changes[].who.resourceId"]));
   });
 
   it("a call whose only row names a person the AI chose writes nothing, and the model is told", async () => {
     const { d, updateForecastScenario } = forecastDispatcher(true);
-    const result = await runTool(d, "update_forecast_scenario", call([NEW_PERSON_ROW]));
+    const result = await runTool(d, "update_forecast_scenario", call([NEW_PERSON_ROW]), aiOrigin("chat"));
     expect(updateForecastScenario).not.toHaveBeenCalled();
     expect(result).toMatchObject({ id: 2, applied: false, [PERSON_FIELDS_NOTE_KEY]: PERSON_FIELDS_REMOVED_NOTE(["changes[].who.resourceId"]) });
   });
 
   it("protection off: omitting the person row removes it (positive control)", async () => {
     const { d, updateForecastScenario } = forecastDispatcher(false);
-    await runTool(d, "update_forecast_scenario", call([AVAILABILITY]));
+    await runTool(d, "update_forecast_scenario", call([AVAILABILITY]), aiOrigin("chat"));
     expect(sentChanges(updateForecastScenario)).toEqual([AVAILABILITY]);
   });
 });

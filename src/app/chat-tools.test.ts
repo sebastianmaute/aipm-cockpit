@@ -36,6 +36,7 @@ import { ACTIVITY_MAX_ENTRIES, type ActivityEntry } from "./activity-log";
 import type { ActivitySummary } from "./history-search";
 import type { Insight } from "./insights/insight";
 import type { FeatureModuleId } from "./feature-modules";
+import { aiOrigin } from "./activity-origin";
 
 function makeTask(over: Partial<Task> = {}): Task {
   return {
@@ -418,14 +419,14 @@ describe("runTool — update_settings", () => {
   it("routes a recognized settings patch and returns the applied fields", async () => {
     const d = makeDispatcher();
     const patch = { dashboardDensity: "compact", showViewHints: false };
-    const result = await runTool(d, "update_settings", patch);
-    expect(d.updateSettings).toHaveBeenCalledWith(patch);
+    const result = await runTool(d, "update_settings", patch, aiOrigin("chat"));
+    expect(d.updateSettings).toHaveBeenCalledWith(patch, aiOrigin("chat"));
     expect(result).toEqual({ applied: patch });
   });
 
   it("throws when no recognized settings field was applied", async () => {
     const d = makeDispatcher({ updateSettings: vi.fn(() => ({})) });
-    await expect(runTool(d, "update_settings", { bogus: 1 })).rejects.toThrow(
+    await expect(runTool(d, "update_settings", { bogus: 1 }, aiOrigin("chat"))).rejects.toThrow(
       "no recognized settings fields to update",
     );
   });
@@ -433,14 +434,14 @@ describe("runTool — update_settings", () => {
   it("routes a hideExternalTasks patch and returns the applied field", async () => {
     const d = makeDispatcher();
     const patch = { hideExternalTasks: true };
-    const result = await runTool(d, "update_settings", patch);
-    expect(d.updateSettings).toHaveBeenCalledWith(patch);
+    const result = await runTool(d, "update_settings", patch, aiOrigin("chat"));
+    expect(d.updateSettings).toHaveBeenCalledWith(patch, aiOrigin("chat"));
     expect(result).toEqual({ applied: patch });
   });
 
   it("still rejects a payload with no recognized field (e.g. a secret-adjacent one)", async () => {
     const d = makeDispatcher({ updateSettings: vi.fn(() => ({})) });
-    await expect(runTool(d, "update_settings", { apiKey: "sk-ant-nope" })).rejects.toThrow(
+    await expect(runTool(d, "update_settings", { apiKey: "sk-ant-nope" }, aiOrigin("chat"))).rejects.toThrow(
       "no recognized settings fields to update",
     );
   });
@@ -468,7 +469,7 @@ type ListEnvelope = {
 describe("runTool — list_tasks / get_task", () => {
   it("list_tasks wraps the dispatcher's task list in an items/total envelope", async () => {
     const d = makeDispatcher();
-    const result = (await runTool(d, "list_tasks", {})) as ListEnvelope;
+    const result = (await runTool(d, "list_tasks", {}, aiOrigin("chat"))) as ListEnvelope;
     expect(result.total).toBe(1);
     expect(result.items).toHaveLength(1);
     expect(result.items[0].id).toBe(1);
@@ -483,7 +484,7 @@ describe("runTool — list_tasks / get_task", () => {
     const d = makeDispatcher({
       listTasks: vi.fn(() => [makeTask({ description: RICH_DESCRIPTION })]),
     });
-    const result = (await runTool(d, "list_tasks", {})) as ListEnvelope;
+    const result = (await runTool(d, "list_tasks", {}, aiOrigin("chat"))) as ListEnvelope;
     expect(result.items[0].description).toContain("Ship the thing");
     expect(result.items[0].description).not.toContain("<strong>");
     expect(result.items[0].description).not.toContain("<p>");
@@ -502,14 +503,14 @@ describe("runTool — list_tasks / get_task", () => {
     // straight back in the next time `TaskListItem` is widened, and no gate
     // reports it.
     const d = makeDispatcher({ listTasks: vi.fn(() => [makeTask({ noteLog: [RICH_NOTE] })]) });
-    const result = (await runTool(d, "list_tasks", {})) as ListEnvelope;
+    const result = (await runTool(d, "list_tasks", {}, aiOrigin("chat"))) as ListEnvelope;
     expect("noteLog" in result.items[0]).toBe(false);
   });
 
   it("list_tasks slices items by limit while total still counts every row", async () => {
     const rows = [makeTask({ id: 1 }), makeTask({ id: 2 }), makeTask({ id: 3 })];
     const d = makeDispatcher({ listTasks: vi.fn(() => rows) });
-    const result = (await runTool(d, "list_tasks", { limit: 2 })) as ListEnvelope;
+    const result = (await runTool(d, "list_tasks", { limit: 2 }, aiOrigin("chat"))) as ListEnvelope;
     expect(result.items.map((t) => t.id)).toEqual([1, 2]);
     // The whole point of the envelope: "how many tasks exist?" is answerable
     // from ONE call even when the caller asked for a page.
@@ -561,7 +562,7 @@ describe("runTool — list_tasks / get_task", () => {
   ])("list_tasks: $label", async ({ limit, ids, out }) => {
     const rows = [makeTask({ id: 1 }), makeTask({ id: 2 }), makeTask({ id: 3 })];
     const d = makeDispatcher({ listTasks: vi.fn(() => rows) });
-    const result = (await runTool(d, "list_tasks", { limit })) as ListEnvelope;
+    const result = (await runTool(d, "list_tasks", { limit }, aiOrigin("chat"))) as ListEnvelope;
     expect(result.items.map((t) => t.id)).toEqual(ids);
     expect(result.total).toBe(3);
     // `undefined` here means the key must be ABSENT, not present-and-undefined:
@@ -578,21 +579,21 @@ describe("runTool — list_tasks / get_task", () => {
     const task = makeTask({ description: RICH_DESCRIPTION, noteLog: [RICH_NOTE] });
     const d = makeDispatcher({ getTask: vi.fn(() => task), listTasks: vi.fn(() => [task]) });
 
-    const full = (await runTool(d, "get_task", { id: 1 })) as Task;
+    const full = (await runTool(d, "get_task", { id: 1 }, aiOrigin("chat"))) as Task;
     const { assigneeEmail: withheld, ...taskWithoutEmail } = task;
     expect(withheld).toBeTruthy();
     expect(full).toEqual({ ...taskWithoutEmail, expectedToken: entityToken("task", task) });
     expect(full.description).toBe(RICH_DESCRIPTION);
     expect(full.noteLog?.[0].html).toBe("<p>Partner call moved to <em>Friday</em></p>");
 
-    const list = (await runTool(d, "list_tasks", {})) as ListEnvelope;
+    const list = (await runTool(d, "list_tasks", {}, aiOrigin("chat"))) as ListEnvelope;
     expect(list.items[0].description).not.toContain("<strong>");
     expect("noteLog" in list.items[0]).toBe(false);
   });
 
   it("get_task coerces a numeric-string id and returns the task", async () => {
     const d = makeDispatcher();
-    const result = await runTool(d, "get_task", { id: "1" });
+    const result = await runTool(d, "get_task", { id: "1" }, aiOrigin("chat"));
     expect(d.getTask).toHaveBeenCalledWith(1);
     const { assigneeEmail: withheld, ...taskWithoutEmail } = makeTask();
     expect(withheld).toBeTruthy();
@@ -603,16 +604,16 @@ describe("runTool — list_tasks / get_task", () => {
     const stored = makeTask();
     expect(stored.assigneeEmail).toBeTruthy();
     const d = makeDispatcher({ getTask: vi.fn(() => stored), listTasks: vi.fn(() => [stored]) });
-    const list = (await runTool(d, "list_tasks", {})) as ListEnvelope;
+    const list = (await runTool(d, "list_tasks", {}, aiOrigin("chat"))) as ListEnvelope;
     expect("assigneeEmail" in list.items[0]).toBe(false);
     expect("assigneeEmail" in slimTaskForList(stored)).toBe(false);
-    const got = (await runTool(d, "get_task", { id: 1 })) as Record<string, unknown>;
+    const got = (await runTool(d, "get_task", { id: 1 }, aiOrigin("chat"))) as Record<string, unknown>;
     expect("assigneeEmail" in got).toBe(false);
     const token = entityToken("task", stored);
     expect(got.expectedToken).toBe(token);
     expect((list.items[0] as { expectedToken?: string }).expectedToken).toBe(token);
     // The token read from the slim list still authorises an update.
-    const updated = await runTool(d, "update_task", { id: 1, expectedToken: token, status: "Done" });
+    const updated = await runTool(d, "update_task", { id: 1, expectedToken: token, status: "Done" }, aiOrigin("chat"));
     expect(updated).toBeTruthy();
     expect(d.updateTask).toHaveBeenCalled();
   });
@@ -630,14 +631,14 @@ describe("runTool — list_tasks / get_task", () => {
     });
     const created = (await runTool(d, "create_task", {
       taskName: "T", assignee: "Bob", dueDate: "2026-07-01", assigneeEmail: "bob@x.com",
-    })) as Record<string, unknown>;
+    }, aiOrigin("chat"))) as Record<string, unknown>;
     expect(created.id).toBe(99);
     expect("assigneeEmail" in created).toBe(false);
-    expect(d.createTask).toHaveBeenCalledWith(expect.objectContaining({ assigneeEmail: "bob@x.com" }));
+    expect(d.createTask).toHaveBeenCalledWith(expect.objectContaining({ assigneeEmail: "bob@x.com" }), aiOrigin("chat"));
 
     const updated = (await runTool(d, "update_task", {
       id: 1, expectedToken: entityToken("task", stored), assignee: "Carol",
-    })) as Record<string, unknown>;
+    }, aiOrigin("chat"))) as Record<string, unknown>;
     expect(updated.assignee).toBe("Carol");
     expect("assigneeEmail" in updated).toBe(false);
     expect(stored.assigneeEmail).toBe("directory@x.com");
@@ -658,18 +659,18 @@ describe("runTool — list_tasks / get_task", () => {
       getRaidRow: vi.fn((id: number) => (id === 10 ? makeRaidItem({ ownerEmail: "own@x.com" }) : null)),
       getAbsenceRow: vi.fn((id: number) => (id === 50 ? makeAbsence({ assigneeEmail: "abs@x.com" }) : null)),
     });
-    expect(await runTool(d, "get_contact_email", { entity: "task", id: 1 })).toEqual({ id: 1, email: "alice@example.com" });
-    expect(await runTool(d, "get_contact_email", { entity: "stakeholder", id: 40 })).toEqual({ id: 40, email: "jane@x.com" });
-    expect(await runTool(d, "get_contact_email", { entity: "resource", id: 7 })).toEqual({ id: 7, email: "ada@x.com", emails: ["a2@x.com"] });
-    expect(await runTool(d, "get_contact_email", { entity: "raid", id: 10 })).toEqual({ id: 10, email: "own@x.com" });
-    expect(await runTool(d, "get_contact_email", { entity: "absence", id: 50 })).toEqual({ id: 50, email: "abs@x.com" });
-    await expect(runTool(d, "get_contact_email", { entity: "stakeholder", id: 41 })).rejects.toThrow("not found");
-    await expect(runTool(d, "get_contact_email", { entity: "nope", id: 1 })).rejects.toThrow("entity must be");
+    expect(await runTool(d, "get_contact_email", { entity: "task", id: 1 }, aiOrigin("chat"))).toEqual({ id: 1, email: "alice@example.com" });
+    expect(await runTool(d, "get_contact_email", { entity: "stakeholder", id: 40 }, aiOrigin("chat"))).toEqual({ id: 40, email: "jane@x.com" });
+    expect(await runTool(d, "get_contact_email", { entity: "resource", id: 7 }, aiOrigin("chat"))).toEqual({ id: 7, email: "ada@x.com", emails: ["a2@x.com"] });
+    expect(await runTool(d, "get_contact_email", { entity: "raid", id: 10 }, aiOrigin("chat"))).toEqual({ id: 10, email: "own@x.com" });
+    expect(await runTool(d, "get_contact_email", { entity: "absence", id: 50 }, aiOrigin("chat"))).toEqual({ id: 50, email: "abs@x.com" });
+    await expect(runTool(d, "get_contact_email", { entity: "stakeholder", id: 41 }, aiOrigin("chat"))).rejects.toThrow("not found");
+    await expect(runTool(d, "get_contact_email", { entity: "nope", id: 1 }, aiOrigin("chat"))).rejects.toThrow("entity must be");
   });
 
   it("get_task throws when id is not a finite number", async () => {
     const d = makeDispatcher();
-    await expect(runTool(d, "get_task", { id: "abc" })).rejects.toThrow(
+    await expect(runTool(d, "get_task", { id: "abc" }, aiOrigin("chat"))).rejects.toThrow(
       "id must be a number",
     );
     expect(d.getTask).not.toHaveBeenCalled();
@@ -677,7 +678,7 @@ describe("runTool — list_tasks / get_task", () => {
 
   it("get_task throws when the task does not exist", async () => {
     const d = makeDispatcher();
-    await expect(runTool(d, "get_task", { id: 42 })).rejects.toThrow(
+    await expect(runTool(d, "get_task", { id: 42 }, aiOrigin("chat"))).rejects.toThrow(
       "task #42 not found",
     );
   });
@@ -686,14 +687,14 @@ describe("runTool — list_tasks / get_task", () => {
 describe("runTool — optimize_wbs", () => {
   it("opens the plan with the sanitized group and instructions and returns the result", async () => {
     const d = makeDispatcher();
-    const out = await runTool(d, "optimize_wbs", { group: " Build ", instructions: "x" });
+    const out = await runTool(d, "optimize_wbs", { group: " Build ", instructions: "x" }, aiOrigin("chat"));
     expect(d.openWbsPlan).toHaveBeenCalledWith({ group: "Build", instructions: "x" });
     expect(out).toEqual({ opened: true, tasksInScope: 4 });
   });
 
   it("trims instructions, then caps them at 1000 characters", async () => {
     const d = makeDispatcher();
-    await runTool(d, "optimize_wbs", { instructions: `  ${"y".repeat(1500)}` });
+    await runTool(d, "optimize_wbs", { instructions: `  ${"y".repeat(1500)}` }, aiOrigin("chat"));
     const arg = (d.openWbsPlan as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(arg.instructions).toBe("y".repeat(1000));
   });
@@ -701,7 +702,7 @@ describe("runTool — optimize_wbs", () => {
   it("never splits a surrogate pair at the 1000-character cap (§22)", async () => {
     const d = makeDispatcher();
     // 999 units then an astral character: the cap lands between its two halves.
-    await runTool(d, "optimize_wbs", { instructions: `${"y".repeat(999)}😀tail` });
+    await runTool(d, "optimize_wbs", { instructions: `${"y".repeat(999)}😀tail` }, aiOrigin("chat"));
     const arg = (d.openWbsPlan as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(arg.instructions).toBe("y".repeat(999));
     expect(/[\ud800-\udbff]$/.test(arg.instructions)).toBe(false);
@@ -709,7 +710,7 @@ describe("runTool — optimize_wbs", () => {
 
   it("treats an all-whitespace instruction as absent", async () => {
     const d = makeDispatcher();
-    await runTool(d, "optimize_wbs", { instructions: " \n\t " });
+    await runTool(d, "optimize_wbs", { instructions: " \n\t " }, aiOrigin("chat"));
     const arg = (d.openWbsPlan as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(arg.instructions).toBeUndefined();
   });
@@ -725,12 +726,12 @@ describe("runTool — optimize_wbs", () => {
     ["noTasks", {}, "optimize_wbs did not open: there are no open, non-Jira tasks to optimize"],
   ] as const)("passes the %s refusal through to the model", async (reason, input, message) => {
     const d = makeDispatcher({ openWbsPlan: vi.fn(() => ({ opened: false, tasksInScope: 0, reason })) });
-    await expect(runTool(d, "optimize_wbs", input)).rejects.toThrow(message);
+    await expect(runTool(d, "optimize_wbs", input, aiOrigin("chat"))).rejects.toThrow(message);
   });
 
   it("still throws, generically, when a refusal carries no reason", async () => {
     const d = makeDispatcher({ openWbsPlan: vi.fn(() => ({ opened: false, tasksInScope: 0 })) });
-    await expect(runTool(d, "optimize_wbs", {})).rejects.toThrow("optimize_wbs did not open: it could not be opened");
+    await expect(runTool(d, "optimize_wbs", {}, aiOrigin("chat"))).rejects.toThrow("optimize_wbs did not open: it could not be opened");
   });
 });
 
@@ -741,7 +742,7 @@ describe("runTool — create_task", () => {
       taskName: "Beta",
       assignee: "Bob",
       dueDate: "2026-07-01",
-    });
+    }, aiOrigin("chat"));
     expect(d.createTask).toHaveBeenCalledWith({
       taskName: "Beta",
       assignee: "Bob",
@@ -754,7 +755,7 @@ describe("runTool — create_task", () => {
       notes: undefined,
       group: undefined,
       labels: undefined,
-    });
+    }, aiOrigin("chat"));
   });
 
   it("passes a supplied status through to createTask", async () => {
@@ -764,7 +765,7 @@ describe("runTool — create_task", () => {
       assignee: "Bob",
       dueDate: "2026-07-01",
       status: "Done",
-    });
+    }, aiOrigin("chat"));
     const arg = (d.createTask as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(arg.status).toBe("Done");
   });
@@ -777,7 +778,7 @@ describe("runTool — create_task", () => {
       dueDate: "2026-07-01",
       priority: "High",
       labels: ["  ux  ", "", 5, "ux"],
-    });
+    }, aiOrigin("chat"));
     const arg = (d.createTask as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(arg.priority).toBe("High");
     // sanitizeLabels trims, drops empties/non-strings, and de-dupes.
@@ -791,7 +792,7 @@ describe("runTool — create_task", () => {
       assignee: "Bob",
       dueDate: "2026-07-01",
       priority: "Critical",
-    });
+    }, aiOrigin("chat"));
     const arg = (d.createTask as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(arg.priority).toBeUndefined();
   });
@@ -803,7 +804,7 @@ describe("runTool — create_task", () => {
     ["empty-string taskName", { taskName: "", assignee: "Bob", dueDate: "2026-07-01" }],
   ])("throws when required field is absent/empty: %s", async (_label, input) => {
     const d = makeDispatcher();
-    await expect(runTool(d, "create_task", input)).rejects.toThrow(
+    await expect(runTool(d, "create_task", input, aiOrigin("chat"))).rejects.toThrow(
       "taskName, assignee, and dueDate are required",
     );
     expect(d.createTask).not.toHaveBeenCalled();
@@ -816,7 +817,7 @@ describe("runTool — create_task", () => {
       assignee: "Bob",
       dueDate: "2026-07-01",
       labels: "ux",
-    });
+    }, aiOrigin("chat"));
     const arg = (d.createTask as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(arg.labels).toBeUndefined();
   });
@@ -852,14 +853,14 @@ describe("runTool — update_task reports moved planned hours (§774)", () => {
       updateTask: vi.fn(() => stored),
       takePlannedHoursNote: vi.fn(() => "Moved 16 h from Maya Patel to Liam Foster (Sep 8 h, Oct 8 h)"),
     });
-    const out = (await runTool(d, "update_task", { id: 1, expectedToken: entityToken("task", stored), assignee: "Liam" })) as Record<string, unknown>;
+    const out = (await runTool(d, "update_task", { id: 1, expectedToken: entityToken("task", stored), assignee: "Liam" }, aiOrigin("chat"))) as Record<string, unknown>;
     expect(out.plannedHours).toBe("Moved 16 h from Maya Patel to Liam Foster (Sep 8 h, Oct 8 h)");
   });
 
   it("adds nothing when no hours note was left", async () => {
     const stored = makeTask();
     const d = makeDispatcher({ getTask: vi.fn(() => stored), updateTask: vi.fn(() => stored), takePlannedHoursNote: vi.fn(() => null) });
-    const out = (await runTool(d, "update_task", { id: 1, expectedToken: entityToken("task", stored), priority: "High" })) as Record<string, unknown>;
+    const out = (await runTool(d, "update_task", { id: 1, expectedToken: entityToken("task", stored), priority: "High" }, aiOrigin("chat"))) as Record<string, unknown>;
     expect("plannedHours" in out).toBe(false);
   });
 });
@@ -882,24 +883,24 @@ describe("runTool — the four date tools report absence clashes (§773)", () =>
 
   it.each(CALLS)("%s carries absenceClashes in the person/reason/date/ranges shape", async (name, input) => {
     const absenceClashesFor = vi.fn(() => [CLASH, SPAN]);
-    const out = (await runTool(makeDispatcher({ absenceClashesFor }), name, input)) as Record<string, unknown>;
+    const out = (await runTool(makeDispatcher({ absenceClashesFor }), name, input, aiOrigin("chat"))) as Record<string, unknown>;
     expect(absenceClashesFor).toHaveBeenCalledWith(name, input);
     expect(out.absenceClashes).toEqual([RESULT, { person: "Liam Foster", reason: "absent-most-of-span", ranges: SPAN.ranges }]);
   });
 
   it.each(CALLS)("%s omits absenceClashes when nothing clashes", async (name, input) => {
-    const out = (await runTool(makeDispatcher({ absenceClashesFor: vi.fn(() => []) }), name, input)) as Record<string, unknown>;
+    const out = (await runTool(makeDispatcher({ absenceClashesFor: vi.fn(() => []) }), name, input, aiOrigin("chat"))) as Record<string, unknown>;
     expect("absenceClashes" in out).toBe(false);
   });
 
   it.each(CALLS)("%s omits absenceClashes when the dispatcher cannot judge", async (name, input) => {
-    const out = (await runTool(makeDispatcher(), name, input)) as Record<string, unknown>;
+    const out = (await runTool(makeDispatcher(), name, input, aiOrigin("chat"))) as Record<string, unknown>;
     expect("absenceClashes" in out).toBe(false);
   });
 
   it("judges BEFORE the write, so a moved date is still a change when it is judged", async () => {
     const d = makeDispatcher({ absenceClashesFor: vi.fn(() => [CLASH]) });
-    await runTool(d, "update_task", CALLS[1][1]);
+    await runTool(d, "update_task", CALLS[1][1], aiOrigin("chat"));
     const judged = vi.mocked(d.absenceClashesFor!).mock.invocationCallOrder[0];
     const written = vi.mocked(d.updateTask).mock.invocationCallOrder[0];
     expect(judged).toBeLessThan(written);
@@ -907,19 +908,19 @@ describe("runTool — the four date tools report absence clashes (§773)", () =>
 
   it("a refused write reports no clash, it throws", async () => {
     const d = makeDispatcher({ absenceClashesFor: vi.fn(() => [CLASH]), updateTask: vi.fn(() => null) });
-    await expect(runTool(d, "update_task", CALLS[1][1])).rejects.toThrow("task #1 not found");
+    await expect(runTool(d, "update_task", CALLS[1][1], aiOrigin("chat"))).rejects.toThrow("task #1 not found");
   });
 
   it("an update_task reassignment carries both the hours note and the clashes", async () => {
     const d = makeDispatcher({ absenceClashesFor: vi.fn(() => [CLASH]), takePlannedHoursNote: vi.fn(() => "Moved 8 h") });
-    const out = (await runTool(d, "update_task", CALLS[1][1])) as Record<string, unknown>;
+    const out = (await runTool(d, "update_task", CALLS[1][1], aiOrigin("chat"))) as Record<string, unknown>;
     expect(out.plannedHours).toBe("Moved 8 h");
     expect(out.absenceClashes).toEqual([RESULT]);
   });
 
   it("another write tool is never judged", async () => {
     const absenceClashesFor = vi.fn(() => [CLASH]);
-    const out = (await runTool(makeDispatcher({ absenceClashesFor }), "create_raid_item", { category: "Risk", title: "R" })) as Record<string, unknown>;
+    const out = (await runTool(makeDispatcher({ absenceClashesFor }), "create_raid_item", { category: "Risk", title: "R" }, aiOrigin("chat"))) as Record<string, unknown>;
     expect(absenceClashesFor).not.toHaveBeenCalled();
     expect("absenceClashes" in out).toBe(false);
   });
@@ -930,52 +931,52 @@ describe("runTool — update_task / buildPatch", () => {
     const d = makeDispatcher();
     await runTool(d, "update_task", {
       id: 1, expectedToken: FRESH_TASK_TOKEN, notes: "hello", blockers: "wait",
-    });
-    expect(d.updateTask).toHaveBeenCalledWith(1, { description: "hello", blockers: "wait" });
+    }, aiOrigin("chat"));
+    expect(d.updateTask).toHaveBeenCalledWith(1, { description: "hello", blockers: "wait" }, aiOrigin("chat"));
   });
 
   it("coerces a non-string field value to empty string when key is present", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, taskName: 123 });
-    expect(d.updateTask).toHaveBeenCalledWith(1, { taskName: "" });
+    await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, taskName: 123 }, aiOrigin("chat"));
+    expect(d.updateTask).toHaveBeenCalledWith(1, { taskName: "" }, aiOrigin("chat"));
   });
 
   it("drops a non-string blockers value instead of clearing the log", async () => {
     // "" would RESOLVE every open blocker; a malformed value must leave the key out.
     for (const bad of [["a", "b"], 123]) {
       const d = makeDispatcher();
-      await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, blockers: bad });
-      expect(d.updateTask).toHaveBeenCalledWith(1, {});
+      await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, blockers: bad }, aiOrigin("chat"));
+      expect(d.updateTask).toHaveBeenCalledWith(1, {}, aiOrigin("chat"));
     }
   });
 
   it("omits an unknown priority from the patch entirely", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, priority: "Nope" });
+    await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, priority: "Nope" }, aiOrigin("chat"));
     // Also the anti-leak case for the token itself: `buildPatch` is a
     // whitelist, so `expectedToken` cannot reach the stored entity.
-    expect(d.updateTask).toHaveBeenCalledWith(1, {});
+    expect(d.updateTask).toHaveBeenCalledWith(1, {}, aiOrigin("chat"));
   });
 
   it("keeps a valid priority in the patch", async () => {
     const d = makeDispatcher();
-    await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, priority: "Low" });
-    expect(d.updateTask).toHaveBeenCalledWith(1, { priority: "Low" });
+    await runTool(d, "update_task", { id: 1, expectedToken: FRESH_TASK_TOKEN, priority: "Low" }, aiOrigin("chat"));
+    expect(d.updateTask).toHaveBeenCalledWith(1, { priority: "Low" }, aiOrigin("chat"));
   });
 
   it("carries a status value through in the patch", async () => {
     const d = makeDispatcher();
     await runTool(d, "update_task", {
       id: 1, expectedToken: FRESH_TASK_TOKEN, status: "In Progress",
-    });
-    expect(d.updateTask).toHaveBeenCalledWith(1, { status: "In Progress" });
+    }, aiOrigin("chat"));
+    expect(d.updateTask).toHaveBeenCalledWith(1, { status: "In Progress" }, aiOrigin("chat"));
   });
 
   it("sanitizes group and labels in the patch", async () => {
     const d = makeDispatcher();
     await runTool(d, "update_task", {
       id: 1, expectedToken: FRESH_TASK_TOKEN, group: "  Phase 1  ", labels: ["a", "a"],
-    });
+    }, aiOrigin("chat"));
     const [, patch] = (d.updateTask as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(patch.group).toBe("Phase 1");
     expect(patch.labels).toEqual(["a"]);
@@ -983,7 +984,7 @@ describe("runTool — update_task / buildPatch", () => {
 
   it("throws on non-numeric id without calling updateTask", async () => {
     const d = makeDispatcher();
-    await expect(runTool(d, "update_task", { id: {} })).rejects.toThrow(
+    await expect(runTool(d, "update_task", { id: {} }, aiOrigin("chat"))).rejects.toThrow(
       "id must be a number",
     );
     expect(d.updateTask).not.toHaveBeenCalled();
@@ -996,7 +997,7 @@ describe("runTool — update_task / buildPatch", () => {
     //   "not found" rather than the token's "changed since you read it", which
     //   would send the model re-reading a row that is gone. Add a token here
     //   and the case passes whichever order the code uses.
-    await expect(runTool(d, "update_task", { id: 7 })).rejects.toThrow(
+    await expect(runTool(d, "update_task", { id: 7 }, aiOrigin("chat"))).rejects.toThrow(
       "task #7 not found",
     );
   });
@@ -1025,14 +1026,14 @@ describe("runTool — update_task concurrency token", () => {
   it("refuses a stale write and leaves the human's value in place", async () => {
     const d = statefulTaskDispatcher(makeTask());
     // The model reads the task and derives a token from what it got back.
-    const read = (await runTool(d, "get_task", { id: 1 })) as Task;
+    const read = (await runTool(d, "get_task", { id: 1 }, aiOrigin("chat"))) as Task;
     const stale = entityToken("task", read);
 
     // A human edits the same task while the model is still thinking.
-    d.updateTask(1, { taskName: "Renamed by a human" });
+    d.updateTask(1, { taskName: "Renamed by a human" }, aiOrigin("chat"));
 
     await expect(
-      runTool(d, "update_task", { id: 1, expectedToken: stale, taskName: "Renamed by the AI" }),
+      runTool(d, "update_task", { id: 1, expectedToken: stale, taskName: "Renamed by the AI" }, aiOrigin("chat")),
     ).rejects.toThrow(/changed since you read it/);
 
     // ★★ THE LOAD-BEARING ASSERTION. Asserting only that it threw would pass
@@ -1044,7 +1045,7 @@ describe("runTool — update_task concurrency token", () => {
   it("refuses an update that supplies no token at all", async () => {
     const d = statefulTaskDispatcher(makeTask());
     await expect(
-      runTool(d, "update_task", { id: 1, taskName: "Renamed by the AI" }),
+      runTool(d, "update_task", { id: 1, taskName: "Renamed by the AI" }, aiOrigin("chat")),
     ).rejects.toThrow(/expectedToken is required/);
     expect(d.getTask(1)?.taskName).toBe("Alpha");
   });
@@ -1053,7 +1054,7 @@ describe("runTool — update_task concurrency token", () => {
     // ★★ THE CONTROL. Without it a guard hardcoded to refuse every write —
     //    `if (true) throw` — passes both cases above.
     const d = statefulTaskDispatcher(makeTask());
-    const read = (await runTool(d, "get_task", { id: 1 })) as Task & { expectedToken: string };
+    const read = (await runTool(d, "get_task", { id: 1 }, aiOrigin("chat"))) as Task & { expectedToken: string };
 
     await runTool(d, "update_task", {
       id: 1,
@@ -1061,7 +1062,7 @@ describe("runTool — update_task concurrency token", () => {
       // though the result no longer carries assigneeEmail (AI-08).
       expectedToken: read.expectedToken,
       taskName: "Renamed by the AI",
-    });
+    }, aiOrigin("chat"));
 
     expect(d.getTask(1)?.taskName).toBe("Renamed by the AI");
   });
@@ -1106,12 +1107,12 @@ describe("runTool — update_raid_item concurrency token", () => {
     const d = statefulRaidDispatcher(makeRaidItem());
     const stale = entityToken("raid", d.getRaidRow(10)!);
 
-    d.updateRaid(10, { title: "Renamed by a human" });
+    d.updateRaid(10, { title: "Renamed by a human" }, aiOrigin("chat"));
 
     await expect(
       runTool(d, "update_raid_item", {
         id: 10, expectedToken: stale, title: "Renamed by the AI",
-      }),
+      }, aiOrigin("chat")),
     ).rejects.toThrow(/changed since you read it/);
     expect(d.getRaidRow(10)?.title).toBe("Renamed by a human");
   });
@@ -1119,7 +1120,7 @@ describe("runTool — update_raid_item concurrency token", () => {
   it("refuses an update that supplies no token at all", async () => {
     const d = statefulRaidDispatcher(makeRaidItem());
     await expect(
-      runTool(d, "update_raid_item", { id: 10, title: "Renamed by the AI" }),
+      runTool(d, "update_raid_item", { id: 10, title: "Renamed by the AI" }, aiOrigin("chat")),
     ).rejects.toThrow(/expectedToken is required/);
     expect(d.getRaidRow(10)?.title).toBe("Budget overrun risk");
   });
@@ -1130,7 +1131,7 @@ describe("runTool — update_raid_item concurrency token", () => {
       id: 10,
       expectedToken: entityToken("raid", d.getRaidRow(10)!),
       title: "Renamed by the AI",
-    });
+    }, aiOrigin("chat"));
     expect(d.getRaidRow(10)?.title).toBe("Renamed by the AI");
   });
 });
@@ -1156,12 +1157,12 @@ describe("runTool — update_change concurrency token", () => {
     const d = statefulChangeDispatcher(makeChangeItem());
     const stale = entityToken("change", d.getChangeRow(20)!);
 
-    d.updateChange(20, { title: "Renamed by a human" });
+    d.updateChange(20, { title: "Renamed by a human" }, aiOrigin("chat"));
 
     await expect(
       runTool(d, "update_change", {
         id: 20, expectedToken: stale, title: "Renamed by the AI",
-      }),
+      }, aiOrigin("chat")),
     ).rejects.toThrow(/changed since you read it/);
     expect(d.getChangeRow(20)?.title).toBe("Renamed by a human");
   });
@@ -1169,7 +1170,7 @@ describe("runTool — update_change concurrency token", () => {
   it("refuses an update that supplies no token at all", async () => {
     const d = statefulChangeDispatcher(makeChangeItem());
     await expect(
-      runTool(d, "update_change", { id: 20, title: "Renamed by the AI" }),
+      runTool(d, "update_change", { id: 20, title: "Renamed by the AI" }, aiOrigin("chat")),
     ).rejects.toThrow(/expectedToken is required/);
     expect(d.getChangeRow(20)?.title).toBe("Scope expansion");
   });
@@ -1180,7 +1181,7 @@ describe("runTool — update_change concurrency token", () => {
       id: 20,
       expectedToken: entityToken("change", d.getChangeRow(20)!),
       title: "Renamed by the AI",
-    });
+    }, aiOrigin("chat"));
     expect(d.getChangeRow(20)?.title).toBe("Renamed by the AI");
   });
 });
@@ -1202,12 +1203,12 @@ describe("runTool — update_milestone concurrency token", () => {
     const d = statefulMilestoneDispatcher(makeMilestone());
     const stale = entityToken("milestone", d.getMilestoneRow(30)!);
 
-    d.updateMilestone(30, { name: "Renamed by a human" });
+    d.updateMilestone(30, { name: "Renamed by a human" }, aiOrigin("chat"));
 
     await expect(
       runTool(d, "update_milestone", {
         id: 30, expectedToken: stale, name: "Renamed by the AI",
-      }),
+      }, aiOrigin("chat")),
     ).rejects.toThrow(/changed since you read it/);
     expect(d.getMilestoneRow(30)?.name).toBe("Renamed by a human");
   });
@@ -1215,7 +1216,7 @@ describe("runTool — update_milestone concurrency token", () => {
   it("refuses an update that supplies no token at all", async () => {
     const d = statefulMilestoneDispatcher(makeMilestone());
     await expect(
-      runTool(d, "update_milestone", { id: 30, name: "Renamed by the AI" }),
+      runTool(d, "update_milestone", { id: 30, name: "Renamed by the AI" }, aiOrigin("chat")),
     ).rejects.toThrow(/expectedToken is required/);
     expect(d.getMilestoneRow(30)?.name).toBe("Phase 1 complete");
   });
@@ -1226,7 +1227,7 @@ describe("runTool — update_milestone concurrency token", () => {
       id: 30,
       expectedToken: entityToken("milestone", d.getMilestoneRow(30)!),
       name: "Renamed by the AI",
-    });
+    }, aiOrigin("chat"));
     expect(d.getMilestoneRow(30)?.name).toBe("Renamed by the AI");
   });
 });
@@ -1251,12 +1252,12 @@ describe("runTool — update_stakeholder concurrency token", () => {
     const d = statefulStakeholderDispatcher(makeStakeholder());
     const stale = entityToken("stakeholder", d.getStakeholderRow(40)!);
 
-    d.updateStakeholder(40, { name: "Renamed by a human" });
+    d.updateStakeholder(40, { name: "Renamed by a human" }, aiOrigin("chat"));
 
     await expect(
       runTool(d, "update_stakeholder", {
         id: 40, expectedToken: stale, name: "Renamed by the AI",
-      }),
+      }, aiOrigin("chat")),
     ).rejects.toThrow(/changed since you read it/);
     expect(d.getStakeholderRow(40)?.name).toBe("Renamed by a human");
   });
@@ -1264,7 +1265,7 @@ describe("runTool — update_stakeholder concurrency token", () => {
   it("refuses an update that supplies no token at all", async () => {
     const d = statefulStakeholderDispatcher(makeStakeholder());
     await expect(
-      runTool(d, "update_stakeholder", { id: 40, name: "Renamed by the AI" }),
+      runTool(d, "update_stakeholder", { id: 40, name: "Renamed by the AI" }, aiOrigin("chat")),
     ).rejects.toThrow(/expectedToken is required/);
     expect(d.getStakeholderRow(40)?.name).toBe("Jane Roe");
   });
@@ -1275,7 +1276,7 @@ describe("runTool — update_stakeholder concurrency token", () => {
       id: 40,
       expectedToken: entityToken("stakeholder", d.getStakeholderRow(40)!),
       name: "Renamed by the AI",
-    });
+    }, aiOrigin("chat"));
     expect(d.getStakeholderRow(40)?.name).toBe("Renamed by the AI");
   });
 });
@@ -1297,12 +1298,12 @@ describe("runTool — update_resource concurrency token", () => {
     const d = statefulResourceDispatcher(makeResource());
     const stale = entityToken("resource", d.getResourceRow(7)!);
 
-    d.updateResource(7, { firstName: "Renamed by a human" });
+    d.updateResource(7, { firstName: "Renamed by a human" }, aiOrigin("chat"));
 
     await expect(
       runTool(d, "update_resource", {
         id: 7, expectedToken: stale, firstName: "Renamed by the AI",
-      }),
+      }, aiOrigin("chat")),
     ).rejects.toThrow(/changed since you read it/);
     expect(d.getResourceRow(7)?.firstName).toBe("Renamed by a human");
   });
@@ -1310,7 +1311,7 @@ describe("runTool — update_resource concurrency token", () => {
   it("refuses an update that supplies no token at all", async () => {
     const d = statefulResourceDispatcher(makeResource());
     await expect(
-      runTool(d, "update_resource", { id: 7, firstName: "Renamed by the AI" }),
+      runTool(d, "update_resource", { id: 7, firstName: "Renamed by the AI" }, aiOrigin("chat")),
     ).rejects.toThrow(/expectedToken is required/);
     expect(d.getResourceRow(7)?.firstName).toBe("Ada");
   });
@@ -1321,7 +1322,7 @@ describe("runTool — update_resource concurrency token", () => {
       id: 7,
       expectedToken: entityToken("resource", d.getResourceRow(7)!),
       firstName: "Renamed by the AI",
-    });
+    }, aiOrigin("chat"));
     expect(d.getResourceRow(7)?.firstName).toBe("Renamed by the AI");
   });
 });
@@ -1329,19 +1330,19 @@ describe("runTool — update_resource concurrency token", () => {
 describe("runTool — delete_task / delete_all_tasks", () => {
   it("deletes an existing task and echoes the id", async () => {
     const d = makeDispatcher();
-    expect(await runTool(d, "delete_task", { id: 1 })).toEqual({ deleted: 1 });
+    expect(await runTool(d, "delete_task", { id: 1 }, aiOrigin("chat"))).toEqual({ deleted: 1 });
   });
 
   it("throws when deleting a missing task", async () => {
     const d = makeDispatcher();
-    await expect(runTool(d, "delete_task", { id: 5 })).rejects.toThrow(
+    await expect(runTool(d, "delete_task", { id: 5 }, aiOrigin("chat"))).rejects.toThrow(
       "task #5 not found",
     );
   });
 
   it("delete_all_tasks returns the deleted count", async () => {
     const d = makeDispatcher();
-    expect(await runTool(d, "delete_all_tasks", {})).toEqual({ deleted: 3 });
+    expect(await runTool(d, "delete_all_tasks", {}, aiOrigin("chat"))).toEqual({ deleted: 3 });
   });
 });
 
@@ -1351,16 +1352,16 @@ describe("runTool — escalate_raid_item (§515, append-only)", () => {
     const result = await runTool(d, "escalate_raid_item", {
       id: 10, expectedToken: FRESH_RAID_TOKEN, toEmail: "  jane@example.com ", toName: " Jane Doe ",
       escalations: [], severity: "Low", noteLog: [], toResourceId: 99,
-    });
+    }, aiOrigin("chat"));
     expect(d.escalateRaid).toHaveBeenCalledTimes(1);
-    expect(d.escalateRaid).toHaveBeenCalledWith(10, { email: "jane@example.com", name: "Jane Doe" });
+    expect(d.escalateRaid).toHaveBeenCalledWith(10, { email: "jane@example.com", name: "Jane Doe" }, aiOrigin("chat"));
     expect(d.updateRaid).not.toHaveBeenCalled();
     expect(result).toMatchObject({ id: 10, emailSent: false });
   });
 
   it("refuses an escalation that supplies no token", async () => {
     const d = makeDispatcher();
-    await expect(runTool(d, "escalate_raid_item", { id: 10, toEmail: "jane@example.com" }))
+    await expect(runTool(d, "escalate_raid_item", { id: 10, toEmail: "jane@example.com" }, aiOrigin("chat")))
       .rejects.toThrow(/expectedToken is required/);
     expect(d.escalateRaid).not.toHaveBeenCalled();
   });
@@ -1368,7 +1369,7 @@ describe("runTool — escalate_raid_item (§515, append-only)", () => {
   it("refuses a stale token", async () => {
     const d = makeDispatcher();
     const stale = entityToken("raid", makeRaidItem({ severity: "Low" }));
-    await expect(runTool(d, "escalate_raid_item", { id: 10, expectedToken: stale, toEmail: "jane@example.com" }))
+    await expect(runTool(d, "escalate_raid_item", { id: 10, expectedToken: stale, toEmail: "jane@example.com" }, aiOrigin("chat")))
       .rejects.toThrow(/changed since you read it/);
     expect(d.escalateRaid).not.toHaveBeenCalled();
   });
@@ -1390,7 +1391,7 @@ describe("runTool — escalate_raid_item (§515, append-only)", () => {
     [{ toEmail: "a,b@x.com" }, /toEmail must be a valid email/],
   ])("rejects the invalid recipient %o with a model-facing error and writes nothing", async (recipient, message) => {
     const d = makeDispatcher();
-    await expect(runTool(d, "escalate_raid_item", { id: 10, expectedToken: FRESH_RAID_TOKEN, ...recipient }))
+    await expect(runTool(d, "escalate_raid_item", { id: 10, expectedToken: FRESH_RAID_TOKEN, ...recipient }, aiOrigin("chat")))
       .rejects.toThrow(message);
     expect(d.escalateRaid).not.toHaveBeenCalled();
   });
@@ -1401,13 +1402,13 @@ describe("runTool — escalate_raid_item (§515, append-only)", () => {
   ])("accepts %s — the cap is inclusive (boundary positive control)", async (_label, recipient, forwarded) => {
     expect(forwarded.email.length <= 320 && forwarded.name.length <= 200).toBe(true);
     const d = makeDispatcher();
-    await runTool(d, "escalate_raid_item", { id: 10, expectedToken: FRESH_RAID_TOKEN, ...recipient });
-    expect(d.escalateRaid).toHaveBeenCalledWith(10, forwarded);
+    await runTool(d, "escalate_raid_item", { id: 10, expectedToken: FRESH_RAID_TOKEN, ...recipient }, aiOrigin("chat"));
+    expect(d.escalateRaid).toHaveBeenCalledWith(10, forwarded, aiOrigin("chat"));
   });
 
   it("reports a missing item as not found, before the token", async () => {
     const d = makeDispatcher();
-    await expect(runTool(d, "escalate_raid_item", { id: 99, toEmail: "jane@example.com" }))
+    await expect(runTool(d, "escalate_raid_item", { id: 99, toEmail: "jane@example.com" }, aiOrigin("chat")))
       .rejects.toThrow("RAID item #99 not found");
     expect(d.escalateRaid).not.toHaveBeenCalled();
   });
@@ -1416,7 +1417,7 @@ describe("runTool — escalate_raid_item (§515, append-only)", () => {
 describe("runTool — send_inquiry", () => {
   it("forwards the result from the dispatcher", async () => {
     const d = makeDispatcher({ sendInquiry: vi.fn(() => ({ sent: false, reason: "no-email" })) });
-    expect(await runTool(d, "send_inquiry", { id: 1 })).toEqual({
+    expect(await runTool(d, "send_inquiry", { id: 1 }, aiOrigin("chat"))).toEqual({
       sent: false,
       reason: "no-email",
     });
@@ -1424,24 +1425,24 @@ describe("runTool — send_inquiry", () => {
 
   it("throws on a non-numeric id", async () => {
     const d = makeDispatcher();
-    await expect(runTool(d, "send_inquiry", {})).rejects.toThrow("id must be a number");
+    await expect(runTool(d, "send_inquiry", {}, aiOrigin("chat"))).rejects.toThrow("id must be a number");
   });
 });
 
 describe("runTool — set_filters", () => {
   it("passes 'All' through as a priority reset", async () => {
     const d = makeDispatcher();
-    await runTool(d, "set_filters", { priority: "All" });
+    await runTool(d, "set_filters", { priority: "All" }, aiOrigin("chat"));
     expect(d.setFilters).toHaveBeenCalledWith({ priority: "All" });
   });
 
   it("keeps a valid priority and drops an invalid one", async () => {
     const d = makeDispatcher();
-    await runTool(d, "set_filters", { priority: "High" });
+    await runTool(d, "set_filters", { priority: "High" }, aiOrigin("chat"));
     expect(d.setFilters).toHaveBeenCalledWith({ priority: "High" });
 
     const d2 = makeDispatcher();
-    await runTool(d2, "set_filters", { priority: "bogus" });
+    await runTool(d2, "set_filters", { priority: "bogus" }, aiOrigin("chat"));
     // Invalid priority is silently omitted, leaving an empty filter object.
     expect(d2.setFilters).toHaveBeenCalledWith({});
   });
@@ -1453,7 +1454,7 @@ describe("runTool — set_filters", () => {
       assignee: "",
       group: "Phase 1",
       label: "",
-    });
+    }, aiOrigin("chat"));
     const expected: Filters = { search: "auth", assignee: "", group: "Phase 1", label: "" };
     expect(d.setFilters).toHaveBeenCalledWith(expected);
     expect(result).toEqual({ applied: expected });
@@ -1461,7 +1462,7 @@ describe("runTool — set_filters", () => {
 
   it("coerces a non-string search to empty string when present", async () => {
     const d = makeDispatcher();
-    await runTool(d, "set_filters", { search: 123 });
+    await runTool(d, "set_filters", { search: 123 }, aiOrigin("chat"));
     expect(d.setFilters).toHaveBeenCalledWith({ search: "" });
   });
 });
@@ -1469,15 +1470,15 @@ describe("runTool — set_filters", () => {
 describe("runTool — set_language", () => {
   it.each(["en-US", "en-GB", "de"] as const)("accepts %s", async (lang) => {
     const d = makeDispatcher();
-    expect(await runTool(d, "set_language", { language: lang })).toEqual({
+    expect(await runTool(d, "set_language", { language: lang }, aiOrigin("chat"))).toEqual({
       language: lang,
     });
-    expect(d.setLanguage).toHaveBeenCalledWith(lang);
+    expect(d.setLanguage).toHaveBeenCalledWith(lang, aiOrigin("chat"));
   });
 
   it("throws on an unsupported language without calling setLanguage", async () => {
     const d = makeDispatcher();
-    await expect(runTool(d, "set_language", { language: "fr" })).rejects.toThrow(
+    await expect(runTool(d, "set_language", { language: "fr" }, aiOrigin("chat"))).rejects.toThrow(
       "unsupported language",
     );
     expect(d.setLanguage).not.toHaveBeenCalled();
@@ -1498,7 +1499,7 @@ describe("runTool — get_app_state insights follow the chat's rule", () => {
       isPeopleProtected: () => peopleProtected, isResourcesHidden: () => false, isStakeholdersHidden: () => false,
       getSnapshot: () => ({ ...base.getSnapshot(), enabledModules, insights: [person, named, project] }) as ReturnType<ToolDispatcher["getSnapshot"]>,
     });
-    const snapshot = (await runTool(d, "get_app_state", {})) as { insights?: readonly Insight[] };
+    const snapshot = (await runTool(d, "get_app_state", {}, aiOrigin("chat"))) as { insights?: readonly Insight[] };
     return (snapshot.insights ?? []).map((i) => i.id);
   }
 
@@ -1523,7 +1524,7 @@ describe("runTool — get_app_state insights follow the chat's rule", () => {
 describe("runTool — get_app_state and edge cases", () => {
   it("get_app_state returns the snapshot", async () => {
     const d = makeDispatcher();
-    const result = await runTool(d, "get_app_state", {});
+    const result = await runTool(d, "get_app_state", {}, aiOrigin("chat"));
     expect(result).toMatchObject({ taskCount: 1, storageKind: "browser" });
   });
 
@@ -1542,7 +1543,7 @@ describe("runTool — get_app_state and edge cases", () => {
   //     plausible edit that every other test in the suite would stay green for.
   it("keeps activityLog OFF the app-state snapshot", async () => {
     const d = makeDispatcher();
-    const snapshot = (await runTool(d, "get_app_state", {})) as Record<string, unknown>;
+    const snapshot = (await runTool(d, "get_app_state", {}, aiOrigin("chat"))) as Record<string, unknown>;
     expect("activityLog" in snapshot).toBe(false);
   });
 
@@ -1552,7 +1553,7 @@ describe("runTool — get_app_state and edge cases", () => {
   //   rather than quietly widening what every get_app_state call ships.
   it("carries the bounded activity summary through get_app_state verbatim", async () => {
     const d = makeDispatcher();
-    const snapshot = (await runTool(d, "get_app_state", {})) as Record<string, unknown>;
+    const snapshot = (await runTool(d, "get_app_state", {}, aiOrigin("chat"))) as Record<string, unknown>;
     const summary = snapshot.activitySummary as ActivitySummary | undefined;
     expect(Object.keys(summary ?? {}).sort()).toEqual(["byActor", "days", "latestAt", "total"]);
     expect(Object.keys(summary?.byActor ?? {})).toHaveLength(4);
@@ -1560,19 +1561,19 @@ describe("runTool — get_app_state and edge cases", () => {
 
   it("throws on an unknown tool name", async () => {
     const d = makeDispatcher();
-    await expect(runTool(d, "frobnicate", {})).rejects.toThrow("unknown tool: frobnicate");
+    await expect(runTool(d, "frobnicate", {}, aiOrigin("chat"))).rejects.toThrow("unknown tool: frobnicate");
   });
 
   it("tolerates a null/non-object rawInput (treated as empty)", async () => {
     const d = makeDispatcher();
     // list_tasks reads only an optional `limit`; a null rawInput must not throw
     // on property access, and an absent limit means "return everything".
-    const listed = (await runTool(d, "list_tasks", null)) as ListEnvelope;
+    const listed = (await runTool(d, "list_tasks", null, aiOrigin("chat"))) as ListEnvelope;
     expect(listed.total).toBe(1);
     expect(listed.items).toHaveLength(1);
     expect("limit" in listed).toBe(false);
     // get_task with no usable input → id is NaN → validation error.
-    await expect(runTool(d, "get_task", null)).rejects.toThrow("id must be a number");
+    await expect(runTool(d, "get_task", null, aiOrigin("chat"))).rejects.toThrow("id must be a number");
   });
 });
 
@@ -1610,7 +1611,7 @@ describe("TOOL_DEFS — new read-only tools are registered", () => {
 describe("runTool — list_raid", () => {
   it("returns projected RAID summaries from the dispatcher", async () => {
     const d = makeDispatcher();
-    const result = await runTool(d, "list_raid", {});
+    const result = await runTool(d, "list_raid", {}, aiOrigin("chat"));
     expect(d.listRaid).toHaveBeenCalledOnce();
     expect(result).toEqual([
       {
@@ -1628,7 +1629,7 @@ describe("runTool — list_raid", () => {
 
   it("returns an empty array when there are no RAID items", async () => {
     const d = makeDispatcher({ listRaid: vi.fn(() => []) });
-    expect(await runTool(d, "list_raid", {})).toEqual([]);
+    expect(await runTool(d, "list_raid", {}, aiOrigin("chat"))).toEqual([]);
   });
 
   it("does not crash on legacy RAID items with undefined stakeholderIds", async () => {
@@ -1636,7 +1637,7 @@ describe("runTool — list_raid", () => {
     const d = makeDispatcher({
       listRaid: vi.fn(() => [{ ...legacy, stakeholderIds: legacy.stakeholderIds ?? [] }]),
     });
-    const [item] = (await runTool(d, "list_raid", {})) as { stakeholderIds: number[] }[];
+    const [item] = (await runTool(d, "list_raid", {}, aiOrigin("chat"))) as { stakeholderIds: number[] }[];
     expect(item.stakeholderIds).toEqual([]);
   });
 });
@@ -1644,7 +1645,7 @@ describe("runTool — list_raid", () => {
 describe("runTool — list_changes", () => {
   it("returns projected change summaries from the dispatcher", async () => {
     const d = makeDispatcher();
-    const result = await runTool(d, "list_changes", {});
+    const result = await runTool(d, "list_changes", {}, aiOrigin("chat"));
     expect(d.listChanges).toHaveBeenCalledOnce();
     expect(result).toEqual([
       {
@@ -1664,7 +1665,7 @@ describe("runTool — list_changes", () => {
     const d = makeDispatcher({
       listChanges: vi.fn(() => [{ ...legacy, stakeholderIds: legacy.stakeholderIds ?? [] }]),
     });
-    const [item] = (await runTool(d, "list_changes", {})) as { stakeholderIds: number[] }[];
+    const [item] = (await runTool(d, "list_changes", {}, aiOrigin("chat"))) as { stakeholderIds: number[] }[];
     expect(item.stakeholderIds).toEqual([]);
   });
 });
@@ -1672,7 +1673,7 @@ describe("runTool — list_changes", () => {
 describe("runTool — list_milestones", () => {
   it("returns projected milestone summaries from the dispatcher", async () => {
     const d = makeDispatcher();
-    const result = await runTool(d, "list_milestones", {});
+    const result = await runTool(d, "list_milestones", {}, aiOrigin("chat"));
     expect(d.listMilestones).toHaveBeenCalledOnce();
     expect(result).toEqual([
       {
@@ -1692,7 +1693,7 @@ describe("runTool — list_milestones", () => {
     const d = makeDispatcher({
       listMilestones: vi.fn(() => [toMilestoneSummary(achieved)]),
     });
-    const [item] = (await runTool(d, "list_milestones", {})) as { achievedDate?: string }[];
+    const [item] = (await runTool(d, "list_milestones", {}, aiOrigin("chat"))) as { achievedDate?: string }[];
     expect(item.achievedDate).toBe("2026-06-28");
   });
 
@@ -1700,7 +1701,7 @@ describe("runTool — list_milestones", () => {
   it("carries linkedTaskIds and the plain-text description, and says update replaces the list", async () => {
     const linked = makeMilestone({ linkedTaskIds: [3, 5] });
     const d = makeDispatcher({ listMilestones: vi.fn(() => [toMilestoneSummary(linked)]) });
-    const [item] = (await runTool(d, "list_milestones", {})) as { linkedTaskIds: number[]; description: string }[];
+    const [item] = (await runTool(d, "list_milestones", {}, aiOrigin("chat"))) as { linkedTaskIds: number[]; description: string }[];
     expect(item.linkedTaskIds).toEqual([3, 5]);
     expect(item.description).toBe("Sign-off with the sponsor");
     const update = TOOL_DEFS.find((t) => t.name === "update_milestone");
@@ -1711,7 +1712,7 @@ describe("runTool — list_milestones", () => {
 describe("runTool — list_stakeholders", () => {
   it("returns stakeholder summaries from the dispatcher", async () => {
     const d = makeDispatcher();
-    const result = await runTool(d, "list_stakeholders", {});
+    const result = await runTool(d, "list_stakeholders", {}, aiOrigin("chat"));
     expect(d.listStakeholders).toHaveBeenCalledOnce();
     expect(result).toEqual([
       {
@@ -1772,8 +1773,8 @@ describe("TOOL_DEFS — write tools are registered with required fields", () => 
 describe("runTool — RAID write tools", () => {
   it("create_raid_item forwards input and returns the summary", async () => {
     const d = makeDispatcher();
-    const result = await runTool(d, "create_raid_item", { title: "New risk", category: "R" });
-    expect(d.createRaid).toHaveBeenCalledWith({ title: "New risk", category: "R" });
+    const result = await runTool(d, "create_raid_item", { title: "New risk", category: "R" }, aiOrigin("chat"));
+    expect(d.createRaid).toHaveBeenCalledWith({ title: "New risk", category: "R" }, aiOrigin("chat"));
     expect(result).toMatchObject({ id: 11, title: "New risk" });
   });
 
@@ -1781,31 +1782,31 @@ describe("runTool — RAID write tools", () => {
     const d = makeDispatcher();
     await runTool(d, "update_raid_item", {
       id: 10, expectedToken: FRESH_RAID_TOKEN, severity: "Critical",
-    });
+    }, aiOrigin("chat"));
     // Also the anti-leak case for the token: unlike tasks, this tool forwards
     // the whole input, so `expectedToken` reaches the stored row unless
     // `patchWithoutId` strips it.
-    expect(d.updateRaid).toHaveBeenCalledWith(10, { severity: "Critical" });
+    expect(d.updateRaid).toHaveBeenCalledWith(10, { severity: "Critical" }, aiOrigin("chat"));
   });
 
   it("update_raid_item throws when the item is not found", async () => {
     const d = makeDispatcher();
-    await expect(runTool(d, "update_raid_item", { id: 99 })).rejects.toThrow(
+    await expect(runTool(d, "update_raid_item", { id: 99 }, aiOrigin("chat"))).rejects.toThrow(
       "RAID item #99 not found",
     );
   });
 
   it("delete_raid_item echoes the deleted id and throws when missing", async () => {
     const d = makeDispatcher();
-    expect(await runTool(d, "delete_raid_item", { id: 10 })).toEqual({ deleted: 10 });
-    await expect(runTool(d, "delete_raid_item", { id: 99 })).rejects.toThrow(
+    expect(await runTool(d, "delete_raid_item", { id: 10 }, aiOrigin("chat"))).toEqual({ deleted: 10 });
+    await expect(runTool(d, "delete_raid_item", { id: 99 }, aiOrigin("chat"))).rejects.toThrow(
       "RAID item #99 not found",
     );
   });
 
   it("update_raid_item throws on a non-numeric id", async () => {
     const d = makeDispatcher();
-    await expect(runTool(d, "update_raid_item", { id: "x" })).rejects.toThrow(
+    await expect(runTool(d, "update_raid_item", { id: "x" }, aiOrigin("chat"))).rejects.toThrow(
       "id must be a number",
     );
     expect(d.updateRaid).not.toHaveBeenCalled();
@@ -1815,8 +1816,8 @@ describe("runTool — RAID write tools", () => {
 describe("runTool — change/milestone/stakeholder write tools", () => {
   it("create_change forwards input and returns the summary", async () => {
     const d = makeDispatcher();
-    const result = await runTool(d, "create_change", { title: "Scope creep", type: "Scope" });
-    expect(d.createChange).toHaveBeenCalledWith({ title: "Scope creep", type: "Scope" });
+    const result = await runTool(d, "create_change", { title: "Scope creep", type: "Scope" }, aiOrigin("chat"));
+    expect(d.createChange).toHaveBeenCalledWith({ title: "Scope creep", type: "Scope" }, aiOrigin("chat"));
     expect(result).toMatchObject({ id: 21 });
   });
 
@@ -1824,55 +1825,55 @@ describe("runTool — change/milestone/stakeholder write tools", () => {
     const d = makeDispatcher();
     await runTool(d, "update_change", {
       id: 20, expectedToken: FRESH_CHANGE_TOKEN, status: "Approved",
-    });
-    expect(d.updateChange).toHaveBeenCalledWith(20, { status: "Approved" });
-    expect(await runTool(d, "delete_change", { id: 20 })).toEqual({ deleted: 20 });
+    }, aiOrigin("chat"));
+    expect(d.updateChange).toHaveBeenCalledWith(20, { status: "Approved" }, aiOrigin("chat"));
+    expect(await runTool(d, "delete_change", { id: 20 }, aiOrigin("chat"))).toEqual({ deleted: 20 });
   });
 
   it("create_milestone forwards input; update/delete route by id", async () => {
     const d = makeDispatcher();
-    await runTool(d, "create_milestone", { name: "GA", date: "2026-09-01" });
-    expect(d.createMilestone).toHaveBeenCalledWith({ name: "GA", date: "2026-09-01" });
+    await runTool(d, "create_milestone", { name: "GA", date: "2026-09-01" }, aiOrigin("chat"));
+    expect(d.createMilestone).toHaveBeenCalledWith({ name: "GA", date: "2026-09-01" }, aiOrigin("chat"));
     await runTool(d, "update_milestone", {
       id: 30, expectedToken: FRESH_MILESTONE_TOKEN, achievedDate: "2026-09-02",
-    });
-    expect(d.updateMilestone).toHaveBeenCalledWith(30, { achievedDate: "2026-09-02" });
-    expect(await runTool(d, "delete_milestone", { id: 30 })).toEqual({ deleted: 30 });
+    }, aiOrigin("chat"));
+    expect(d.updateMilestone).toHaveBeenCalledWith(30, { achievedDate: "2026-09-02" }, aiOrigin("chat"));
+    expect(await runTool(d, "delete_milestone", { id: 30 }, aiOrigin("chat"))).toEqual({ deleted: 30 });
   });
 
   it("create_stakeholder forwards input; update/delete route by id", async () => {
     const d = makeDispatcher();
-    await runTool(d, "create_stakeholder", { name: "Acme Corp", category: "Vendor" });
-    expect(d.createStakeholder).toHaveBeenCalledWith({ name: "Acme Corp", category: "Vendor" });
+    await runTool(d, "create_stakeholder", { name: "Acme Corp", category: "Vendor" }, aiOrigin("chat"));
+    expect(d.createStakeholder).toHaveBeenCalledWith({ name: "Acme Corp", category: "Vendor" }, aiOrigin("chat"));
     await runTool(d, "update_stakeholder", {
       id: 40, expectedToken: FRESH_STAKEHOLDER_TOKEN, influence: "Low",
-    });
-    expect(d.updateStakeholder).toHaveBeenCalledWith(40, { influence: "Low" });
-    expect(await runTool(d, "delete_stakeholder", { id: 40 })).toEqual({ deleted: 40 });
+    }, aiOrigin("chat"));
+    expect(d.updateStakeholder).toHaveBeenCalledWith(40, { influence: "Low" }, aiOrigin("chat"));
+    expect(await runTool(d, "delete_stakeholder", { id: 40 }, aiOrigin("chat"))).toEqual({ deleted: 40 });
   });
 
   it("throws when updating a missing change/milestone/stakeholder", async () => {
     const d = makeDispatcher();
-    await expect(runTool(d, "update_change", { id: 99 })).rejects.toThrow("change #99 not found");
-    await expect(runTool(d, "update_milestone", { id: 99 })).rejects.toThrow("milestone #99 not found");
-    await expect(runTool(d, "update_stakeholder", { id: 99 })).rejects.toThrow("stakeholder #99 not found");
+    await expect(runTool(d, "update_change", { id: 99 }, aiOrigin("chat"))).rejects.toThrow("change #99 not found");
+    await expect(runTool(d, "update_milestone", { id: 99 }, aiOrigin("chat"))).rejects.toThrow("milestone #99 not found");
+    await expect(runTool(d, "update_stakeholder", { id: 99 }, aiOrigin("chat"))).rejects.toThrow("stakeholder #99 not found");
   });
 
   it("get_resource fetches by id; update strips id; delete echoes id", async () => {
     const d = makeDispatcher();
-    expect(await runTool(d, "get_resource", { id: 7 })).toMatchObject({ id: 7, firstName: "Ada" });
+    expect(await runTool(d, "get_resource", { id: 7 }, aiOrigin("chat"))).toMatchObject({ id: 7, firstName: "Ada" });
     await runTool(d, "update_resource", {
       id: 7, expectedToken: FRESH_RESOURCE_TOKEN, title: "Lead",
-    });
-    expect(d.updateResource).toHaveBeenCalledWith(7, { title: "Lead" });
-    expect(await runTool(d, "delete_resource", { id: 7 })).toEqual({ deleted: 7 });
+    }, aiOrigin("chat"));
+    expect(d.updateResource).toHaveBeenCalledWith(7, { title: "Lead" }, aiOrigin("chat"));
+    expect(await runTool(d, "delete_resource", { id: 7 }, aiOrigin("chat"))).toEqual({ deleted: 7 });
   });
 
   it("throws when fetching/updating/deleting a missing resource", async () => {
     const d = makeDispatcher();
-    await expect(runTool(d, "get_resource", { id: 99 })).rejects.toThrow("resource #99 not found");
-    await expect(runTool(d, "update_resource", { id: 99 })).rejects.toThrow("resource #99 not found");
-    await expect(runTool(d, "delete_resource", { id: 99 })).rejects.toThrow("resource #99 not found");
+    await expect(runTool(d, "get_resource", { id: 99 }, aiOrigin("chat"))).rejects.toThrow("resource #99 not found");
+    await expect(runTool(d, "update_resource", { id: 99 }, aiOrigin("chat"))).rejects.toThrow("resource #99 not found");
+    await expect(runTool(d, "delete_resource", { id: 99 }, aiOrigin("chat"))).rejects.toThrow("resource #99 not found");
   });
 });
 
@@ -1899,7 +1900,7 @@ describe("set_task_dependencies", () => {
       id: 7,
       expectedToken: DEP_TOKEN,
       dependencies: [{ taskId: 3, type: "FS" }],
-    });
+    }, aiOrigin("chat"));
 
     // `expectedToken` is a control value, not a link — it must not reach the
     // dispatcher's raw list.
@@ -1922,7 +1923,7 @@ describe("set_task_dependencies", () => {
     //   check earlier could have silently reworded a model-facing string.
     //   ★ ANCHORED. `toThrow("...")` is itself a SUBSTRING match, so passing
     //   the whole sentence as a string would not have pinned it either.
-    await expect(runTool(d, "set_task_dependencies", { id: 9, dependencies: [] })).rejects.toThrow(
+    await expect(runTool(d, "set_task_dependencies", { id: 9, dependencies: [] }, aiOrigin("chat"))).rejects.toThrow(
       /^Task #9 not found$/,
     );
   });
@@ -1948,7 +1949,7 @@ describe("set_task_dependencies", () => {
         id: 7,
         expectedToken: readToken,
         dependencies: [],
-      }),
+      }, aiOrigin("chat")),
     ).rejects.toThrow(/changed since you read it/i);
     expect(setTaskDependencies).not.toHaveBeenCalled();
     // The refused call was a clear-all, so this is the assertion that the WRITE
@@ -1963,7 +1964,7 @@ describe("set_task_dependencies", () => {
     const d = { getTask: () => DEP_TASK, setTaskDependencies } as unknown as ToolDispatcher;
 
     await expect(
-      runTool(d, "set_task_dependencies", { id: 7, dependencies: [] }),
+      runTool(d, "set_task_dependencies", { id: 7, dependencies: [] }, aiOrigin("chat")),
     ).rejects.toThrow(/expectedToken is required/i);
     expect(setTaskDependencies).not.toHaveBeenCalled();
   });
@@ -1977,7 +1978,7 @@ describe("set_task_dependencies", () => {
       id: 7,
       expectedToken: entityToken("task", row),
       dependencies: [],
-    });
+    }, aiOrigin("chat"));
 
     expect(setTaskDependencies).toHaveBeenCalledTimes(1);
   });
@@ -1999,7 +2000,7 @@ describe("set_task_dependencies", () => {
     const d = { setTaskDependencies: () => null } as unknown as ToolDispatcher;
 
     await expect(
-      runTool(d, "set_task_dependencies", { dependencies: [] }),
+      runTool(d, "set_task_dependencies", { dependencies: [] }, aiOrigin("chat")),
     ).rejects.toThrow("id must be a number");
   });
 
@@ -2013,10 +2014,10 @@ describe("set_task_dependencies", () => {
     const d = { setTaskDependencies } as unknown as ToolDispatcher;
 
     await expect(
-      runTool(d, "set_task_dependencies", { id: 7, dependencies: "FS on task 12" }),
+      runTool(d, "set_task_dependencies", { id: 7, dependencies: "FS on task 12" }, aiOrigin("chat")),
     ).rejects.toThrow("dependencies must be an array");
     await expect(
-      runTool(d, "set_task_dependencies", { id: 7 }),
+      runTool(d, "set_task_dependencies", { id: 7 }, aiOrigin("chat")),
     ).rejects.toThrow("dependencies must be an array");
     expect(setTaskDependencies).not.toHaveBeenCalled();
   });
@@ -2029,7 +2030,7 @@ describe("set_task_dependencies", () => {
 
     await expect(runTool(d, "set_task_dependencies", {
       id: 7, expectedToken: DEP_TOKEN, dependencies: [],
-    })).resolves.toEqual({
+    }, aiOrigin("chat"))).resolves.toEqual({
       id: 7,
       dependencies: [],
       rejected: [],
@@ -2044,7 +2045,7 @@ describe("get_dashboard_snapshot", () => {
     >;
     const d = { getDashboardSnapshot: () => snapshot } as unknown as ToolDispatcher;
 
-    await expect(runTool(d, "get_dashboard_snapshot", {})).resolves.toBe(snapshot);
+    await expect(runTool(d, "get_dashboard_snapshot", {}, aiOrigin("chat"))).resolves.toBe(snapshot);
   });
 });
 
@@ -2060,7 +2061,7 @@ describe("list_allocations", () => {
     } as unknown as ReturnType<ToolDispatcher["listAllocations"]>;
     const d = { listAllocations: () => snapshot, isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false } as unknown as ToolDispatcher;
 
-    await expect(runTool(d, "list_allocations", {})).resolves.toBe(snapshot);
+    await expect(runTool(d, "list_allocations", {}, aiOrigin("chat"))).resolves.toBe(snapshot);
   });
 
   // §12: an argument-less call must stay on the unscoped path (scope
@@ -2070,8 +2071,8 @@ describe("list_allocations", () => {
     const listAllocations = vi.fn();
     const d = { listAllocations, isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false } as unknown as ToolDispatcher;
 
-    await runTool(d, "list_allocations", {});
-    await runTool(d, "list_allocations", undefined);
+    await runTool(d, "list_allocations", {}, aiOrigin("chat"));
+    await runTool(d, "list_allocations", undefined, aiOrigin("chat"));
 
     expect(listAllocations).toHaveBeenNthCalledWith(1, undefined);
     expect(listAllocations).toHaveBeenNthCalledWith(2, undefined);
@@ -2081,7 +2082,7 @@ describe("list_allocations", () => {
     const listAllocations = vi.fn();
     const d = { listAllocations, isPeopleProtected: () => false, isResourcesHidden: () => false, isStakeholdersHidden: () => false } as unknown as ToolDispatcher;
 
-    await runTool(d, "list_allocations", { resourceIds: [2, 5], periodFrom: "2026-08", periodTo: "2026-09" });
+    await runTool(d, "list_allocations", { resourceIds: [2, 5], periodFrom: "2026-08", periodTo: "2026-09" }, aiOrigin("chat"));
 
     expect(listAllocations).toHaveBeenCalledWith({
       resourceIds: [2, 5],
@@ -2203,7 +2204,7 @@ describe("runTool — knowledge/calendar/budget read tools", () => {
   it("routes list_knowledge_items to the dispatcher", async () => {
     const items = [{ id: "dl-1", name: "Charter", url: "https://x", linkKind: "document" as const, taskIds: [] }];
     const d = { listKnowledgeItems: () => items } as unknown as ToolDispatcher;
-    await expect(runTool(d, "list_knowledge_items", {})).resolves.toBe(items);
+    await expect(runTool(d, "list_knowledge_items", {}, aiOrigin("chat"))).resolves.toBe(items);
   });
 
   // ★★ NOT `toBe(events)` LIKE ITS TWO NEIGHBOURS, and the difference is the
@@ -2218,13 +2219,13 @@ describe("runTool — knowledge/calendar/budget read tools", () => {
       listCalendarEvents: () => events,
       getCalendarEventRow: () => null,
     } as unknown as ToolDispatcher;
-    await expect(runTool(d, "list_calendar_events", {})).resolves.toEqual(events);
+    await expect(runTool(d, "list_calendar_events", {}, aiOrigin("chat"))).resolves.toEqual(events);
   });
 
   it("routes list_budget_buckets to the dispatcher", async () => {
     const buckets: unknown[] = [];
     const d = { listBudgetBuckets: () => buckets } as unknown as ToolDispatcher;
-    await expect(runTool(d, "list_budget_buckets", {})).resolves.toBe(buckets);
+    await expect(runTool(d, "list_budget_buckets", {}, aiOrigin("chat"))).resolves.toBe(buckets);
   });
 });
 
@@ -2281,7 +2282,7 @@ describe("runTool — document tool routing", () => {
       { id: 1, title: "Status", blockCount: 2, updatedAt: "2026-08-01T08:00:00.000Z" },
     ]);
     const d = makeDispatcher({ listDocuments });
-    await expect(runTool(d, "list_documents", {})).resolves.toEqual([
+    await expect(runTool(d, "list_documents", {}, aiOrigin("chat"))).resolves.toEqual([
       { id: 1, title: "Status", blockCount: 2, updatedAt: "2026-08-01T08:00:00.000Z" },
     ]);
     expect(listDocuments).toHaveBeenCalledTimes(1);
@@ -2294,19 +2295,19 @@ describe("runTool — document tool routing", () => {
     const updateDocument = vi.fn(() => ({ id: 1, title: "Status", blockCount: 1, applied: 1, rejected: [], removed: 0 }));
     const d = makeDispatcher({ updateDocument });
 
-    await expect(runTool(d, "update_document", { id: 1, ops: "wipe it" })).rejects.toThrow(/ops/i);
+    await expect(runTool(d, "update_document", { id: 1, ops: "wipe it" }, aiOrigin("chat"))).rejects.toThrow(/ops/i);
     expect(updateDocument).not.toHaveBeenCalled();
 
     // Paired positive: the same dispatcher IS reachable through runTool, so the
     // absence assertion above is about the guard and not about dead routing.
     await expect(
-      runTool(d, "update_document", { id: 1, ops: [{ op: "append", block: { type: "pageBreak" } }] }),
+      runTool(d, "update_document", { id: 1, ops: [{ op: "append", block: { type: "pageBreak" } }] }, aiOrigin("chat")),
     ).resolves.toMatchObject({ applied: 1 });
     expect(updateDocument).toHaveBeenCalledTimes(1);
   });
 
   it("still throws unknown tool for a name nothing routes", async () => {
-    await expect(runTool(makeDispatcher(), "burn_everything", {})).rejects.toThrow(
+    await expect(runTool(makeDispatcher(), "burn_everything", {}, aiOrigin("chat"))).rejects.toThrow(
       /unknown tool: burn_everything/,
     );
   });
@@ -2320,12 +2321,12 @@ describe("runTool — project tool routing (§715)", () => {
     const updateProjectMeta = vi.fn(async (next: ProjectMeta) => next);
     const d = makeDispatcher({ getProjectMeta, updateProjectMeta });
 
-    const read = (await runTool(d, "get_project", {})) as { customer: string; expectedToken: string };
+    const read = (await runTool(d, "get_project", {}, aiOrigin("chat"))) as { customer: string; expectedToken: string };
     expect(getProjectMeta).toHaveBeenCalled();
     expect(read.customer).toBe("Acme");
 
     await expect(
-      runTool(d, "update_project", { expectedToken: read.expectedToken, customer: "Globex" }),
+      runTool(d, "update_project", { expectedToken: read.expectedToken, customer: "Globex" }, aiOrigin("chat")),
     ).resolves.toMatchObject({ project: { customer: "Globex" }, refused: [], ignored: [] });
     expect(updateProjectMeta).toHaveBeenCalledTimes(1);
   });
@@ -2379,7 +2380,7 @@ describe("search_history", () => {
 
   it("returns rendered events newest-first from the dispatcher's log", async () => {
     const d = makeDispatcher({ getActivityLog: () => LOG });
-    const r = (await runTool(d, "search_history", {})) as {
+    const r = (await runTool(d, "search_history", {}, aiOrigin("chat"))) as {
       events: { summary: string }[];
       truncated: boolean;
     };
@@ -2392,7 +2393,7 @@ describe("search_history", () => {
 
   it("passes the model's filters through", async () => {
     const d = makeDispatcher({ getActivityLog: () => LOG });
-    const r = (await runTool(d, "search_history", { query: "beta" })) as {
+    const r = (await runTool(d, "search_history", { query: "beta" }, aiOrigin("chat"))) as {
       events: { summary: string }[];
     };
     expect(r.events).toHaveLength(1);
@@ -2402,7 +2403,7 @@ describe("search_history", () => {
   it("ignores malformed arguments rather than throwing", async () => {
     const d = makeDispatcher({ getActivityLog: () => [] });
     await expect(
-      runTool(d, "search_history", { query: 42, kinds: "nope", limit: "ten" }),
+      runTool(d, "search_history", { query: 42, kinds: "nope", limit: "ten" }, aiOrigin("chat")),
     ).resolves.toEqual({ events: [], truncated: false });
   });
 
@@ -2416,7 +2417,7 @@ describe("search_history", () => {
       getActivityLog: () => LOG,
       isHistorySearchEnabled: () => false,
     });
-    await expect(runTool(d, "search_history", {})).rejects.toThrow(/switched off/i);
+    await expect(runTool(d, "search_history", {}, aiOrigin("chat"))).rejects.toThrow(/switched off/i);
   });
 
   // ★★ THE LOAD-BEARING HALF. "It threw" is satisfied by a guard that throws
@@ -2427,7 +2428,7 @@ describe("search_history", () => {
   it("refuses WITHOUT reading the log", async () => {
     const getActivityLog = vi.fn(() => LOG);
     const d = makeDispatcher({ getActivityLog, isHistorySearchEnabled: () => false });
-    await expect(runTool(d, "search_history", {})).rejects.toThrow();
+    await expect(runTool(d, "search_history", {}, aiOrigin("chat"))).rejects.toThrow();
     expect(getActivityLog).not.toHaveBeenCalled();
   });
 
@@ -2436,7 +2437,7 @@ describe("search_history", () => {
   //   with `toolsFor` is the thing that must not drift.
   it("serves normally when the switch is enabled", async () => {
     const d = makeDispatcher({ getActivityLog: () => LOG, isHistorySearchEnabled: () => true });
-    const r = (await runTool(d, "search_history", {})) as { events: unknown[] };
+    const r = (await runTool(d, "search_history", {}, aiOrigin("chat"))) as { events: unknown[] };
     expect(r.events).toHaveLength(2);
   });
 
@@ -2449,7 +2450,7 @@ describe("search_history", () => {
   //    treated as a filter that matches nothing".
   it("treats garbage kinds/limit as absent, not as a filter matching nothing", async () => {
     const d = makeDispatcher({ getActivityLog: () => LOG });
-    const r = (await runTool(d, "search_history", { kinds: "nope", limit: "ten" })) as {
+    const r = (await runTool(d, "search_history", { kinds: "nope", limit: "ten" }, aiOrigin("chat"))) as {
       events: { summary: string }[];
       truncated: boolean;
     };
@@ -2461,7 +2462,7 @@ describe("search_history", () => {
   // complete answer, so it must cross the tool layer unaltered.
   it("passes the engine's truncated flag through", async () => {
     const d = makeDispatcher({ getActivityLog: () => LOG });
-    const r = (await runTool(d, "search_history", { limit: 1 })) as {
+    const r = (await runTool(d, "search_history", { limit: 1 }, aiOrigin("chat"))) as {
       events: { summary: string }[];
       truncated: boolean;
     };
@@ -2484,7 +2485,7 @@ describe("search_history", () => {
       getTimezone: () => "Europe/Berlin",
     });
     const on = async (day: string) =>
-      (await runTool(d, "search_history", { since: day, until: day })) as {
+      (await runTool(d, "search_history", { since: day, until: day }, aiOrigin("chat"))) as {
         events: { at: string }[];
       };
     expect((await on("2026-08-17")).events.map((e) => e.at)).toEqual([
@@ -2497,7 +2498,7 @@ describe("search_history", () => {
   // above is indistinguishable from "kinds is ignored entirely".
   it("honours a well-formed kinds filter", async () => {
     const d = makeDispatcher({ getActivityLog: () => LOG });
-    const r = (await runTool(d, "search_history", { kinds: ["milestone.deleted"] })) as {
+    const r = (await runTool(d, "search_history", { kinds: ["milestone.deleted"] }, aiOrigin("chat"))) as {
       events: unknown[];
     };
     expect(r.events).toHaveLength(0);
@@ -2527,7 +2528,7 @@ describe("runTool — search_chats", () => {
       getChatThreads: () => LIVE,
       getTimezone: () => "Europe/Berlin",
     });
-    const r = (await runTool(d, "search_chats", {})) as {
+    const r = (await runTool(d, "search_chats", {}, aiOrigin("chat"))) as {
       hits: { updatedAt: string }[];
       coverage: string;
     };
@@ -2554,7 +2555,7 @@ describe("runTool — search_chats", () => {
       isChatSearchEnabled: () => false,
       isHistorySearchEnabled: () => true,
     });
-    await expect(runTool(d, "search_chats", {})).rejects.toThrow(/switched off/i);
+    await expect(runTool(d, "search_chats", {}, aiOrigin("chat"))).rejects.toThrow(/switched off/i);
   });
 });
 
@@ -2632,7 +2633,7 @@ describe("the read path hands out a token the write path accepts", () => {
     async ({ readTool, updateTool, method, id, token, patch, pick }) => {
       const d = makeDispatcher();
 
-      const row = pick(await runTool(d, readTool, { id }));
+      const row = pick(await runTool(d, readTool, { id }, aiOrigin("chat")));
       expect(row.id, `${readTool} must return the row under test`).toBe(id);
       // Equality, not presence: a token that is present but wrong is refused at
       // runtime, which is the very failure this block exists to catch.
@@ -2642,7 +2643,7 @@ describe("the read path hands out a token the write path accepts", () => {
         id,
         expectedToken: row.expectedToken,
         ...patch,
-      });
+      }, aiOrigin("chat"));
 
       expect(updated).toBeDefined();
       expect(d[method] as ReturnType<typeof vi.fn>).toHaveBeenCalledTimes(1);
@@ -2660,7 +2661,7 @@ describe("the read path hands out a token the write path accepts", () => {
     const task = makeTask({ description: RICH_DESCRIPTION });
     const d = makeDispatcher({ listTasks: vi.fn(() => [task]), getTask: vi.fn(() => task) });
 
-    const { items } = (await runTool(d, "list_tasks", {})) as {
+    const { items } = (await runTool(d, "list_tasks", {}, aiOrigin("chat"))) as {
       items: { description: string; expectedToken: string }[];
     };
     // The item the model reads has had its markup stripped …
@@ -2675,7 +2676,7 @@ describe("the read path hands out a token the write path accepts", () => {
       id: 1,
       expectedToken: items[0].expectedToken,
       taskName: "Renamed by the AI",
-    });
+    }, aiOrigin("chat"));
     expect(d.updateTask).toHaveBeenCalledTimes(1);
   });
 
@@ -2698,7 +2699,7 @@ describe("the read path hands out a token the write path accepts", () => {
 
   it("masking an absence's type and note leaves its concurrency token the full row's", async () => {
     const d = makeDispatcher();
-    const listed = ((await runTool(d, "list_absences", {})) as Record<string, unknown>[])[0];
+    const listed = ((await runTool(d, "list_absences", {}, aiOrigin("chat"))) as Record<string, unknown>[])[0];
     expect(listed.type).toBe("absent");
     expect(listed).not.toHaveProperty("note");
     expect(listed.expectedToken).toBe(entityToken("absence", makeAbsence()));
@@ -2721,7 +2722,7 @@ describe("the read path hands out a token the write path accepts", () => {
   // is what proves the guard is live on the same path.
   it("still refuses the same write when the token is withheld", async () => {
     const d = makeDispatcher();
-    await expect(runTool(d, "update_raid_item", { id: 10, title: "No token" })).rejects.toThrow(
+    await expect(runTool(d, "update_raid_item", { id: 10, title: "No token" }, aiOrigin("chat"))).rejects.toThrow(
       /expectedToken is required/i,
     );
     expect(d.updateRaid).not.toHaveBeenCalled();
@@ -2743,7 +2744,7 @@ describe("the read path hands out a token the write path accepts", () => {
       getRaidRow: vi.fn(() => ({ ...row })),
     });
 
-    const [read] = (await runTool(d, "list_raid", {})) as { expectedToken: string }[];
+    const [read] = (await runTool(d, "list_raid", {}, aiOrigin("chat"))) as { expectedToken: string }[];
     // A human edits the same RAID item between the model's read and its write.
     row.title = "Renamed by a human";
 
@@ -2752,18 +2753,18 @@ describe("the read path hands out a token the write path accepts", () => {
         id: 10,
         expectedToken: read.expectedToken,
         title: "Renamed by the AI",
-      }),
+      }, aiOrigin("chat")),
     ).rejects.toThrow(/changed since you read it/i);
     expect(d.updateRaid).not.toHaveBeenCalled();
 
     // Control: re-reading yields a token the guard accepts, so the case above
     // failed on staleness and not because a list token is never usable.
-    const [reread] = (await runTool(d, "list_raid", {})) as { expectedToken: string }[];
+    const [reread] = (await runTool(d, "list_raid", {}, aiOrigin("chat"))) as { expectedToken: string }[];
     await runTool(d, "update_raid_item", {
       id: 10,
       expectedToken: reread.expectedToken,
       title: "Renamed by the AI",
-    });
+    }, aiOrigin("chat"));
     expect(d.updateRaid).toHaveBeenCalledTimes(1);
   });
 });

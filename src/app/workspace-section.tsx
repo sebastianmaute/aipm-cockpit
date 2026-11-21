@@ -10,6 +10,7 @@ import type { ScenarioRunInput } from "./forecast-scenario-compare";
 import { DEFAULT_HISTORY_WINDOW } from "./forecast/constants";
 import { useToastContext } from "./toast-context";
 import { saveProjectFromForm } from "./project-meta-edit";
+import type { OpenThreadRequest } from "./use-chat-open-thread-request";
 import { computeProjectForecastFacts } from "./budget-forecast";
 import {
   useMemo,
@@ -160,7 +161,7 @@ export function WorkspaceSection({
   onOpenChangeNotes,
   activityLog,
   logActivity,
-  logActivityChanges, logActivityAs,
+  logActivityChanges, logActivityAs, logActivityAi,
   handleClearActivityLog,
   handleOpenAddAbsence,
   handleEditAbsence,
@@ -399,6 +400,22 @@ export function WorkspaceSection({
   // `chatTursoConfig !== null` — mirrors task-manager.tsx's `trendsActive`,
   // which reads storageConfig.kind unguarded; storageConfig is non-optional.
   const chatTursoMode = (settings.storageConfig.kind === "turso" || mode === "turso") && chatTursoConfig !== null;
+  // §799 — ONE project id for the chat and for the Activity view that links into it: the chat publishes its
+  // threads under this id and the Activity view reads them under it.
+  const chatProjectId = currentProjectId ?? "default";
+  // §799 — an Activity origin link opens the Chat view on a thread. `panel-chat` is always mounted, so the
+  // request reaches a live ChatPanel, which consumes it (back to null). The nonce makes a second click a new request.
+  const [openThreadRequest, setOpenThreadRequest] = useState<OpenThreadRequest | null>(null);
+  const [openThreadNonce, setOpenThreadNonce] = useState(0);
+  // Stable identity: ActivityLogPanel is memo'd.
+  const { onOpenChatThread } = useStableHandlers({
+    onOpenChatThread: isPopout ? undefined : (threadId: string) => {
+      setOpenThreadNonce(openThreadNonce + 1);
+      setOpenThreadRequest({ threadId, nonce: openThreadNonce + 1 });
+      setActiveTab("chat");
+    },
+  });
+  const clearOpenThreadRequest = useStableHandlers({ clear: () => setOpenThreadRequest(null) }).clear;
   // §1 — ResourcesPanel is memo()'d, but task-manager hands it fresh handler identities every
   // render (each `guardEdit(handler)` mints one), so the memo never bailed. Stable wrappers that
   // forward to the LATEST handler let it bail without the stale closures a useCallback sweep
@@ -431,7 +448,7 @@ export function WorkspaceSection({
     onPullCalendar: absenceCalendar?.onPull,
     onLearnMore: requestHelpConcept,
     onCaptureUndo,
-    logActivityAs,
+    logActivityAi,
   });
   // Panel wrappers. The pt-4 offset clears the tab strip in classic/popout mode;
   // in fullBleed the strip is hidden, so we drop it to align the per-view card
@@ -522,7 +539,9 @@ export function WorkspaceSection({
             // ★ Held until the settings hydrate: a seed applied to the DEFAULT config (no key, switch off) only prefills.
             chatSeed={hydrated ? pendingChatSeed : null}
             onChatSeedConsumed={clearChatSeed}
-            projectId={currentProjectId ?? "default"}
+            openThreadRequest={openThreadRequest}
+            onOpenThreadRequestConsumed={clearOpenThreadRequest}
+            projectId={chatProjectId}
             // §207: image bytes for the chat card's document download, under the SAME
             // key the Documents pane writes them with — not the thread's project id.
             // ★ "" in Safe Mode: the key's inputs degrade there, so the card gets no
@@ -762,6 +781,8 @@ export function WorkspaceSection({
               lang={lang}
               entries={activityLog}
               onClear={handleClearActivityLog}
+              chatProjectId={chatProjectId}
+              onOpenChatThread={onOpenChatThread}
             />
           </div>
         )}
@@ -877,7 +898,7 @@ export function WorkspaceSection({
               onSetupGo={isPopout ? undefined : setActiveTab}
               features={projectFeatures}
               onCommitFeatures={isPopout ? undefined : workspace.setFeatures}
-              logActivityAs={logActivityAs}
+              logActivityAi={logActivityAi}
               showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}

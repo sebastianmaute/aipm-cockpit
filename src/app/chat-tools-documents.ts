@@ -16,6 +16,7 @@
 // what a mutation replaced, not what a caller meant. So a guard that lets a
 // wrong write through leaves no Undo; only a restore from that log recovers it.
 import type { DocOp } from "./document-mutations";
+import type { AiOrigin } from "./activity-origin";
 import type { ProjectDocument } from "./document-model";
 import { blockToken } from "./document-block-token";
 import { omitAiMark } from "./ai-content-mark";
@@ -61,9 +62,9 @@ export type DocumentToolDispatcher = {
    *  model-input allow-list (ai-document-blocks.ts) is the dispatcher's job, so
    *  block shape is checked in exactly one place rather than two that can
    *  drift. This module owns only the guards the dispatcher cannot express. */
-  createDocument(title: string, blocks: unknown): { id: number; title: string; blockCount: number };
-  updateDocument(id: number, ops: readonly DocOp[], title: string | undefined): DocumentUpdateResult | null;
-  deleteDocument(id: number): { deleted: boolean; restorableVersionId: number | null };
+  createDocument(title: string, blocks: unknown, origin: AiOrigin): { id: number; title: string; blockCount: number };
+  updateDocument(id: number, ops: readonly DocOp[], title: string | undefined, origin: AiOrigin): DocumentUpdateResult | null;
+  deleteDocument(id: number, origin: AiOrigin): { deleted: boolean; restorableVersionId: number | null };
 };
 
 // ★ A LOCAL literal, deliberately NOT derived from DOCUMENT_TOOL_DEFS: a
@@ -215,6 +216,8 @@ export async function runDocumentTool(
   d: DocumentToolDispatcher,
   name: string,
   rawInput: unknown,
+  /** §799 — the calling AI feature, from `runTool`; handed to each writer, never stored. */
+  origin: AiOrigin,
 ): Promise<unknown> {
   const input = (rawInput && typeof rawInput === "object" ? rawInput : {}) as Record<string, unknown>;
 
@@ -241,7 +244,7 @@ export async function runDocumentTool(
     case "create_document": {
       const title = typeof input.title === "string" ? input.title.trim() : "";
       if (!title) throw new Error("title is required");
-      return d.createDocument(title, input.blocks);
+      return d.createDocument(title, input.blocks, origin);
     }
 
     case "update_document": {
@@ -260,7 +263,7 @@ export async function runDocumentTool(
       if (ops.length === 0 && title === undefined) {
         throw new Error("supply ops, a title, or both");
       }
-      const result = d.updateDocument(id, ops, title);
+      const result = d.updateDocument(id, ops, title, origin);
       if (!result) throw new Error(`document #${id} not found`);
       // ★★★ A WHOLLY-REFUSED WRITE MUST THROW. The dispatcher has already
       // declined to write (applyDocMutation refuses to mutate when every op
@@ -280,7 +283,7 @@ export async function runDocumentTool(
 
     case "delete_document": {
       const id = requireDocId(input);
-      const out = d.deleteDocument(id);
+      const out = d.deleteDocument(id, origin);
       if (!out.deleted) throw new Error(`document #${id} not found`);
       return out;
     }

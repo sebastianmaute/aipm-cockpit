@@ -39,7 +39,8 @@ import {
   type RaidItem, type Resource, type Role, type Stakeholder, type Task,
 } from "./types";
 import { type ProjectDocument } from "./document-model";
-import { type LogActivityAsFn } from "./activity-log-context";
+import { type LogActivityAiFn } from "./activity-log-context";
+import { aiOrigin } from "./activity-origin";
 import { useToastContext } from "./toast-context";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiFailureMessageKey } from "./ai-key-status";
@@ -86,9 +87,9 @@ export interface RaciSuggestDeps {
    *  gets one correctly-ordered undo entry for free instead of re-deriving
    *  the low-level `capture()` before/after-image contract itself. */
   onCaptureBulk?: (edits: readonly { id: number; before: Partial<Stakeholder>; after: Partial<Stakeholder> }[]) => void;
-  /** ★ ACTOR-AWARE. This hook writes exactly one kind, and it is an `ai.*`
-   *  one, so it KNOWS its actor — see the rule on `useActivityLog`. */
-  logActivityAs?: LogActivityAsFn;
+  /** ★ AI LOGGER (§799). This hook writes exactly one kind, an `ai.*` one, so it names its
+   *  own feature (`raciSuggest`) — see the rule on `useActivityLog`. */
+  logActivityAi?: LogActivityAiFn;
 }
 
 export interface RaciSuggest {
@@ -161,7 +162,7 @@ export function dropStaleAccountables(
 export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
   const {
     settings, isPopout, lang, stakeholders, milestones, tasks, raid, changes, resources, roles, disciplines, grades,
-    documents, onSave, onCaptureBulk, logActivityAs,
+    documents, onSave, onCaptureBulk, logActivityAi,
   } = deps;
   const showToast = useToastContext();
 
@@ -376,9 +377,9 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     // Report the number of CELL assignments applied (chosen.length), not the
     // number of stakeholders touched (updated.length) — the activity string
     // reads "N RACI assignments".
-    logActivityAs?.("ai", "ai.raciSuggest", chosen.length);
+    logActivityAi?.(aiOrigin("raciSuggest"), "ai.raciSuggest", chosen.length);
     reset();
-  }, [peopleProtected, phase, cells, selected, stakeholders, onSave, onCaptureBulk, logActivityAs, reset]);
+  }, [peopleProtected, phase, cells, selected, stakeholders, onSave, onCaptureBulk, logActivityAi, reset]);
 
   const busy = phase === "thinking" || phase === "applying";
 

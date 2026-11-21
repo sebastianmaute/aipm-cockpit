@@ -23,7 +23,7 @@
 // are written after `written === true` AND after the epoch check, never on a refusal, a failure or a switch. The
 // undo fragment reverts through the same writer (project-meta-edit.ts).
 import { useEffect, useMemo, useRef, type RefObject } from "react";
-import type { LogActivityAsFn } from "./activity-log-context";
+import type { LogActivityAiFn } from "./activity-log-context";
 import type { ProjectToolDispatcher } from "./chat-tools-project";
 import { t } from "./i18n";
 import { changedProjectFields, logProjectUpdate, projectUndoFragment, type ProjectWriter } from "./project-meta-edit";
@@ -41,8 +41,8 @@ export const PROJECT_SCOPE_MOVED_MESSAGE =
 export interface ProjectToolsDeps {
   /** True in a popout/mirror window — the write refuses. */
   isReadOnly: boolean;
-  /** The `project.updated` row, actor "ai", after a stored write. */
-  logActivityAs?: LogActivityAsFn;
+  /** The `project.updated` row, actor "ai" with the call's origin (§799), after a stored write. */
+  logActivityAi?: LogActivityAiFn;
   /** Shows an undo or redo whose writer threw; a writer that resolves false has shown its own error. */
   showToast: (kind: "info" | "error", text: string) => void;
   /** Owned by use-chat-dispatcher: `language` for the read-only refusal. */
@@ -58,7 +58,7 @@ export interface ProjectToolsDeps {
 }
 
 export function useProjectTools(deps: ProjectToolsDeps): ProjectToolDispatcher {
-  const { isReadOnly, settingsRef, undoRef, projectWriterRef, getScopeEpoch, getUndoEpoch, logActivityAs, showToast } = deps;
+  const { isReadOnly, settingsRef, undoRef, projectWriterRef, getScopeEpoch, getUndoEpoch, logActivityAi, showToast } = deps;
   const { project } = useWorkspace();
 
   const projectRef = useRef(project);
@@ -74,16 +74,16 @@ export function useProjectTools(deps: ProjectToolsDeps): ProjectToolDispatcher {
   useEffect(() => {
     getUndoEpochRef.current = getUndoEpoch;
   }, [getUndoEpoch]);
-  const sinksRef = useRef({ logActivityAs, showToast });
+  const sinksRef = useRef({ logActivityAi, showToast });
   useEffect(() => {
-    sinksRef.current = { logActivityAs, showToast };
-  }, [logActivityAs, showToast]);
+    sinksRef.current = { logActivityAi, showToast };
+  }, [logActivityAi, showToast]);
 
   return useMemo<ProjectToolDispatcher>(
     () => ({
       getProjectMeta: () => projectRef.current ?? null,
 
-      updateProjectMeta: async (next) => {
+      updateProjectMeta: async (next, origin) => {
         if (isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
         const write = projectWriterRef.current;
         if (write === null) throw new Error(PROJECT_SAVE_FAILED_MESSAGE);
@@ -97,7 +97,8 @@ export function useProjectTools(deps: ProjectToolsDeps): ProjectToolDispatcher {
         projectRef.current = next;
         const fields = before ? changedProjectFields(before, next) : [];
         if (before && fields.length > 0) {
-          logProjectUpdate(sinksRef.current.logActivityAs, "ai", fields);
+          // ★ `origin` is this call's own argument, captured before the await above — never a "current" one.
+          logProjectUpdate({ logActivityAi: sinksRef.current.logActivityAi }, origin, fields);
           const onThrow = (err: unknown) => sinksRef.current.showToast(
             "error", t(settingsRef.current.language, "projectUpdateFailed", err instanceof Error ? err.message : String(err)),
           );

@@ -31,6 +31,7 @@ import { useWorkspace } from "../workspace-context";
 import { type Workspace } from "../workspace";
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
 import { describeEntityCalls, stripRejectedFields } from "./plan";
+import { aiOrigin } from "../activity-origin";
 
 const D = INLINE_DESCRIPTORS.resource;
 
@@ -85,7 +86,7 @@ function write(m: Mounted, fields: Record<string, unknown>): unknown {
   let threw: unknown;
   act(() => {
     try {
-      m.result.current.d.updateResource(1, fields as never);
+      m.result.current.d.updateResource(1, fields as never, aiOrigin("chat"));
     } catch (e) {
       threw = e;
     }

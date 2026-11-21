@@ -101,6 +101,7 @@ import { useWorkspace } from "../workspace-context";
 import { type Workspace } from "../workspace";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
 import { describeEntityCalls, type EditPlan } from "./plan";
+import { aiOrigin } from "../activity-origin";
 
 interface WriteCase {
   name: string;
@@ -504,7 +505,7 @@ async function previewAndWrite(c: WriteCase): Promise<{ plan: EditPlan; before: 
     await runTool(result.current.d, c.tool, {
       ...c.input,
       expectedToken: entityToken(c.kind, before),
-    });
+    }, aiOrigin("chat"));
   });
 
   const stored = rowOf(snapshot(result.current.ws), c);
@@ -614,7 +615,7 @@ describe("write-path differential — a preview refusal is a WRITE refusal", () 
         runTool(result.current.d, "update_task", {
           ...input,
           expectedToken: entityToken("task", before),
-        }),
+        }, aiOrigin("chat")),
       ).rejects.toThrow(/taskName is required/);
     });
 
