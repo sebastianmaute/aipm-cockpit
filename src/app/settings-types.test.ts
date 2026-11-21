@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
-import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, hasAnyBrandingField, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled, isAiEnabled, isAiBackgroundEnabled, aiKeyIfEnabled, isAiConsentedForDictation, coerceHardCap } from "./settings-types";
+import { sanitizeAiConfig, defaultAiConfig, DEFAULT_CHAT_MODEL, MODEL_DEFAULT_REVISION, type Settings, sanitizeBranding, hasAnyBrandingField, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled, isAiEnabled, isAiBackgroundEnabled, aiKeyIfEnabled, isAiConsentedForDictation, coerceHardCap } from "./settings-types";
 import { newConsent, isInteractiveAiAllowed } from "./ai-consent";
+import { SETTINGS_KEY, writeSettings } from "./use-settings";
 import { setAiDeploymentState } from "./ai-deployment";
 import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { setSessionAiKey, clearSessionAiKey } from "./session-ai-key";
@@ -91,6 +92,71 @@ describe("hasAnyBrandingField (§69 — the one presence check)", () => {
   });
   it("agrees with sanitizeBranding: a lone start logo survives sanitising", () => {
     expect(sanitizeBranding({ startLogo: png })).toEqual({ startLogo: png });
+  });
+});
+
+describe("the default model", () => {
+  it("is Claude Sonnet 5.5 for a fresh settings object, and DEFAULT_CHAT_MODEL names it", () => {
+    expect(defaultAiConfig.model).toBe("claude-sonnet-5-5");
+    expect(DEFAULT_CHAT_MODEL).toBe("claude-sonnet-5-5");
+    expect(sanitizeAiConfig({}).model).toBe("claude-sonnet-5-5");
+  });
+
+  it("keeps a model a stored setting already names", () => {
+    expect(sanitizeAiConfig({ model: "claude-opus-5" }).model).toBe("claude-opus-5");
+  });
+});
+
+describe("the one-time move from Claude Sonnet 5 to the new default", () => {
+  it("moves a stored claude-sonnet-5 with no revision, and stamps the revision", () => {
+    const ai = sanitizeAiConfig({ model: "claude-sonnet-5" });
+    expect(ai.model).toBe("claude-sonnet-5-5");
+    expect(ai.modelDefaultRevision).toBe(MODEL_DEFAULT_REVISION);
+    expect(MODEL_DEFAULT_REVISION).toBe(1);
+  });
+
+  it("keeps claude-sonnet-5 once the revision is stamped", () => {
+    const ai = sanitizeAiConfig({ model: "claude-sonnet-5", modelDefaultRevision: 1 });
+    expect(ai.model).toBe("claude-sonnet-5");
+    expect(ai.modelDefaultRevision).toBe(1);
+  });
+
+  it.each(["claude-opus-5", "claude-haiku-4-5-20251001", "claude-sonnet-5-5", "claude-live-model-9"])(
+    "never changes %s, and stamps the revision",
+    (model) => {
+      const ai = sanitizeAiConfig({ model });
+      expect(ai.model).toBe(model);
+      expect(ai.modelDefaultRevision).toBe(1);
+    },
+  );
+
+  it("keeps a higher stored revision as it is, and the model with it", () => {
+    const ai = sanitizeAiConfig({ model: "claude-sonnet-5", modelDefaultRevision: 2 });
+    expect(ai.model).toBe("claude-sonnet-5");
+    expect(ai.modelDefaultRevision).toBe(2);
+  });
+
+  it.each([["1"], [Number.NaN], [-1], [null], [{}]])("treats a revision of %j as 0 and migrates", (revision) => {
+    const ai = sanitizeAiConfig({ model: "claude-sonnet-5", modelDefaultRevision: revision });
+    expect(ai.model).toBe("claude-sonnet-5-5");
+    expect(ai.modelDefaultRevision).toBe(1);
+  });
+
+  it("round trip: migrates once through writeSettings and a reload, then keeps a Sonnet 5 the user picks", () => {
+    window.localStorage.clear();
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: { model: "claude-sonnet-5" } }));
+    const load = () => sanitizeAiConfig((JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "{}") as { ai?: unknown }).ai);
+    const first = load();
+    expect(first.model).toBe("claude-sonnet-5-5");
+    expect(writeSettings({ ai: first } as Settings)).toBe(true);
+    const second = load();
+    expect(second.model).toBe("claude-sonnet-5-5");
+    expect(second.modelDefaultRevision).toBe(1);
+    expect(writeSettings({ ai: { ...second, model: "claude-sonnet-5" } } as Settings)).toBe(true);
+    const third = load();
+    expect(third.model).toBe("claude-sonnet-5");
+    expect(third.modelDefaultRevision).toBe(1);
+    window.localStorage.clear();
   });
 });
 

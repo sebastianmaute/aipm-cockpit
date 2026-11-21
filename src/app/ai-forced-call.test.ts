@@ -3,7 +3,7 @@ import { stubAiFetch } from "../test/fetch-real-response";
 import "../test/ai-consent-live";
 import { AiBackgroundPausedError, AiConsentRevokedError, newConsent, publishAiConsentState, publishBackgroundProjectOff } from "./ai-consent";
 import { defaultAiConfig } from "./settings-types";
-import { __resetToolChoiceFallbackForTests, runForcedToolCall, runForcedToolCallWithRetry, runForcedToolCallWithStop } from "./ai-forced-call";
+import { KNOWN_AUTO_CHOICE_MODELS, __resetToolChoiceFallbackForTests, runForcedToolCall, runForcedToolCallWithRetry, runForcedToolCallWithStop } from "./ai-forced-call";
 import { AiHttpError } from "./ai-errors";
 import { __setAiStatusRequestForTests } from "./ai-status-request";
 import { aiStatusResponse } from "../test/ai-status-fetch";
@@ -90,6 +90,46 @@ describe("runForcedToolCall — §650 reports the key verdict at the envelope", 
   });
 });
 
+describe("runForcedToolCall — models known to refuse a forced tool_choice", () => {
+  const TOOL_REPLY = {
+    ok: true,
+    status: 200,
+    json: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "t", input: { a: 1 } }] }),
+  };
+  const choices = (fetchMock: ReturnType<typeof vi.fn>) =>
+    fetchMock.mock.calls.map((c: unknown[]) => (JSON.parse((c[1] as { body: string }).body) as { tool_choice: unknown }).tool_choice);
+
+  beforeEach(() => __resetToolChoiceFallbackForTests());
+
+  it("lists exactly Sonnet 5.5, Opus 5.5 and Fable 5.1, frozen", () => {
+    expect([...KNOWN_AUTO_CHOICE_MODELS]).toEqual(["claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1"]);
+    expect(Object.isFrozen(KNOWN_AUTO_CHOICE_MODELS)).toBe(true);
+  });
+
+  it.each(["claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1"])("%s is asked with tool_choice auto on its FIRST request, in one fetch", async (model) => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(TOOL_REPLY);
+    stubAiFetch(fetchMock);
+    await expect(runForcedToolCall({ ...args(), model })).resolves.toEqual({ a: 1 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(choices(fetchMock)).toEqual([{ type: "auto" }]);
+  });
+
+  it("still does after __resetToolChoiceFallbackForTests", async () => {
+    __resetToolChoiceFallbackForTests();
+    const fetchMock = vi.fn().mockResolvedValueOnce(TOOL_REPLY);
+    stubAiFetch(fetchMock);
+    await runForcedToolCall({ ...args(), model: "claude-sonnet-5-5" });
+    expect(choices(fetchMock)).toEqual([{ type: "auto" }]);
+  });
+
+  it("a model that is not on the list is still forced first", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(TOOL_REPLY);
+    stubAiFetch(fetchMock);
+    await runForcedToolCall({ ...args(), model: "claude-sonnet-5" });
+    expect(choices(fetchMock)).toEqual([{ type: "tool", name: "t" }]);
+  });
+});
+
 describe("runForcedToolCall — a model that refuses a forced tool_choice", () => {
   const REFUSAL = {
     ok: false,
@@ -109,7 +149,7 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
   it("resends once with tool_choice auto and returns the tool input", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValueOnce(TOOL_REPLY);
     stubAiFetch(fetchMock);
-    await expect(runForcedToolCall({ ...args(), model: "claude-sonnet-5-5" })).resolves.toEqual({ a: 1 });
+    await expect(runForcedToolCall({ ...args(), model: "claude-refuses-forced-choice" })).resolves.toEqual({ a: 1 });
     expect(choices(fetchMock)).toEqual([{ type: "tool", name: "t" }, { type: "auto" }]);
   });
 
@@ -147,7 +187,7 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
     // What Sonnet 5.5 sent for the next-actions analysis with plain auto (2026-10-19): `actions` as a string
     // holding tool markup. With strict, 8 of 8 replays were valid.
     const MALFORMED = { summary: "s", actions: '<parameter name="title">a' };
-    const call = () => ({ ...args(), model: "claude-sonnet-5-5", tools: [TOOL, OTHER] });
+    const call = () => ({ ...args(), model: "claude-refuses-forced-choice", tools: [TOOL, OTHER] });
     const sentBodies = (fetchMock: ReturnType<typeof vi.fn>) =>
       fetchMock.mock.calls.map((c: unknown[]) => JSON.parse((c[1] as { body: string }).body) as { tool_choice: { type: string }; tools: { strict?: boolean }[] });
     const shape = (fetchMock: ReturnType<typeof vi.fn>) => sentBodies(fetchMock).map((b) => [b.tool_choice.type, b.tools[0]?.strict === true]);
@@ -251,7 +291,7 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
         .mockResolvedValueOnce(recReply([{ name: "create_task", input: { title: "Review T&M burn", dueDate: "2026-09-25" } }]))
         .mockResolvedValueOnce(recReply(valid));
       stubAiFetch(fetchMock);
-      const out = await runForcedToolCall({ ...args(), model: "claude-sonnet-5-5", tools: [RECOMMEND_TOOL], toolName: RECOMMEND_TOOL.name });
+      const out = await runForcedToolCall({ ...args(), model: "claude-refuses-forced-choice", tools: [RECOMMEND_TOOL], toolName: RECOMMEND_TOOL.name });
       expect(out).toEqual({ summary: "s", calls: valid });
       expect(shape(fetchMock)).toEqual([["tool", false], ["auto", false], ["auto", true]]);
       type Branch = { additionalProperties?: boolean; properties: { name: { enum: string[] }; input: { additionalProperties?: boolean; required: string[] } } };
@@ -267,8 +307,8 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
   it("sends auto straight away for that model afterwards, and still forces the tool for other models", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValue(TOOL_REPLY);
     stubAiFetch(fetchMock);
-    await runForcedToolCall({ ...args(), model: "claude-sonnet-5-5" });
-    await runForcedToolCall({ ...args(), model: "claude-sonnet-5-5" });
+    await runForcedToolCall({ ...args(), model: "claude-refuses-forced-choice" });
+    await runForcedToolCall({ ...args(), model: "claude-refuses-forced-choice" });
     await runForcedToolCall({ ...args(), model: "claude-sonnet-5" });
     expect(choices(fetchMock)).toEqual([
       { type: "tool", name: "t" },
@@ -296,7 +336,7 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
       json: async () => ({ stop_reason: "end_turn", content: [{ type: "text", text: "hello" }] }),
     });
     stubAiFetch(fetchMock);
-    await expect(runForcedToolCall({ ...args(), model: "claude-sonnet-5-5" })).rejects.toThrow("parse");
+    await expect(runForcedToolCall({ ...args(), model: "claude-refuses-forced-choice" })).rejects.toThrow("parse");
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
@@ -336,8 +376,8 @@ describe("a reply cut at max_tokens (§764)", () => {
       .mockResolvedValueOnce(reply("max_tokens", {}))
       .mockResolvedValue(reply("tool_use", { summary: "s" }));
     stubAiFetch(fetchMock);
-    await expect(runForcedToolCallWithStop(call("claude-sonnet-5-5"))).resolves.toEqual({ input: {}, stopReason: "max_tokens" });
-    await expect(runForcedToolCallWithStop(call("claude-sonnet-5-5"))).resolves.toEqual({ input: { summary: "s" }, stopReason: "tool_use" });
+    await expect(runForcedToolCallWithStop(call("claude-refuses-forced-choice"))).resolves.toEqual({ input: {}, stopReason: "max_tokens" });
+    await expect(runForcedToolCallWithStop(call("claude-refuses-forced-choice"))).resolves.toEqual({ input: { summary: "s" }, stopReason: "tool_use" });
     expect(sent(fetchMock)).toEqual([["tool", false, 10], ["auto", false, 10], ["auto", false, 10]]);
   });
 
@@ -398,7 +438,7 @@ describe("a reply cut at max_tokens (§764)", () => {
       .mockResolvedValueOnce(CAP)
       .mockResolvedValue(reply("tool_use", { summary: "s" }));
     stubAiFetch(fetchMock);
-    const model = "claude-sonnet-5-5";
+    const model = "claude-refuses-forced-choice";
     await runForcedToolCallWithStop(call(model));
     await expect(runForcedToolCallWithRetry(call(model), 20)).resolves.toEqual({ input: { summary: "par" }, stopReason: "max_tokens" });
     await runForcedToolCallWithStop(call(model));
@@ -424,7 +464,7 @@ describe("a reply cut at max_tokens (§764)", () => {
       .mockResolvedValueOnce(reply("max_tokens", {}))
       .mockResolvedValueOnce(reply("tool_use", { summary: "s" }));
     stubAiFetch(fetchMock);
-    await expect(runForcedToolCallWithRetry(call("claude-sonnet-5-5"), 20)).resolves.toEqual({ input: { summary: "s" }, stopReason: "tool_use" });
+    await expect(runForcedToolCallWithRetry(call("claude-refuses-forced-choice"), 20)).resolves.toEqual({ input: { summary: "s" }, stopReason: "tool_use" });
     expect(sent(fetchMock)).toEqual([["tool", false, 10], ["auto", false, 10], ["auto", false, 20]]);
   });
 });

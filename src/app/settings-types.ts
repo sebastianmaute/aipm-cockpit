@@ -26,6 +26,7 @@ import { type TimelogConfig, defaultTimelogConfig } from "./timelog-types";
  *  the Settings → AI dropdown all derive from this array, so they can't drift
  *  apart. `id` is the Anthropic model id sent to the API; `label` is the UI text. */
 export const CHAT_MODELS = [
+  { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5" },
   { id: "claude-sonnet-5", label: "Claude Sonnet 5" },
   { id: "claude-opus-5", label: "Claude Opus 5" },
   { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
@@ -43,6 +44,10 @@ export type AiConfig = {
   enabled?: boolean; // Master switch for all AI features. Default OFF (undefined = off) — must be ticked to use the assistant.
   apiKey: string;
   model: ChatModel;
+  /** The default-model change this device's `model` has been brought up to (`MODEL_DEFAULT_REVISION`). Below it, a
+   *  stored `claude-sonnet-5` moves to the new default once, on load (`sanitizeAiConfig`); a model picked afterwards
+   *  is kept. Absent = 0. A HIGHER stored number (a newer release wrote it) is kept as it is. */
+  modelDefaultRevision?: number;
   /** The AI disclosure the user accepted on this device (versioned); absent or stale = AI off. */
   consent?: AiConsent;
   /** A second, separate consent for unattended (scheduled / background) AI runs. */
@@ -126,9 +131,17 @@ export function clampInsightRecInterval(v: unknown): number {
     : DEFAULT_INSIGHT_REC_INTERVAL_MIN;
 }
 
+/** The model a fresh settings object, and every fallback for a missing `settings.ai.model`, uses. */
+export const DEFAULT_CHAT_MODEL = CHAT_MODELS[0].id;
+
+/** 1 = the change that made Claude Sonnet 5.5 the default (installations on `claude-sonnet-5` moved to it once). */
+export const MODEL_DEFAULT_REVISION = 1;
+const PREVIOUS_DEFAULT_MODEL = "claude-sonnet-5";
+
 export const defaultAiConfig: AiConfig = {
   apiKey: "",
-  model: CHAT_MODELS[0].id,
+  model: DEFAULT_CHAT_MODEL,
+  modelDefaultRevision: MODEL_DEFAULT_REVISION,
   sessionTokenCap: DEFAULT_SESSION_TOKEN_CAP,
   weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP,
   groundInGuides: true,
@@ -153,13 +166,20 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
   // Pattern (not allowlist): sanitize runs at load, BEFORE the async live-model
   // fetch, so a previously-selected live model must survive the round-trip.
   const rawModel = typeof obj.model === "string" ? obj.model.trim() : "";
-  const model: ChatModel =
+  const storedModel: ChatModel =
     rawModel.length <= 64 && /^claude-[\w.-]+$/.test(rawModel)
       ? rawModel
       : defaultAiConfig.model;
+  // One-time move to the new default: a stored revision below MODEL_DEFAULT_REVISION (absent, a string, NaN or
+  // negative count as 0) AND exactly the previous default model. Any other model is never changed, and the
+  // revision is always stamped, so a Sonnet 5 chosen afterwards survives the next load.
+  const storedRevision = typeof obj.modelDefaultRevision === "number" && Number.isFinite(obj.modelDefaultRevision) ? obj.modelDefaultRevision : 0;
+  const model: ChatModel =
+    storedRevision < MODEL_DEFAULT_REVISION && storedModel === PREVIOUS_DEFAULT_MODEL ? DEFAULT_CHAT_MODEL : storedModel;
   return {
     apiKey: typeof obj.apiKey === "string" ? obj.apiKey : "",
     model,
+    modelDefaultRevision: Math.max(storedRevision, MODEL_DEFAULT_REVISION),
     // The legacy boolean consent flag is deliberately dropped (not migrated): it covered a narrower text.
     consent: sanitizeConsent(obj.consent),
     backgroundConsent: sanitizeConsent(obj.backgroundConsent),
