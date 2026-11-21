@@ -274,6 +274,12 @@ describe("AiSection", () => {
     expect(onChange.mock.calls.at(-1)?.[0].ai.viewGuidesInTurn).toBeUndefined();
   });
 
+  it("disables the view-guides-in-turn toggle while operating guides are off (no view guide is sent then)", () => {
+    const off = { ...defaultSettings, ai: { ...defaultSettings.ai, groundInGuides: false } };
+    render(<AiSection lang="en-US" settings={off} onChange={vi.fn()} />);
+    expect(screen.getByLabelText(t("en-US", "aiViewGuidesInTurn"))).toBeDisabled();
+  });
+
   it("hides the view-guides-in-turn toggle while the AI master switch is off", () => {
     render(<AiSection lang="en-US" settings={baseSettings} onChange={vi.fn()} />);
     expect(screen.queryByLabelText(t("en-US", "aiViewGuidesInTurn"))).toBeNull();

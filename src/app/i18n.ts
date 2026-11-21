@@ -3195,7 +3195,7 @@ const enUS = {
   aiGroundInGuides: "Ground Claude in operating guides",
   // §702 — where the chat sends the current view's guides (`settings.ai.viewGuidesInTurn`).
   aiViewGuidesInTurn: "Send the view's guides with each message",
-  aiViewGuidesInTurnHelp: "Off: the current view's operating guides sit in the cached prompt, so switching views mid-conversation writes the whole conversation to the cache again. On: they go with each message instead, uncached, so a view switch costs nothing extra but every request carries them. Off by default; the counter under the weekly bar keeps each setting's week apart so you can compare them.",
+  aiViewGuidesInTurnHelp: "Off: the current view's operating guides sit in the cached prompt, so switching views mid-conversation writes the whole conversation to the cache again. On: they go with each message instead, uncached, so a view switch costs nothing extra but every request carries them. Off by default; needs operating guides on. The counter under the weekly bar keeps each setting's week apart, so you can compare what a view switch costs in each.",
   aiGuideAdd: "Add guide",
   aiGuideName: "Name",
   aiGuideContent: "Content (markdown)",

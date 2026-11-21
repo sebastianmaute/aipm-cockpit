@@ -3036,7 +3036,7 @@ export const de: Record<TranslationKey, string> = {
   aiGuidesDesc: "Betriebsleitfäden sind Markdown-Dokumente, die steuern, wie sich Claude als Ihr leitender Projektmanager verhält. Fügen Sie eigene hinzu, grenzen Sie sie auf einen Modus, ein Modul oder eine Ansicht ein und ordnen Sie sie nach Priorität. Wenn die Verankerung aktiv ist, liest Claude jeden aktivierten, im Geltungsbereich liegenden Leitfaden.",
   aiGroundInGuides: "Claude an Betriebsleitfäden binden",
   aiViewGuidesInTurn: "Leitfäden der Ansicht mit jeder Nachricht senden",
-  aiViewGuidesInTurnHelp: "Aus: Die Betriebsleitfäden der aktuellen Ansicht stehen im zwischengespeicherten Prompt, sodass ein Ansichtswechsel mitten im Gespräch das ganze Gespräch erneut in den Zwischenspeicher schreibt. An: Sie werden stattdessen mit jeder Nachricht gesendet, ohne Zwischenspeicher, sodass ein Ansichtswechsel nichts extra kostet, jede Anfrage sie aber mitführt. Standardmäßig aus; der Zähler unter dem Wochenbalken führt die Wochen beider Einstellungen getrennt, damit Sie sie vergleichen können.",
+  aiViewGuidesInTurnHelp: "Aus: Die Betriebsleitfäden der aktuellen Ansicht stehen im zwischengespeicherten Prompt, sodass ein Ansichtswechsel mitten im Gespräch das ganze Gespräch erneut in den Zwischenspeicher schreibt. An: Sie werden stattdessen mit jeder Nachricht gesendet, ohne Zwischenspeicher, sodass ein Ansichtswechsel nichts extra kostet, jede Anfrage sie aber mitführt. Standardmäßig aus; setzt eingeschaltete Betriebsleitfäden voraus. Der Zähler unter dem Wochenbalken führt die Wochen beider Einstellungen getrennt, damit Sie vergleichen können, was ein Ansichtswechsel jeweils kostet.",
   aiGuideAdd: "Leitfaden hinzufügen",
   aiGuideName: "Name",
   aiGuideContent: "Inhalt (Markdown)",

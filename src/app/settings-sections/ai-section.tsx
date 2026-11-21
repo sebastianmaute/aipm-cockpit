@@ -771,6 +771,8 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           <Checkbox
             aria-label={t(lang, "aiViewGuidesInTurn")}
             checked={settings.ai.viewGuidesInTurn === true}
+            // With operating guides off no view guide is sent, so where it would go means nothing.
+            disabled={!settings.ai.groundInGuides}
             onChange={() =>
               onChange({
                 ...settings,
