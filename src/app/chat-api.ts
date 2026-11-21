@@ -366,6 +366,32 @@ export function buildSystemPrompt(
   ];
 }
 
+/** §702 — the chat's prompt in one of its two view-guide layouts, built from the SAME pieces either way so the two
+ *  cannot drift.
+ *  - `viewGuidesInTurn` false (the default, `settings.ai.viewGuidesInTurn`): the shipped layout. The current view's
+ *    guides are `system` block 1, after the cached block 0, so a view switch mid-conversation changes `system` and
+ *    the whole transcript after it is written to the cache again.
+ *  - true: slice G2. `system` is block 0 alone, byte-identical on every view, and the view's guides lead the turn
+ *    context. ★★ That position is the one the cost harness measured (`scripts/ai-eval.ts`, variant "g2":
+ *    the view text, a blank line, then the turn context); `chat-api.view-guide-layout.test.ts` pins the app to it. Moving the
+ *    text anywhere else is a new layout the eval has not seen.
+ *  `viewText` is the view's guide text wherever it went (`""` when the view has none or guides are off): the
+ *  view-switch counter compares it between sends, since in the turn layout `system` never changes. */
+export function buildChatPromptLayout(
+  lang: Lang,
+  snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
+  guides: readonly OperatingGuide[],
+  groundInGuides: boolean,
+  toolFlags: ToolFlags,
+  viewGuidesInTurn: boolean,
+): { system: SystemBlock[]; turnContext: string; viewText: string } {
+  const blocks = buildStableSystemBlocks(lang, snapshot, guides, groundInGuides, toolFlags);
+  const turn = buildTurnContext(lang, snapshot, guides, groundInGuides, toolFlags);
+  const viewText = blocks.slice(1).map((b) => b.text).join("\n\n");
+  if (!viewGuidesInTurn) return { system: blocks, turnContext: turn, viewText };
+  return { system: blocks.slice(0, 1), turnContext: viewText ? `${viewText}\n\n${turn}` : turn, viewText };
+}
+
 export function systemBlocksText(blocks: SystemBlock[]): string {
   return blocks.map((b) => b.text).join("\n\n");
 }

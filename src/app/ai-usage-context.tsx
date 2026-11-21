@@ -55,6 +55,9 @@ import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "./settings-
  *  extra fields on the token buckets: every cap reader walks those buckets, and
  *  a counter there could only ever reach the cap arithmetic by mistake. */
 export const AI_VIEW_SWITCH_KEY = "aipm-cockpit:ai-view-switches";
+/** §702 — the same counter for sends in the turn layout (`settings.ai.viewGuidesInTurn`), kept apart so a week
+ *  in each layout can be compared. `AI_VIEW_SWITCH_KEY` keeps the system layout's sends, as before the toggle. */
+export const AI_VIEW_SWITCH_TURN_KEY = "aipm-cockpit:ai-view-switches-turn";
 /** ★ One-time, and keyed in localStorage rather than a ref: the point is to
  *  explain the change ACROSS the upgrade, so a per-session flag would re-fire
  *  it on every reload and a ref would lose it on remount. */
@@ -98,6 +101,8 @@ export type AiUsageContextValue = {
   weekHardCapReached: boolean;
   /** This week's chat sends and warm view switches (§702). */
   viewSwitchWeek: ViewSwitchStats;
+  /** The same for sends in the turn layout (§702, `settings.ai.viewGuidesInTurn`). */
+  viewSwitchWeekTurn: ViewSwitchStats;
   /** Records one finished chat send: classifies it against the previous send
    *  in its thread and adds its cache writes to the matching side. */
   recordChatSend: (fp: SendFingerprint, cacheWrite: number, requests: number) => void;
@@ -128,6 +133,7 @@ const AiUsageContext = createContext<AiUsageContextValue>({
   backgroundWeekCost: 0,
   weekHardCapReached: false,
   viewSwitchWeek: EMPTY_VIEW_SWITCH_STATS,
+  viewSwitchWeekTurn: EMPTY_VIEW_SWITCH_STATS,
   recordChatSend: () => {},
   noteUnbilledChatSend: () => {},
 });
@@ -227,20 +233,20 @@ function markHardCapWarned(storage: Storage, now: Date): void {
   }
 }
 
-function loadViewSwitchBuckets(): ViewSwitchBuckets {
+function loadViewSwitchBuckets(key: string): ViewSwitchBuckets {
   if (typeof window === "undefined") return {};
   try {
-    const raw = window.localStorage.getItem(AI_VIEW_SWITCH_KEY);
+    const raw = window.localStorage.getItem(key);
     return raw ? normalizeViewSwitchBuckets(JSON.parse(raw)) : {};
   } catch {
     return {};
   }
 }
 
-function saveViewSwitchBuckets(buckets: ViewSwitchBuckets): void {
+function saveViewSwitchBuckets(key: string, buckets: ViewSwitchBuckets): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(AI_VIEW_SWITCH_KEY, JSON.stringify(buckets));
+    window.localStorage.setItem(key, JSON.stringify(buckets));
   } catch {
     // non-fatal: storage quota or private browsing
   }
@@ -382,8 +388,11 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  const [viewSwitchBuckets, setViewSwitchBuckets] = useState<ViewSwitchBuckets>(loadViewSwitchBuckets);
+  const [viewSwitchBuckets, setViewSwitchBuckets] = useState<ViewSwitchBuckets>(() => loadViewSwitchBuckets(AI_VIEW_SWITCH_KEY));
   const viewSwitchBucketsRef = useRef<ViewSwitchBuckets>(viewSwitchBuckets);
+  // §702 — the turn layout's sends, in their own key and buckets.
+  const [viewSwitchTurnBuckets, setViewSwitchTurnBuckets] = useState<ViewSwitchBuckets>(() => loadViewSwitchBuckets(AI_VIEW_SWITCH_TURN_KEY));
+  const viewSwitchTurnBucketsRef = useRef<ViewSwitchBuckets>(viewSwitchTurnBuckets);
   // ★ The previous send PER THREAD, since each thread has its own cached
   //   prefix. Per provider lifetime, so the first send after a reload is cold:
   //   the cache may well be warm, but nothing says what it holds.
@@ -399,10 +408,17 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
       if (!(requests > 0)) return;
       const kind = classifySend(lastSendsRef.current.get(fp.threadKey), fp);
       rememberSend(fp);
+      if (fp.layout === "turn") {
+        const next = addViewSwitchSend(viewSwitchTurnBucketsRef.current, new Date(), kind, cacheWrite, requests);
+        viewSwitchTurnBucketsRef.current = next;
+        setViewSwitchTurnBuckets(next);
+        saveViewSwitchBuckets(AI_VIEW_SWITCH_TURN_KEY, next);
+        return;
+      }
       const next = addViewSwitchSend(viewSwitchBucketsRef.current, new Date(), kind, cacheWrite, requests);
       viewSwitchBucketsRef.current = next;
       setViewSwitchBuckets(next);
-      saveViewSwitchBuckets(next);
+      saveViewSwitchBuckets(AI_VIEW_SWITCH_KEY, next);
     },
     [rememberSend],
   );
@@ -430,6 +446,7 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
     };
   }, [weekHardCapReached, pathBuckets]);
   const viewSwitchWeek = weekViewSwitchStats(viewSwitchBuckets, now);
+  const viewSwitchWeekTurn = weekViewSwitchStats(viewSwitchTurnBuckets, now);
 
   const actions = useMemo<AiUsageActions>(
     () => ({ recordChatSend, noteUnbilledChatSend: rememberSend }),
@@ -445,6 +462,7 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
     backgroundWeekCost,
     weekHardCapReached,
     viewSwitchWeek,
+    viewSwitchWeekTurn,
     recordChatSend,
     noteUnbilledChatSend: rememberSend,
   };

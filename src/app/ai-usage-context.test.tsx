@@ -9,6 +9,7 @@ import {
   AI_CAP_BASIS_NOTICE_KEY,
   AI_COST_BASIS_NOTICE_KEY,
   AI_VIEW_SWITCH_KEY,
+  AI_VIEW_SWITCH_TURN_KEY,
   AiUsageProvider,
   useAiUsageActions,
   useAiUsageContext,
@@ -756,8 +757,9 @@ describe("AiUsageProvider — the tap is the recorder", () => {
 // §702: the view-switch counter lives beside the token meter but in its own
 // key, so nothing here may reach the cap arithmetic.
 describe("AiUsageProvider — view-switch counter (§702)", () => {
-  const fp = (viewText: string, startedAt: number, threadKey = "p1:t1") => ({
+  const fp = (viewText: string, startedAt: number, threadKey = "p1:t1", layout: "system" | "turn" = "system") => ({
     threadKey,
+    layout,
     model: "m",
     toolNames: "t",
     stableText: "S",
@@ -837,6 +839,25 @@ describe("AiUsageProvider — view-switch counter (§702)", () => {
       switchCacheWrite: 0,
       warmCacheWrite: 300,
     });
+  });
+
+  it("keeps turn-layout sends in their own week and key, apart from the system layout's", async () => {
+    const first = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+    act(() => { first.result.current.recordChatSend(fp("A", 1_000, "p1:t1", "turn"), 0, 1); });
+    act(() => { first.result.current.recordChatSend(fp("B", 61_000, "p1:t1", "turn"), 900, 2); });
+
+    expect(first.result.current.viewSwitchWeekTurn).toEqual({
+      sends: 2, requests: 3, switches: 1, warmSends: 0, switchCacheWrite: 900, warmCacheWrite: 0,
+    });
+    expect(first.result.current.viewSwitchWeek.sends).toBe(0);
+    expect(localStorage.getItem(AI_VIEW_SWITCH_KEY)).toBeNull();
+    first.unmount();
+
+    const second = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+    expect(localStorage.getItem(AI_VIEW_SWITCH_TURN_KEY)).not.toBeNull();
+    expect(second.result.current.viewSwitchWeekTurn.switches).toBe(1);
   });
 
   it("persists to its own key and reloads it, leaving the token buckets untouched", async () => {

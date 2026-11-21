@@ -2064,6 +2064,12 @@
   view-scoped guides onto the turn tail) is slice G2 in
   `docs/superpowers/specs/2026-09-08-ai-guide-block-cache-split-design.md` and is gated on the
   answer-quality eval, because it is a `system`-to-`user` role change.
+  ★★ **SINCE §702, G2 IS BUILT BEHIND A SWITCH, OFF BY DEFAULT** (`settings.ai.viewGuidesInTurn`, Settings → AI).
+  `buildChatPromptLayout` (`chat-api.ts`) is the ONE place that decides the layout; `chat-panel.tsx` calls it and
+  never `buildStableSystemBlocks` directly. `chat-api.view-guide-layout.test.ts` pins the turn layout to the
+  harness's `g2` position (the guide text, a blank line, then the turn context). The view-switch counter compares
+  the guide text itself (`viewText`), since `system` never moves in that layout, and keeps those sends under
+  `AI_VIEW_SWITCH_TURN_KEY`, apart from the default layout's.
   ★★★ **MEASURED 2026-09-09 — THE SAVING IS CONFIRMED, WITH STATED BOUNDS.** A live two-arm run against
   the real Anthropic API (`claude-sonnet-5`, `max_tokens: 64`) replayed a canned 4-turn conversation
   carrying the real 24 guides from `builtinSeeds` and the real 52-tool array from `toolsFor`, with a

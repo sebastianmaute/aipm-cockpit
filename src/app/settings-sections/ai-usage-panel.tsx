@@ -152,7 +152,7 @@ type AiUsagePanelProps = {
 
 export function AiUsagePanel({ lang, sessionCap, weeklyCap, guidesOn = true }: AiUsagePanelProps) {
   const {
-    sessionTotal, weekTotal, nextReset, sessionUsage, viewSwitchWeek, weekByFeature, backgroundWeekCost,
+    sessionTotal, weekTotal, nextReset, sessionUsage, viewSwitchWeek, viewSwitchWeekTurn, weekByFeature, backgroundWeekCost,
     weekHardCapReached,
   } = useAiUsageContext();
   const byFeatureId = useId();
@@ -252,23 +252,38 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap, guidesOn = true }: A
           </dl>
         </div>
       )}
-      <ViewSwitchLines lang={lang} locale={locale} stats={viewSwitchWeek} guidesOn={guidesOn} />
+      {/* §702 — each guide layout's week apart (`settings.ai.viewGuidesInTurn`). The shipped layout keeps its
+          uncaptioned look until the other layout has a send, so the panel only changes once there is a comparison. */}
+      <ViewSwitchLines
+        lang={lang}
+        locale={locale}
+        stats={viewSwitchWeek}
+        caption={viewSwitchWeekTurn.sends > 0 ? t(lang, "aiViewSwitchLayoutSystem") : undefined}
+      />
+      <ViewSwitchLines lang={lang} locale={locale} stats={viewSwitchWeekTurn} caption={t(lang, "aiViewSwitchLayoutTurn")} />
+      {(viewSwitchWeek.sends > 0 || viewSwitchWeekTurn.sends > 0) && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {guidesOn
+            ? t(lang, "aiViewSwitchHint", String(G2_BREAK_EVEN_REQUESTS_PER_SWITCH))
+            : t(lang, "aiViewSwitchHintGuidesOff", t(lang, "filterQuotedValue", t(lang, "aiGroundInGuides")))}
+        </p>
+      )}
     </div>
   );
 }
 
-/** §702: this week's chat sends and warm view switches. Hidden until the week's
- *  first send, so a week without a chat shows no zeros. */
+/** §702: this week's chat sends and warm view switches in one guide layout. Hidden until the week's first send in
+ *  that layout, so a week without a chat shows no zeros. */
 function ViewSwitchLines({
   lang,
   locale,
   stats,
-  guidesOn,
+  caption,
 }: {
   lang: Lang;
   locale: string;
   stats: ViewSwitchStats;
-  guidesOn: boolean;
+  caption?: string;
 }) {
   if (stats.sends === 0) return null;
   const fmt = (n: number): string => Math.round(n).toLocaleString(locale);
@@ -286,6 +301,7 @@ function ViewSwitchLines({
   const warmAvg = stats.warmSends === 0 ? "—" : fmt(stats.warmCacheWrite / stats.warmSends);
   return (
     <>
+      {caption && <p className="mt-2 text-xs font-medium text-foreground">{caption}</p>}
       <dl className="mt-2 space-y-0.5 text-xs text-muted-foreground">
         <div className="flex justify-between gap-2">
           <dt>{t(lang, "aiViewSwitchSends")}</dt>
@@ -300,11 +316,6 @@ function ViewSwitchLines({
           <dd className="tabular-nums">{t(lang, "aiViewSwitchCacheWritesValue", switchAvg, warmAvg)}</dd>
         </div>
       </dl>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {guidesOn
-          ? t(lang, "aiViewSwitchHint", String(G2_BREAK_EVEN_REQUESTS_PER_SWITCH))
-          : t(lang, "aiViewSwitchHintGuidesOff", t(lang, "filterQuotedValue", t(lang, "aiGroundInGuides")))}
-      </p>
     </>
   );
 }

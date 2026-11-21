@@ -529,3 +529,20 @@ describe("deployment closes the AI gate", () => {
       expect(isAiConsentedForDictation(allowed)).toBe(false);
     });
 });
+
+describe("viewGuidesInTurn (§702)", () => {
+  const base = { apiKey: "", model: "claude-sonnet-4-6", groundInGuides: true };
+
+  it("is OFF by default and by absence", () => {
+    expect(defaultAiConfig.viewGuidesInTurn).toBeUndefined();
+    expect(sanitizeAiConfig(base).viewGuidesInTurn).toBeUndefined();
+  });
+
+  it("ROUND-TRIPS an explicit true, and reads any other stored value as off", () => {
+    // ★ The load-bearing assertion: absent and off read the same, so only a kept `true` proves the field survives.
+    expect(sanitizeAiConfig({ ...base, viewGuidesInTurn: true }).viewGuidesInTurn).toBe(true);
+    for (const v of [false, "yes", 1, null]) {
+      expect(sanitizeAiConfig({ ...base, viewGuidesInTurn: v }).viewGuidesInTurn).toBeUndefined();
+    }
+  });
+});

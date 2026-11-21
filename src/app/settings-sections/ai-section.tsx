@@ -765,6 +765,23 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           <span className="text-xs text-foreground">{t(lang, "aiGroundInGuides")}</span>
         </label>
 
+        {/* §702 — where the chat sends the view's guides (slice G2, `buildChatPromptLayout`). Default OFF: only an
+            explicit true turns it on, and turning it off writes undefined, as on a fresh install. */}
+        <label className="mt-3 flex items-center gap-2">
+          <Checkbox
+            aria-label={t(lang, "aiViewGuidesInTurn")}
+            checked={settings.ai.viewGuidesInTurn === true}
+            onChange={() =>
+              onChange({
+                ...settings,
+                ai: { ...settings.ai, viewGuidesInTurn: settings.ai.viewGuidesInTurn === true ? undefined : true },
+              })
+            }
+          />
+          <span className="text-xs text-foreground">{t(lang, "aiViewGuidesInTurn")}</span>
+        </label>
+        <FieldHint className="mt-1">{t(lang, "aiViewGuidesInTurnHelp")}</FieldHint>
+
         {/* Action Center AI suggestions toggle (default ON; undefined = on) */}
         <label className="mt-3 flex items-center gap-2">
           <Checkbox

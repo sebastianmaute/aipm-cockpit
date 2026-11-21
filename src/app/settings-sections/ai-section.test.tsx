@@ -258,6 +258,27 @@ describe("AiSection", () => {
     expect(screen.queryByLabelText(t("en-US", "aiGroundInGuides"))).toBeNull();
   });
 
+  // §702 — the G2 toggle: off by default, and a click writes an explicit true (then back to off).
+  it("renders the view-guides-in-turn toggle unchecked by default and flips it", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<AiSection lang="en-US" settings={defaultSettings} onChange={onChange} />);
+    const toggle = screen.getByLabelText(t("en-US", "aiViewGuidesInTurn"));
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+    expect(onChange.mock.calls.at(-1)?.[0].ai.viewGuidesInTurn).toBe(true);
+
+    const on = { ...defaultSettings, ai: { ...defaultSettings.ai, viewGuidesInTurn: true } };
+    rerender(<AiSection lang="en-US" settings={on} onChange={onChange} />);
+    expect(screen.getByLabelText(t("en-US", "aiViewGuidesInTurn"))).toBeChecked();
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiViewGuidesInTurn")));
+    expect(onChange.mock.calls.at(-1)?.[0].ai.viewGuidesInTurn).toBeUndefined();
+  });
+
+  it("hides the view-guides-in-turn toggle while the AI master switch is off", () => {
+    render(<AiSection lang="en-US" settings={baseSettings} onChange={vi.fn()} />);
+    expect(screen.queryByLabelText(t("en-US", "aiViewGuidesInTurn"))).toBeNull();
+  });
+
   it("action suggestions toggle is checked by default (undefined = on)", () => {
     const settingsDefaultOn = {
       ...defaultSettings,

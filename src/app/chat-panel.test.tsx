@@ -4662,6 +4662,7 @@ describe("cache-token usage recording", () => {
     expect(firstFp.stableText).toBe(body.system[0].text);
     expect(body.system[1].text).toContain("Sort by due date.");
     expect(firstFp.viewText).toBe(body.system[1].text);
+    expect(firstFp.layout).toBe("system");
     expect(firstWrite).toBe(700);
     expect(firstFp.priorTurns).toBe(0);
     expect(secondFp.priorTurns).toBeGreaterThan(0);
@@ -4671,6 +4672,60 @@ describe("cache-token usage recording", () => {
     expect(firstFp.startedAt).toBeLessThan(fetchTimes[0]);
     expect(firstFp.lastRequestAt).toBeLessThan(fetchTimes[0]);
     expect(firstFp.lastRequestAt).toBeGreaterThanOrEqual(firstFp.startedAt);
+  });
+
+  // §702 — with `viewGuidesInTurn` the request carries the view's guides at the head of the turn context, not in
+  // `system`, and the counter is told the turn layout and the guide text, since `system` no longer moves.
+  it("sends the view's guides at the head of the turn context when viewGuidesInTurn is on", async () => {
+    const recordChatSendSpy = vi.fn();
+    vi.mocked(useAiUsageActions).mockReturnValue({
+      ...DEFAULT_AI_USAGE_CONTEXT,
+      recordChatSend: recordChatSendSpy,
+    });
+    const fetchSpy = spyAiFetch().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "done" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+        }),
+    } as unknown as Response);
+    const viewGuide: OperatingGuide = {
+      id: "vg", name: "Open points", content: "Sort by due date.", enabled: true, priority: 1,
+      scope: { views: ["open-points" as const] }, builtIn: true,
+    };
+
+    render(
+      <ChatPanel
+        {...SCOPE_PROPS}
+        lang="en-US"
+        ai={{ ...AI_WITH_KEY, groundInGuides: true, viewGuidesInTurn: true }}
+        guides={[viewGuide]}
+        dispatcher={makeDispatcher()}
+      />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "first" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(recordChatSendSpy).toHaveBeenCalledTimes(1));
+
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string) as {
+      system: { text: string }[];
+      messages: { role: string; content: string | { type: string; text?: string }[] }[];
+    };
+    expect(body.system).toHaveLength(1);
+    expect(JSON.stringify(body.system)).not.toContain("Sort by due date.");
+    const last = body.messages[body.messages.length - 1];
+    const blocks = typeof last.content === "string" ? [] : last.content;
+    const ctx = blocks[blocks.length - 1]?.text ?? "";
+    // The guide leads the turn context, ahead of its APP CONTEXT block.
+    expect(ctx.indexOf("Sort by due date.")).toBeGreaterThanOrEqual(0);
+    expect(ctx.indexOf("Sort by due date.")).toBeLessThan(ctx.indexOf("APP CONTEXT"));
+    const [fp] = recordChatSendSpy.mock.calls[0] as [SendFingerprint, number];
+    expect(fp.layout).toBe("turn");
+    expect(fp.viewText).toContain("Sort by due date.");
+    expect(fp.stableText).toBe(body.system[0].text);
   });
 
   // A send that goes stale WITHOUT being cancelled — a workspace scope change;
