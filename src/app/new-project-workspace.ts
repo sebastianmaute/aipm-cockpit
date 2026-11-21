@@ -7,6 +7,8 @@ import { defaultResourcePlan } from "./resource-foundation";
 import { resolveTimezone, todayInZone } from "./timezone";
 import type { FeatureModuleId } from "./feature-modules";
 import { emailWriteRefusal, summarizeUnsafeEmailRecords } from "./sanitize";
+import { appendActivityEntry } from "./activity-log";
+import { aiOrigin } from "./activity-origin";
 
 export interface NewProjectOpts {
   template?: ProjectTemplate;
@@ -52,7 +54,14 @@ export function buildNewProjectWorkspace(meta: ProjectMeta, opts: NewProjectOpts
   if (opts.template) {
     ws = applyTemplate(ws, opts.template, { includeSeed: !!opts.includeSeed, today: templateAnchor(localDay, meta.startDate) });
   } else if (opts.aiSeed && opts.includeSeed) {
+    const before = recordCount(ws);
     ws = appendSeed(ws, remapSeed(ws, withoutUnsafeSeedEmails(opts.aiSeed)));
+    // §815 — the new project's log says the AI wrote its starter content: ONE entry, the count only (the seed's
+    // titles are AI-written text, and the log is read back into AI prompts). An empty seed writes nothing.
+    const items = recordCount(ws) - before;
+    if (items > 0) {
+      ws = { ...ws, activityLog: appendActivityEntry(ws.activityLog ?? [], "ai.projectStarter", [items], undefined, "ai", aiOrigin("projectStarter")) };
+    }
   }
   if (opts.features !== undefined) ws = { ...ws, features: opts.features };
   if (opts.baseline && opts.baseline.currency !== DEFAULT_CURRENCY) {
@@ -64,6 +73,13 @@ export function buildNewProjectWorkspace(meta: ProjectMeta, opts: NewProjectOpts
     };
   }
   return ws;
+}
+
+/** §815 — the records in every collection `appendSeed` writes (the seven `TemplateSeed` collections). The
+ *  difference across `appendSeed` is the number of records it appended; no pass before it drops a row. */
+function recordCount(ws: Workspace): number {
+  return ws.tasks.length + (ws.milestones?.length ?? 0) + ws.raid.length + (ws.changes?.length ?? 0)
+    + (ws.stakeholders?.length ?? 0) + (ws.budgets?.length ?? 0) + (ws.resources?.length ?? 0);
 }
 
 /** ★★★ M5 — the AI seed INTRODUCES every value it carries, so under the batch's

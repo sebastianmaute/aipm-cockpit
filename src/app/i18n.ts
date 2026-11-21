@@ -2597,6 +2597,7 @@ const enUS = {
   activityOriginTaskDedup: "Duplicate check",
   activityOriginRaciSuggest: "RACI suggestion",
   activityOriginMeetingReport: "Meeting report",
+  activityOriginProjectStarter: "AI starter content",
   activityOriginUnknown: "Other AI feature",
   activityOriginOpenChat: "Open chat: {0}",
   // Accessible name for the actor filter's "All" radio. The group filter has an
@@ -6134,6 +6135,9 @@ const enUS = {
   activityAiAllocationPlanAlt: "AI applied alternative {0}: task moves {1}, hour edits {2}",
   activityAiWbsPlan: "AI applied {0} work-breakdown changes",
   activityAiWbsPlanOne: "AI applied 1 work-breakdown change",
+  // §815 — {0} is the number of records the AI starter content added when the project was created.
+  activityAiProjectStarter: "AI starter content added {0} items when the project was created",
+  activityAiProjectStarterOne: "AI starter content added 1 item when the project was created",
   activityAiWbsPlanCreated: "created: {0}",
   activityAiWbsPlanCreatedMore: "and {0} more",
   activityAiDocumentWrite: "Assistant edited a document",

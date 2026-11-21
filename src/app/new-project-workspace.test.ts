@@ -184,6 +184,54 @@ describe("buildNewProjectWorkspace aiSeed", () => {
   });
 });
 
+describe("buildNewProjectWorkspace aiSeed activity entry (§815)", () => {
+  const seed: TemplateSeed = {
+    ...aiSeed,
+    stakeholders: [{ id: 1, name: "Pat Doe", role: "Sponsor" } as never],
+  };
+
+  it("writes ONE ai entry naming the starter-content feature and the count of items added", () => {
+    const ws = buildNewProjectWorkspace(meta, { features: [], includeSeed: true, aiSeed: seed });
+    expect(ws.activityLog).toHaveLength(1);
+    const [entry] = ws.activityLog ?? [];
+    expect(entry.kind).toBe("ai.projectStarter");
+    expect(entry.actor).toBe("ai");
+    expect(entry.origin).toEqual({ feature: "projectStarter" });
+    expect(entry.args).toEqual([2]);
+  });
+
+  it("counts a record in every one of the seven seed collections", () => {
+    const all: TemplateSeed = {
+      tasks: [{ id: 1, title: "T" } as never],
+      milestones: [{ id: 1, title: "M" } as never],
+      raid: [{ id: 1, title: "R" } as never],
+      changes: [{ id: 1, title: "C" } as never],
+      stakeholders: [{ id: 1, name: "S" } as never],
+      budgets: [{ id: 1, name: "B" } as never],
+      resources: [{ id: 1, name: "P" } as never],
+    };
+    const ws = buildNewProjectWorkspace(meta, { features: [], includeSeed: true, aiSeed: all });
+    expect(ws.activityLog?.[0]?.args).toEqual([7]);
+  });
+
+  it("holds no user-authored text: the args are the count alone", () => {
+    const ws = buildNewProjectWorkspace(meta, { features: [], includeSeed: true, aiSeed: seed });
+    expect(JSON.stringify(ws.activityLog)).not.toContain("Go-live");
+    expect(JSON.stringify(ws.activityLog)).not.toContain("Pat Doe");
+  });
+
+  it("writes no entry when the seed is not applied or adds nothing", () => {
+    for (const opts of [
+      { features: [], includeSeed: false, aiSeed: seed },
+      { features: [], includeSeed: true, aiSeed: {} },
+      { features: [], includeSeed: true, aiSeed: seed, template: tpl },
+      { features: [] },
+    ] satisfies NewProjectOpts[]) {
+      expect(buildNewProjectWorkspace(meta, opts).activityLog ?? []).toEqual([]);
+    }
+  });
+});
+
 const HOSTILE = "<p>ok</p><script>alert(1)</script>";
 
 /** A seed shaped like one `proposalToSeed` returns, carrying a hostile rich

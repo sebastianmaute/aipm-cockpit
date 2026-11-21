@@ -1049,7 +1049,7 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§812](#812-optimize-work-breakdown-with-ai-gives-different-proposals-for-the-same-input--closed-2026-11-21) | Optimize work breakdown with AI gives different proposals for the same input | — | — | **CLOSED** 2026-11-21 |
 | [§813](#813-erasure-and-retention-of-saved-chats-are-proven-live-only-for-the-statements-the-erasure-spec-covers--closed-2026-11-21) | Erasure and retention of saved chats are proven live only for the statements the erasure spec covers | — | — | **CLOSED** 2026-11-21 |
 | [§814](#814-dictation-and-voice-commands-have-no-recorded-cost-or-observed-behaviour-from-a-measured-run) | Dictation and voice commands have no recorded cost or observed behaviour from a measured run | — | — | open |
-| [§815](#815-ai-starter-content-applied-when-a-project-is-created-writes-no-activity-entry) | AI starter content applied when a project is created writes no activity entry | — | — | open |
+| [§815](#815-ai-starter-content-applied-when-a-project-is-created-writes-no-activity-entry--closed-2026-11-21) | AI starter content applied when a project is created writes no activity entry | — | — | **CLOSED** 2026-11-21 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46549,11 +46549,11 @@ Size M.
 
 **Source:** preparing the AI briefs, 2026-11-14.
 
-## 815. AI starter content applied when a project is created writes no activity entry
+## 815. AI starter content applied when a project is created writes no activity entry — CLOSED 2026-11-21
 
-**Status:** OPEN 2026-11-21, found while closing §799 (AI activity entries record their origin). Reproduced by reading: `create-project-wizard.tsx` turns the AI starter content into a seed with `proposalToSeed`, `new-project-workspace.ts` applies it when the project is created, and `grep -n -i "activity" src/app/new-project-workspace.ts src/app/create-project-wizard.tsx` prints nothing, so the new project's activity log has no entry for it.
+**Status:** CLOSED 2026-11-21. `buildNewProjectWorkspace` (`src/app/new-project-workspace.ts`) now writes ONE entry when it applies an AI seed: kind `ai.projectStarter`, actor `ai`, origin `{ feature: "projectStarter" }` (a new `AI_FEATURES` value, shown as "AI starter content"), and as its only argument the number of records `appendSeed` appended, counted across all seven seed collections. It holds no title or other AI-written text, and a seed that adds nothing writes no entry. One summary entry rather than one per record, as `ai.wbsPlan` does, so a large seed cannot crowd older entries out of the 500 the log keeps. Pinned by `npx vitest run src/app/new-project-workspace.test.ts -t "§815"` (three tests) and the rendering by `npx vitest run src/app/activity-message.test.ts -t "AI starter content"`. The briefs and the compliance pack no longer name it as an exception.
 
-**Work item:** #1018
+**Earlier:** OPEN 2026-11-21, found while closing §799 (AI activity entries record their origin). Reproduced by reading: `create-project-wizard.tsx` turns the AI starter content into a seed with `proposalToSeed`, `new-project-workspace.ts` applies it when the project is created, and `grep -n -i "activity" src/app/new-project-workspace.ts src/app/create-project-wizard.tsx` prints nothing, so the new project's activity log has no entry for it.
 
 Every other AI feature that changes an existing project writes an entry with actor `ai` and an `origin` naming the feature (§799). The starter content a person accepts in the new-project wizard does not: the project starts with AI-written content and a log that does not say so. The briefs and the compliance pack therefore scope their statement about the activity log to AI features that change an existing project and name this exception.
 

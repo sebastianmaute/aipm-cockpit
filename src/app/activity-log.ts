@@ -116,6 +116,9 @@ export type ActivityKind =
    *  title of every task it CREATED (`wbsPlanActivityArgs`). ONE entry per apply, never one per task: an apply can
    *  create hundreds against `ACTIVITY_MAX_ENTRIES`. Entries written before carry the count alone. */
   | "ai.wbsPlan"
+  /** §815 — AI starter content was applied when the project was created: `[items]`, the count of records it
+   *  added. ONE entry per create, written by `buildNewProjectWorkspace`; no title, the seed is AI-written text. */
+  | "ai.projectStarter"
   | "ai.raciSuggest"
   | "ai.documentWrite"
   // AI-04 — a save that contains AI-drafted report text (args: the meeting date).
@@ -433,6 +436,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "ai.allocationPlan": "activityAiAllocationPlan",
   "ai.allocationPlanAlt": "activityAiAllocationPlanAlt",
   "ai.wbsPlan": "activityAiWbsPlan",
+  "ai.projectStarter": "activityAiProjectStarter",
   "ai.raciSuggest": "activityAiRaciSuggest",
   "ai.documentWrite": "activityAiDocumentWrite",
   "ai.reportDraft": "activityAiReportDraft",

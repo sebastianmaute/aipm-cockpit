@@ -56,6 +56,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A new project with AI starter content now says so in its activity log.** When you include the AI-generated
+  starter content in the project wizard, the new project's log starts with one entry by the AI assistant, marked
+  "AI starter content", that gives the number of items it added. Until now the log did not record it (§815).
+
 - **Storage can no longer leave Turso in place while the project portfolio is on Turso.** Switching Settings →
   Storage from Turso to a local kind left the portfolio on Turso over a local copy, so switching or creating a project
   still went to Turso and renaming the copy renamed the Turso project. The switch now refuses and points to

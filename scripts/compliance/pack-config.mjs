@@ -1,6 +1,6 @@
 /** Register numbers the compliance pack cites as open gaps. Each must be an
  *  open entry of `docs/open-followups.md` (`gapViolations` in `pack-lib.mjs`). */
-export const CITED_GAPS = [487, 802, 811, 814, 815];
+export const CITED_GAPS = [487, 802, 811, 814];
 
 /** The generated blocks each pack file carries, in document order, the same in
  *  both languages. `check-compliance-pack.mjs` fails on a missing or extra one. */
