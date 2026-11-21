@@ -75,8 +75,8 @@ export function buildNewProjectWorkspace(meta: ProjectMeta, opts: NewProjectOpts
   return ws;
 }
 
-/** §815 — the records in every collection `appendSeed` writes. The difference across it is what the seed ADDED,
- *  after its allow-list, so a record the allow-list drops is not counted. */
+/** §815 — the records in every collection `appendSeed` writes (the seven `TemplateSeed` collections). The
+ *  difference across `appendSeed` is the number of records it appended; no pass before it drops a row. */
 function recordCount(ws: Workspace): number {
   return ws.tasks.length + (ws.milestones?.length ?? 0) + ws.raid.length + (ws.changes?.length ?? 0)
     + (ws.stakeholders?.length ?? 0) + (ws.budgets?.length ?? 0) + (ws.resources?.length ?? 0);

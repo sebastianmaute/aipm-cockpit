@@ -200,6 +200,20 @@ describe("buildNewProjectWorkspace aiSeed activity entry (§815)", () => {
     expect(entry.args).toEqual([2]);
   });
 
+  it("counts a record in every one of the seven seed collections", () => {
+    const all: TemplateSeed = {
+      tasks: [{ id: 1, title: "T" } as never],
+      milestones: [{ id: 1, title: "M" } as never],
+      raid: [{ id: 1, title: "R" } as never],
+      changes: [{ id: 1, title: "C" } as never],
+      stakeholders: [{ id: 1, name: "S" } as never],
+      budgets: [{ id: 1, name: "B" } as never],
+      resources: [{ id: 1, name: "P" } as never],
+    };
+    const ws = buildNewProjectWorkspace(meta, { features: [], includeSeed: true, aiSeed: all });
+    expect(ws.activityLog?.[0]?.args).toEqual([7]);
+  });
+
   it("holds no user-authored text: the args are the count alone", () => {
     const ws = buildNewProjectWorkspace(meta, { features: [], includeSeed: true, aiSeed: seed });
     expect(JSON.stringify(ws.activityLog)).not.toContain("Go-live");
