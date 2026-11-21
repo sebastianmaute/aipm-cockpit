@@ -70,8 +70,8 @@ feature on one demo project (E37, *measured*).
 
 ## Not yet proven / open gaps
 
-1. **§812:** the work breakdown optimisation's proposal for the same input varies, much less on Claude Sonnet 5.5
-   than on Claude Sonnet 5; review each one on its own (E27, *measured*).
+1. **Repeatability:** the work breakdown optimisation's proposal for the same input varies, much less on Claude
+   Sonnet 5.5 than on Claude Sonnet 5; review each one on its own (E27, *measured*).
 2. **§814:** dictation and voice commands have no observed behaviour from a measured run (E76, *not proven*).
    Measured with protection off: Plan with AI sends, for a person who also works in another project, that project's name and the
    person's monthly hours there (E39, *measured*).

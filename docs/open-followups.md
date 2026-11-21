@@ -1046,7 +1046,7 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§806](#806-the-ai-relay-and-dictation-routes-have-no-request-limit--closed-2026-11-14) | The AI relay and dictation routes have no request limit | — | — | **CLOSED** 2026-11-14 |
 | [§810](#810-hiding-a-projects-resources-function-keeps-neither-the-chats-people-tools-nor-the-absence-list-from-the-ai--closed-2026-11-16) | Hiding a project's Resources function keeps neither the chat's people tools nor the absence list from the AI | — | — | **CLOSED** 2026-11-16 |
 | [§811](#811-the-time-the-ai-features-save-is-not-measured) | The time the AI features save is not measured | — | — | open |
-| [§812](#812-optimize-work-breakdown-with-ai-gives-different-proposals-for-the-same-input-and-no-response-to-that-is-decided) | Optimize work breakdown with AI gives different proposals for the same input, and no response to that is decided | — | — | open |
+| [§812](#812-optimize-work-breakdown-with-ai-gives-different-proposals-for-the-same-input--closed-2026-11-21) | Optimize work breakdown with AI gives different proposals for the same input | — | — | **CLOSED** 2026-11-21 |
 | [§813](#813-erasure-and-retention-of-saved-chats-are-proven-live-only-for-the-statements-the-erasure-spec-covers--closed-2026-11-21) | Erasure and retention of saved chats are proven live only for the statements the erasure spec covers | — | — | **CLOSED** 2026-11-21 |
 | [§814](#814-dictation-and-voice-commands-have-no-recorded-cost-or-observed-behaviour-from-a-measured-run) | Dictation and voice commands have no recorded cost or observed behaviour from a measured run | — | — | open |
 | [§815](#815-ai-starter-content-applied-when-a-project-is-created-writes-no-activity-entry) | AI starter content applied when a project is created writes no activity entry | — | — | open |
@@ -46501,19 +46501,17 @@ Size M.
 
 **Source:** preparing the AI briefs, 2026-11-14.
 
-## 812. Optimize work breakdown with AI gives different proposals for the same input, and no response to that is decided
+## 812. Optimize work breakdown with AI gives different proposals for the same input — CLOSED 2026-11-21
 
-**Status:** OPEN 2026-11-14; measured 2026-11-21, the decision is open. Measured on app commit abec13ba1 against the demo project: two requests, five runs each with the same input, on `claude-sonnet-5` and on `claude-sonnet-5-5`, people protection off, direct route. The aggregates are in `docs/briefs/figures-2026-11-21.json` (`wbsRepeat`) and in the briefs' evidence row E27. On Claude Sonnet 5 every run gave a different proposal: between two runs the existing tasks touched overlapped by a median Jaccard index of 0.78 and 0.55, the titles of new tasks and pieces by 0.08 and 0.33, and one request's link count ranged from 7 to 18. On Claude Sonnet 5.5 the proposals were far more stable (tasks touched 0.875 and 1; one request gave the same five links in every run) and of a different kind for the same request (mostly regroupings, where Sonnet 5 proposed mostly splits). The app sends no `temperature` (`grep -rn temperature src/app` prints nothing), so the API default applies.
+**Status:** CLOSED 2026-11-21, owner decision 2026-11-21: the feature is left as it is, because a lower temperature is not available on Claude Sonnet 5.5 and that model already varies much less. Measured on app commit abec13ba1 against the demo project: two requests, five runs each with the same input, on `claude-sonnet-5` and on `claude-sonnet-5-5`, people protection off, direct route. The aggregates are in `docs/briefs/figures-2026-11-21.json` (`wbsRepeat`) and in the briefs' evidence row E27. On Claude Sonnet 5 every run gave a different proposal: between two runs the existing tasks touched overlapped by a median Jaccard index of 0.78 and 0.55, the titles of new tasks and pieces by 0.08 and 0.33, and one request's link count ranged from 7 to 18. On Claude Sonnet 5.5 the proposals were far more stable (tasks touched 0.875 and 1; one request gave the same five links in every run) and of a different kind for the same request (mostly regroupings, where Sonnet 5 proposed mostly splits). The app sends no `temperature` (`grep -rn temperature src/app` prints nothing), so the API default applies.
 
-What is open is the response. A lower temperature is not available on every model: Anthropic's API documentation says Claude Sonnet 5.5 answers a non-default `temperature` with HTTP 400, and API version `2026-10-21` refuses `temperature`, `top_p` and `top_k` on every model. So the realistic choices are to leave it as it is, to tell the user in the feature that proposals vary, or to steer the default model, and that is the owner's decision.
+Why no lower temperature: Anthropic's API documentation says Claude Sonnet 5.5 answers a non-default `temperature` with HTTP 400, and API version `2026-10-21` refuses `temperature`, `top_p` and `top_k` on every model. The briefs say that the proposals vary and that the app does nothing to reduce it (evidence row E27).
 
 **Earlier:** OPEN 2026-11-14, found while preparing the AI briefs; never machine-verified. The register has no earlier entry on it; `optimize_wbs` (§3) was a different question and is closed.
 
-**Work item:** #987
-
 Optimize work breakdown with AI (`wbs-plan/wbs-plan.ts`) asks the model, in one forced tool call, to propose changes to a project's existing tasks: splits, regroupings, new tasks, estimates and links. The model's answer is expected to differ between runs, and no recorded run repeats the same input to see how far the proposals differ. A brief cannot say whether the same input gives the same proposal, or how much of it.
 
-What it would take: run a fixed set of projects through the feature several times each, compare the proposals (number of splits, new tasks, estimates, links) with a stated measure of difference, and report the spread (done 2026-11-21, see the status). Decide what the app does about the spread; asking for a lower temperature is not possible on Claude Sonnet 5.5 (see the status).
+What it would take: run a fixed set of projects through the feature several times each, compare the proposals (number of splits, new tasks, estimates, links) with a stated measure of difference, and report the spread (done 2026-11-21, see the status). Decide what the app does about the spread (decided 2026-11-21: nothing, see the status).
 
 Size S.
 

@@ -82,7 +82,6 @@ Registers.
 | §487 | The Windows installer is unsigned: no signing provider is chosen, so every install shows an unknown-publisher warning |
 | §802 | The AI gateway route has never been run against a real gateway |
 | §811 | The time the AI features save is not measured |
-| §812 | Optimize work breakdown with AI gives different proposals for the same input, and no response to that is decided |
 | §814 | Dictation and voice commands have no recorded cost or observed behaviour from a measured run |
 | §815 | AI starter content applied when a project is created writes no activity entry |
 <!-- PACK:open-gaps:END -->

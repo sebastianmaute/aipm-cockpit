@@ -79,7 +79,7 @@ Anthropic, transfers and a works agreement are questions only your organisation 
     assumed usage (E25, *estimated*) and 2 to 6 calls per feature on one demo project with one model (E37,
     *measured*; E33, *measured*); nothing in the app enforces it (E38, *read in code*).
   - *Measure:* spend per user per week; time per task against a baseline; acceptance and rework rate of AI
-    proposals; how much the work breakdown proposal varies on your own projects (§812; E27, *measured*).
+    proposals; how much the work breakdown proposal varies on your own projects (E27, *measured*).
   - *Stop and sign-off:* stop when spend, rework or a protection finding passes a limit you set beforehand (the
     briefs give no values; none is measured); sign-off by the works council, the DPO, the CISO and the budget
     owner.

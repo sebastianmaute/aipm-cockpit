@@ -18,7 +18,7 @@ suggestion proposes a role per person and milestone (E56, *read in code*). How t
 against Annex III of the AI Act is your organisation's classification; this page gives the facts for it, not a
 conclusion. Nothing in these briefs measures the accuracy or bias of those proposals. Run five times on the same
 input, the work breakdown optimisation gave a different proposal each time on Claude Sonnet 5 and a far more stable
-one on Claude Sonnet 5.5 (§812; E27, *measured*), and the app does nothing to make a request give the same answer
+one on Claude Sonnet 5.5 (E27, *measured*), and the app does nothing to make a request give the same answer
 twice (E61, *read in code*).
 
 ## What leaves, and who approves it
@@ -70,9 +70,8 @@ twice (E61, *read in code*).
 1. **Marking is partial:** only project documents the AI wrote and the digest mail with its summary are marked
    (E73, *tested (unit)*). Tasks, report text, chat replies, copied text and the workspace exports are not, so
    decide how they are labelled once they leave the app (E55, *read in code*).
-2. **§812:** the work breakdown optimisation's proposal for the same input varies on Claude Sonnet 5 and much less
-   on Claude Sonnet 5.5, and whether the app should ask the model for a lower temperature is not decided (E27,
-   *measured*).
+2. **Repeatability:** the work breakdown optimisation's proposal for the same input varies on Claude Sonnet 5 and
+   much less on Claude Sonnet 5.5, and the app does nothing to reduce it (E27, *measured*).
 3. **Unmarked outside text:** outside text with no mark of its origin does not start the review hold; a
    Jira-synced task does (E48, *tested (unit)*). Only reviewing every write covers it (E71, *tested (unit)*).
 

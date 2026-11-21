@@ -20,7 +20,7 @@ schlägt eine Rolle je Person und Meilenstein vor (E56, *im Code gelesen*). Wie 
 Nutzung zu Anhang III der KI-Verordnung verhalten, ordnet Ihre Organisation ein; diese Seite liefert die Fakten
 dafür, keine Schlussfolgerung. Nichts in diesen Kurzinformationen misst Genauigkeit oder Verzerrung dieser
 Vorschläge. Fünfmal mit derselben Eingabe ausgeführt, lieferte die Optimierung der Arbeitspakete mit Claude Sonnet 5
-jedes Mal einen anderen Vorschlag und mit Claude Sonnet 5.5 einen weit stabileren (§812; E27, *gemessen*), und die
+jedes Mal einen anderen Vorschlag und mit Claude Sonnet 5.5 einen weit stabileren (E27, *gemessen*), und die
 App tut nichts dafür, dass eine Anfrage zweimal dieselbe Antwort ergibt (E61, *im Code gelesen*).
 
 ## Was hinausgeht und wer es freigibt
@@ -79,9 +79,9 @@ App tut nichts dafür, dass eine Anfrage zweimal dieselbe Antwort ergibt (E61, *
    Zusammenfassung sind gekennzeichnet (E73, *getestet (Unit)*). Aufgaben, Berichtstext, Chat-Antworten,
    kopierter Text und die Exporte des Arbeitsbereichs sind es nicht; legen Sie also fest, wie sie
    gekennzeichnet werden, sobald sie die App verlassen (E55, *im Code gelesen*).
-2. **§812:** Der Vorschlag der Optimierung der Arbeitspakete schwankt für dieselbe Eingabe mit Claude Sonnet 5
-   und deutlich weniger mit Claude Sonnet 5.5, und ob die App eine niedrigere Temperatur anfordern soll, ist nicht
-   entschieden (E27, *gemessen*).
+2. **Wiederholbarkeit:** Der Vorschlag der Optimierung der Arbeitspakete schwankt für dieselbe Eingabe mit
+   Claude Sonnet 5 und deutlich weniger mit Claude Sonnet 5.5, und die App unternimmt nichts, um das zu verringern
+   (E27, *gemessen*).
 3. **Fremder Text ohne Kennzeichnung:** Fremder Text ohne Kennzeichnung seiner Herkunft löst die Prüfpflicht
    nicht aus; eine aus Jira synchronisierte Aufgabe tut es (E48, *getestet (Unit)*). Nur die Prüfung jeder
    Änderung deckt ihn ab (E71, *getestet (Unit)*).

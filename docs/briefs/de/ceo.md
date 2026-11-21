@@ -90,7 +90,7 @@ nur Ihre Organisation beantworten kann.
     *im Code gelesen*).
   - *Messen:* Ausgaben je nutzender Person und Woche; Zeit je Aufgabe gegenüber einer Ausgangsbasis; Annahme- und
     Nacharbeitsquote der KI-Vorschläge; wie stark der Vorschlag für den Projektstrukturplan in Ihren eigenen
-    Projekten schwankt (§812; E27, *gemessen*).
+    Projekten schwankt (E27, *gemessen*).
   - *Abbruch und Freigabe:* abbrechen, wenn Ausgaben, Nacharbeit oder ein Befund zum Personenschutz eine vorher
     von Ihnen festgelegte Grenze überschreiten (die Kurzinformationen nennen keine Werte; keiner ist gemessen);
     Freigabe durch Betriebsrat, DSB, CISO und die Budgetverantwortlichen.

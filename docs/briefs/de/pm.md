@@ -83,8 +83,8 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
 
 ## Noch nicht belegt / offene Lücken
 
-1. **§812:** Der Vorschlag der Optimierung der Arbeitspakete schwankt für dieselbe Eingabe, mit Claude Sonnet 5.5
-   deutlich weniger als mit Claude Sonnet 5; prüfen Sie jeden für sich (E27, *gemessen*).
+1. **Wiederholbarkeit:** Der Vorschlag der Optimierung der Arbeitspakete schwankt für dieselbe Eingabe, mit
+   Claude Sonnet 5.5 deutlich weniger als mit Claude Sonnet 5; prüfen Sie jeden für sich (E27, *gemessen*).
 2. **§814:** Für Diktat und Sprachbefehle gibt es kein beobachtetes Verhalten aus einem gemessenen Lauf (E76,
    *nicht belegt*). Gemessen ohne Personenschutz: „Mit KI planen“ sendet für eine Person, die auch in einem anderen Projekt arbeitet,
    den Namen dieses Projekts und ihre dortigen Stunden je Monat (E39, *gemessen*).
