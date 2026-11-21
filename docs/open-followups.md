@@ -1049,6 +1049,7 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§812](#812-whether-optimize-work-breakdown-with-ai-repeats-is-not-measured) | Whether Optimize work breakdown with AI repeats is not measured | — | — | open |
 | [§813](#813-erasure-and-retention-of-saved-chats-are-proven-live-only-for-the-statements-the-erasure-spec-covers) | Erasure and retention of saved chats are proven live only for the statements the erasure spec covers | — | — | open |
 | [§814](#814-several-ai-paths-have-no-recorded-cost-or-observed-behaviour-from-a-measured-run) | Several AI paths have no recorded cost or observed behaviour from a measured run | — | — | open |
+| [§815](#815-ai-starter-content-applied-when-a-project-is-created-writes-no-activity-entry) | AI starter content applied when a project is created writes no activity entry | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46543,3 +46544,17 @@ What it would take: run each path once with a recorded outcome and cost, or stat
 Size M.
 
 **Source:** preparing the AI briefs, 2026-11-14.
+
+## 815. AI starter content applied when a project is created writes no activity entry
+
+**Status:** OPEN 2026-11-21, found while closing §799 (AI activity entries record their origin). Reproduced by reading: `create-project-wizard.tsx` turns the AI starter content into a seed with `proposalToSeed`, `new-project-workspace.ts` applies it when the project is created, and `grep -n -i "activity" src/app/new-project-workspace.ts src/app/create-project-wizard.tsx` prints nothing, so the new project's activity log has no entry for it.
+
+**Work item:** #1018
+
+Every other AI feature that changes an existing project writes an entry with actor `ai` and an `origin` naming the feature (§799). The starter content a person accepts in the new-project wizard does not: the project starts with AI-written content and a log that does not say so. The briefs and the compliance pack therefore scope their statement about the activity log to AI features that change an existing project and name this exception.
+
+Expected: an AI entry with its own feature value in `origin`, holding no user-authored text, only the feature name (no thread or request link, the wizard has none). It needs a new `AiOrigin` feature value and a decision whether the new project's log starts with one summary entry or one per created item.
+
+Size S.
+
+**Source:** second whole-branch review of §799, 2026-11-21.

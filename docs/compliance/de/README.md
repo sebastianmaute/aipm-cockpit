@@ -85,6 +85,7 @@ Registers.
 | §812 | Whether Optimize work breakdown with AI repeats is not measured |
 | §813 | Erasure and retention of saved chats are proven live only for the statements the erasure spec covers |
 | §814 | Several AI paths have no recorded cost or observed behaviour from a measured run |
+| §815 | AI starter content applied when a project is created writes no activity entry |
 <!-- PACK:open-gaps:END -->
 
 Was jede Lücke für Sie bedeutet. Jeder Satz gibt seinen Registereintrag in `docs/open-followups.md` wieder,
