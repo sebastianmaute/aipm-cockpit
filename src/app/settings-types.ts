@@ -26,6 +26,7 @@ import { type TimelogConfig, defaultTimelogConfig } from "./timelog-types";
  *  the Settings → AI dropdown all derive from this array, so they can't drift
  *  apart. `id` is the Anthropic model id sent to the API; `label` is the UI text. */
 export const CHAT_MODELS = [
+  { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5" },
   { id: "claude-sonnet-5", label: "Claude Sonnet 5" },
   { id: "claude-opus-5", label: "Claude Opus 5" },
   { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
@@ -126,9 +127,12 @@ export function clampInsightRecInterval(v: unknown): number {
     : DEFAULT_INSIGHT_REC_INTERVAL_MIN;
 }
 
+/** The model a fresh settings object, and every fallback for a missing `settings.ai.model`, uses. */
+export const DEFAULT_CHAT_MODEL = CHAT_MODELS[0].id;
+
 export const defaultAiConfig: AiConfig = {
   apiKey: "",
-  model: CHAT_MODELS[0].id,
+  model: DEFAULT_CHAT_MODEL,
   sessionTokenCap: DEFAULT_SESSION_TOKEN_CAP,
   weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP,
   groundInGuides: true,

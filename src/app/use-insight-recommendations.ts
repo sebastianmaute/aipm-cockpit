@@ -27,6 +27,7 @@ import type { Task, RaidItem, Milestone, ChangeItem, Stakeholder, Resource, Proj
 import type { AbsenceCtx } from "./absence-clash";
 import {
   aiKeyIfEnabled,
+  DEFAULT_CHAT_MODEL,
   isAiBackgroundEnabled,
   DEFAULT_INSIGHT_REC_INTERVAL_MIN,
   type Settings,
@@ -351,7 +352,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     cancel: cancelInsightRecommendation,
   } = useInsightRecommend({
     insights: recommendable,
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText, stakeholdersHidden },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? DEFAULT_CHAT_MODEL, guideText: recommendGuideText, stakeholdersHidden },
     today,
     buildIndex: buildInsightGroundingIndex,
     buildContextFor: buildInsightRecommendContext,
@@ -374,7 +375,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     enabled: isAiBackgroundEnabled(settings.ai) && settings.ai.insightRecommendations === true && !isPopout && !loadPending,
     guidesReady: settings.ai.groundInGuides !== true || guidesReady,
     insights: recommendable,
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText, stakeholdersHidden },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? DEFAULT_CHAT_MODEL, guideText: recommendGuideText, stakeholdersHidden },
     today,
     intervalMinutes: settings.ai.insightRecommendationIntervalMinutes ?? DEFAULT_INSIGHT_REC_INTERVAL_MIN,
     buildIndex: buildInsightGroundingIndex,

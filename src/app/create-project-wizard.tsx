@@ -32,7 +32,7 @@ import {
 import { t, tPlural, type Lang } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { type NewProjectOpts } from "./new-project-workspace";
-import { aiKeyIfEnabled, type Settings } from "./settings-types";
+import { aiKeyIfEnabled, DEFAULT_CHAT_MODEL, type Settings } from "./settings-types";
 import { type ProjectTemplate } from "./templates";
 import { DEFAULT_CURRENCY, SUPPORTED_CURRENCIES, isBudgetCurrency, type BudgetCurrency, type ProjectMeta, type Resource } from "./types";
 import { useTemplates } from "./use-templates";
@@ -167,7 +167,7 @@ export function CreateProjectWizard({
   const appZone = resolveTimezone(settings.timezone, undefined);
   const { generate, busy: aiBusy, error: aiError, reset: resetAi } = useProjectProposal({
     apiKey: aiKey,
-    model: settings.ai?.model ?? "claude-sonnet-5",
+    model: settings.ai?.model ?? DEFAULT_CHAT_MODEL,
     timeZone: appZone,
   });
   const [step, setStep] = useState<Step>(aiEnabled ? 0 : 1);

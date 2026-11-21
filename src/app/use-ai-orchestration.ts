@@ -16,6 +16,7 @@ import { useCallback, useMemo } from "react";
 import { type Lang, t } from "./i18n";
 import {
   aiKeyIfEnabled,
+  DEFAULT_CHAT_MODEL,
   isAiBackgroundEnabled,
   isAiEnabled,
   resolveNextActionsConfig,
@@ -114,7 +115,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
   // loop). Reuses the live in-memory key; surfaced via the aiAnalysisBundle prop.
   const actionAnalysis = useActionAnalysis({
     apiKey: aiKeyIfEnabled(settings.ai),
-    model: settings.ai?.model ?? "claude-sonnet-5",
+    model: settings.ai?.model ?? DEFAULT_CHAT_MODEL,
     guideText: jobGuideText,
   });
   // Hoisted member reads (exhaustive-deps rejects `obj.member` deps; the hook
@@ -271,7 +272,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     lang,
     clearProject: scheduledJobs.clearProject,
     disableJob: scheduledJobs.disableJob,
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: jobGuideText },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? DEFAULT_CHAT_MODEL, guideText: jobGuideText },
     notify: notifyScheduledJob,
   });
 

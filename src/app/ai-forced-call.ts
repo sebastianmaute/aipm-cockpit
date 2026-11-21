@@ -78,10 +78,18 @@ export function withGuideText(
   return [...system, guideBlock];
 }
 
-/** Models that answered a forced `tool_choice` with a 400 (Sonnet 5.5, Opus 5.5 and Fable 5.1
- *  did on 2026-10-19). Each is asked with `{ type: "auto" }` from then on, for the rest of the
- *  session; every other model keeps the forced choice. */
-const autoChoiceModels = new Set<string>();
+/** Models measured to answer a forced `tool_choice` with a 400 (Sonnet 5.5, Opus 5.5 and Fable 5.1
+ *  did on 2026-10-19). They are asked with `{ type: "auto" }` from their FIRST request, so the default
+ *  model does not pay a 400 round trip per forced feature per session. */
+export const KNOWN_AUTO_CHOICE_MODELS: readonly string[] = Object.freeze([
+  "claude-sonnet-5-5",
+  "claude-opus-5-5",
+  "claude-fable-5-1",
+]);
+
+/** Models asked with `{ type: "auto" }`: the known ones above, plus any other model that answered a
+ *  forced choice with a 400 (learned for the rest of the session). Every other model keeps the forced choice. */
+const autoChoiceModels = new Set<string>(KNOWN_AUTO_CHOICE_MODELS);
 
 /** Tools whose plain auto reply did not match their schema: asked in strict form from then on.
  *  ★★ Sonnet 5.5 sent the next-actions analysis with `actions` as a string holding tool markup in 8 of
@@ -95,6 +103,7 @@ const nonStrictTools = new Set<string>();
 
 export function __resetToolChoiceFallbackForTests(): void {
   autoChoiceModels.clear();
+  for (const model of KNOWN_AUTO_CHOICE_MODELS) autoChoiceModels.add(model);
   strictTools.clear();
   nonStrictTools.clear();
 }

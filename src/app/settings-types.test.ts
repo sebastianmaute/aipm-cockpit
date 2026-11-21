@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
-import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, hasAnyBrandingField, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled, isAiEnabled, isAiBackgroundEnabled, aiKeyIfEnabled, isAiConsentedForDictation, coerceHardCap } from "./settings-types";
+import { sanitizeAiConfig, defaultAiConfig, DEFAULT_CHAT_MODEL, sanitizeBranding, hasAnyBrandingField, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled, isAiEnabled, isAiBackgroundEnabled, aiKeyIfEnabled, isAiConsentedForDictation, coerceHardCap } from "./settings-types";
 import { newConsent, isInteractiveAiAllowed } from "./ai-consent";
 import { setAiDeploymentState } from "./ai-deployment";
 import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
@@ -91,6 +91,18 @@ describe("hasAnyBrandingField (§69 — the one presence check)", () => {
   });
   it("agrees with sanitizeBranding: a lone start logo survives sanitising", () => {
     expect(sanitizeBranding({ startLogo: png })).toEqual({ startLogo: png });
+  });
+});
+
+describe("the default model", () => {
+  it("is Claude Sonnet 5.5 for a fresh settings object, and DEFAULT_CHAT_MODEL names it", () => {
+    expect(defaultAiConfig.model).toBe("claude-sonnet-5-5");
+    expect(DEFAULT_CHAT_MODEL).toBe("claude-sonnet-5-5");
+    expect(sanitizeAiConfig({}).model).toBe("claude-sonnet-5-5");
+  });
+
+  it("keeps a model a stored setting already names", () => {
+    expect(sanitizeAiConfig({ model: "claude-opus-5" }).model).toBe("claude-opus-5");
   });
 });
 

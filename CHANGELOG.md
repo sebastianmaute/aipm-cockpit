@@ -20,6 +20,10 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **Claude Sonnet 5.5 is now the default model.** A new installation, and any setting that names no model, uses
+  Claude Sonnet 5.5, and it heads the model list. Settings that already name a model keep it. Sonnet 5.5, Opus 5.5 and
+  Fable 5.1 refuse a forced tool choice, so they are now asked with an automatic choice from the first request
+  instead of after a refused one.
 - **AI requests now have a time limit and retry a rate limit or overload.** Each AI request attempt is limited to 5
   minutes (a feature's own shorter limit still wins); a timeout in an AI feature shows "Claude did not answer within 5 minutes. Try
   again." instead of ending silently (the model list falls back to the built-in list without a message, and the digest
