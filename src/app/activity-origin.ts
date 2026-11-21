@@ -14,6 +14,7 @@ export const AI_FEATURES = [
   "taskDedup",
   "raciSuggest",
   "meetingReport",
+  "projectStarter",
 ] as const;
 
 export type AiFeature = (typeof AI_FEATURES)[number];

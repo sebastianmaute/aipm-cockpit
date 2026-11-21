@@ -106,7 +106,7 @@ der App.
   alle aufbrauchen (E54, *getestet (Unit)*; E69, *getestet (Unit)*). Die Diktat-Route lehnt einen Endpunkt ab, dessen Hostname zu einer privaten Adresse
   aufgelöst wird; DNS-Rebinding bleibt möglich (E70, *getestet (Unit)*).
 - Für Vorfälle: Das Aktivitätsprotokoll nennt die KI als Akteur ihrer Änderungen an einem bestehenden Projekt und die KI-Funktion, die jede
-  vorgenommen hat (KI-Startinhalte, die beim Anlegen eines Projekts übernommen werden, schreiben noch keinen Eintrag; Register §815); bei Turso-Speicherung verweist eine Änderung aus dem Chat zudem auf die Chat-Anfrage dahinter,
+  vorgenommen hat (KI-Startinhalte, die beim Anlegen eines Projekts übernommen werden, schreiben einen Eintrag mit der Zahl der hinzugefügten Einträge); bei Turso-Speicherung verweist eine Änderung aus dem Chat zudem auf die Chat-Anfrage dahinter,
   solange dieser Chat noch zu den für dieses Projekt geladenen Chats gehört und diese Anfrage noch enthält; Einträge aus der Zeit vor dieser Version tragen weder die KI-Funktion noch eine Verknüpfung (E55, *im Code gelesen*).
 - Fragen Sie Anthropic, was es von einer Anfrage aufbewahrt, wie lange und ob es damit trainiert.
 - Prüfen Sie SBOM und Herkunftsnachweise der Version, die Sie installieren, und weisen Sie die Nutzenden auf die

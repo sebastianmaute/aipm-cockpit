@@ -779,7 +779,8 @@
   turn running tools and an insight recommendation applying at the same moment stamp each other's entries
   (`use-chat-dispatcher.origin.test.tsx` pins both completion orders). The other AI features
   (`inlineEdit`, `insightRecommendation`, `allocationPlan`, `wbsPlan`, `taskDedup`, `raciSuggest`,
-  `meetingReport`) build their own `aiOrigin(…)`; no scheduled run logs activity. A chat send makes ONE
+  `meetingReport`) build their own `aiOrigin(…)`; `projectStarter` is written by `buildNewProjectWorkspace` as the
+  new project's first entry (§815), one entry with the count of records the AI seed added; no scheduled run logs activity. A chat send makes ONE
   `chatSendOrigins` pair, `chat` for the writes the send runs and `chatProposal` for a plan it stages (applied
   later, so it keeps the send's own origin), and it keeps that pair as a local value.
   ★★ **A LINK NEEDS THE REQUEST, AND ONLY IN TURSO MODE.** `requestId` is minted once per send by

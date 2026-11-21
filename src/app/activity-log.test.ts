@@ -124,7 +124,7 @@ describe("isDeleteKind", () => {
     const ALL_KINDS = Object.keys(ACTIVITY_KIND_TO_KEY) as ActivityKind[];
 
     test("classifies every member exactly as declared", () => {
-      expect(ALL_KINDS).toHaveLength(79); // tripwire — see the note above; document.aiMarkRemoved (§801, not a delete), ai.reviewAllWritesOff/On + ai.ratesWithheldOff/On + ai.backgroundPaused/Resumed (§794, §804, §795, not deletes), ai.allocationPlanAlt (§769, not a delete), raid.escalated added (§515), ai.wbsPlan (optimize_wbs), plan.currencySwitched (§476, not a delete), forecastScenario.created/updated/deleted (§502), forecast.targetChanged/proposalSet/proposalCleared (§502), project.updated (§715, not a delete), resource.hoursMoved (§774, not a delete), meetingReport.updated + ai.reportDraft (AI-04), ai.peopleProtectionOff/On (AI people protection, not deletes)
+      expect(ALL_KINDS).toHaveLength(80); // tripwire — see the note above; ai.projectStarter (§815, not a delete), document.aiMarkRemoved (§801, not a delete), ai.reviewAllWritesOff/On + ai.ratesWithheldOff/On + ai.backgroundPaused/Resumed (§794, §804, §795, not deletes), ai.allocationPlanAlt (§769, not a delete), raid.escalated added (§515), ai.wbsPlan (optimize_wbs), plan.currencySwitched (§476, not a delete), forecastScenario.created/updated/deleted (§502), forecast.targetChanged/proposalSet/proposalCleared (§502), project.updated (§715, not a delete), resource.hoursMoved (§774, not a delete), meetingReport.updated + ai.reportDraft (AI-04), ai.peopleProtectionOff/On (AI people protection, not deletes)
       expect(ALL_KINDS.filter(isDeleteKind).sort()).toEqual([...DELETE_KINDS].sort());
     });
 

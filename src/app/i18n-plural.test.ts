@@ -204,6 +204,8 @@ describe("plural key pairing", () => {
       "activityAiRaciSuggest@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
       "activityAiWbsPlan@src/app/activity-log.ts": "kind→key dispatch Record; selection lives in activity-message.ts",
       "activityAiWbsPlan@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
+      "activityAiProjectStarter@src/app/activity-log.ts": "kind→key dispatch Record; selection lives in activity-message.ts",
+      "activityAiProjectStarter@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",
       // §450 tier 1 — the same two rows for each of the eight converted kinds.
       "activityBulkEdit@src/app/activity-log.ts": "kind→key dispatch Record; selection lives in activity-message.ts",
       "activityBulkEdit@src/app/activity-message.ts": "ACTIVITY_PLURAL table; tPlural is called from it",

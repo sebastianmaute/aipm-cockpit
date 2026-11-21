@@ -109,6 +109,7 @@ const ORIGIN_KEYS = {
   taskDedup: "activityOriginTaskDedup",
   raciSuggest: "activityOriginRaciSuggest",
   meetingReport: "activityOriginMeetingReport",
+  projectStarter: "activityOriginProjectStarter",
 } as const satisfies Record<AiFeature, string>;
 
 /** The origin an AI row shows, or undefined. Only an AI row has one; the object check guards entries that

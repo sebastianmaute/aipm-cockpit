@@ -46,9 +46,9 @@ describe("activityMessage", () => {
     // anti-vacuity floor is the guard meant to notice a DELETED row, and at
     // `> 0` it stays green with one member left — so it did not do the one job
     // it was there for. Measured 2026-09-08: two members; §450 tier 1 added
-    // eight (2026-10-02). Bump this deliberately when a kind is added, which
+    // eight (2026-10-02); §815 added ai.projectStarter (2026-11-21). Bump this deliberately when a kind is added, which
     // is the point.
-    expect(ACTIVITY_PLURAL_KINDS.length).toBe(12);
+    expect(ACTIVITY_PLURAL_KINDS.length).toBe(13);
     for (const kind of ACTIVITY_PLURAL_KINDS) {
       expect(activityPluralBase(kind)).toBe(ACTIVITY_KIND_TO_KEY[kind]);
     }
@@ -124,6 +124,14 @@ describe("activityMessage", () => {
     expect(activityMessage("de", "ai.allocationPlan", [3])).toBe("KI hat 3 Planungszellen geplant");
     expect(activityMessage("de", "ai.wbsPlan", [1])).toBe("KI hat 1 Änderung an den Arbeitspaketen übernommen");
     expect(activityMessage("de", "ai.wbsPlan", [5])).toBe("KI hat 5 Änderungen an den Arbeitspaketen übernommen");
+  });
+
+  // §815 — the starter content a new project gets from the AI is logged by its count alone.
+  it("renders AI starter content by its count, singular and plural, in both languages", () => {
+    expect(activityMessage("en-US", "ai.projectStarter", [1])).toBe("AI starter content added 1 item when the project was created");
+    expect(activityMessage("en-US", "ai.projectStarter", [6])).toBe("AI starter content added 6 items when the project was created");
+    expect(activityMessage("de", "ai.projectStarter", [1])).toBe("KI-Startinhalte haben beim Anlegen des Projekts 1 Eintrag hinzugefügt");
+    expect(activityMessage("de", "ai.projectStarter", [6])).toBe("KI-Startinhalte haben beim Anlegen des Projekts 6 Einträge hinzugefügt");
   });
 
   // §769 — an applied alternative is logged by its NUMBER and counts only, never the model's summary.

@@ -73,7 +73,6 @@ and the pack's check fails when a listed entry is closed or missing. [verified:
 | §802 | The AI gateway route has never been run against a real gateway |
 | §811 | The time the AI features save is not measured |
 | §814 | Dictation and voice commands have no recorded cost or observed behaviour from a measured run |
-| §815 | AI starter content applied when a project is created writes no activity entry |
 <!-- PACK:open-gaps:END -->
 
 What each gap means for you. Each sentence restates its register entry in `docs/open-followups.md`,
