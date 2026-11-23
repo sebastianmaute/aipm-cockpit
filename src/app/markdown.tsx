@@ -221,9 +221,16 @@ function isSameOriginPath(url: string): boolean {
  *  hide one to `paypal.co`. A `www.` is never dropped from the host for the same reason. */
 function linkDestination(url: string, label: string): string | null {
   let shown: string;
-  if (/^mailto:/i.test(url)) {
+  const isMail = /^mailto:/i.test(url);
+  if (isMail) {
+    // RFC 6068: a mail client adds the query's to=, cc= and bcc= recipients to the address, so all of them are shown.
     const [address, query = ""] = url.slice("mailto:".length).split("?");
-    shown = safeDecode(address) || (new URLSearchParams(query).get("to") ?? "");
+    const params = new URLSearchParams(query);
+    shown = [safeDecode(address), ...params.getAll("to"), ...params.getAll("cc"), ...params.getAll("bcc")]
+      .flatMap((list) => list.split(","))
+      .map((r) => r.trim())
+      .filter(Boolean)
+      .join(", ");
   } else if (/^https?:/i.test(url)) {
     try {
       shown = new URL(url).host;
@@ -234,7 +241,9 @@ function linkDestination(url: string, label: string): string | null {
     return null;
   }
   if (!shown) return null;
-  const said = label.trim().toLowerCase().replace(/^(https?:\/\/|mailto:)/, "").replace(/\/$/, "");
+  // Only the link's OWN scheme is ignored in the label: "mailto:example.com" is not the web address example.com.
+  const ownScheme = isMail ? /^mailto:/ : /^https?:\/\//;
+  const said = label.trim().toLowerCase().replace(ownScheme, "").replace(/\/$/, "");
   const target = shown.toLowerCase();
   return said === target || said.startsWith(`${target}/`) ? null : shown;
 }

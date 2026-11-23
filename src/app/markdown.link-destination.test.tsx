@@ -53,6 +53,19 @@ describe("Markdown link destination", () => {
     expect(screen.getByRole("link", { name: "desk (help@corp.example)" })).toBeInTheDocument();
   });
 
+  // RFC 6068: a mail client adds to=, cc= and bcc= recipients to the address, so every one is shown.
+  it("shows every recipient of an email link, its query's to, cc and bcc included", () => {
+    render(<Markdown text="[a@x.example](mailto:a@x.example?to=evil@y.example&cc=c@z.example&bcc=b@w.example)" />);
+    expect(
+      screen.getByRole("link", { name: "a@x.example (a@x.example, evil@y.example, c@z.example, b@w.example)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("strips only the link's own scheme from the label before comparing", () => {
+    render(<Markdown text="[mailto:example.com](https://example.com)" />);
+    expect(screen.getByRole("link", { name: "mailto:example.com (example.com)" })).toBeInTheDocument();
+  });
+
   it("leaves a link to the app's own pages as it was", () => {
     render(<Markdown text="[open the plan](/plan#budget)" />);
     const link = screen.getByRole("link", { name: "open the plan" });

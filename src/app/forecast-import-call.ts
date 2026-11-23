@@ -124,7 +124,8 @@ function countNonBlankCells(sheet: SheetGrid): number {
 /** Claude's column mapping for `sheet`, converted to the hand route's
  *  `ColumnMapping`, and its notes. Throws `Error("too-large")` over the caps
  *  (before any request) or for a reply cut off at the output budget, and
- *  `Error("bad-mapping")` when the mapping cannot be used (`claudeMappingOf`). */
+ *  `Error("bad-mapping")` when the mapping cannot be used (`claudeMappingOf`) or names a header row outside the
+ *  rows sent (`sheetForPrompt`). */
 export async function runForecastImportCall(
   sheet: SheetGrid,
   ai: { apiKey: string; model: string; guideText?: string; privacy: AiPrivacy },
