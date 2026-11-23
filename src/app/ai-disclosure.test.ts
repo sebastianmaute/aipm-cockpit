@@ -243,6 +243,8 @@ const SITE_ROWS: Readonly<Record<string, readonly string[]>> = {
   "app/use-tasks-dedup.tsx": ["task-dedup"],
   "app/use-tasks-inline-ai-edit.tsx": ["inline-edit"],
   "app/use-wbs-plan.tsx": ["wbs-plan"],
+  // Its five `isAiEnabled` reads: the Forecast view's and the Reports forecast block's Ask Claude (both open the chat),
+  // the Dashboard's and the Insights view's insight recommendations, and the Dashboard coaching, which sends nothing.
   "app/workspace-section.tsx": ["chat", "insight-recommendation"],
 };
 

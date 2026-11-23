@@ -1542,6 +1542,16 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     expect(result.current.listAbsences()[0]).toEqual(updated);
   });
 
+  it("an update that echoes the masked type \"absent\" back keeps the stored type", () => {
+    // The model only ever reads "absent"; passing it back must not overwrite (or demote) the real type.
+    const { result } = renderDispatcher();
+    const created = result.current.createAbsence({
+      assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", type: "sick", note: "flu",
+    }, aiOrigin("chat"));
+    result.current.updateAbsence(created.id, { type: "absent" as never, endDate: "2026-06-08" }, aiOrigin("chat"));
+    expect(result.current.getAbsenceRow(created.id)).toMatchObject({ type: "sick", note: "flu", endDate: "2026-06-08" });
+  });
+
   // §539 follow-up: LOAD keeps a non-calendar required date raw, but a WRITE
   // still refuses one — the AI writer runs the strict `sanitizeAbsence`.
   it("updateAbsence and createAbsence still refuse a non-calendar date", () => {

@@ -668,6 +668,17 @@ describe("runTool — list_tasks / get_task", () => {
     await expect(runTool(d, "get_contact_email", { entity: "nope", id: 1 }, aiOrigin("chat"))).rejects.toThrow("entity must be");
   });
 
+  it("get_contact_email answers null, not an error, for a person with no address stored", async () => {
+    const d = makeDispatcher({
+      getStakeholderRow: vi.fn(() => makeStakeholder({ email: undefined })),
+      getResourceRow: vi.fn(() => makeResource({ email: undefined, emails: undefined })),
+      getRaidRow: vi.fn(() => makeRaidItem({ ownerEmail: undefined })),
+    });
+    expect(await runTool(d, "get_contact_email", { entity: "stakeholder", id: 40 }, aiOrigin("chat"))).toEqual({ id: 40, email: null });
+    expect(await runTool(d, "get_contact_email", { entity: "resource", id: 7 }, aiOrigin("chat"))).toEqual({ id: 7, email: null, emails: [] });
+    expect(await runTool(d, "get_contact_email", { entity: "raid", id: 10 }, aiOrigin("chat"))).toEqual({ id: 10, email: null });
+  });
+
   it("get_task throws when id is not a finite number", async () => {
     const d = makeDispatcher();
     await expect(runTool(d, "get_task", { id: "abc" }, aiOrigin("chat"))).rejects.toThrow(
