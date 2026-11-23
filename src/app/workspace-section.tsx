@@ -13,6 +13,7 @@ import { saveProjectFromForm } from "./project-meta-edit";
 import type { OpenThreadRequest } from "./use-chat-open-thread-request";
 import { computeProjectForecastFacts } from "./budget-forecast";
 import {
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -28,6 +29,7 @@ import {
 } from "./workspace-context";
 import { useEntityInlineAiEdit } from "./use-entity-inline-ai-edit";
 import {
+  liveChatSeed,
   useWorkspaceTab,
 } from "./workspace-tab-context";
 import {
@@ -288,13 +290,15 @@ export function WorkspaceSection({
   // re-renders via the store. With no override this equals the device values;
   // `settings` stays device for non-overridable reads.
   const effectiveSettings = useEffectiveSettings(currentProjectId ?? "default");
-  const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen, pendingHelpConcept, requestHelpConcept, clearHelpConcept, getChatConversation, saveChatConversation, requestForecastDraft } = useWorkspaceTab();
+  const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, setChatScopeReader, requestOpen, pendingHelpConcept, requestHelpConcept, clearHelpConcept, getChatConversation, saveChatConversation, requestForecastDraft } = useWorkspaceTab();
   const { raidFilterTaskId, changeFilterTaskId, raidFilterEpoch, changeFilterEpoch } = useFilters();
   // A task backlink applies only in the scope it was armed in: task ids are per
   // project, so after a project switch a stale "#7" would filter the next
   // project's register by an unrelated task. The epoch bumps on every swap.
   // ★ A render-time read: it relies on every epoch bump happening while this tree is unmounted for the load hold (§548).
   const scopeEpoch = getScopeEpoch();
+  // Every Ask-Claude request is stamped with the scope it was made in (`liveChatSeed` below drops it after a swap).
+  useEffect(() => setChatScopeReader(getScopeEpoch), [setChatScopeReader, getScopeEpoch]);
   const activeRaidFilterTaskId = raidFilterEpoch === scopeEpoch ? raidFilterTaskId : null;
   const activeChangeFilterTaskId = changeFilterEpoch === scopeEpoch ? changeFilterTaskId : null;
   // Directory map for resolving a linked owner/assignee's LIVE name in the
@@ -536,8 +540,9 @@ export function WorkspaceSection({
             onChangeModel={(model) => setSettings((s) => ({ ...s, ai: { ...s.ai, model } }))}
             guides={guides}
             guidesReady={guidesReady}
-            // ★ Held until the settings hydrate: a seed applied to the DEFAULT config (no key, switch off) only prefills.
-            chatSeed={hydrated ? pendingChatSeed : null}
+            // ★ Held until the settings hydrate (a seed applied to the DEFAULT config only prefills), and dropped
+            //   once the project scope it was made in has changed.
+            chatSeed={liveChatSeed(pendingChatSeed, hydrated, scopeEpoch)}
             onChatSeedConsumed={clearChatSeed}
             openThreadRequest={openThreadRequest}
             onOpenThreadRequestConsumed={clearOpenThreadRequest}

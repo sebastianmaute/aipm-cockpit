@@ -1695,3 +1695,28 @@ describe("WorkspaceSection — Activity link opens the chat thread", () => {
     expect(second.nonce).toBeGreaterThan(first.nonce);
   });
 });
+
+// A request to the chat (Ask Claude) made in one project must not be applied in the next: the section stamps it
+// with the scope it was made in and hands ChatPanel no seed once the scope epoch has moved on.
+describe("WorkspaceSection — Ask-Claude seed across a project swap", () => {
+  let epoch = 0;
+  const getScopeEpoch = () => epoch;
+
+  function AskProbe() {
+    const { requestChat } = useWorkspaceTab();
+    return <button data-testid="ask-claude" onClick={() => requestChat("Summarize risks", true)} />;
+  }
+
+  it("hands ChatPanel the seed in its own scope and drops it after the scope moves on", async () => {
+    epoch = 0;
+    chatPanelMock.props.length = 0;
+    const props = makeProps({ getScopeEpoch });
+    const { rerender } = render(<><AskProbe /><WorkspaceSection {...props} /></>, { wrapper: Wrapper });
+    fireEvent.click(screen.getByTestId("ask-claude"));
+    await screen.findByTestId("chat-panel");
+    expect((chatPanelMock.props.at(-1)!.chatSeed as { prompt: string } | null)?.prompt).toBe("Summarize risks");
+    epoch = 1;
+    rerender(<><AskProbe /><WorkspaceSection {...props} /></>);
+    expect(chatPanelMock.props.at(-1)!.chatSeed).toBeNull();
+  });
+});
