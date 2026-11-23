@@ -217,6 +217,20 @@ describe("rowsToThreads — an old stored search_history result is minimised on 
     });
   });
 
+  it("leaves a summary-and-detail object alone in another tool's result; a result of no known call is still minimised", () => {
+    const shaped = { items: [{ summary: "Kick-off", detail: "influence: Low → High" }] };
+    const other = [
+      { role: "assistant", content: [{ type: "tool_use", id: "d1", name: "get_document", input: {} }] },
+      { role: "user", content: [
+        { type: "tool_result", tool_use_id: "d1", content: pretty(shaped) },
+        { type: "tool_result", tool_use_id: "zz", content: pretty(shaped) },
+      ] },
+    ] as ApiMessage[];
+    const [kept, unknown] = toolResults(minimiseStoredToolResults(other));
+    expect(JSON.parse(kept)).toEqual(shaped);
+    expect(JSON.parse(unknown)).toEqual({ items: [{ summary: "Kick-off" }] });
+  });
+
   it("empties such a detail in a stored result that was cut and does not parse", () => {
     const cut = '{"events":[{"summary":"S","detail":"status: a → b"},{"summary":"T","detail":"note: Knee surg';
     const out = minimiseToolResultText(cut);
