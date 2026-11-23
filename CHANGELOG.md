@@ -25,6 +25,9 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **A link in an AI chat reply shows where it goes.** The assistant chooses a link's label, so a link to another
+  site now also shows that site's address after the label (an email link: the address), and the full address as its
+  tooltip. A label that already names the address shows nothing extra, and links to the app's own pages are unchanged.
 - **Claude Sonnet 5.5 is now the default model.** A new installation, and any setting that names no model, uses
   Claude Sonnet 5.5, and it heads the model list. An existing installation that uses Claude Sonnet 5 is switched to
   Claude Sonnet 5.5 once; a model you pick after that, Sonnet 5 included, is kept, and any other model is not
