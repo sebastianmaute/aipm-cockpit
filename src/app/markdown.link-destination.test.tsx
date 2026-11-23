@@ -61,6 +61,18 @@ describe("Markdown link destination", () => {
     ).toBeInTheDocument();
   });
 
+  // A mail client reads everything after the FIRST "?" as the query, and header names in any case.
+  it("finds a recipient after a second question mark, or under an upper-case header name", () => {
+    render(<Markdown text="[a@x.example](mailto:a@x.example?subject=hi?&cc=evil@y.example) [b@x.example](mailto:b@x.example?CC=evil@z.example&Bcc=w@v.example)" />);
+    expect(screen.getByRole("link", { name: "a@x.example (a@x.example, evil@y.example)" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "b@x.example (b@x.example, evil@z.example, w@v.example)" })).toBeInTheDocument();
+  });
+
+  it("keeps a plus sign in a recipient from the query", () => {
+    render(<Markdown text="[team](mailto:?cc=a+tag@x.example)" />);
+    expect(screen.getByRole("link", { name: "team (a+tag@x.example)" })).toBeInTheDocument();
+  });
+
   it("strips only the link's own scheme from the label before comparing", () => {
     render(<Markdown text="[mailto:example.com](https://example.com)" />);
     expect(screen.getByRole("link", { name: "mailto:example.com (example.com)" })).toBeInTheDocument();
