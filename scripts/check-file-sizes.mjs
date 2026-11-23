@@ -4,19 +4,19 @@ import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 
 const LIMIT = 1600;
 const BASELINE = "docs/baselines/file-sizes.json";
-// ★★★ THE BASELINE VALUES ARE DELIBERATELY DOUBLED AND `--update` DISCARDS
-// THAT. Raised from 800 on 2026-09-03 by explicit decision — the ratchet was
-// biting on routine work — and every entry in the baseline JSON was doubled in
-// the same change, so a file's recorded allowance is twice its size at the time
-// rather than its current length. `--update` rewrites the baseline to CURRENT
-// sizes, which silently reverts that decision to a no-headroom ratchet; the
-// violation message below still recommends it, so read this first. Re-double by
-// hand instead, or the next legitimate growth fails the gate again.
+// ★★★ THE BASELINE ENTRIES WERE DOUBLED ON PURPOSE, AND `--update` DISCARDS
+// ANY HEADROOM. LIMIT was raised from 800 on 2026-09-03 by explicit decision —
+// the ratchet was biting on routine work — and every entry in the baseline JSON
+// was doubled in the same change. Entries have been edited by hand since (the
+// task-manager one was tightened to its measured length on 2026-10-14, §706, so
+// it has NO headroom), so read the JSON rather than assuming any entry is twice
+// its file. `--update` rewrites the baseline to CURRENT sizes, which removes all
+// headroom; the violation message below still recommends it, so read this
+// first. Raise an entry by hand instead when growth is legitimate.
 // ★★★ AND IT DELETES, NOT HALVES: `--update` writes only files ABOVE the LIMIT
-// (the filter below), so at 1600 it emits `{task-manager: 2975}` alone and the
-// other three entries VANISH. "Re-double by hand" is then impossible for the
-// dropped rows without git archaeology — recover them from history, not from
-// the file.
+// (the filter below), so every entry for a file now under LIMIT VANISHES (see
+// the split below). Recover a dropped entry from git history, not from the
+// file.
 // ★ Only a file over LIMIT is checked against its entry at all. Two of the four
 // entries are INERT today: tasks-section and workspace-section are under 1600,
 // so LIMIT alone governs them; they are kept as recorded intent. chat-panel and
