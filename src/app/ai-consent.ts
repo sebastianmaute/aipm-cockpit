@@ -2,6 +2,7 @@
 // A versioned record of the AI disclosure the user accepted on THIS device.
 // Device settings only: never in the workspace, exports, Turso or recovery.
 import type { AiConfig, SettingsOverrides } from "./settings-types";
+import { AiConsentRevokedError } from "./ai-errors";
 import { isIntegrationDisabled } from "./integration-switches";
 import { type AiRoute, currentAiRoute, getAiDeploymentState, isAiDeploymentOn } from "./ai-deployment";
 
@@ -84,12 +85,8 @@ export function sanitizeConsent(v: unknown): AiConsent | undefined {
   return undefined;
 }
 
-export class AiConsentRevokedError extends Error {
-  constructor() {
-    super("AI consent was revoked");
-    this.name = "AiConsentRevokedError";
-  }
-}
+// Lives in ai-errors.ts, so the shared message lookup (`aiTransportMessageKey`) can name it without an import cycle.
+export { AiConsentRevokedError };
 
 /** An unattended request stopped because this week's usage reached the user's weekly hard cap. Only the
  *  background level is ever stopped by it. */

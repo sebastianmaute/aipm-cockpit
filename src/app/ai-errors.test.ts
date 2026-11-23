@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { AiHttpError, AiTimeoutError, aiTransportMessageKey, isAiTransportMessageKey, classifyAiError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
+import { AiConsentRevokedError as RevokedFromConsent } from "./ai-consent";
+import { AiConsentRevokedError, AiHttpError, AiTimeoutError, aiTransportMessageKey, isAiTransportMessageKey, classifyAiError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 
 describe("classifyAiError", () => {
   it("classifies HTTP 429 as limit", () => {
@@ -103,6 +104,17 @@ describe("AiHttpError", () => {
 
   it("leaves safeMessage undefined when not provided", () => {
     expect(new AiHttpError(500).safeMessage).toBeUndefined();
+  });
+});
+
+describe("AiConsentRevokedError", () => {
+  it("names the withdrawn consent, so every surface says why its request stopped", () => {
+    expect(aiTransportMessageKey(new AiConsentRevokedError())).toBe("aiConsentRevokedDuringSend");
+    expect(isAiTransportMessageKey("aiConsentRevokedDuringSend")).toBe(true);
+  });
+
+  it("is the same class ai-consent throws", () => {
+    expect(RevokedFromConsent).toBe(AiConsentRevokedError);
   });
 });
 

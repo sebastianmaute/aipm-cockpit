@@ -6,7 +6,7 @@ import { it, expect, vi, afterEach, describe } from "vitest";
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { renderHook, act } from "@testing-library/react";
 import * as call from "./inline-ai-edit-call";
-import { AiDeploymentError, AiHttpError } from "./ai-errors";
+import { AiConsentRevokedError, AiDeploymentError, AiHttpError } from "./ai-errors";
 import * as tools from "./chat-tools";
 import * as planMod from "./inline-ai-edit/plan";
 import { useInlineAiEdit, type InlineAiEditDeps } from "./use-inline-ai-edit";
@@ -878,6 +878,14 @@ describe("§650 inline AI edit — a refused key shows the key message", () => {
     await act(async () => { await result.current.submit("x"); });
     expect(result.current.phase).toBe("error");
     expect(result.current.errorText).toBe(t("en-US", "aiDeploymentChanged"));
+  });
+
+  it("a consent withdrawn during the request names that cause, as the chat does", async () => {
+    vi.spyOn(call, "callInlineEdit").mockRejectedValue(new AiConsentRevokedError());
+    const { result } = renderHook(() => useInlineAiEdit(mkDeps()));
+    act(() => result.current.openFor(task));
+    await act(async () => { await result.current.submit("x"); });
+    expect(result.current.errorText).toBe(t("en-US", "aiConsentRevokedDuringSend"));
   });
 
   it("a non-key failure keeps the generic text (control)", async () => {

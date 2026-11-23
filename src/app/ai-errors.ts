@@ -93,7 +93,17 @@ export class AiTimeoutError extends Error {
   }
 }
 
+/** AI was switched off, or its consent withdrawn, while a request was under way (`assertInteractiveConsentLive` and
+ *  `assertBackgroundConsentLive` in ai-consent.ts throw it). Every surface names it through `aiTransportMessageKey`. */
+export class AiConsentRevokedError extends Error {
+  constructor() {
+    super("AI consent was revoked");
+    this.name = "AiConsentRevokedError";
+  }
+}
+
 export type AiTransportMessageKey =
+  | "aiConsentRevokedDuringSend"
   | "aiDeploymentOff"
   | "aiDeploymentInvalid"
   | "aiDeploymentChanged"
@@ -125,6 +135,7 @@ export function aiTransportMessageKey(err: unknown): AiTransportMessageKey | nul
   if (err instanceof AiGatewayError) return GATEWAY_MESSAGE[err.code];
   if (err instanceof AiKeyCheckUnavailableError) return "aiKeyCheckUnavailable";
   if (err instanceof AiTimeoutError) return "aiRequestTimedOut";
+  if (err instanceof AiConsentRevokedError) return "aiConsentRevokedDuringSend";
   return null;
 }
 
@@ -133,6 +144,7 @@ const TRANSPORT_MESSAGE_KEYS: ReadonlySet<string> = new Set<AiTransportMessageKe
   ...Object.values(GATEWAY_MESSAGE),
   "aiKeyCheckUnavailable",
   "aiRequestTimedOut",
+  "aiConsentRevokedDuringSend",
 ]);
 
 /** True when a hook's stored error token is a transport message key (the features that keep a
