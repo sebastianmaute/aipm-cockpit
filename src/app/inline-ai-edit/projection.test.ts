@@ -114,6 +114,13 @@ describe("nested emails", () => {
     expect(raid.escalations[0].toEmail).toBe("pat@example.com"); // input untouched
   });
 
+  it("drops an e-mail field nested under any key, at any depth, not only in escalations", () => {
+    const item = { ...raid, contacts: [{ name: "Lee", ownerEmail: "lee@example.com", meta: { replyEmail: "r@example.com", note: "n" } }] };
+    const out = projectForInlineEdit("raid", item) as { contacts: unknown };
+    expect(out.contacts).toEqual([{ name: "Lee", meta: { note: "n" } }]);
+    expect(JSON.stringify(projectForInlineEdit("raid", item))).not.toMatch(/@example.com/);
+  });
+
   it("escalations is not a writable inline field", () => {
     expect(inlineDescriptor("raid").diffFields).not.toContain("escalations");
   });

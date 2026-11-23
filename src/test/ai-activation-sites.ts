@@ -38,3 +38,33 @@ export const AI_BACKGROUND_SITES: readonly string[] = [
   "app/use-ai-orchestration.ts",
   "app/use-insight-recommendations.ts",
 ];
+
+/** Files that read the stored AI key directly (`ai.apiKey`), not through `aiKeyIfEnabled`. Each is the key's
+ *  own plumbing (Settings → AI, the settings store, the key check), a call builder handed a key its caller gated,
+ *  or a caller that gates the read itself. A new reader fails `ai-activation-sites.test.ts` until it is listed here.
+ *  The hooks and call builders here read `ai.apiKey` from an `ai` object their caller filled with `aiKeyIfEnabled`. */
+export const AI_RAW_KEY_READERS: readonly string[] = [
+  "app/alloc-plan-call.ts",
+  "app/backend-setup-steps.ts",
+  "app/backend-setup-wizard.tsx",
+  "app/chat-panel.tsx",
+  "app/forecast-import-call.ts",
+  "app/portfolio-mode-switch.ts",
+  "app/raci-suggest-call.ts",
+  "app/scheduled-job-analysis.ts",
+  "app/settings-sections/ai-section.tsx",
+  "app/settings-types.ts",
+  "app/task-dedup-call.ts",
+  "app/use-action-analysis.ts",
+  "app/use-ai-key-check.ts",
+  "app/use-insight-recommend.ts",
+  "app/use-project-proposal.ts",
+  "app/use-scheduled-job-runner.ts",
+  "app/use-settings.ts",
+  "app/use-weight-suggestions.ts",
+  "app/wbs-plan-call.ts",
+  "app/weight-suggestion-call.ts",
+];
+
+/** Where the ungated key lookup `liveAiKey` may be called: where the predicates themselves are defined. */
+export const LIVE_AI_KEY_CALLERS: readonly string[] = ["app/settings-types.ts"];

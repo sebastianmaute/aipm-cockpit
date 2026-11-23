@@ -178,12 +178,8 @@ export function narrowOnly(ai: AiPermission, base: PersistedAiState): AiPermissi
 /** The AI permission a write persists: `narrowOnly` against the page's state `page`, except that each field in
  *  `widen` is taken from `ai` as it is. Only `persistAiConsentChange` passes a field to widen. */
 export function aiPermissionToWrite(ai: AiPermission, widen: readonly AiPermissionField[], page: PersistedAiState): AiPermission {
-  const permission = narrowOnly(ai, page);
-  for (const field of widen) {
-    if (field === "enabled") permission.enabled = ai.enabled;
-    else permission[field] = ai[field];
-  }
-  return permission;
+  const widened: Partial<AiPermission> = Object.fromEntries(widen.map((field) => [field, ai[field]]));
+  return { ...narrowOnly(ai, page), ...widened };
 }
 
 /** A write carrying `attempted` failed: where it narrows `stored`, or null when it narrows nothing. `attempted` is

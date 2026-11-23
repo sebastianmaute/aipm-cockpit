@@ -1,7 +1,8 @@
 // src/app/chat-threads.ts — pure, i18n-free, DOM-free engine for per-project AI
 // chat threads. No React, no Turso IO — see chat-threads-schema.ts/
 // chat-threads-store.ts for persistence. chat-panel.tsx is the sole consumer.
-import { ALL_WITHHELD_FIELDS, isEmailField } from "./ai-withheld-fields";
+import { ALL_WITHHELD_FIELDS, isEmailField, withheldActivityField } from "./ai-withheld-fields";
+import { kindsThatCouldWrite } from "./activity-summary-kinds";
 import type { ApiMessage, ContentBlock, DisplayItem, TextBlock } from "./chat-api";
 
 export interface ChatThread {
@@ -154,30 +155,34 @@ function isHistoryEvent(o: Record<string, unknown>): boolean {
 const DETAIL_FIELD_HEADER = /(?:^|; )([A-Za-z_$][\w$]*): /g;
 
 /** Whether a stored `search_history` detail names a change to a withheld field. A stored event no longer carries
- *  its activity kind, so the entity is unknown and every field of `ALL_WITHHELD_FIELDS` counts, as does every
- *  e-mail field: such a detail is dropped whole, because its values cannot be told apart from text that merely
- *  looks like the next header. */
-function detailNamesWithheldField(detail: string): boolean {
+ *  its activity kind, so its `summary` says which kinds could have written it (`kindsThatCouldWrite`), and a field
+ *  counts when any of them withholds it. With no summary, or one no template writes, every field of
+ *  `ALL_WITHHELD_FIELDS` counts. Every e-mail field always counts. Such a detail is dropped whole, because its values
+ *  cannot be told apart from text that merely looks like the next header. */
+function detailNamesWithheldField(detail: string, summary?: string): boolean {
+  const kinds = summary === undefined ? [] : kindsThatCouldWrite(summary);
+  const withheld = (field: string): boolean =>
+    kinds.length === 0 ? ALL_WITHHELD_FIELDS.has(field) || isEmailField(field) : kinds.some((k) => withheldActivityField(k, field));
   for (const m of detail.matchAll(DETAIL_FIELD_HEADER)) {
-    if (ALL_WITHHELD_FIELDS.has(m[1]) || isEmailField(m[1])) return true;
+    if (withheld(m[1])) return true;
   }
   return false;
 }
 
 /** A copy of `value` without the e-mail fields, every absence's type read as "absent" and its note dropped, and
  *  without the `detail` of a `search_history` event that names a change to a withheld field. */
-function minimiseValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(minimiseValue);
+function minimiseValue(value: unknown, historyResult = true): unknown {
+  if (Array.isArray(value)) return value.map((v) => minimiseValue(v, historyResult));
   if (typeof value !== "object" || value === null) return value;
   const o = value as Record<string, unknown>;
   const absence = isAbsenceShaped(o);
-  const historyEvent = isHistoryEvent(o);
+  const historyEvent = historyResult && isHistoryEvent(o);
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(o)) {
     if (STORED_EMAIL_KEYS.has(k)) continue;
     if (absence && k === "note") continue;
-    if (historyEvent && k === "detail" && detailNamesWithheldField(v as string)) continue;
-    out[k] = absence && k === "type" ? "absent" : minimiseValue(v);
+    if (historyEvent && k === "detail" && detailNamesWithheldField(v as string, o.summary as string)) continue;
+    out[k] = absence && k === "type" ? "absent" : minimiseValue(v, historyResult);
   }
   return out;
 }
@@ -192,53 +197,57 @@ const DETAIL_MEMBER = /"detail"\s*:\s*"((?:[^"\\]|\\.)*)(?:"|$)/g;
  *  field and written back the same way, and left byte-identical when nothing was removed. A JSON value that is
  *  not an object or array loses every e-mail address; text that does not parse (an error message, a cut result)
  *  also loses every `note` string, has any absence type read as "absent", and has every `detail` string that
- *  names a change to a withheld field emptied. */
-export function minimiseToolResultText(text: string): string {
+ *  names a change to a withheld field emptied. `historyResult` false (another tool's result) leaves every `detail`.
+ */
+export function minimiseToolResultText(text: string, historyResult = true): string {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
     return text
-      .replace(DETAIL_MEMBER, (member: string, inner: string) => (detailNamesWithheldField(inner) ? '"detail": ""' : member))
+      .replace(DETAIL_MEMBER, (member: string, inner: string) => (historyResult && detailNamesWithheldField(inner) ? '"detail": ""' : member))
       .replace(EMAIL_ADDRESS, "[email removed]")
       .replace(NOTE_FIELD, '"note": ""')
       .replace(/"type"\s*:\s*"(?:vacation|sick|training|other)"/g, '"type": "absent"');
   }
   if (typeof parsed !== "object" || parsed === null) return text.replace(EMAIL_ADDRESS, "[email removed]");
-  const minimised = minimiseValue(parsed);
+  const minimised = minimiseValue(parsed, historyResult);
   return JSON.stringify(minimised) === JSON.stringify(parsed) ? text : JSON.stringify(minimised, null, 2);
 }
 
 /** The one tool whose result IS an address (AI-08): what it returned was asked for, one person at a time. */
 const KEPT_RESULT_TOOL = "get_contact_email";
 
-/** The ids of every `tool_use` block in `history` that called `KEPT_RESULT_TOOL`. Only a string id counts: a
- *  malformed block without one must not pair with a result that has no `tool_use_id` either. */
-function keptToolUseIds(history: readonly ApiMessage[]): ReadonlySet<string> {
-  const ids = new Set<string>();
+/** The tool each string `tool_use` id in `history` called. Only a string id counts: a malformed block without one
+ *  must not pair with a result that has no `tool_use_id` either. */
+function toolNamesById(history: readonly ApiMessage[]): ReadonlyMap<string, string> {
+  const names = new Map<string, string>();
   for (const msg of history) {
     if (!Array.isArray(msg.content)) continue;
     for (const block of msg.content) {
-      if (block && block.type === "tool_use" && block.name === KEPT_RESULT_TOOL && typeof block.id === "string") ids.add(block.id);
+      if (block && block.type === "tool_use" && typeof block.id === "string" && typeof block.name === "string") names.set(block.id, block.name);
     }
   }
-  return ids;
+  return names;
 }
 
 /** `history` with every stored `tool_result` minimised (`minimiseToolResultText`), except the result of a
  *  `get_contact_email` call — matched by its string `tool_use_id` to a `tool_use` of that name in the same history —
- *  which keeps the address it was called for; a result without a string `tool_use_id` is always minimised. Other blocks and string messages are returned as they are. Never
+ *  which keeps the address it was called for; a result without a string `tool_use_id` is always minimised. A history
+ *  event's `detail` is checked only in the result of a `search_history` call, or of a call it cannot find. Other blocks and string messages are returned as they are. Never
  *  mutates its input. */
 export function minimiseStoredToolResults(history: readonly ApiMessage[]): ApiMessage[] {
-  const kept = keptToolUseIds(history);
+  const names = toolNamesById(history);
+  const toolOf = (id: unknown): string | undefined => (typeof id === "string" ? names.get(id) : undefined);
   return history.map((msg): ApiMessage => {
     if (typeof msg.content === "string" || !Array.isArray(msg.content)) return msg;
     return {
       ...msg,
       content: msg.content.map((block) =>
         block && block.type === "tool_result" && typeof block.content === "string"
-          && !(typeof block.tool_use_id === "string" && kept.has(block.tool_use_id))
-          ? { ...block, content: minimiseToolResultText(block.content) }
+          && toolOf(block.tool_use_id) !== KEPT_RESULT_TOOL
+          // A history event's detail is dropped only in a `search_history` result, or one whose call is unknown.
+          ? { ...block, content: minimiseToolResultText(block.content, toolOf(block.tool_use_id) === undefined || toolOf(block.tool_use_id) === "search_history") }
           : block),
     };
   });

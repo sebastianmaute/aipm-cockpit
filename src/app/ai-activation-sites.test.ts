@@ -2,11 +2,12 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import ts from "typescript";
-import { AI_ACTIVATION_SITES, AI_BACKGROUND_SITES, type AiActivationPredicate } from "../test/ai-activation-sites";
+import { AI_ACTIVATION_SITES, AI_BACKGROUND_SITES, AI_RAW_KEY_READERS, LIVE_AI_KEY_CALLERS, type AiActivationPredicate } from "../test/ai-activation-sites";
 
 // ★ A new call of an AI activation predicate must fail this test until it is added to the table in
 // `src/test/ai-activation-sites.ts`. Calls are found with the TypeScript parser, so a mention in a
-// comment or string is not a site and a real call can not hide behind formatting.
+// comment or string is not a site and a real call can not hide behind formatting, an import alias
+// (`import { isAiEnabled as on }`) or a namespace import (`settings.isAiEnabled(…)`).
 
 const SRC = join(process.cwd(), "src");
 const PREDICATES: readonly AiActivationPredicate[] = ["aiKeyIfEnabled", "isAiBackgroundEnabled", "isAiEnabled"];
@@ -19,19 +20,56 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-function predicatesCalledIn(file: string): AiActivationPredicate[] {
-  const text = readFileSync(file, "utf8");
-  const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-  const found = new Set<AiActivationPredicate>();
+function parse(file: string, text = readFileSync(file, "utf8")): ts.SourceFile {
+  return ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+}
+
+/** The name a call resolves to: `f(…)` → f (through an import alias to the imported name), `ns.f(…)` → f. */
+function calledNames(sf: ts.SourceFile): string[] {
+  const aliases = new Map<string, string>();
+  for (const st of sf.statements) {
+    const bindings = ts.isImportDeclaration(st) ? st.importClause?.namedBindings : undefined;
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const el of bindings.elements) if (el.propertyName) aliases.set(el.name.text, el.propertyName.text);
+    }
+  }
+  const out: string[] = [];
   const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
-      const name = node.expression.text as AiActivationPredicate;
-      if (PREDICATES.includes(name)) found.add(name);
+    if (ts.isCallExpression(node)) {
+      const e = node.expression;
+      if (ts.isIdentifier(e)) out.push(aliases.get(e.text) ?? e.text);
+      else if (ts.isPropertyAccessExpression(e)) out.push(e.name.text);
     }
     ts.forEachChild(node, visit);
   };
   visit(sf);
-  return [...found].sort();
+  return out;
+}
+
+function predicatesCalledIn(file: string, text?: string): AiActivationPredicate[] {
+  const names = calledNames(parse(file, text));
+  return PREDICATES.filter((p) => names.includes(p));
+}
+
+/** `ai` or `<x>.ai` (optional chaining included). */
+function isAiObject(e: ts.Expression): boolean {
+  return (ts.isIdentifier(e) && e.text === "ai") || (ts.isPropertyAccessExpression(e) && e.name.text === "ai");
+}
+
+/** Whether the file reads the stored key directly from an `ai` object: `ai.apiKey`, `ai["apiKey"]`, or
+ *  `const { apiKey } = settings.ai`. */
+function readsRawKey(file: string, text?: string): boolean {
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (ts.isPropertyAccessExpression(node) && node.name.text === "apiKey" && isAiObject(node.expression)) found = true;
+    if (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression)
+      && node.argumentExpression.text === "apiKey" && isAiObject(node.expression)) found = true;
+    if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer && isAiObject(node.initializer)
+      && node.name.elements.some((el) => (el.propertyName ?? el.name).getText() === "apiKey")) found = true;
+    if (!found) ts.forEachChild(node, visit);
+  };
+  visit(parse(file, text));
+  return found;
 }
 
 function scan(): Record<string, AiActivationPredicate[]> {
@@ -44,6 +82,38 @@ function scan(): Record<string, AiActivationPredicate[]> {
 }
 
 describe("AI activation sites", () => {
+  it("finds a predicate called through an import alias or a namespace import", () => {
+    const aliased = `import { isAiEnabled as on } from "./settings-types";
+export const x = on(a);`;
+    const namespaced = `import * as st from "./settings-types";
+export const y = st.aiKeyIfEnabled(a);`;
+    expect(predicatesCalledIn("a.ts", aliased)).toEqual(["isAiEnabled"]);
+    expect(predicatesCalledIn("b.ts", namespaced)).toEqual(["aiKeyIfEnabled"]);
+    expect(predicatesCalledIn("c.ts", `// isAiEnabled(a)
+const s = "isAiEnabled(a)";`)).toEqual([]);
+  });
+
+  it("finds a direct key read, with or without optional chaining", () => {
+    expect(readsRawKey("a.ts", "const k = settings.ai.apiKey;")).toBe(true);
+    expect(readsRawKey("b.ts", "const k = s.ai?.apiKey;")).toBe(true);
+    expect(readsRawKey("c.ts", "const k = ai.apiKey;")).toBe(true);
+    expect(readsRawKey("d.ts", "const k = jira.apiKey; // ai.apiKey")).toBe(false);
+    expect(readsRawKey("e.ts", "const { apiKey } = settings.ai;")).toBe(true);
+    expect(readsRawKey("f.ts", "const { apiKey: k } = ai;")).toBe(true);
+    expect(readsRawKey("g.ts", "const k = settings.ai[\"apiKey\"];")).toBe(true);
+    expect(readsRawKey("h.ts", "const { apiKey } = jira;")).toBe(false);
+  });
+
+  it("lists every file that reads the stored AI key directly, so a new reader is reviewed", () => {
+    const readers = sourceFiles(SRC).filter((f) => readsRawKey(f)).map((f) => relative(SRC, f).replaceAll("\\", "/")).sort();
+    expect(readers).toEqual([...AI_RAW_KEY_READERS].sort());
+  });
+
+  it("calls the ungated `liveAiKey` only where the predicates are defined", () => {
+    const callers = sourceFiles(SRC).filter((f) => calledNames(parse(f)).includes("liveAiKey")).map((f) => relative(SRC, f).replaceAll("\\", "/"));
+    expect(callers.sort()).toEqual([...LIVE_AI_KEY_CALLERS].sort());
+  });
+
   it("lists every file that calls an AI activation predicate, and which one", () => {
     const expected = Object.fromEntries(Object.entries(AI_ACTIVATION_SITES).map(([f, p]) => [f, [...p].sort()]));
     expect(scan()).toEqual(expected);

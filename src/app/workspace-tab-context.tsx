@@ -30,6 +30,17 @@ export interface ChatSeed {
   prompt: string;
   autoSend: boolean;
   originView: AppView;
+  /** The project scope (`getScopeEpoch`, scope-epoch.ts) the request was made in, absent or null when no
+   *  reader was registered (a unit test). A seed still pending after a project swap is never applied: see `liveChatSeed`. */
+  scopeEpoch?: number | null;
+}
+
+/** The seed the chat panel may apply now: none until the settings hydrate (a seed applied to the default config,
+ *  no key and the switch off, only prefills), and none when it was made in another project scope, so a request held
+ *  through a project swap is dropped rather than sent into the next project. */
+export function liveChatSeed(seed: ChatSeed | null, hydrated: boolean, scopeEpoch: number): ChatSeed | null {
+  if (!seed || !hydrated) return null;
+  return seed.scopeEpoch == null || seed.scopeEpoch === scopeEpoch ? seed : null;
 }
 
 interface WorkspaceTabContextValue {
@@ -42,6 +53,9 @@ interface WorkspaceTabContextValue {
   pendingChatSeed: ChatSeed | null;
   requestChat: (prompt: string, autoSend: boolean) => void;
   clearChatSeed: () => void;
+  /** Registers the scope-epoch reader `requestChat` stamps each seed with. The provider sits above the storage
+   *  hook that owns the epoch, so the shell registers it after mount. */
+  setChatScopeReader: (reader: () => number) => void;
   // Deep-link a Help concept: switch to the Help view and scroll to the
   // concept section (no hash write — mirrors requestChat). Used by the
   // per-view callouts' "Learn more" link.
@@ -99,10 +113,15 @@ export function WorkspaceTabProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+  const chatScopeReaderRef = useRef<(() => number) | null>(null);
+  const setChatScopeReader = useCallback((reader: () => number) => {
+    chatScopeReaderRef.current = reader;
+  }, []);
   const requestChat = useCallback((prompt: string, autoSend: boolean) => {
     const originView = activeTabRef.current;
+    const scopeEpoch = chatScopeReaderRef.current?.() ?? null;
     setActiveTab("chat");
-    setPendingChatSeed({ prompt, autoSend, originView });
+    setPendingChatSeed({ prompt, autoSend, originView, scopeEpoch });
     // No hash write: chat carries no item id (unlike requestOpen).
   }, []);
   const clearChatSeed = useCallback(() => setPendingChatSeed(null), []);
@@ -142,7 +161,7 @@ export function WorkspaceTabProvider({ children }: { children: React.ReactNode }
     m.set(projectId, conv);
   }, []);
   return (
-    <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout, pendingOpen, requestOpen, clearPendingOpen, pendingChatSeed, requestChat, clearChatSeed, pendingHelpConcept, requestHelpConcept, clearHelpConcept, pendingDocEntityFilter, requestDocumentsForEntity, clearDocEntityFilter, pendingForecastDraft, requestForecastDraft, clearForecastDraft, getChatConversation, saveChatConversation }}>
+    <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout, pendingOpen, requestOpen, clearPendingOpen, pendingChatSeed, requestChat, clearChatSeed, setChatScopeReader, pendingHelpConcept, requestHelpConcept, clearHelpConcept, pendingDocEntityFilter, requestDocumentsForEntity, clearDocEntityFilter, pendingForecastDraft, requestForecastDraft, clearForecastDraft, getChatConversation, saveChatConversation }}>
       {children}
     </WorkspaceTabContext.Provider>
   );

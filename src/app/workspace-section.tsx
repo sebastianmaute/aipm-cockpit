@@ -13,6 +13,8 @@ import { saveProjectFromForm } from "./project-meta-edit";
 import type { OpenThreadRequest } from "./use-chat-open-thread-request";
 import { computeProjectForecastFacts } from "./budget-forecast";
 import {
+  useCallback,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -28,6 +30,7 @@ import {
 } from "./workspace-context";
 import { useEntityInlineAiEdit } from "./use-entity-inline-ai-edit";
 import {
+  liveChatSeed,
   useWorkspaceTab,
 } from "./workspace-tab-context";
 import {
@@ -288,13 +291,27 @@ export function WorkspaceSection({
   // re-renders via the store. With no override this equals the device values;
   // `settings` stays device for non-overridable reads.
   const effectiveSettings = useEffectiveSettings(currentProjectId ?? "default");
-  const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen, pendingHelpConcept, requestHelpConcept, clearHelpConcept, getChatConversation, saveChatConversation, requestForecastDraft } = useWorkspaceTab();
+  const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, setChatScopeReader, requestOpen, pendingHelpConcept, requestHelpConcept, clearHelpConcept, getChatConversation, saveChatConversation, requestForecastDraft } = useWorkspaceTab();
   const { raidFilterTaskId, changeFilterTaskId, raidFilterEpoch, changeFilterEpoch } = useFilters();
   // A task backlink applies only in the scope it was armed in: task ids are per
   // project, so after a project switch a stale "#7" would filter the next
   // project's register by an unrelated task. The epoch bumps on every swap.
   // ★ A render-time read: it relies on every epoch bump happening while this tree is unmounted for the load hold (§548).
   const scopeEpoch = getScopeEpoch();
+  // Every Ask-Claude request is stamped with the scope it was made in (`liveChatSeed` below drops it after a swap).
+  //   ★ While a swap is under way the epoch can already read the NEXT project with the old one still on screen
+  //   (scope-epoch.ts), so a request made then is stamped NaN, which no scope equals: it is never applied.
+  const readChatScope = useCallback(() => (isSwapInFlight() ? Number.NaN : getScopeEpoch()), [isSwapInFlight, getScopeEpoch]);
+  useEffect(() => setChatScopeReader(readChatScope), [setChatScopeReader, readChatScope]);
+  const liveSeed = liveChatSeed(pendingChatSeed, hydrated, scopeEpoch);
+  const seedDropped = hydrated && pendingChatSeed !== null && liveSeed === null;
+  const showSeedToast = useToastContext();
+  // A dropped seed is cleared, so the old project's prompt is not kept, and the user is told why nothing was sent.
+  useEffect(() => {
+    if (!seedDropped) return;
+    clearChatSeed();
+    showSeedToast("info", t(lang, "chatSeedDroppedProjectChanged"));
+  }, [seedDropped, clearChatSeed, showSeedToast, lang]);
   const activeRaidFilterTaskId = raidFilterEpoch === scopeEpoch ? raidFilterTaskId : null;
   const activeChangeFilterTaskId = changeFilterEpoch === scopeEpoch ? changeFilterTaskId : null;
   // Directory map for resolving a linked owner/assignee's LIVE name in the
@@ -536,8 +553,9 @@ export function WorkspaceSection({
             onChangeModel={(model) => setSettings((s) => ({ ...s, ai: { ...s.ai, model } }))}
             guides={guides}
             guidesReady={guidesReady}
-            // ★ Held until the settings hydrate: a seed applied to the DEFAULT config (no key, switch off) only prefills.
-            chatSeed={hydrated ? pendingChatSeed : null}
+            // ★ Held until the settings hydrate (a seed applied to the DEFAULT config only prefills), and dropped
+            //   once the project scope it was made in has changed.
+            chatSeed={liveSeed}
             onChatSeedConsumed={clearChatSeed}
             openThreadRequest={openThreadRequest}
             onOpenThreadRequestConsumed={clearOpenThreadRequest}

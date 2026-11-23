@@ -29,7 +29,7 @@ import { FieldHint } from "../field-hint";
 import { AiUsagePanel } from "./ai-usage-panel";
 import { AiPolicyFields } from "./ai-policy-fields";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
-import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
+import { isPassphraseLocked, loadSealed, removeSealed, SECRETS_KEY } from "../secrets-store";
 import { hasUnsealedPassphraseSecret, markUnsealedPassphraseSecret, noteSecretSealed } from "../turso-token-marker";
 import { trackSecretSeal, useHasUnsealedPassphraseSecret } from "../turso-token-seals";
 import { Button } from "../button";
@@ -244,6 +244,15 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const [keyPassphrase, setKeyPassphrase] = useState("");
   const [keyConfirm, setKeyConfirm] = useState("");
   const [keyStored, setKeyStored] = useState(() => loadSealed("anthropicApiKey") != null);
+  // A key another tab stores or removes reaches this one only as a `storage` event on the secrets key; without it,
+  // "Remove stored secret" kept showing (or hiding) what this tab last saw.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === SECRETS_KEY || e.key === null) setKeyStored(loadSealed("anthropicApiKey") != null);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
   // §749 — the wrap is DERIVED, as the Turso token's is (`integrations-section.tsx`): a key held unsealed
   //   under the lock, or a passphrase record in the store, is passphrase whatever this instance last set.
   //   Settings keeps its section mounted under the setup wizard, which mounts a second one, so `keyWrap`

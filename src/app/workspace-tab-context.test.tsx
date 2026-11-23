@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { useLayoutEffect, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
+import { WorkspaceTabProvider, liveChatSeed, useWorkspaceTab, type ChatSeed } from "./workspace-tab-context";
 import { buildHash } from "./nav-config";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -46,7 +46,7 @@ describe("pendingChatSeed", () => {
     act(() => result.current.setActiveTab("gantt"));
     act(() => result.current.requestChat("Summarize risks", true));
     expect(result.current.activeTab).toBe("chat");
-    expect(result.current.pendingChatSeed).toEqual({ prompt: "Summarize risks", autoSend: true, originView: "gantt" });
+    expect(result.current.pendingChatSeed).toEqual({ prompt: "Summarize risks", autoSend: true, originView: "gantt", scopeEpoch: null });
   });
 
   it("a request made on the chat tab records chat as its origin", () => {
@@ -54,6 +54,16 @@ describe("pendingChatSeed", () => {
     act(() => result.current.requestChat("first", true));
     act(() => result.current.requestChat("second", true));
     expect(result.current.pendingChatSeed?.originView).toBe("chat");
+  });
+
+  it("a request records the project scope it was made in, read through the registered reader", () => {
+    const { result } = renderHook(() => useWorkspaceTab(), { wrapper });
+    let epoch = 3;
+    act(() => result.current.setChatScopeReader(() => epoch));
+    act(() => result.current.requestChat("Summarize risks", true));
+    expect(result.current.pendingChatSeed?.scopeEpoch).toBe(3);
+    epoch = 4;
+    expect(result.current.pendingChatSeed?.scopeEpoch).toBe(3);
   });
 
   it("clearChatSeed nulls the seed", () => {
@@ -113,5 +123,26 @@ describe("requestForecastDraft (§502 part 4)", () => {
     expect(result.current.pendingForecastDraft).toEqual(req);
     act(() => result.current.clearForecastDraft());
     expect(result.current.pendingForecastDraft).toBeNull();
+  });
+});
+
+describe("liveChatSeed", () => {
+  const seed = (scopeEpoch: number | null): ChatSeed => ({ prompt: "p", autoSend: true, originView: "gantt", scopeEpoch });
+
+  it("holds a seed back until the settings hydrate", () => {
+    expect(liveChatSeed(seed(2), false, 2)).toBeNull();
+    expect(liveChatSeed(seed(2), true, 2)).toEqual(seed(2));
+  });
+
+  it("drops a seed made in another project scope, so a held request is never sent into the next project", () => {
+    expect(liveChatSeed(seed(2), true, 3)).toBeNull();
+  });
+
+  it("passes a seed made with no scope reader registered", () => {
+    expect(liveChatSeed(seed(null), true, 7)).toEqual(seed(null));
+  });
+
+  it("passes no seed through when none is pending", () => {
+    expect(liveChatSeed(null, true, 1)).toBeNull();
   });
 });

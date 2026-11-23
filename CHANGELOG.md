@@ -69,6 +69,24 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The AI data notice now names everything sent with each message, so everyone is asked to accept it again.** The
+  chat row now names the summary of the rows on screen (up to 15) and the counts of recent project changes, and the
+  inline-edit row names the app context it sends (language, storage type, mode, modules and view) and that a person's
+  role goes as a number. The consent dialog's own texts are now fixed per notice version as well, so a change to
+  them asks again in the same way.
+- **An "Ask Claude" request held while settings load is no longer sent into another project.** A request made just
+  before a project switch was kept until the settings had loaded and could then be sent from the next project. It is
+  now dropped once the project has changed, and a message says it was not sent.
+- **Inline AI edits and the AI buttons say when AI consent was withdrawn mid-request.** They showed a generic
+  "couldn't reach Claude" error; they now say AI was switched off or its consent withdrawn, as the chat does.
+- **The dictation mic shows for speech-to-text in browsers without built-in speech recognition.** With
+  speech-to-text set up, Firefox and other browsers that can record but lack Web Speech now show the mic.
+- **"Remove stored secret" in Settings → AI follows another tab.** A key saved or removed in another tab now shows or
+  hides the button here at once.
+- **Inline AI edit no longer sends any e-mail address nested in a row.** It left out a RAID escalation's address
+  only; every nested address field is now left out.
+- **The access warning in Settings says applied AI weight suggestions are not in the activity log.** They change this
+  device's settings, not the project.
 - **Withdrawing AI consent or switching AI off holds in more cases across tabs.** Background AI now needs its
   consent to be given no earlier than the interactive consent in force, so a background consent saved by a tab that
   had missed a withdrawal elsewhere no longer comes back when AI is accepted again. A switch-off that could not be
@@ -551,7 +569,8 @@ absence's type or note, e-mail addresses in its lists, or the personal fields in
     directory); one lookup tool reads a single address when it is needed. Chats saved before the update have the same
     data removed from their stored tool results when loaded, except addresses looked up with that tool.
   - When the chat searches the activity history, logged edits no longer show it a change to an e-mail address or to
-    a field inline AI edit leaves out (listed below); the Activity view still shows every change. History results
+    a field inline AI edit leaves out (listed below), and for a logged edit that names no entity every field on that
+    list is left out; the Activity view still shows every change. History results
     saved in older chats lose the change details that name such a field when loaded.
   - Switching AI off or withdrawing a consent takes effect in every open tab and window, and a tab that missed it
     cannot undo it: only switching AI on or accepting a consent there again does, and each restores only what it is

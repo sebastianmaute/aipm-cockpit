@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { AI_CONSENT_LEVELS, AI_DATA_PATHS, AI_DESTINATION_KEYS, AI_GATEWAY_KEY_RESTRICTION_KEY, AI_GATEWAY_RESTRICTED_KEYS, aiDataPathsFor, aiDestinationKey, aiProtectedTextKey } from "./ai-disclosure";
+import { AI_CONSENT_DIALOG_TEXT_KEYS, AI_CONSENT_LEVELS, AI_DATA_PATHS, AI_DESTINATION_KEYS, AI_GATEWAY_KEY_RESTRICTION_KEY, AI_GATEWAY_RESTRICTED_KEYS, aiDataPathsFor, aiDestinationKey, aiProtectedTextKey } from "./ai-disclosure";
 import { type AiRoute, setAiDeploymentState } from "./ai-deployment";
 import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { helpEntryBody } from "./help-content";
@@ -197,6 +197,27 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|3e517407a4da|redacted|aiProtectedInsightRecommendation|a1f791791528",
     "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted|aiProtectedRedacted|755d95d88527",
   ],
+  // 9: the chat row names the on-screen summary and the activity-recap counts; the inline-edit row names its UI
+  //    context and says the role is sent as a number. The disclosure now names data it did not, so it is asked again.
+  9: [
+    "chat|interactive|aiDataChatLabel|aiDataChat|99e5d565158f|redacted|aiProtectedChat|4fad6aaf2297",
+    "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|80dc78997776|redacted|aiProtectedInlineEdit|e1ebddccde79",
+    "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|dab0929eea32|redacted|aiProtectedRedacted|755d95d88527",
+    "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793|redacted|aiProtectedRedacted|755d95d88527",
+    "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport|925a6f30749a|redacted|aiProtectedRedacted|755d95d88527",
+    "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation|7433c859ec84|redacted|aiProtectedInsightRecommendation|a1f791791528",
+    "action-analysis|interactive|aiDataActionAnalysisLabel|aiDataActionAnalysis|37a0083b91fb|redacted|aiProtectedRedacted|755d95d88527",
+    "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|8be36ec1cca6|hidden|aiProtectedAllocPlan|6c3ea3b2cddb",
+    "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest|c8bdc16faa5f|hidden|aiProtectedHidden|bb828968bb82",
+    "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup|b0832e394653|redacted|aiProtectedRedacted|755d95d88527",
+    "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|315ad3046125|redacted|aiProtectedRedacted|755d95d88527",
+    "weight-suggestion|interactive|aiDataWeightSuggestionLabel|aiDataWeightSuggestion|f01d808dbb51|redacted|aiProtectedRedacted|755d95d88527",
+    "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal|155bba30c3ac|redacted|aiProtectedProjectProposal|4a15ce1fd465",
+    "dictation|interactive|aiDataDictationLabel|aiDataDictation|11af271ca960|off|aiProtectedOff|64eeff2a6195",
+    "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob|e83fee7d86c3|redacted|aiProtectedRedacted|755d95d88527",
+    "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|3e517407a4da|redacted|aiProtectedInsightRecommendation|a1f791791528",
+    "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted|aiProtectedRedacted|755d95d88527",
+  ],
 };
 
 // Which disclosure rows each activation site (src/test/ai-activation-sites.ts) leads to. A new site
@@ -222,6 +243,8 @@ const SITE_ROWS: Readonly<Record<string, readonly string[]>> = {
   "app/use-tasks-dedup.tsx": ["task-dedup"],
   "app/use-tasks-inline-ai-edit.tsx": ["inline-edit"],
   "app/use-wbs-plan.tsx": ["wbs-plan"],
+  // Its five `isAiEnabled` reads: the Forecast view's and the Reports forecast block's Ask Claude (both open the chat),
+  // the Dashboard's and the Insights view's insight recommendations, and the Dashboard coaching, which sends nothing.
   "app/workspace-section.tsx": ["chat", "insight-recommendation"],
 };
 
@@ -235,8 +258,7 @@ const ROWS_WITHOUT_A_SITE = new Set(["dictation"]);
 const PREDICATE_DEFINITIONS = new Set(["app/settings-types.ts"]);
 
 const textHash = (row: (typeof AI_DATA_PATHS)[number]) =>
-  createHash("sha256").update(`${t("en-US", row.labelKey)}
-${t("en-US", row.dataKey)}`).digest("hex").slice(0, 12);
+  createHash("sha256").update(`${t("en-US", row.labelKey)}\n${t("en-US", row.dataKey)}`).digest("hex").slice(0, 12);
 /** A text by language, so a test can swap one text and see the fingerprint move. Live: the two dictionaries. */
 type TextOf = (lang: "en-US" | "de", key: TranslationKey) => string;
 const liveText: TextOf = (lang, key) => (lang === "de" ? de[key] ?? "" : t("en-US", key));
@@ -598,5 +620,65 @@ describe("AI_DESTINATION_KEYS", () => {
     setAiDeploymentState({ off: false, route: "relay", invalid: false, keyRestricted: true, chat: null });
     expect(helpEntryBody("en-US", entry)).toBe(t("en-US", AI_DESTINATION_KEYS.relay.help));
     expect(helpEntryBody("de", entry)).toBe(de[AI_DESTINATION_KEYS.relay.help]);
+  });
+});
+
+// The consent dialog's own texts, apart from the table rows and the route texts (`DESTINATION_PIN`): its titles,
+// lead-ins, the background runners and notes, bullets 4–6, the policy line and the accept buttons. They are part of
+// what a user accepts, so they follow THE VERSION GUARD above: a change to what they promise bumps
+// `AI_DISCLOSURE_VERSION` and adds a pin; a wording-only change re-pins the current version's line. Each is hashed
+// in English and German, because each user accepts the text in their own language.
+const DIALOG_TEXTS: Readonly<Record<number, readonly string[]>> = {
+  9: [
+    "aiConsentTitle|d7e6bd38d49d",
+    "aiConsentNotAccepted|73876834afd2",
+    "aiConsentBackgroundTitle|e65ff230b6ca",
+    "aiConsentBackgroundIntro|b6c7369346ff",
+    "aiConsentBackgroundRunner1|63c6b18a3eae",
+    "aiConsentBackgroundRunner2|25a5ece0afbf",
+    "aiConsentBackgroundRunner3|0ec33fde388e",
+    "aiConsentBackgroundPauseNote|1bb72d578528",
+    "aiConsentPeopleProtection|6d0dc7b435b9",
+    "aiConsentBullet4|23fb5ab8231b",
+    "aiConsentBullet5|57bab084fbe7",
+    "aiConsentBullet6|87c55881a757",
+    "aiConsentPolicyLink|3717fdbce0a0",
+    "aiConsentPolicyCheckbox|1caf70c84833",
+    "aiPolicyOwnerFallback|3f65d6b7748e",
+    "aiProtectedWhenLabel|52b154162a25",
+    "aiConsentAccept|ba1364d007d6",
+    "aiConsentBackgroundAccept|a7ba0d883f5d",
+  ],
+};
+
+const dialogFingerprint = () =>
+  AI_CONSENT_DIALOG_TEXT_KEYS.map((key) =>
+    `${key}|${createHash("sha256").update(`${t("en-US", key)}\u0000${de[key]}`).digest("hex").slice(0, 12)}`);
+
+describe("AI_CONSENT_DIALOG_TEXT_KEYS", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("is pinned, English and German, for the current AI_DISCLOSURE_VERSION (bump it, or re-pin a wording-only change)", () => {
+    const versions = Object.keys(DIALOG_TEXTS).map(Number);
+    expect(Math.max(...versions)).toBe(AI_DISCLOSURE_VERSION);
+    expect(dialogFingerprint()).toEqual(DIALOG_TEXTS[AI_DISCLOSURE_VERSION]);
+  });
+
+  it("lists every text the dialog renders, so a new one cannot go unpinned", () => {
+    const src = readFileSync(join(__dirname, "ai-consent-dialog.tsx"), "utf8");
+    // Every string literal that names an i18n key, the ternary branches included. The two plain controls are exempt.
+    const UI_CONTROLS = new Set(["cancel", "alertModalClose"]);
+    const rendered = new Set([...src.matchAll(/"([a-z][A-Za-z0-9]*)"/g)].map((m) => m[1]).filter((k) => k in de && !UI_CONTROLS.has(k)));
+    expect(rendered.size).toBeGreaterThan(5);
+    expect([...rendered].filter((k) => !(AI_CONSENT_DIALOG_TEXT_KEYS as readonly string[]).includes(k))).toEqual([]);
+  });
+
+  it("every text has a real German translation", () => {
+    for (const key of AI_CONSENT_DIALOG_TEXT_KEYS) {
+      expect(de[key]?.trim(), key).toBeTruthy();
+      expect(de[key], key).not.toBe(t("en-US", key));
+    }
   });
 });

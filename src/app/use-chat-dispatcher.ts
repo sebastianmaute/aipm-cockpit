@@ -1,5 +1,6 @@
 "use client";
 
+import { slimTaskForList } from "./chat-tools-lists";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   type Filters,
@@ -489,7 +490,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         //   capture here is a regression, not a completion of the pattern.
         setTasks(next);
         args.logActivityAi?.(origin, "task.created", newTask.id, newTask.taskName);
-        return newTask;
+        return slimTaskForList(newTask);
       },
       updateTask: (id, modelPatch, origin) => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));

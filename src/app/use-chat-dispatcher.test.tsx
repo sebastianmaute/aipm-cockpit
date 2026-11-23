@@ -10,6 +10,7 @@ vi.mock("./ai-privacy-context", async () => ({
   ...(await import("../test/ai-privacy-unprotected")),
   useOpenProjectPeopleProtected: () => people.get,
 }));
+import type { TaskListItem } from "./chat-tools-lists";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { asTimeZoneForTests, createProjectClock } from "./timezone";
@@ -280,8 +281,8 @@ beforeEach(() => {
 describe("useChatDispatcher", () => {
   it("mints monotonic ids: two back-to-back createTask calls get distinct ids", () => {
     const { result } = renderDispatcher([]);
-    let a: Task;
-    let b: Task;
+    let a: TaskListItem;
+    let b: TaskListItem;
     act(() => {
       a = result.current.createTask({
         taskName: "First",
@@ -299,10 +300,26 @@ describe("useChatDispatcher", () => {
     expect(a!.id).not.toBe(b!.id);
   });
 
+  it("createTask answers with the list's slim task, as the other create calls answer with a summary", () => {
+    const { result } = renderDispatcher([]);
+    let created!: ReturnType<typeof result.current.createTask>;
+    act(() => {
+      created = result.current.createTask({
+        taskName: "Slim", assignee: "Alice", assigneeEmail: "alice@example.com", dueDate: "2026-06-01",
+        description: "<p><strong>Kick</strong> off</p>",
+      }, aiOrigin("chat"));
+    });
+    expect(created.description).toBe("Kick off");
+    expect("noteLog" in created).toBe(false);
+    expect("assigneeEmail" in created).toBe(false);
+    // The stored row keeps everything.
+    expect(result.current.getTask(created.id)).toMatchObject({ assigneeEmail: "alice@example.com", description: expect.stringContaining("<strong>") });
+  });
+
   it("never reuses a deleted task's id within a session", () => {
     const { result } = renderDispatcher([]);
-    let a: Task;
-    let b: Task;
+    let a: TaskListItem;
+    let b: TaskListItem;
     act(() => {
       a = result.current.createTask({
         taskName: "First",
@@ -432,8 +449,10 @@ describe("useChatDispatcher", () => {
       dueDate: "2026-09-01",
       description: html,
     }, aiOrigin("chat"));
-    expect(created?.description).toBe(html);
-    expect(created?.description).not.toContain("&lt;");
+    // The answer shows the description as text (`slimTaskForList`); the stored row keeps the HTML.
+    const stored = result.current.getTask(created.id);
+    expect(stored?.description).toBe(html);
+    expect(stored?.description).not.toContain("&lt;");
   });
 
   it("strips a script from a RAID description the model supplies", () => {
@@ -1114,7 +1133,7 @@ describe("useChatDispatcher – blockers write through the blocker log", () => {
 
   it("AI create_task with blockers text starts a log with one open entry", () => {
     const { result } = renderDispatcher([]);
-    let created: Task | null = null;
+    let created: TaskListItem | null = null;
     act(() => {
       created = result.current.createTask({
         taskName: "Gamma",
@@ -1123,7 +1142,7 @@ describe("useChatDispatcher – blockers write through the blocker log", () => {
         blockers: "Needs sign-off",
       }, aiOrigin("chat"));
     });
-    const stored = result.current.getTask((created as Task | null)?.id ?? -1);
+    const stored = result.current.getTask((created as TaskListItem | null)?.id ?? -1);
     expect(stored?.blockers).toBe("Needs sign-off");
     expect(stored?.blockerLog).toHaveLength(1);
     expect(stored?.blockerLog?.[0]).toMatchObject({ id: 1, text: "Needs sign-off", authorName: "AI created" });
@@ -1540,6 +1559,16 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     });
     expect(result.current.getAbsenceRow(created.id)).toMatchObject({ type: "sick", note: "flu", endDate: "2026-06-08" });
     expect(result.current.listAbsences()[0]).toEqual(updated);
+  });
+
+  it("an update that echoes the masked type \"absent\" back keeps the stored type", () => {
+    // The model only ever reads "absent"; passing it back must not overwrite (or demote) the real type.
+    const { result } = renderDispatcher();
+    const created = result.current.createAbsence({
+      assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", type: "sick", note: "flu",
+    }, aiOrigin("chat"));
+    result.current.updateAbsence(created.id, { type: "absent" as never, endDate: "2026-06-08" }, aiOrigin("chat"));
+    expect(result.current.getAbsenceRow(created.id)).toMatchObject({ type: "sick", note: "flu", endDate: "2026-06-08" });
   });
 
   // §539 follow-up: LOAD keeps a non-calendar required date raw, but a WRITE
@@ -3835,7 +3864,7 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
 
   it("logs task.created with actor ai", () => {
     const { result, logActivityAi } = renderWithLog([]);
-    let created!: Task;
+    let created!: TaskListItem;
     act(() => {
       created = result.current.createTask({
         taskName: "Cutover",

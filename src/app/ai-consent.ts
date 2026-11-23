@@ -2,6 +2,7 @@
 // A versioned record of the AI disclosure the user accepted on THIS device.
 // Device settings only: never in the workspace, exports, Turso or recovery.
 import type { AiConfig, SettingsOverrides } from "./settings-types";
+import { AiConsentRevokedError } from "./ai-errors";
 import { isIntegrationDisabled } from "./integration-switches";
 import { type AiRoute, currentAiRoute, getAiDeploymentState, isAiDeploymentOn } from "./ai-deployment";
 
@@ -27,8 +28,10 @@ import { type AiRoute, currentAiRoute, getAiDeploymentState, isAiDeploymentOn } 
  *  7 — the chat and inline-edit rows' protected texts say what the code already did since 6: an insight about one
  *  person (`insightReachesAi`) is not sent. Inline edit got its own text (`aiProtectedInlineEdit`), a re-keyed row.
  *  8 — the forecast import sends only the sheet's first 30 non-empty rows, with every e-mail address replaced by a
- *  placeholder (`sheetForPrompt`), where it sent the whole sheet. Narrowing only, but what a path sends changed. */
-export const AI_DISCLOSURE_VERSION = 8;
+ *  placeholder (`sheetForPrompt`), where it sent the whole sheet. Narrowing only, but what a path sends changed.
+ *  9 — the chat row names the on-screen summary and the activity-recap counts, and the inline-edit row its UI
+ *  context and the role as a number: both were sent without being named. The dialog's own texts are pinned too. */
+export const AI_DISCLOSURE_VERSION = 9;
 
 /** `route` is where the AI traffic went when the user accepted; absent counts as `direct`. `keyRestricted` is
  *  whether the deployment restricted AI to its organisation's Anthropic keys then; absent counts as false. */
@@ -84,12 +87,8 @@ export function sanitizeConsent(v: unknown): AiConsent | undefined {
   return undefined;
 }
 
-export class AiConsentRevokedError extends Error {
-  constructor() {
-    super("AI consent was revoked");
-    this.name = "AiConsentRevokedError";
-  }
-}
+// Lives in ai-errors.ts, so the shared message lookup (`aiTransportMessageKey`) can name it without an import cycle.
+export { AiConsentRevokedError };
 
 /** An unattended request stopped because this week's usage reached the user's weekly hard cap. Only the
  *  background level is ever stopped by it. */

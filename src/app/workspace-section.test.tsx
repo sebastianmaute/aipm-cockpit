@@ -8,6 +8,7 @@ import { Wrapper, makeProps } from "../test/workspace-section-harness";
 import type React from "react";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
+import { ToastProvider } from "./toast-context";
 import type { AppView } from "./nav-config";
 import { useFilters } from "./filters-context";
 import { WorkspaceSection } from "./workspace-section";
@@ -1693,5 +1694,67 @@ describe("WorkspaceSection — Activity link opens the chat thread", () => {
     const second = chatPanelMock.props.at(-1)!.openThreadRequest as { nonce: number };
     expect(second).not.toBe(first);
     expect(second.nonce).toBeGreaterThan(first.nonce);
+  });
+});
+
+// A request to the chat (Ask Claude) made in one project must not be applied in the next: the section stamps it
+// with the scope it was made in and hands ChatPanel no seed once the scope epoch has moved on.
+describe("WorkspaceSection — Ask-Claude seed across a project swap", () => {
+  let epoch = 0;
+  const getScopeEpoch = () => epoch;
+
+  function AskProbe() {
+    const { requestChat } = useWorkspaceTab();
+    return <button data-testid="ask-claude" onClick={() => requestChat("Summarize risks", true)} />;
+  }
+
+  it("hands ChatPanel the seed in its own scope and drops it after the scope moves on", async () => {
+    epoch = 0;
+    chatPanelMock.props.length = 0;
+    const props = makeProps({ getScopeEpoch });
+    const { rerender } = render(<><AskProbe /><WorkspaceSection {...props} /></>, { wrapper: Wrapper });
+    fireEvent.click(screen.getByTestId("ask-claude"));
+    await screen.findByTestId("chat-panel");
+    expect((chatPanelMock.props.at(-1)!.chatSeed as { prompt: string } | null)?.prompt).toBe("Summarize risks");
+    epoch = 1;
+    rerender(<><AskProbe /><WorkspaceSection {...props} /></>);
+    expect(chatPanelMock.props.at(-1)!.chatSeed).toBeNull();
+  });
+
+  function SeedProbe() {
+    const { pendingChatSeed } = useWorkspaceTab();
+    return <span data-testid="pending-seed">{pendingChatSeed?.prompt ?? ""}</span>;
+  }
+
+  it("clears a seed it dropped and says so, so the old project's prompt is not kept", async () => {
+    epoch = 0;
+    const showToast = vi.fn();
+    const props = makeProps({ getScopeEpoch });
+    const tree = () => (
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <AskProbe /><SeedProbe /><WorkspaceSection {...props} />
+      </ToastProvider>
+    );
+    const { rerender } = render(tree(), { wrapper: Wrapper });
+    fireEvent.click(screen.getByTestId("ask-claude"));
+    await screen.findByTestId("chat-panel");
+    expect(screen.getByTestId("pending-seed").textContent).toBe("Summarize risks");
+    epoch = 1;
+    rerender(tree());
+    expect(screen.getByTestId("pending-seed").textContent).toBe("");
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "chatSeedDroppedProjectChanged"));
+  });
+
+  it("a request made while a project swap is under way is never applied", async () => {
+    epoch = 0;
+    let swapping = true;
+    const props = makeProps({ getScopeEpoch, isSwapInFlight: () => swapping });
+    chatPanelMock.props.length = 0;
+    const { rerender } = render(<><AskProbe /><WorkspaceSection {...props} /></>, { wrapper: Wrapper });
+    fireEvent.click(screen.getByTestId("ask-claude"));
+    await screen.findByTestId("chat-panel");
+    swapping = false;
+    rerender(<><AskProbe /><WorkspaceSection {...props} /></>);
+    expect(chatPanelMock.props.at(-1)!.chatSeed).toBeNull();
   });
 });

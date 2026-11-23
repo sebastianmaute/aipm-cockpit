@@ -6,29 +6,31 @@
 // stay disjoint from. ★ This is a SEND filter only: the concurrency token is still derived from the
 // FULL stored row (`use-inline-entity-edit.ts`), never from this projection.
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./entity-descriptor";
+import { isEmailField } from "../ai-withheld-fields";
 
-/** A RAID item's `escalations` without each entry's `toEmail`: the model still learns the item was
- *  escalated, when and to whom by name, but not the address. `escalations` is not a `diffFields` member,
- *  so it is not writable through inline edit. Checked 2026-10: it is the only nested email-bearing value on
- *  any inline entity (`attendeeResourceIds` are ids, `raci` maps milestone ids to letters, and the
- *  resource `emails` list is withheld at the top level). */
-function withoutEscalationEmails(value: unknown): unknown {
-  if (!Array.isArray(value)) return value;
-  return value.map((entry) => {
-    if (typeof entry !== "object" || entry === null) return entry;
-    const { toEmail: _dropped, ...rest } = entry as Record<string, unknown>;
-    void _dropped;
-    return rest;
-  });
+/** `value` with every e-mail field (`isEmailField`) dropped from each object nested in it, at any depth. A RAID
+ *  item's `escalations` keep when and to whom by name, without `toEmail`. Nested values are not `diffFields`
+ *  members, so none of them is writable through inline edit. Top-level e-mail fields are already withheld. */
+function withoutNestedEmails(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutNestedEmails);
+  if (typeof value !== "object" || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => !isEmailField(key))
+      .map(([key, v]) => [key, withoutNestedEmails(v)]),
+  );
 }
 
-/** `item` without the entity's withheld fields (`noteLog` included) and without nested escalation
- *  emails. Pure; returns a new object. */
+/** `item` without the entity's withheld fields (`noteLog` included) and without any e-mail field nested in what
+ *  is left. Pure; returns a new object. */
 export function projectForInlineEdit(
   entity: InlineEntity,
   item: Record<string, unknown>,
 ): Record<string, unknown> {
   const withheld = INLINE_DESCRIPTORS[entity].withheldFields;
-  const kept = Object.fromEntries(Object.entries(item).filter(([key]) => !withheld.has(key)));
-  return "escalations" in kept ? { ...kept, escalations: withoutEscalationEmails(kept.escalations) } : kept;
+  return Object.fromEntries(
+    Object.entries(item)
+      .filter(([key]) => !withheld.has(key))
+      .map(([key, v]) => [key, withoutNestedEmails(v)]),
+  );
 }
