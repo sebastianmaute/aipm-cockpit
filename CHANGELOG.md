@@ -69,6 +69,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **With AI switched off, the chat says so instead of asking for a key.** An empty chat told you to add your
+  Anthropic API key even when one was saved and only the AI switch in Settings was off. It now says the AI assistant
+  is switched off and where to turn it on.
 - **The AI data notice now names everything sent with each message, so everyone is asked to accept it again.** The
   chat row now names the summary of the rows on screen (up to 15) and the counts of recent project changes, and the
   inline-edit row names the app context it sends (language, storage type, mode, modules and view) and that a person's

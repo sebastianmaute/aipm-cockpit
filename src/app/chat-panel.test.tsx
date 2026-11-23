@@ -215,17 +215,33 @@ describe("Without a current AI consent", () => {
     expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toBeDisabled();
   });
 
-  it("the master switch off shows the no-key empty state, not the review prompt", () => {
+  // With the switch off a saved key is still a saved key: asking for one would send the user to a field that is
+  // already filled (and hidden until AI is on), so the empty state names the switch instead.
+  it.each([
+    ["no key", ""],
+    ["a saved key", "sk-test"],
+  ] as const)("the master switch off with %s says AI is switched off, not that a key is missing", (_label, apiKey) => {
+    const onConfigureAi = vi.fn();
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, enabled: false, consent: undefined }}
+        ai={{ ...defaultAiConfig, enabled: false, consent: undefined, apiKey }}
         dispatcher={makeDispatcher()}
-        onConfigureAi={vi.fn()}
+        onConfigureAi={onConfigureAi}
       />,
     );
-    expect(screen.getByText(t("en-US", "chatNoApiKey"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "chatAiSwitchedOff"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "chatNoApiKey"))).toBeNull();
     expect(screen.queryByText(t("en-US", "aiConsentReviewPrompt"))).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "chatConfigureAi") }));
+    expect(onConfigureAi).toHaveBeenCalledTimes(1);
+    expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toBeDisabled();
+  });
+
+  it("AI switched on with consent but no key asks for the key", () => {
+    render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={{ ...AI_WITH_KEY, apiKey: "" }} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "chatNoApiKey"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "chatAiSwitchedOff"))).toBeNull();
   });
 
   it("a deployment with AI off leaves the composer in the AI-disabled state", () => {

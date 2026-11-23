@@ -612,6 +612,8 @@ function ChatPanelInner({
   // else the inline-unlocked passphrase key (if any).
   const effectiveApiKey = masterOn ? (ai.apiKey.trim() ? ai.apiKey : (unlockedKey ?? "")) : "";
   const apiKeyMissing = !effectiveApiKey.trim();
+  // With the user's switch off a saved key is hidden, not missing: name the switch instead of asking for a key.
+  const noKeyMessage = ai.enabled === true ? "chatNoApiKey" : "chatAiSwitchedOff";
   // Cheap synchronous localStorage read — fine in the render body (pure read).
   const apiKeyLocked =
     masterOn && !ai.apiKey.trim() && unlockedKey === null && isPassphraseLocked("anthropicApiKey");
@@ -646,7 +648,7 @@ function ChatPanelInner({
     //   send's `finally`, so it reads true for the whole life of a send.
     if ((!text && atts.length === 0) || busy || abortRef.current !== null || guidesPending || proposalApplying) return;
     if (!effectiveApiKey.trim()) {
-      setError(t(lang, "chatNoApiKey"));
+      setError(t(lang, noKeyMessage));
       return;
     }
     // With attachments the user turn is a multimodal content array (text first,
@@ -1683,7 +1685,7 @@ function ChatPanelInner({
               <div className="space-y-2">
                 {!consentStale && (
                   <p className="text-sm text-muted-foreground">
-                    {apiKeyMissing ? t(lang, "chatNoApiKey") : t(lang, "chatGreeting")}
+                    {apiKeyMissing ? t(lang, noKeyMessage) : t(lang, "chatGreeting")}
                   </p>
                 )}
                 {apiKeyMissing && !consentStale && onConfigureAi && (
