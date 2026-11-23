@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { usePushToTalk, hashKey } from "./use-push-to-talk";
+import { setDisabledIntegrations } from "./integration-switches";
 
 interface MockDictationHandlers {
   onFinal: (t: string) => void;
@@ -31,7 +32,7 @@ const up = (r: { current: HookResult }) => r.current.buttonHandlers.onPointerUp(
 
 describe("usePushToTalk — support follows the chosen engine", () => {
   const stt = { engine: "stt" as const, sttBaseUrl: "https://x/v1", sttApiKey: "k" };
-  afterEach(() => { voice.ctor = function () {}; vi.unstubAllGlobals(); });
+  afterEach(() => { voice.ctor = function () {}; vi.unstubAllGlobals(); setDisabledIntegrations([]); });
 
   it("speech-to-text is supported without Web Speech where the browser can record", () => {
     voice.ctor = null;
@@ -39,6 +40,15 @@ describe("usePushToTalk — support follows the chosen engine", () => {
     vi.stubGlobal("navigator", { ...navigator, mediaDevices: { getUserMedia: () => Promise.resolve() } });
     const { result } = renderHook(() => usePushToTalk({ ...mkArgs(), dictation: stt }));
     expect(result.current.supported).toBe(true);
+  });
+
+  it("speech-to-text switched off for the installation falls back to the browser engine, so it needs Web Speech", () => {
+    voice.ctor = null;
+    setDisabledIntegrations(["stt"]);
+    vi.stubGlobal("MediaRecorder", function () {});
+    vi.stubGlobal("navigator", { ...navigator, mediaDevices: { getUserMedia: () => Promise.resolve() } });
+    const { result } = renderHook(() => usePushToTalk({ ...mkArgs(), dictation: stt }));
+    expect(result.current.supported).toBe(false);
   });
 
   it("the browser engine still needs Web Speech", () => {

@@ -135,11 +135,10 @@ export const AI_GATEWAY_RESTRICTED_KEYS: Readonly<Pick<AiDestinationKeys, "keyNo
   help: "helpSecAiBodyGatewayRestricted",
 };
 
-/** The gateway texts do not say that the deployment restricts keys to its organisation, so a gateway
- *  deployment that does adds this sentence to the consent dialog. The relay route's own texts already say it. */
 /** The consent dialog's own texts, beside the table rows and the route texts: titles, lead-ins, the background
- *  runners and notes, bullets 4–6, the policy line and the accept buttons. Part of what a user accepts, so
- *  `ai-disclosure.test.ts` pins them per `AI_DISCLOSURE_VERSION`, as it pins the table. */
+ *  runners and notes, bullets 4–6, the policy line and its fallback owner, the protected-column label and the
+ *  accept buttons. Part of what a user accepts, so `ai-disclosure.test.ts` pins them per `AI_DISCLOSURE_VERSION`,
+ *  as it pins the table. */
 export const AI_CONSENT_DIALOG_TEXT_KEYS = [
   "aiConsentTitle",
   "aiConsentNotAccepted",
@@ -155,10 +154,14 @@ export const AI_CONSENT_DIALOG_TEXT_KEYS = [
   "aiConsentBullet6",
   "aiConsentPolicyLink",
   "aiConsentPolicyCheckbox",
+  "aiPolicyOwnerFallback",
+  "aiProtectedWhenLabel",
   "aiConsentAccept",
   "aiConsentBackgroundAccept",
 ] as const satisfies readonly TranslationKey[];
 
+/** The gateway texts do not say that the deployment restricts keys to its organisation, so a gateway
+ *  deployment that does adds this sentence to the consent dialog. The relay route's own texts already say it. */
 export const AI_GATEWAY_KEY_RESTRICTION_KEY = "aiConsentKeyRestrictionGateway" satisfies TranslationKey;
 
 /** The extra consent sentence for this deployment's key restriction, or null when none is needed. */

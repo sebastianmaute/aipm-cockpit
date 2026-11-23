@@ -200,7 +200,7 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
   // 9: the chat row names the on-screen summary and the activity-recap counts; the inline-edit row names its UI
   //    context and says the role is sent as a number. The disclosure now names data it did not, so it is asked again.
   9: [
-    "chat|interactive|aiDataChatLabel|aiDataChat|93cb1d8167d3|redacted|aiProtectedChat|4fad6aaf2297",
+    "chat|interactive|aiDataChatLabel|aiDataChat|99e5d565158f|redacted|aiProtectedChat|4fad6aaf2297",
     "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|80dc78997776|redacted|aiProtectedInlineEdit|e1ebddccde79",
     "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|dab0929eea32|redacted|aiProtectedRedacted|755d95d88527",
     "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793|redacted|aiProtectedRedacted|755d95d88527",
@@ -630,7 +630,7 @@ describe("AI_DESTINATION_KEYS", () => {
 // in English and German, because each user accepts the text in their own language.
 const DIALOG_TEXTS: Readonly<Record<number, readonly string[]>> = {
   9: [
-"aiConsentTitle|d7e6bd38d49d",
+    "aiConsentTitle|d7e6bd38d49d",
     "aiConsentNotAccepted|73876834afd2",
     "aiConsentBackgroundTitle|e65ff230b6ca",
     "aiConsentBackgroundIntro|b6c7369346ff",
@@ -644,6 +644,8 @@ const DIALOG_TEXTS: Readonly<Record<number, readonly string[]>> = {
     "aiConsentBullet6|87c55881a757",
     "aiConsentPolicyLink|3717fdbce0a0",
     "aiConsentPolicyCheckbox|1caf70c84833",
+    "aiPolicyOwnerFallback|3f65d6b7748e",
+    "aiProtectedWhenLabel|52b154162a25",
     "aiConsentAccept|ba1364d007d6",
     "aiConsentBackgroundAccept|a7ba0d883f5d",
   ],
@@ -664,9 +666,11 @@ describe("AI_CONSENT_DIALOG_TEXT_KEYS", () => {
     expect(dialogFingerprint()).toEqual(DIALOG_TEXTS[AI_DISCLOSURE_VERSION]);
   });
 
-  it("lists every consent text the dialog renders, so a new one cannot go unpinned", () => {
+  it("lists every text the dialog renders, so a new one cannot go unpinned", () => {
     const src = readFileSync(join(__dirname, "ai-consent-dialog.tsx"), "utf8");
-    const rendered = new Set([...src.matchAll(/"(aiConsent[A-Za-z0-9]*)"/g)].map((m) => m[1]));
+    // Every string literal that names an i18n key, the ternary branches included. The two plain controls are exempt.
+    const UI_CONTROLS = new Set(["cancel", "alertModalClose"]);
+    const rendered = new Set([...src.matchAll(/"([a-z][A-Za-z0-9]*)"/g)].map((m) => m[1]).filter((k) => k in de && !UI_CONTROLS.has(k)));
     expect(rendered.size).toBeGreaterThan(5);
     expect([...rendered].filter((k) => !(AI_CONSENT_DIALOG_TEXT_KEYS as readonly string[]).includes(k))).toEqual([]);
   });
