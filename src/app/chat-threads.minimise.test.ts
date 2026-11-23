@@ -189,6 +189,7 @@ describe("rowsToThreads — an old stored search_history result is minimised on 
       { at: "2026-07-01T08:00:00Z", summary: "Resource #7 updated: Ada", detail: "birthday: 1815-12-10 → 1815-12-11; title: Analyst → Lead" },
       { at: "2026-07-01T07:00:00Z", summary: "Stakeholder #3 updated: Bo", detail: "influence: Low → High" },
       { at: "2026-07-01T06:00:00Z", summary: "Task #1 updated: Deck", detail: "status: To Do → Done" },
+      { at: "2026-07-01T05:00:00Z", summary: "Meeting #4 updated: Kick-off", detail: "location: Room 1 → Room 2; notes: bring slides" },
     ],
     truncated: false,
   };
@@ -212,6 +213,8 @@ describe("rowsToThreads — an old stored search_history result is minimised on 
         { at: "2026-07-01T08:00:00Z", summary: "Resource #7 updated: Ada" },
         { at: "2026-07-01T07:00:00Z", summary: "Stakeholder #3 updated: Bo" },
         { at: "2026-07-01T06:00:00Z", summary: "Task #1 updated: Deck", detail: "status: To Do → Done" },
+        // A meeting withholds neither field (only a person's location and notes are withheld), so its detail stays.
+        { at: "2026-07-01T05:00:00Z", summary: "Meeting #4 updated: Kick-off", detail: "location: Room 1 → Room 2; notes: bring slides" },
       ],
       truncated: false,
     });

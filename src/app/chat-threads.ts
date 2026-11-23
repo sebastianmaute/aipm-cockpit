@@ -1,7 +1,8 @@
 // src/app/chat-threads.ts — pure, i18n-free, DOM-free engine for per-project AI
 // chat threads. No React, no Turso IO — see chat-threads-schema.ts/
 // chat-threads-store.ts for persistence. chat-panel.tsx is the sole consumer.
-import { ALL_WITHHELD_FIELDS, isEmailField } from "./ai-withheld-fields";
+import { ALL_WITHHELD_FIELDS, isEmailField, withheldActivityField } from "./ai-withheld-fields";
+import { kindsThatCouldWrite } from "./activity-summary-kinds";
 import type { ApiMessage, ContentBlock, DisplayItem, TextBlock } from "./chat-api";
 
 export interface ChatThread {
@@ -154,12 +155,16 @@ function isHistoryEvent(o: Record<string, unknown>): boolean {
 const DETAIL_FIELD_HEADER = /(?:^|; )([A-Za-z_$][\w$]*): /g;
 
 /** Whether a stored `search_history` detail names a change to a withheld field. A stored event no longer carries
- *  its activity kind, so the entity is unknown and every field of `ALL_WITHHELD_FIELDS` counts, as does every
- *  e-mail field: such a detail is dropped whole, because its values cannot be told apart from text that merely
- *  looks like the next header. */
-function detailNamesWithheldField(detail: string): boolean {
+ *  its activity kind, so its `summary` says which kinds could have written it (`kindsThatCouldWrite`), and a field
+ *  counts when any of them withholds it. With no summary, or one no template writes, every field of
+ *  `ALL_WITHHELD_FIELDS` counts. Every e-mail field always counts. Such a detail is dropped whole, because its values
+ *  cannot be told apart from text that merely looks like the next header. */
+function detailNamesWithheldField(detail: string, summary?: string): boolean {
+  const kinds = summary === undefined ? [] : kindsThatCouldWrite(summary);
+  const withheld = (field: string): boolean =>
+    kinds.length === 0 ? ALL_WITHHELD_FIELDS.has(field) || isEmailField(field) : kinds.some((k) => withheldActivityField(k, field));
   for (const m of detail.matchAll(DETAIL_FIELD_HEADER)) {
-    if (ALL_WITHHELD_FIELDS.has(m[1]) || isEmailField(m[1])) return true;
+    if (withheld(m[1])) return true;
   }
   return false;
 }
@@ -176,7 +181,7 @@ function minimiseValue(value: unknown, historyResult = true): unknown {
   for (const [k, v] of Object.entries(o)) {
     if (STORED_EMAIL_KEYS.has(k)) continue;
     if (absence && k === "note") continue;
-    if (historyEvent && k === "detail" && detailNamesWithheldField(v as string)) continue;
+    if (historyEvent && k === "detail" && detailNamesWithheldField(v as string, o.summary as string)) continue;
     out[k] = absence && k === "type" ? "absent" : minimiseValue(v, historyResult);
   }
   return out;
