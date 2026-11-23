@@ -82,9 +82,15 @@ function readPageAiState(): PersistedAiState {
 }
 
 /** A new switch revision, stored by every write that changes the stored switch. */
+let revisionFallbackCount = 0;
+
 function newEnabledRevision(): string {
   const c = typeof crypto !== "undefined" ? crypto : undefined;
-  return c?.randomUUID ? c.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  if (c?.randomUUID) return c.randomUUID();
+  // randomUUID needs a secure context; getRandomValues does not.
+  if (c?.getRandomValues) return Array.from(c.getRandomValues(new Uint32Array(4)), (n) => n.toString(36)).join("-");
+  revisionFallbackCount += 1;
+  return `${Date.now().toString(36)}-${revisionFallbackCount}`;
 }
 
 /** Synchronously write settings to localStorage WITH the at-rest secrets
@@ -118,9 +124,9 @@ export function writeSettings(
   const permission = plan.permission;
   // A write that changes the stored switch stores a new revision; any other write keeps the stored one.
   const enabledRevision = plan.switchChanged ? newEnabledRevision() : stored.revision;
-  const persistable: Settings = {
+  const persistable: Settings & { ai: { enabledRevision?: string } } = {
     ...settings,
-    ai: { ...settings.ai, ...permission, apiKey: "" },
+    ai: { ...settings.ai, ...permission, apiKey: "", enabledRevision },
     integrations: turso
       ? { ...settings.integrations, turso: { ...turso, authToken: "" } }
       : settings.integrations,
@@ -129,7 +135,7 @@ export function writeSettings(
     dictation: settings.dictation ? { ...settings.dictation, sttApiKey: "" } : settings.dictation,
   };
   try {
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...persistable, ai: { ...persistable.ai, enabledRevision } }));
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(persistable));
     settleAiPermissionWrite(plan, true); // the unsaved narrowing is persisted with this write
     return true;
   } catch (err) {

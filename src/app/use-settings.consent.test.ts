@@ -541,6 +541,27 @@ describe("useSettings — a consent write that failed (AI-01)", () => {
     expect(persistedAi().enabledRevision).toBe("r1");
   });
 
+  it("without randomUUID (no secure context), each change of the switch still stores a new revision", async () => {
+    storeConsented({ ai: { enabled: true, model: "claude-sonnet-5", consent: C, backgroundConsent: C, enabledRevision: "r1" } });
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const real = globalThis.crypto;
+    vi.stubGlobal("crypto", { getRandomValues: real.getRandomValues.bind(real) });
+    try {
+      act(() => { a.result.current.setSettings((s) => ({ ...s, ai: { ...s.ai, enabled: false } })); });
+      const off = persistedAi().enabledRevision;
+      act(() => {
+        a.result.current.setSettings((s) => persistAiConsentChange({ ...s, ai: { ...s.ai, enabled: true } }, ["enabled"]) ?? s);
+      });
+      const on = persistedAi().enabledRevision;
+      expect(typeof off).toBe("string");
+      expect(off).not.toBe("r1");
+      expect(on).not.toBe(off);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   const realGetItem = Storage.prototype.getItem;
   function failSettingsReads() {
     return vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, key: string) {
