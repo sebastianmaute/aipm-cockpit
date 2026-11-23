@@ -77,6 +77,16 @@ describe("aiPermissionToWrite — only the named fields widen", () => {
     expect(aiPermissionToWrite(ai({ consent: undefined, backgroundConsent: undefined }), [], ON))
       .toEqual({ enabled: true, consent: undefined, backgroundConsent: undefined });
   });
+
+  it("returns a new object and leaves its inputs as they were", () => {
+    const input = ai({ consent: C2 });
+    const before = structuredClone(input);
+    const pageBefore = structuredClone(OFF);
+    const written = aiPermissionToWrite(input, ["enabled", "consent"], OFF);
+    expect(written).not.toBe(input);
+    expect(input).toEqual(before);
+    expect(OFF).toEqual(pageBefore);
+  });
 });
 
 describe("narrowingAfterFailedWrite", () => {
