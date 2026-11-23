@@ -28,8 +28,10 @@ import { type AiRoute, currentAiRoute, getAiDeploymentState, isAiDeploymentOn } 
  *  7 — the chat and inline-edit rows' protected texts say what the code already did since 6: an insight about one
  *  person (`insightReachesAi`) is not sent. Inline edit got its own text (`aiProtectedInlineEdit`), a re-keyed row.
  *  8 — the forecast import sends only the sheet's first 30 non-empty rows, with every e-mail address replaced by a
- *  placeholder (`sheetForPrompt`), where it sent the whole sheet. Narrowing only, but what a path sends changed. */
-export const AI_DISCLOSURE_VERSION = 8;
+ *  placeholder (`sheetForPrompt`), where it sent the whole sheet. Narrowing only, but what a path sends changed.
+ *  9 — the chat row names the on-screen summary and the activity-recap counts, and the inline-edit row its UI
+ *  context and the role as a number: both were sent without being named. The dialog's own texts are pinned too. */
+export const AI_DISCLOSURE_VERSION = 9;
 
 /** `route` is where the AI traffic went when the user accepted; absent counts as `direct`. `keyRestricted` is
  *  whether the deployment restricted AI to its organisation's Anthropic keys then; absent counts as false. */

@@ -69,6 +69,16 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The AI data notice now names everything sent with each message, so everyone is asked to accept it again.** The
+  chat row now names the summary of the rows on screen (up to 15) and the counts of recent project changes, and the
+  row-edit row names the app context it sends (language, storage type, mode, modules and view) and that a person's
+  role goes as a number. The consent dialog's own texts are now fixed per notice version as well, so a change to
+  them asks again in the same way.
+- **An "Ask Claude" request held while settings load is no longer sent into another project.** A request made just
+  before a project switch was kept until the settings had loaded and could then be sent from the next project; it is
+  now dropped once the project has changed.
+- **Inline AI edits and the AI buttons say when AI consent was withdrawn mid-request.** They showed a generic
+  "couldn't reach Claude" error; they now say AI was switched off or its consent withdrawn, as the chat does.
 - **Withdrawing AI consent or switching AI off holds in more cases across tabs.** Background AI now needs its
   consent to be given no earlier than the interactive consent in force, so a background consent saved by a tab that
   had missed a withdrawal elsewhere no longer comes back when AI is accepted again. A switch-off that could not be
