@@ -783,6 +783,18 @@ describe("AiSection", () => {
     /** What a hydrated instance has already persisted: the AI switch and records the section is shown with. */
     const storeAi = (s: Settings) => localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: { ...s.ai, apiKey: "" } }));
 
+    // A background consent counts only when it is no older than the interactive one, so accepting it before the
+    // interactive consent would be voided by that accept: it is offered only once the interactive consent is current.
+    it("is offered only while the interactive consent is current", () => {
+      const revoked = { ...interactiveOnly, ai: { ...interactiveOnly.ai, consent: undefined } };
+      const { unmount } = render(<AiSection lang="en-US" settings={revoked} onChange={vi.fn()} />);
+      expect(screen.queryByLabelText(t("en-US", "aiBackgroundConsentToggle"))).toBeNull();
+      expect(screen.queryByText(t("en-US", "aiBackgroundConsentHelp"))).toBeNull();
+      unmount();
+      render(<AiSection lang="en-US" settings={interactiveOnly} onChange={vi.fn()} />);
+      expect(bgToggle()).toBeInTheDocument(); // control: shown once the interactive consent is current
+    });
+
     it("is off by default and disables the insight-recommendations toggle with the reason", () => {
       render(<AiSection lang="en-US" settings={interactiveOnly} onChange={vi.fn()} />);
       expect(bgToggle().checked).toBe(false);
@@ -1447,7 +1459,9 @@ describe("AiSection — deployment notice", () => {
     const settings = { ...defaultSettings, ai: { ...defaultSettings.ai, consent: GATEWAY_CONSENT } };
     render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
     expect(screen.getByRole("button", { name: t("en-US", "aiConsentReview") })).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") })).toBeEnabled();
+    expect(screen.getByLabelText(t("en-US", "aiGroundInGuides"))).toBeEnabled();
+    // The background consent waits for a current interactive consent: one accepted before it would be voided by it.
+    expect(screen.queryByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") })).toBeNull();
   });
 });
 

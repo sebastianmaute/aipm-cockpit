@@ -22,7 +22,9 @@ vi.mock("./secrets-store", async (importOriginal) => {
 
 import {
   __settingsBroadcastDeliveriesForTests,
+  __resetStoredAiReadForTests,
   persistAiConsentChange,
+  readPersistedAiState,
   SETTINGS_KEY,
   useSettings,
 } from "./use-settings";
@@ -378,7 +380,7 @@ describe("useSettings — a consent write that failed (AI-01)", () => {
     return next;
   }
   // Each test starts with no noted revoke, whatever an earlier test left behind.
-  beforeEach(() => __resetConsentFailureForTests());
+  beforeEach(() => { __resetConsentFailureForTests(); __resetStoredAiReadForTests(); });
   // A failing test must not leave storage failing for the next one.
   afterEach(() => { vi.restoreAllMocks(); });
 
@@ -539,17 +541,21 @@ describe("useSettings — a consent write that failed (AI-01)", () => {
     expect(persistedAi().enabledRevision).toBe("r1");
   });
 
+  const realGetItem = Storage.prototype.getItem;
+  function failSettingsReads() {
+    return vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, key: string) {
+      if (key === SETTINGS_KEY) throw new DOMException("denied", "SecurityError");
+      return realGetItem.call(this, key);
+    });
+  }
+
   // When storage cannot even be read, the revoke is measured against the last state this page read, so it
   // is still held for the page once storage can be read again.
   it("a revoke made while storage cannot be read is still held once it can be read again", async () => {
     storeConsented();
     const a = renderHook(() => useSettings());
     await waitFor(() => expect(a.result.current.hydrated).toBe(true));
-    const realGetItem = Storage.prototype.getItem;
-    const readSpy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, key: string) {
-      if (key === SETTINGS_KEY) throw new DOMException("denied", "SecurityError");
-      return realGetItem.call(this, key);
-    });
+    const readSpy = failSettingsReads();
     const writeSpy = failSettingsWrites();
     act(() => { a.result.current.setSettings((s) => revokeNotSaved(s)); });
     readSpy.mockRestore(); // storage can be read again; writes still fail
@@ -562,6 +568,46 @@ describe("useSettings — a consent write that failed (AI-01)", () => {
     expect(b.result.current.settings.ai.enabled).toBe(true); // nothing but the revoke is held
     expect(isInteractiveConsentLive()).toBe(false);
     expect(() => assertBackgroundConsentLive()).toThrow();
+  });
+
+  it("while storage cannot be read, a re-read fails closed: a revoke elsewhere is not outlived by the last read", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    expect(isInteractiveConsentLive()).toBe(true); // control
+    const readSpy = failSettingsReads();
+    act(() => { window.dispatchEvent(new StorageEvent("storage", { key: SETTINGS_KEY, newValue: null })); });
+    readSpy.mockRestore();
+    expect(isInteractiveConsentLive()).toBe(false);
+    expect(a.result.current.settings.ai.consent).toBeUndefined();
+  });
+
+  it("while storage cannot be read, an ordinary write that fails holds nothing back, and the setter keeps AI as it is", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const readSpy = failSettingsReads();
+    const writeSpy = failSettingsWrites();
+    act(() => { a.result.current.setSettings((s) => ({ ...s, expertMode: false })); });
+    expect(a.result.current.settings.ai.enabled).toBe(true); // not narrowed to the fail-closed reading
+    expect(a.result.current.settings.ai.consent).toBeDefined();
+    readSpy.mockRestore();
+    writeSpy.mockRestore(); // storage works again
+    act(() => { a.result.current.setSettings((s) => ({ ...s, language: "de" })); });
+    expect((JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as { language?: string }).language).toBe("de"); // control
+    expect(persistedAi().enabled).toBe(true);
+    expect(persistedAi().consent).toEqual(C);
+    expect(isInteractiveConsentLive()).toBe(true);
+  });
+
+  it("with no earlier read, a read that throws reads as switched off with no consent", () => {
+    __resetStoredAiReadForTests();
+    const readSpy = failSettingsReads();
+    try {
+      expect(readPersistedAiState()).toEqual({ enabled: false, consent: undefined, backgroundConsent: undefined });
+    } finally {
+      readSpy.mockRestore();
+    }
   });
 
   // Both tabs' writes failed; storage recovers; the other tab accepts; this tab then edits something else.

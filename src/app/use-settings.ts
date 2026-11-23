@@ -40,28 +40,31 @@ import {
 
 export const SETTINGS_KEY = "aipm-cockpit:settings";
 
-/** The stored AI switch and consent records, with the stored switch revision. */
-type StoredAi = { state: PersistedAiState; revision: string | undefined };
+/** The stored AI switch and consent records, with the stored switch revision; `readFailed` when the read threw. */
+type StoredAi = { state: PersistedAiState; revision: string | undefined; readFailed: boolean };
 
-/** The last settings blob this page read, and what it held. A re-read of the same blob reuses it, and it is what
- *  stands in for storage when a read throws. */
+/** The last settings blob this page read successfully, and what it held. A re-read of the same blob reuses it; an
+ *  explicit consent change made while reads throw is measured against it (`writeSettings`). */
 let lastRead: { raw: string | null; stored: StoredAi } | null = null;
 
+/** Test seam: forget the last settings read. */
+export function __resetStoredAiReadForTests(): void {
+  lastRead = null;
+}
+
 /** AI-01 — the AI switch and consent records as they are persisted NOW, through the load sanitizer, with the stored
- *  switch revision. No settings or an unreadable blob read as switched off with no consent.
- *  ★ When the read itself THROWS (storage unavailable), the state this page last read stands in for it, so
- *  a withdrawal made meanwhile is measured against what the page last saw and is held for the page; with no earlier
- *  read it reads as switched off with no consent. The persistence rules themselves live in
- *  `ai-permission-store.ts`; this module only reads and writes the settings key for them. */
+ *  switch revision. No settings, an unreadable blob or a read that THROWS (storage unavailable) read as switched off
+ *  with no consent: everything that decides what the page holds fails closed. The persistence rules themselves live
+ *  in `ai-permission-store.ts`; this module only reads and writes the settings key for them. */
 function readStoredAi(): StoredAi {
   let raw: string | null;
   try {
     raw = window.localStorage.getItem(SETTINGS_KEY);
   } catch {
-    return lastRead?.stored ?? { state: parseStoredAiState(null), revision: undefined };
+    return { state: parseStoredAiState(null), revision: undefined, readFailed: true };
   }
   if (lastRead === null || lastRead.raw !== raw) {
-    lastRead = { raw, stored: { state: parseStoredAiState(raw), revision: parseStoredEnabledRevision(raw) } };
+    lastRead = { raw, stored: { state: parseStoredAiState(raw), revision: parseStoredEnabledRevision(raw), readFailed: false } };
   }
   return lastRead.stored;
 }
@@ -93,13 +96,24 @@ function newEnabledRevision(): string {
  *  ★★ AI-01 — the AI switch and the two consent records (`ai.enabled`, `ai.consent`,
  *  `ai.backgroundConsent`) may only narrow what is in effect on this page (`narrowOnly`, ai-permission-store.ts),
  *  except the fields named in
- *  `widen`, which are written from `settings` as they are. Only `persistAiConsentChange` names any. */
-export function writeSettings(settings: Settings, widen: readonly AiPermissionField[] = []): boolean {
+ *  `widen`, which are written from `settings` as they are. Only `persistAiConsentChange` names any, and only it
+ *  passes `explicitChange`.
+ *  ★ When the settings READ throws, the stored state reads as off, against which no withdrawal can be measured.
+ *  An explicit consent change (`explicitChange`: a revoke in Settings → AI) is then measured against the last state
+ *  this page read, so a revoke that cannot be saved is still held for the page. Any other write that fails while
+ *  reads throw leaves the page's store as it was: its AI state may only be the fail-closed reading, and noting that
+ *  as a withdrawal would switch AI off for every tab once storage works again. */
+export function writeSettings(
+  settings: Settings,
+  widen: readonly AiPermissionField[] = [],
+  { explicitChange = false }: { explicitChange?: boolean } = {},
+): boolean {
   if (settingsSealedForReload()) return true; // §740 — sealed for a reload: skipped, not failed
   const turso = settings.integrations?.turso;
   // A settings object without an AI slice (a partial one some callers' tests pass) says nothing about AI
   // permission, so the persisted switch and records are kept as they are (`planPageAiPermissionWrite`).
-  const stored = readStoredAi();
+  const read = readStoredAi();
+  const stored = read.readFailed && explicitChange && lastRead !== null ? lastRead.stored : read;
   const plan = planPageAiPermissionWrite(stored.state, settings.ai, widen, stored.revision);
   const permission = plan.permission;
   // A write that changes the stored switch stores a new revision; any other write keeps the stored one.
@@ -120,7 +134,8 @@ export function writeSettings(settings: Settings, widen: readonly AiPermissionFi
     return true;
   } catch (err) {
     // AI-01 — a failed widening is not committed by its caller, so only the narrowing this write carried counts.
-    settleAiPermissionWrite(plan, false);
+    // A write planned against a read that threw notes nothing (see above): the store keeps what it held.
+    if (!stored.readFailed) settleAiPermissionWrite(plan, false);
     // quota exceeded / storage disabled — keep in-memory settings, but log +
     // signal so the caller can warn the user (settings silently revert on the
     // next reload otherwise).
@@ -149,7 +164,7 @@ export const SECRET_MERGE_TIMEOUT_MS = 5_000;
 export function persistAiConsentChange(settings: Settings, widen: readonly AiPermissionField[]): Settings | null {
   if (isSafeMode()) return settings;
   const permission = aiPermissionToWrite(settings.ai, widen, readPageAiState());
-  if (!writeSettings(settings, widen)) return null;
+  if (!writeSettings(settings, widen, { explicitChange: true })) return null;
   return { ...settings, ai: { ...settings.ai, ...permission } };
 }
 
@@ -777,7 +792,11 @@ export function useSettings(): {
   const setSettingsInPage = useCallback<Dispatch<SetStateAction<Settings>>>((action) => {
     setSettings((prev) => {
       const next = typeof action === "function" ? action(prev) : action;
-      return isSafeMode() ? next : withPageAiPermission(next, readPageAiState());
+      if (isSafeMode()) return next;
+      const stored = readStoredAi();
+      // While reads throw, the stored state is only the fail-closed reading: narrowing to it would put "off" into
+      // memory, and the next write after storage recovers would save that as a switch-off for every tab.
+      return stored.readFailed ? next : withPageAiPermission(next, pageAiState(stored.state, stored.revision));
     });
   }, []);
 

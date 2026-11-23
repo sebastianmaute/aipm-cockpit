@@ -129,9 +129,10 @@ export function withUnsavedNarrowing<T extends Partial<AiPermission>>(ai: T, n: 
 
 /** `n` without its switch-off once storage holds another switch revision than the one the switch-off was
  *  made against (`storedRevision`): the switch was changed elsewhere since, and that newer change wins. Null when
- *  nothing is left to hold. */
+ *  nothing is left to hold. Storage holding NO revision never releases it: a tab still running an older version
+ *  drops the revision on any write, which says nothing about the switch. */
 export function releaseSupersededSwitchOff(n: UnsavedNarrowing | null, storedRevision: string | undefined): UnsavedNarrowing | null {
-  if (n === null || !n.switchedOff || n.switchRevision === storedRevision) return n;
+  if (n === null || !n.switchedOff || storedRevision === undefined || n.switchRevision === storedRevision) return n;
   return n.consent || n.backgroundConsent ? { switchedOff: false, consent: n.consent, backgroundConsent: n.backgroundConsent } : null;
 }
 

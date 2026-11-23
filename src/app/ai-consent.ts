@@ -54,8 +54,10 @@ export function isConsentCurrent(c: AiConsent | undefined): boolean {
 /** The background consent counts only while it is current AND was given no earlier than the interactive
  *  consent in force. A background accept widens only its own field, so a tab that missed a revoke made elsewhere
  *  can save one with no interactive consent beside it; this rule keeps a later interactive accept from arming
- *  background AI with that older record. In the app's own flow the background consent is always accepted after
- *  the interactive one (a revoke withdraws both), so a record that predates it is such a leftover. */
+ *  background AI with that older record. In the app's own flow the background consent is accepted after the
+ *  interactive one: Settings → AI offers it only while the interactive consent is current, and a revoke withdraws
+ *  both. A record that predates the interactive consent is such a leftover, or one given before a re-accept (a new
+ *  disclosure version), which is asked for again. */
 export function isBackgroundConsentCurrent(ai: { consent?: AiConsent; backgroundConsent?: AiConsent } | undefined): boolean {
   const interactive = ai?.consent;
   const background = ai?.backgroundConsent;

@@ -223,6 +223,9 @@ describe("the switch revision", () => {
     expect(releaseSupersededSwitchOff(n, "r2")).toEqual({ switchedOff: false, consent: C1, backgroundConsent: undefined });
     expect(releaseSupersededSwitchOff({ ...n, consent: undefined }, "r2")).toBeNull();
     expect(releaseSupersededSwitchOff({ ...n, switchRevision: undefined, consent: undefined }, undefined)).not.toBeNull();
+    // Storage holding no revision (a tab on an older version wrote it) says nothing about the switch.
+    expect(releaseSupersededSwitchOff(n, undefined)).toBe(n);
+    expect(releaseSupersededSwitchOff({ ...n, switchRevision: undefined }, "r1")?.switchedOff).toBe(false);
     const store: AiPermissionStore = { ...EMPTY_AI_PERMISSION_STORE, unsavedNarrowing: { ...n, consent: undefined } };
     expect(pageAiStateOf(store, ON, "r1").enabled).toBe(false);
     expect(pageAiStateOf(store, ON, "r2").enabled).toBe(true);

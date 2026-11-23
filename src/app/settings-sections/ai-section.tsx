@@ -881,9 +881,16 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           {t(lang, "settingsAiChatSearchHelp")}
         </FieldHint>
 
-        {/* Background consent (AI-10): the unattended runners call the AI without a click, so they need their own consent. */}
-        {backgroundConsentBlock}
-        <FieldHint className="mt-1">{t(lang, "aiBackgroundConsentHelp")}</FieldHint>
+        {/* Background consent (AI-10): the unattended runners call the AI without a click, so they need their own consent.
+            ★ Offered only while the interactive consent is current: a background consent counts only when it is no
+            older than the interactive one (`isBackgroundConsentCurrent`), so one accepted before it would be voided
+            by that accept, and the toggle would stay unticked. */}
+        {consentCurrent && (
+          <>
+            {backgroundConsentBlock}
+            <FieldHint className="mt-1">{t(lang, "aiBackgroundConsentHelp")}</FieldHint>
+          </>
+        )}
         {backgroundConsentOpen && (
           <AiConsentDialog
             lang={lang}

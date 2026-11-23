@@ -74,7 +74,9 @@ longer carries its own changelog comment.
   had missed a withdrawal elsewhere no longer comes back when AI is accepted again. A switch-off that could not be
   saved now gives way to a later switch-on made in another tab instead of undoing it. A withdrawal made while the
   browser could not even read its storage is still held once it can, and a part of the page holding an older copy of
-  the settings no longer shows AI as available after a withdrawal.
+  the settings no longer shows AI as available after a withdrawal. Settings → AI now offers the background consent
+  only once the AI disclosure itself is accepted, and someone whose background consent was given before their
+  current AI consent is asked for it again.
 
 - **A new project with AI starter content now says so in its activity log.** When you include the AI-generated
   starter content in the project wizard, the new project's log starts with one entry by the AI assistant, marked
