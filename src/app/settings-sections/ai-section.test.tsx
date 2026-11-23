@@ -32,7 +32,7 @@ const defaultSettings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: tr
 const onWithoutConsent = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true } };
 import { SETTINGS_KEY } from "../use-settings";
 import { getSessionAiKey, setSessionAiKey } from "../session-ai-key";
-import { readDeviceSecret, isPassphraseLocked, loadSealed, saveSealed } from "../secrets-store";
+import { readDeviceSecret, isPassphraseLocked, loadSealed, removeSealed, saveSealed, SECRETS_KEY } from "../secrets-store";
 import * as secrets from "../secrets";
 import { type SealedSecret, sealDevice, sealPassphrase } from "../secrets";
 import { ToastProvider } from "../toast-context";
@@ -149,6 +149,19 @@ describe("AiSection", () => {
     expect(removeButton()).toBeNull();
     cleanup();
     render(<AiSection lang="en-US" settings={onWithoutConsent} onChange={vi.fn()} />); // control: nothing stored
+    expect(removeButton()).toBeNull();
+  });
+
+  it("Remove stored secret follows a key another tab stores or removes", async () => {
+    const removeButton = () => screen.queryByRole("button", { name: t("en-US", "secretPassphraseRemove") });
+    render(<AiSection lang="en-US" settings={onWithoutConsent} onChange={vi.fn()} />);
+    expect(removeButton()).toBeNull();
+    // Another tab seals a key: this one only learns of it through the `storage` event on the secrets key.
+    saveSealed(await sealDevice("anthropicApiKey", "sk-ant-api03-other0000000000000"));
+    act(() => { window.dispatchEvent(new StorageEvent("storage", { key: SECRETS_KEY })); });
+    expect(removeButton()).toBeInTheDocument();
+    removeSealed("anthropicApiKey");
+    act(() => { window.dispatchEvent(new StorageEvent("storage", { key: SECRETS_KEY })); });
     expect(removeButton()).toBeNull();
   });
 
