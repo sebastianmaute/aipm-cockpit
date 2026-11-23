@@ -5,7 +5,7 @@ import { AiBackgroundPausedNotice, useAiBackgroundPaused } from "./ai-background
 import { CheckIcon } from "../icons";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
-import { type AiConsent, isConsentCurrent, newConsent } from "../ai-consent";
+import { type AiConsent, isBackgroundConsentCurrent, isConsentCurrent, newConsent } from "../ai-consent";
 import { type AiPermissionField, noteConsentRevokeNotSaved } from "../ai-permission-store";
 import { persistAiConsentChange } from "../use-settings";
 import { AiConsentDialog } from "../ai-consent-dialog";
@@ -170,7 +170,8 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const recPausedNoticeId = useId();
   const backgroundPaused = useAiBackgroundPaused();
   const deploymentNoticeId = useId();
-  const backgroundOk = isConsentCurrent(settings.ai.backgroundConsent);
+  // The rule the send-time check applies: a background consent older than the interactive one is void.
+  const backgroundOk = isBackgroundConsentCurrent(settings.ai);
   // AI-01 — only switching ON needs the background consent: a toggle left on from before can always be switched off.
   const recToggleLocked = !backgroundOk && settings.ai.insightRecommendations !== true;
   const confirm = useConfirm();

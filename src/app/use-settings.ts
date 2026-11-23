@@ -1,6 +1,6 @@
 "use client";
 
-import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
+import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, loadI18n, migrateLang } from "./i18n";
 import { defaultSettings, sanitizeIntegrations, sanitizeOutlookCalendar, sanitizeSelfResourceId, type Settings, type NextActionsLearningConfig } from "./settings-types";
 import { defaultTimelogConfig } from "./timelog-types";
@@ -31,30 +31,57 @@ import {
   isReportedRevoke,
   pageAiState,
   parseStoredAiState,
+  parseStoredEnabledRevision,
   planPageAiPermissionWrite,
   settleAiPermissionWrite,
   withAiState,
+  withPageAiPermission,
 } from "./ai-permission-store";
 
 export const SETTINGS_KEY = "aipm-cockpit:settings";
 
-/** AI-01 — the AI switch and consent records as they are persisted NOW, through the load sanitizer. No
- *  settings, an unreadable blob or no storage read as switched off with no consent. The persistence rules
- *  themselves live in `ai-permission-store.ts`; this module only reads and writes the settings key for them. */
-export function readPersistedAiState(): PersistedAiState {
+/** The stored AI switch and consent records, with the stored switch revision. */
+type StoredAi = { state: PersistedAiState; revision: string | undefined };
+
+/** The last settings blob this page read, and what it held. A re-read of the same blob reuses it, and it is what
+ *  stands in for storage when a read throws. */
+let lastRead: { raw: string | null; stored: StoredAi } | null = null;
+
+/** AI-01 — the AI switch and consent records as they are persisted NOW, through the load sanitizer, with the stored
+ *  switch revision. No settings or an unreadable blob read as switched off with no consent.
+ *  ★ When the read itself THROWS (storage unavailable), the state this page last read stands in for it, so
+ *  a withdrawal made meanwhile is measured against what the page last saw and is held for the page; with no earlier
+ *  read it reads as switched off with no consent. The persistence rules themselves live in
+ *  `ai-permission-store.ts`; this module only reads and writes the settings key for them. */
+function readStoredAi(): StoredAi {
   let raw: string | null;
   try {
     raw = window.localStorage.getItem(SETTINGS_KEY);
   } catch {
-    raw = null;
+    return lastRead?.stored ?? { state: parseStoredAiState(null), revision: undefined };
   }
-  return parseStoredAiState(raw);
+  if (lastRead === null || lastRead.raw !== raw) {
+    lastRead = { raw, stored: { state: parseStoredAiState(raw), revision: parseStoredEnabledRevision(raw) } };
+  }
+  return lastRead.stored;
+}
+
+/** AI-01 — the AI switch and consent records as they are persisted now (`readStoredAi`). */
+export function readPersistedAiState(): PersistedAiState {
+  return readStoredAi().state;
 }
 
 /** AI-01 — the AI switch and consent records in effect on THIS page: the persisted ones, narrowed by what this
  *  page withdrew and could not save (`pageAiState`). What a load, a re-read and every write's narrow-only base read. */
 function readPageAiState(): PersistedAiState {
-  return pageAiState(readPersistedAiState());
+  const stored = readStoredAi();
+  return pageAiState(stored.state, stored.revision);
+}
+
+/** A new switch revision, stored by every write that changes the stored switch. */
+function newEnabledRevision(): string {
+  const c = typeof crypto !== "undefined" ? crypto : undefined;
+  return c?.randomUUID ? c.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
 /** Synchronously write settings to localStorage WITH the at-rest secrets
@@ -72,8 +99,11 @@ export function writeSettings(settings: Settings, widen: readonly AiPermissionFi
   const turso = settings.integrations?.turso;
   // A settings object without an AI slice (a partial one some callers' tests pass) says nothing about AI
   // permission, so the persisted switch and records are kept as they are (`planPageAiPermissionWrite`).
-  const plan = planPageAiPermissionWrite(readPersistedAiState(), settings.ai, widen);
+  const stored = readStoredAi();
+  const plan = planPageAiPermissionWrite(stored.state, settings.ai, widen, stored.revision);
   const permission = plan.permission;
+  // A write that changes the stored switch stores a new revision; any other write keeps the stored one.
+  const enabledRevision = plan.switchChanged ? newEnabledRevision() : stored.revision;
   const persistable: Settings = {
     ...settings,
     ai: { ...settings.ai, ...permission, apiKey: "" },
@@ -85,7 +115,7 @@ export function writeSettings(settings: Settings, widen: readonly AiPermissionFi
     dictation: settings.dictation ? { ...settings.dictation, sttApiKey: "" } : settings.dictation,
   };
   try {
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(persistable));
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...persistable, ai: { ...persistable.ai, enabledRevision } }));
     settleAiPermissionWrite(plan, true); // the unsaved narrowing is persisted with this write
     return true;
   } catch (err) {
@@ -737,5 +767,19 @@ export function useSettings(): {
 
   const lang = settings.language;
 
-  return { settings, setSettings, hydrated, i18nReady, lang };
+  // ★ Every commit made through the returned setter holds the AI switch and consent records as an ordinary
+  //   write would persist them (`withPageAiPermission` against `readPageAiState`): a stale copy committed after a
+  //   withdrawal elsewhere, or after one this page could not save, can neither show AI as available nor keep a
+  //   consent in memory that the next write drops from storage (which the publish effect would otherwise re-arm).
+  //   A widening reaches storage first (`persistAiConsentChange`), so it is kept. Safe mode holds its defaults in
+  //   memory only and is left alone. The broadcast listener and the load commit through `setSettings` directly:
+  //   their values are already in this form.
+  const setSettingsInPage = useCallback<Dispatch<SetStateAction<Settings>>>((action) => {
+    setSettings((prev) => {
+      const next = typeof action === "function" ? action(prev) : action;
+      return isSafeMode() ? next : withPageAiPermission(next, readPageAiState());
+    });
+  }, []);
+
+  return { settings, setSettings: setSettingsInPage, hydrated, i18nReady, lang };
 }

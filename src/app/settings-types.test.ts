@@ -494,6 +494,9 @@ describe("AI consent gate", () => {
     expect(isAiBackgroundEnabled(interactive)).toBe(false);
     expect(isAiBackgroundEnabled({ ...interactive, backgroundConsent: newConsent(D) })).toBe(true);
     expect(isAiBackgroundEnabled({ ...keyed, backgroundConsent: newConsent(D) })).toBe(false);
+    // A background consent older than the interactive consent in force does not count.
+    const later = newConsent(new Date(D.getTime() + 1000));
+    expect(isAiBackgroundEnabled({ ...keyed, consent: later, backgroundConsent: newConsent(D) })).toBe(false);
   });
 
   it("sanitizeAiConfig drops the legacy boolean flag: nobody is silently migrated", () => {

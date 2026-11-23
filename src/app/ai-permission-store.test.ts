@@ -15,11 +15,14 @@ import {
   pageAiState,
   pageAiStateOf,
   parseStoredAiState,
+  parseStoredEnabledRevision,
   planAiPermissionWrite,
   planPageAiPermissionWrite,
+  releaseSupersededSwitchOff,
   sameAiState,
   settleAiPermissionWrite,
   withAiState,
+  withPageAiPermission,
   type AiPermissionStore,
   type PersistedAiState,
 } from "./ai-permission-store";
@@ -194,5 +197,67 @@ describe("sameAiState — the route is part of a consent record", () => {
     const gw = { ...base, route: "gateway" as const };
     expect(sameAiState({ enabled: true, consent: { ...gw, keyRestricted: true } }, state(gw))).toBe(false);
     expect(sameAiState({ enabled: true, consent: { ...gw, keyRestricted: false } }, state(gw))).toBe(true);
+  });
+});
+
+describe("the switch revision", () => {
+  it("reads a stored revision, and none from a blob without one or an unreadable one", () => {
+    expect(parseStoredEnabledRevision(JSON.stringify({ ai: { enabled: true, enabledRevision: "r1" } }))).toBe("r1");
+    expect(parseStoredEnabledRevision(JSON.stringify({ ai: { enabled: true } }))).toBeUndefined();
+    expect(parseStoredEnabledRevision(JSON.stringify({ ai: { enabledRevision: 7 } }))).toBeUndefined();
+    expect(parseStoredEnabledRevision(JSON.stringify({ ai: { enabledRevision: "x".repeat(65) } }))).toBeUndefined();
+    expect(parseStoredEnabledRevision("{not json")).toBeUndefined();
+    expect(parseStoredEnabledRevision(null)).toBeUndefined();
+  });
+
+  it("a failed switch-off notes the revision it was made against; a failed revoke alone notes none", () => {
+    expect(narrowingAfterFailedWrite(ON, { enabled: false, consent: C1, backgroundConsent: B1 }, "r1"))
+      .toEqual({ switchedOff: true, switchRevision: "r1", consent: undefined, backgroundConsent: undefined });
+    expect(narrowingAfterFailedWrite(ON, { enabled: true, consent: undefined, backgroundConsent: B1 }, "r1"))
+      .toStrictEqual({ switchedOff: false, consent: C1, backgroundConsent: undefined });
+  });
+
+  it("a held switch-off is released once storage holds another revision, and the consents it holds are kept", () => {
+    const n = { switchedOff: true, switchRevision: "r1", consent: C1, backgroundConsent: undefined };
+    expect(releaseSupersededSwitchOff(n, "r1")).toBe(n);
+    expect(releaseSupersededSwitchOff(n, "r2")).toEqual({ switchedOff: false, consent: C1, backgroundConsent: undefined });
+    expect(releaseSupersededSwitchOff({ ...n, consent: undefined }, "r2")).toBeNull();
+    expect(releaseSupersededSwitchOff({ ...n, switchRevision: undefined, consent: undefined }, undefined)).not.toBeNull();
+    const store: AiPermissionStore = { ...EMPTY_AI_PERMISSION_STORE, unsavedNarrowing: { ...n, consent: undefined } };
+    expect(pageAiStateOf(store, ON, "r1").enabled).toBe(false);
+    expect(pageAiStateOf(store, ON, "r2").enabled).toBe(true);
+  });
+
+  it("the page store drops a superseded switch-off for good, so the published flags stop applying it", () => {
+    settleAiPermissionWrite(planPageAiPermissionWrite(ON, ai({ enabled: false }), [], "r1"), false);
+    expect(aiForPublish(ai()).enabled).toBe(false); // control: held
+    expect(pageAiState(ON, "r2").enabled).toBe(true);
+    expect(aiForPublish(ai()).enabled).toBe(true);
+  });
+
+  it("a plan says whether the write changes the stored switch", () => {
+    expect(planAiPermissionWrite(EMPTY_AI_PERMISSION_STORE, ON, ai({ enabled: false }), []).switchChanged).toBe(true);
+    expect(planAiPermissionWrite(EMPTY_AI_PERMISSION_STORE, ON, ai({ model: "x" }), []).switchChanged).toBe(false);
+    expect(planAiPermissionWrite(EMPTY_AI_PERMISSION_STORE, OFF, ai(), ["enabled"]).switchChanged).toBe(true);
+    expect(planAiPermissionWrite(EMPTY_AI_PERMISSION_STORE, OFF, ai(), []).switchChanged).toBe(false);
+  });
+});
+
+describe("withPageAiPermission — a commit holds what an ordinary write would persist", () => {
+  const settings = (over: Partial<AiConfig> = {}): Settings => ({ ...defaultSettings, ai: ai(over) });
+
+  it("returns the same object when the commit already holds the page's state, records compared by value", () => {
+    const s = settings({ consent: { ...C1 }, backgroundConsent: { ...B1 } });
+    expect(withPageAiPermission(s, ON)).toBe(s);
+  });
+
+  it("drops a consent and the switch the page no longer holds", () => {
+    const out = withPageAiPermission(settings(), { enabled: false, consent: undefined, backgroundConsent: B1 });
+    expect(out.ai).toMatchObject({ enabled: false, consent: undefined, backgroundConsent: B1 });
+  });
+
+  it("never adds what the commit does not hold", () => {
+    const s = settings({ enabled: false, consent: undefined });
+    expect(withPageAiPermission(s, ON).ai).toMatchObject({ enabled: false, consent: undefined, backgroundConsent: B1 });
   });
 });
