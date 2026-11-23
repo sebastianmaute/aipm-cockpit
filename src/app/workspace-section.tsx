@@ -13,6 +13,7 @@ import { saveProjectFromForm } from "./project-meta-edit";
 import type { OpenThreadRequest } from "./use-chat-open-thread-request";
 import { computeProjectForecastFacts } from "./budget-forecast";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -298,7 +299,19 @@ export function WorkspaceSection({
   // ★ A render-time read: it relies on every epoch bump happening while this tree is unmounted for the load hold (§548).
   const scopeEpoch = getScopeEpoch();
   // Every Ask-Claude request is stamped with the scope it was made in (`liveChatSeed` below drops it after a swap).
-  useEffect(() => setChatScopeReader(getScopeEpoch), [setChatScopeReader, getScopeEpoch]);
+  //   ★ While a swap is under way the epoch can already read the NEXT project with the old one still on screen
+  //   (scope-epoch.ts), so a request made then is stamped NaN, which no scope equals: it is never applied.
+  const readChatScope = useCallback(() => (isSwapInFlight() ? Number.NaN : getScopeEpoch()), [isSwapInFlight, getScopeEpoch]);
+  useEffect(() => setChatScopeReader(readChatScope), [setChatScopeReader, readChatScope]);
+  const liveSeed = liveChatSeed(pendingChatSeed, hydrated, scopeEpoch);
+  const seedDropped = hydrated && pendingChatSeed !== null && liveSeed === null;
+  const showSeedToast = useToastContext();
+  // A dropped seed is cleared, so the old project's prompt is not kept, and the user is told why nothing was sent.
+  useEffect(() => {
+    if (!seedDropped) return;
+    clearChatSeed();
+    showSeedToast("info", t(lang, "chatSeedDroppedProjectChanged"));
+  }, [seedDropped, clearChatSeed, showSeedToast, lang]);
   const activeRaidFilterTaskId = raidFilterEpoch === scopeEpoch ? raidFilterTaskId : null;
   const activeChangeFilterTaskId = changeFilterEpoch === scopeEpoch ? changeFilterTaskId : null;
   // Directory map for resolving a linked owner/assignee's LIVE name in the
@@ -542,7 +555,7 @@ export function WorkspaceSection({
             guidesReady={guidesReady}
             // ★ Held until the settings hydrate (a seed applied to the DEFAULT config only prefills), and dropped
             //   once the project scope it was made in has changed.
-            chatSeed={liveChatSeed(pendingChatSeed, hydrated, scopeEpoch)}
+            chatSeed={liveSeed}
             onChatSeedConsumed={clearChatSeed}
             openThreadRequest={openThreadRequest}
             onOpenThreadRequestConsumed={clearOpenThreadRequest}

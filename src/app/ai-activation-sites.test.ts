@@ -51,14 +51,21 @@ function predicatesCalledIn(file: string, text?: string): AiActivationPredicate[
   return PREDICATES.filter((p) => names.includes(p));
 }
 
-/** Whether the file reads the stored key directly: `ai.apiKey` or `<x>.ai.apiKey` (optional chaining included). */
+/** `ai` or `<x>.ai` (optional chaining included). */
+function isAiObject(e: ts.Expression): boolean {
+  return (ts.isIdentifier(e) && e.text === "ai") || (ts.isPropertyAccessExpression(e) && e.name.text === "ai");
+}
+
+/** Whether the file reads the stored key directly from an `ai` object: `ai.apiKey`, `ai["apiKey"]`, or
+ *  `const { apiKey } = settings.ai`. */
 function readsRawKey(file: string, text?: string): boolean {
   let found = false;
   const visit = (node: ts.Node): void => {
-    if (ts.isPropertyAccessExpression(node) && node.name.text === "apiKey") {
-      const owner = node.expression;
-      if ((ts.isIdentifier(owner) && owner.text === "ai") || (ts.isPropertyAccessExpression(owner) && owner.name.text === "ai")) found = true;
-    }
+    if (ts.isPropertyAccessExpression(node) && node.name.text === "apiKey" && isAiObject(node.expression)) found = true;
+    if (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression)
+      && node.argumentExpression.text === "apiKey" && isAiObject(node.expression)) found = true;
+    if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer && isAiObject(node.initializer)
+      && node.name.elements.some((el) => (el.propertyName ?? el.name).getText() === "apiKey")) found = true;
     if (!found) ts.forEachChild(node, visit);
   };
   visit(parse(file, text));
@@ -91,6 +98,10 @@ const s = "isAiEnabled(a)";`)).toEqual([]);
     expect(readsRawKey("b.ts", "const k = s.ai?.apiKey;")).toBe(true);
     expect(readsRawKey("c.ts", "const k = ai.apiKey;")).toBe(true);
     expect(readsRawKey("d.ts", "const k = jira.apiKey; // ai.apiKey")).toBe(false);
+    expect(readsRawKey("e.ts", "const { apiKey } = settings.ai;")).toBe(true);
+    expect(readsRawKey("f.ts", "const { apiKey: k } = ai;")).toBe(true);
+    expect(readsRawKey("g.ts", "const k = settings.ai[\"apiKey\"];")).toBe(true);
+    expect(readsRawKey("h.ts", "const { apiKey } = jira;")).toBe(false);
   });
 
   it("lists every file that reads the stored AI key directly, so a new reader is reviewed", () => {
