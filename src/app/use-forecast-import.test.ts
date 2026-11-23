@@ -35,6 +35,14 @@ vi.mock("./budget-import/layout-detect", async (importOriginal) => {
 });
 import { detectLayout } from "./budget-import/layout-detect";
 
+/** A sheet too large for the Claude route in what it SENDS: only the first 30 non-empty rows go (`sheetForPrompt`),
+ *  so the size comes from width, 200 month columns, not from many people. People are P0…P39. */
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const OVERSIZED_FOR_CLAUDE: string[] = [
+  ["Name", ...Array.from({ length: 200 }, (_, k) => `${MONTHS[k % 12]} ${2026 + Math.floor(k / 12)}`)].join(","),
+  ...Array.from({ length: 40 }, (_, i) => [`P${i}`, ...Array.from({ length: 200 }, () => "1")].join(",")),
+];
+
 const AI_ON: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-test", model: "claude-x" } };
 const AI_OFF: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: false, apiKey: "" } };
 
@@ -302,8 +310,7 @@ describe("useForecastImport — moving between steps", () => {
 
   it("editing the mapping, previewing, or picking a person clears a stale error", async () => {
     const fetchSpy = spyAiFetch();
-    const header = ["Name", "Jan 2026", "Feb 2026", "Mar 2026"].join(",");
-    const lines = Array.from({ length: 5100 }, (_, i) => `P${i},1,2,3`);
+    const [header, ...lines] = OVERSIZED_FOR_CLAUDE;
     const { result } = await loaded(depsOf(), [header, ...lines].join("\r\n"));
     const tooLarge = { key: "forecastImportErrorTooLargeForClaude" };
     const failClaude = async () => {
@@ -704,8 +711,7 @@ describe("useForecastImport — the Claude route", () => {
 
   it("maps an oversized sheet to the too-large message without a request, and the hand route stays", async () => {
     const fetchSpy = spyAiFetch();
-    const header = ["Name", "Jan 2026", "Feb 2026", "Mar 2026"].join(",");
-    const lines = Array.from({ length: 5100 }, (_, i) => `P${i},1,2,3`);
+    const [header, ...lines] = OVERSIZED_FOR_CLAUDE;
     const { result } = await loaded(depsOf(), [header, ...lines].join("\r\n"));
     await askClaudeNow(result);
     expect(fetchSpy).not.toHaveBeenCalled();

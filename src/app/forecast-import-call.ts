@@ -29,12 +29,25 @@ export const MAX_CLAUDE_IMPORT_CELLS = 4000;
  *  answer. Over it, the same `Error("too-large")`, before any request. */
 export const MAX_CLAUDE_IMPORT_CHARS = 200_000;
 
+/** Non-blank rows of the sheet the prompt shows, from the top. The model only names WHERE the fields are (the
+ *  header row and the column letters), so it needs the header and a few rows below it, never every person in the
+ *  plan. ★ A header below these rows cannot be seen: a reply naming a header row outside the rows sent is refused as
+ *  `bad-mapping`, and one naming a visible but wrong row is caught where every proposal is, at the user's check of
+ *  the proposed columns before confirming. */
+export const MAX_CLAUDE_IMPORT_ROWS = 30;
+
+/** What an email address in the sheet is sent as: the model can still tell an email column, without the address. */
+export const EMAIL_PLACEHOLDER = "person@example.invalid";
+const EMAIL = /[^\s@<>"',;:()[\]]+@[^\s@<>"',;:()[\]]+\.[A-Za-z]{2,}/g;
+
 const SYSTEM =
   "You read a project forecast spreadsheet and say where its fields are; you never return values. " +
   "Name the columns by their letters and the header row by its row number, as the sheet below shows them. " +
   "Choose the planned or forecast hours, never actuals (Ist, booked, gebucht, logged). " +
   "If the sheet holds several tables or blocks, map the forecast one and say so in notes. " +
-  "Explain your choice, and anything you are unsure of, in notes.";
+  "Explain your choice, and anything you are unsure of, in notes. " +
+  "Only the sheet's first rows are shown, and email addresses are replaced by a placeholder. " +
+  "If no header row or forecast block is among them, say so in notes.";
 
 const letter = (description: string) => ({ type: "string" as const, description: `${description}, as its column letter (A, B, … AA)` });
 
@@ -84,6 +97,26 @@ export function sheetToPromptText(sheet: SheetGrid): string {
   return `Sheet: ${sheet.name}\n\n${renderSheetMarkdown([header, ...numbered], sheet.truncated)}`;
 }
 
+/** The part of `sheet` the prompt shows: its first `MAX_CLAUDE_IMPORT_ROWS` non-blank rows (blank rows between them
+ *  are kept, so every row keeps its number), each email address replaced by `EMAIL_PLACEHOLDER`, and marked
+ *  truncated when rows were left out. The mapping the model returns is still read against the WHOLE sheet. */
+export function sheetForPrompt(sheet: SheetGrid): SheetGrid {
+  let kept = 0;
+  let end = sheet.rows.length;
+  for (let i = 0; i < sheet.rows.length; i++) {
+    if (!sheet.rows[i].some((c) => c.trim() !== "")) continue;
+    if (kept === MAX_CLAUDE_IMPORT_ROWS) {
+      end = i;
+      break;
+    }
+    kept++;
+  }
+  const rows = sheet.rows.slice(0, end).map((row) => row.map((c) => c.replace(EMAIL, EMAIL_PLACEHOLDER)));
+  // The name too: a CSV file name can carry an address.
+  const name = sheet.name.replace(EMAIL, EMAIL_PLACEHOLDER);
+  return { ...sheet, name, rows, truncated: sheet.truncated || end < sheet.rows.length };
+}
+
 function countNonBlankCells(sheet: SheetGrid): number {
   return sheet.rows.reduce((sum, row) => sum + row.filter((c) => c.trim() !== "").length, 0);
 }
@@ -91,14 +124,17 @@ function countNonBlankCells(sheet: SheetGrid): number {
 /** Claude's column mapping for `sheet`, converted to the hand route's
  *  `ColumnMapping`, and its notes. Throws `Error("too-large")` over the caps
  *  (before any request) or for a reply cut off at the output budget, and
- *  `Error("bad-mapping")` when the mapping cannot be used (`claudeMappingOf`). */
+ *  `Error("bad-mapping")` when the mapping cannot be used (`claudeMappingOf`) or names a header row outside the
+ *  rows sent (`sheetForPrompt`). */
 export async function runForecastImportCall(
   sheet: SheetGrid,
   ai: { apiKey: string; model: string; guideText?: string; privacy: AiPrivacy },
   signal?: AbortSignal,
 ): Promise<{ mapping: ColumnMapping; notes: string }> {
-  if (countNonBlankCells(sheet) > MAX_CLAUDE_IMPORT_CELLS) throw new Error("too-large");
-  const prompt = sheetToPromptText(sheet);
+  // The caps bound what is SENT; the mapping below is read against the whole sheet.
+  const sent = sheetForPrompt(sheet);
+  if (countNonBlankCells(sent) > MAX_CLAUDE_IMPORT_CELLS) throw new Error("too-large");
+  const prompt = sheetToPromptText(sent);
   if (prompt.length > MAX_CLAUDE_IMPORT_CHARS) throw new Error("too-large");
   const { input: raw, stopReason } = await runForcedToolCallWithStop({
     apiKey: ai.apiKey,
@@ -115,5 +151,7 @@ export async function runForecastImportCall(
   if (stopReason === "max_tokens") throw new Error("too-large");
   const converted = claudeMappingOf(raw, sheet);
   if ("refused" in converted) throw new Error("bad-mapping");
+  // A header row the model could not see (below the rows sent) is not one it read.
+  if (converted.mapping.headerRow >= sent.rows.length) throw new Error("bad-mapping");
   return { mapping: converted.mapping, notes: typeof raw.notes === "string" ? raw.notes : "" };
 }

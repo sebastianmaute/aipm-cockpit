@@ -211,6 +211,60 @@ function isSameOriginPath(url: string): boolean {
   }
 }
 
+/** Where an off-site link in model text goes, to show after its label: the host the browser will open (lower-cased,
+ *  with its port, an internationalised name in its ASCII form, so a look-alike cannot pass as the real host), or an
+ *  email link's recipients: its address and every `to`, `cc` and `bcc` in its query, decoded. `null` when there is
+ *  nothing to add: a link to the app's own pages, a label that IS the destination, or an address that does not
+ *  parse. The label is the model's choice, so without this a link could read as one thing and open another.
+ *  ★★ The label must BE the destination (scheme, a trailing slash and case aside; the host or the host and a path),
+ *  never merely contain it: a substring test let "paypal.com" hide a link to `pal.com`, and "Log in at paypal.com"
+ *  hide one to `paypal.co`. A `www.` is never dropped from the host for the same reason. */
+function linkDestination(url: string, label: string): string | null {
+  let shown: string;
+  const isMail = /^mailto:/i.test(url);
+  if (isMail) {
+    // RFC 6068: a mail client adds the query's to=, cc= and bcc= recipients to the address, so all of them are shown.
+    // ★ Parsed by hand, as a client does: the query is everything after the FIRST "?" (a later "?" is part of a
+    // value), header names match in any case, and a value is percent-decoded only ("+" stays a plus; URLSearchParams
+    // would turn it into a space). Each of those, done otherwise, let a label hide a recipient the client still adds.
+    const rest = url.slice("mailto:".length);
+    const q = rest.indexOf("?");
+    const recipients = [safeDecode(q < 0 ? rest : rest.slice(0, q))];
+    for (const pair of q < 0 ? [] : rest.slice(q + 1).split("&")) {
+      const eq = pair.indexOf("=");
+      const name = (eq < 0 ? pair : pair.slice(0, eq)).toLowerCase();
+      if (eq >= 0 && (name === "to" || name === "cc" || name === "bcc")) recipients.push(safeDecode(pair.slice(eq + 1)));
+    }
+    shown = recipients
+      .flatMap((list) => list.split(","))
+      .map((r) => r.trim())
+      .filter(Boolean)
+      .join(", ");
+  } else if (/^https?:/i.test(url)) {
+    try {
+      shown = new URL(url).host;
+    } catch {
+      return null;
+    }
+  } else {
+    return null;
+  }
+  if (!shown) return null;
+  // Only the link's OWN scheme is ignored in the label: "mailto:example.com" is not the web address example.com.
+  const ownScheme = isMail ? /^mailto:/ : /^https?:\/\//;
+  const said = label.trim().toLowerCase().replace(ownScheme, "").replace(/\/$/, "");
+  const target = shown.toLowerCase();
+  return said === target || said.startsWith(`${target}/`) ? null : shown;
+}
+
+function safeDecode(s: string): string {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+
 function parseInline(input: string): ReactNode[] {
   const out: ReactNode[] = [];
   let i = 0;
@@ -325,15 +379,24 @@ function parseInline(input: string): ReactNode[] {
           const isRootRelative = isSameOriginPath(url);
           if (/^(https?:|mailto:)/i.test(url) || isRootRelative) {
             flushBuffer();
+            // The destination rides INSIDE the link, so a screen reader hears it as part of the link's name.
+            const destination = linkDestination(url, label);
             out.push(
               <a
                 key={nextKey()}
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
+                title={isRootRelative ? undefined : url}
                 className="text-ui-dark-blue underline underline-offset-2 hover:opacity-80 dark:text-ui-blue"
               >
                 {parseInline(label)}
+                {destination && (
+                  <>
+                    {" "}
+                    <span className="text-xs text-muted-foreground">({destination})</span>
+                  </>
+                )}
               </a>,
             );
             i = closeParen + 1;

@@ -177,6 +177,26 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|3e517407a4da|redacted|aiProtectedInsightRecommendation|a1f791791528",
     "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted|aiProtectedRedacted|755d95d88527",
   ],
+  // 8: the forecast import sends only the first 30 non-empty rows, e-mail addresses replaced.
+  8: [
+    "chat|interactive|aiDataChatLabel|aiDataChat|877edc85d82b|redacted|aiProtectedChat|4fad6aaf2297",
+    "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|5f4bd300b6f6|redacted|aiProtectedInlineEdit|e1ebddccde79",
+    "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|dab0929eea32|redacted|aiProtectedRedacted|755d95d88527",
+    "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793|redacted|aiProtectedRedacted|755d95d88527",
+    "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport|925a6f30749a|redacted|aiProtectedRedacted|755d95d88527",
+    "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation|7433c859ec84|redacted|aiProtectedInsightRecommendation|a1f791791528",
+    "action-analysis|interactive|aiDataActionAnalysisLabel|aiDataActionAnalysis|37a0083b91fb|redacted|aiProtectedRedacted|755d95d88527",
+    "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|8be36ec1cca6|hidden|aiProtectedAllocPlan|6c3ea3b2cddb",
+    "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest|c8bdc16faa5f|hidden|aiProtectedHidden|bb828968bb82",
+    "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup|b0832e394653|redacted|aiProtectedRedacted|755d95d88527",
+    "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|315ad3046125|redacted|aiProtectedRedacted|755d95d88527",
+    "weight-suggestion|interactive|aiDataWeightSuggestionLabel|aiDataWeightSuggestion|f01d808dbb51|redacted|aiProtectedRedacted|755d95d88527",
+    "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal|155bba30c3ac|redacted|aiProtectedProjectProposal|4a15ce1fd465",
+    "dictation|interactive|aiDataDictationLabel|aiDataDictation|11af271ca960|off|aiProtectedOff|64eeff2a6195",
+    "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob|e83fee7d86c3|redacted|aiProtectedRedacted|755d95d88527",
+    "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|3e517407a4da|redacted|aiProtectedInsightRecommendation|a1f791791528",
+    "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted|aiProtectedRedacted|755d95d88527",
+  ],
 };
 
 // Which disclosure rows each activation site (src/test/ai-activation-sites.ts) leads to. A new site

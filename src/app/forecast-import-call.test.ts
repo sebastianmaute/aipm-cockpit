@@ -10,7 +10,10 @@ import {
   FORECAST_MAPPING_TOOL,
   MAX_CLAUDE_IMPORT_CELLS,
   MAX_CLAUDE_IMPORT_CHARS,
+  MAX_CLAUDE_IMPORT_ROWS,
+  EMAIL_PLACEHOLDER,
   runForecastImportCall,
+  sheetForPrompt,
   sheetToPromptText,
 } from "./forecast-import-call";
 import { claudeMappingOf } from "./budget-import/claude-mapping";
@@ -42,10 +45,10 @@ function mockResponse(input: unknown, stopReason = "tool_use"): ReturnType<typeo
 
 const MAPPING = { layout: "wide", headerRow: 1, person: "A", periodCols: ["B", "C"] };
 
-/** `count` non-blank cells in rows of 100. */
+/** `count` non-blank cells in rows of 200 (wide, so a sheet at the cell cap still fits in the rows that are sent). */
 function sheetOfCells(count: number): SheetGrid {
-  const rows = Array.from({ length: Math.ceil(count / 100) }, (_, r) =>
-    Array.from({ length: Math.min(100, count - r * 100) }, () => "x"),
+  const rows = Array.from({ length: Math.ceil(count / 200) }, (_, r) =>
+    Array.from({ length: Math.min(200, count - r * 200) }, () => "x"),
   );
   return { name: "Cells", rows, truncated: false };
 }
@@ -151,6 +154,65 @@ describe("FORECAST_MAPPING_TOOL", () => {
   });
 });
 
+// The model only names WHERE the fields are, so it gets the top of the sheet (where the header is) and a few rows,
+// not every person in it, and no email address.
+describe("sheetForPrompt", () => {
+  const people = (n: number): string[][] => Array.from({ length: n }, (_, i) => [`Person ${i + 1}`, "8"]);
+
+  it("keeps the first 30 non-blank rows with their row numbers, and marks the sheet as cut", () => {
+    expect(MAX_CLAUDE_IMPORT_ROWS).toBe(30);
+    const sheet: SheetGrid = { name: "S", rows: [["Name", "2026-01"], [], ...people(50)], truncated: false };
+    const sent = sheetForPrompt(sheet);
+    const text = sheetToPromptText(sent);
+    // Row 1 header, row 2 blank, rows 3.. people: the 30th non-blank row is Person 29, in row 31.
+    expect(text).toContain("| 31 | Person 29 |");
+    expect(text).not.toContain("Person 30");
+    expect(sent.truncated).toBe(true);
+    expect(text).toContain(XLSX_SHEET_TRUNCATED);
+  });
+
+  it("leaves a short sheet whole and not marked as cut", () => {
+    const sent = sheetForPrompt(SHEET);
+    expect(sent.rows).toEqual(SHEET.rows);
+    expect(sent.truncated).toBe(false);
+  });
+
+  it("replaces every email address with a placeholder, also inside a longer cell", () => {
+    const sheet: SheetGrid = {
+      name: "S",
+      rows: [["Name", "Email"], ["Ada", "ada.lovelace@corp.example"], ["Bo", "Bo Li <bo@x.example.org>"]],
+      truncated: false,
+    };
+    const text = sheetToPromptText(sheetForPrompt(sheet));
+    expect(text).not.toContain("ada.lovelace@corp.example");
+    expect(text).not.toContain("bo@x.example.org");
+    expect(text).toContain(`| 2 | Ada | ${EMAIL_PLACEHOLDER} |`);
+    expect(text).toContain(`Bo Li <${EMAIL_PLACEHOLDER}>`);
+  });
+
+  it("replaces an email address in the sheet's name too", () => {
+    const sent = sheetForPrompt({ name: "Plan (ada@corp.example)", rows: [["Name"]], truncated: false });
+    expect(sent.name).toBe(`Plan (${EMAIL_PLACEHOLDER})`);
+  });
+
+  it("refuses a mapping whose header row is not among the rows sent, as bad-mapping", async () => {
+    // The model cannot see a header below the cut, so a header row it names there is not one it read.
+    mockResponse({ layout: "wide", headerRow: 35, person: "A", periodCols: ["B"] });
+    const rows = [...people(34), ["Name", "2026-01"], ...people(5)];
+    await expect(runForecastImportCall({ name: "S", rows, truncated: false }, AI)).rejects.toThrow("bad-mapping");
+  });
+
+  it("is what the request sends, while the mapping is still read against the whole sheet", async () => {
+    const spy = mockResponse({ layout: "wide", headerRow: 1, person: "A", periodCols: ["B"] });
+    const sheet: SheetGrid = { name: "S", rows: [["Name", "2026-01"], ...people(60)], truncated: false };
+    const { mapping } = await runForecastImportCall(sheet, AI);
+    const sent = sentBody(spy).messages[0].content;
+    expect(sent).toContain("Person 29");
+    expect(sent).not.toContain("Person 30");
+    expect(mapping).toEqual({ layout: "wide", headerRow: 0, person: 0, periodCols: [1] });
+  });
+});
+
 describe("runForecastImportCall", () => {
   it("forces the mapping tool, sends the sheet text and returns the converted mapping and notes", async () => {
     const spy = mockResponse({ ...MAPPING, notes: "Plan block only" });
@@ -185,7 +247,9 @@ describe("runForecastImportCall", () => {
         "Name the columns by their letters and the header row by its row number, as the sheet below shows them. " +
         "Choose the planned or forecast hours, never actuals (Ist, booked, gebucht, logged). " +
         "If the sheet holds several tables or blocks, map the forecast one and say so in notes. " +
-        "Explain your choice, and anything you are unsure of, in notes.",
+        "Explain your choice, and anything you are unsure of, in notes. " +
+        "Only the sheet's first rows are shown, and email addresses are replaced by a placeholder. " +
+        "If no header row or forecast block is among them, say so in notes.",
     );
     expect(system[system.length - 1].text).toBe("GUIDE-500");
   });
@@ -213,8 +277,8 @@ describe("runForecastImportCall", () => {
 
   it("refuses a sheet over the cell cap before any request", async () => {
     const spy = mockResponse(MAPPING);
-    const row = Array.from({ length: 100 }, () => "x");
-    const rows = Array.from({ length: MAX_CLAUDE_IMPORT_CELLS / 100 + 1 }, () => row);
+    const row = Array.from({ length: 200 }, () => "x");
+    const rows = Array.from({ length: MAX_CLAUDE_IMPORT_CELLS / 200 + 1 }, () => row);
     await expect(runForecastImportCall({ name: "Big", rows, truncated: false }, AI)).rejects.toThrow("too-large");
     expect(spy).not.toHaveBeenCalled();
   });
@@ -231,9 +295,9 @@ describe("runForecastImportCall", () => {
 
   it("allows exactly the cap, and does not count blank cells or rows", async () => {
     const spy = mockResponse(MAPPING);
-    const row = Array.from({ length: 100 }, () => "x");
+    const row = Array.from({ length: 200 }, () => "x");
     const rows = [
-      ...Array.from({ length: MAX_CLAUDE_IMPORT_CELLS / 100 }, () => row),
+      ...Array.from({ length: MAX_CLAUDE_IMPORT_CELLS / 200 }, () => row),
       ["", " "],
       [],
     ];

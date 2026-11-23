@@ -25,6 +25,14 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **The forecast import sends Claude only the top of the sheet, without e-mail addresses.** Claude only names which
+  column is which, so it now receives the sheet's first 30 non-empty rows instead of the whole sheet, and every
+  e-mail address in them is replaced by a placeholder. Its column mapping is still applied to the whole sheet, and you
+  still check the proposed columns before confirming. If Claude names a header row it could not see, its proposal is
+  refused and the columns are set by hand. The AI disclosure says so, so the app asks everyone to accept it once more.
+- **A link in an AI chat reply shows where it goes.** The assistant chooses a link's label, so a link to another
+  site now also shows that site's address after the label (an email link: every recipient it would write to), and the
+  full address as its tooltip. A label that already names the address shows nothing extra, and links to the app's own pages are unchanged.
 - **Claude Sonnet 5.5 is now the default model.** A new installation, and any setting that names no model, uses
   Claude Sonnet 5.5, and it heads the model list. An existing installation that uses Claude Sonnet 5 is switched to
   Claude Sonnet 5.5 once; a model you pick after that, Sonnet 5 included, is kept, and any other model is not
@@ -63,7 +71,8 @@ longer carries its own changelog comment.
 
 - **A new project with AI starter content now says so in its activity log.** When you include the AI-generated
   starter content in the project wizard, the new project's log starts with one entry by the AI assistant, marked
-  "AI starter content", that gives the number of items it added. Until now the log did not record it (§815).
+  "AI starter content", that gives the number of items it added. Until now the log did not record it. The security
+  disclaimer now says so too, and names the AI meeting-report draft among the logged changes (§815).
 
 - **Storage can no longer leave Turso in place while the project portfolio is on Turso.** Switching Settings →
   Storage from Turso to a local kind left the portfolio on Turso over a local copy, so switching or creating a project
