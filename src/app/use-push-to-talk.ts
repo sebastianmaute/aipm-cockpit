@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Lang } from "./i18n";
 import { getCtor } from "./voice";
+import { canRecordAudio } from "./stt-engine";
 import { dictationUnavailableReason, resolveDictationEngine } from "./dictation-config";
 import { DICTATION_PEOPLE_FORCED, DICTATION_PEOPLE_LOCK_UNCONFIRMED, type DictationEngine } from "./dictation-engine";
 
@@ -28,7 +29,9 @@ interface Args {
 export function usePushToTalk({ lang, enabled, onAppendFinal, onInterim, onError, dictation, aiConsented }: Args) {
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
-  const supported = useMemo(() => getCtor() !== null, []);
+  // The mic shows where the chosen engine can run: speech-to-text records a clip, the browser engine needs Web Speech.
+  const engineKind = dictation?.engine;
+  const supported = useMemo(() => (engineKind === "stt" ? canRecordAudio() : getCtor() !== null), [engineKind]);
   const engineRef = useRef<DictationEngine | null>(null);
   const pressedAtRef = useRef(0);
   const wasListeningRef = useRef(false);

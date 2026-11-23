@@ -16,6 +16,12 @@ export interface SttConfig { lang: Lang; baseUrl: string; model: string; apiKey:
 
 /** OpenAI-compatible STT engine: record with MediaRecorder, transcribe the clip
  *  via the same-origin /api/stt proxy on stop. No live interim. */
+/** Whether this browser can record a clip for speech-to-text: a microphone API and `MediaRecorder`. Web Speech is
+ *  not needed, so the mic shows for speech-to-text where the browser engine is missing. */
+export function canRecordAudio(): boolean {
+  return typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== "undefined";
+}
+
 export function createSttEngine(cfg: SttConfig): DictationEngine {
   let recorder: MediaRecorder | null = null;
   let stream: MediaStream | null = null;
@@ -88,7 +94,7 @@ export function createSttEngine(cfg: SttConfig): DictationEngine {
       if (started) return true; // already capturing / acquiring — ignore re-entry
       started = true;
       stopped = false;
-      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      if (!canRecordAudio()) {
         h.onError("not-supported"); return false;
       }
       chunks = [];

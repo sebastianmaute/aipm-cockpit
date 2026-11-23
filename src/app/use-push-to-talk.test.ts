@@ -17,7 +17,8 @@ vi.mock("./dictation-config", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./dictation-config")>()),
   resolveDictationEngine: (...args: unknown[]) => resolveDictationEngine(...args),
 }));
-vi.mock("./voice", () => ({ getCtor: () => function () {}, startRecognition: () => stop }));
+const voice = vi.hoisted(() => ({ ctor: (function () {}) as unknown }));
+vi.mock("./voice", () => ({ getCtor: () => voice.ctor, startRecognition: () => stop }));
 
 beforeEach(() => { start.mockClear(); stop.mockClear(); resolveDictationEngine.mockClear(); start.mockReturnValue(true); vi.useFakeTimers(); });
 afterEach(() => vi.useRealTimers());
@@ -27,6 +28,32 @@ type HookResult = ReturnType<typeof usePushToTalk>;
 const down = (r: { current: HookResult }) =>
   r.current.buttonHandlers.onPointerDown({ preventDefault() {} } as React.PointerEvent);
 const up = (r: { current: HookResult }) => r.current.buttonHandlers.onPointerUp();
+
+describe("usePushToTalk — support follows the chosen engine", () => {
+  const stt = { engine: "stt" as const, sttBaseUrl: "https://x/v1", sttApiKey: "k" };
+  afterEach(() => { voice.ctor = function () {}; vi.unstubAllGlobals(); });
+
+  it("speech-to-text is supported without Web Speech where the browser can record", () => {
+    voice.ctor = null;
+    vi.stubGlobal("MediaRecorder", function () {});
+    vi.stubGlobal("navigator", { ...navigator, mediaDevices: { getUserMedia: () => Promise.resolve() } });
+    const { result } = renderHook(() => usePushToTalk({ ...mkArgs(), dictation: stt }));
+    expect(result.current.supported).toBe(true);
+  });
+
+  it("the browser engine still needs Web Speech", () => {
+    voice.ctor = null;
+    vi.stubGlobal("MediaRecorder", function () {});
+    const { result } = renderHook(() => usePushToTalk(mkArgs()));
+    expect(result.current.supported).toBe(false);
+  });
+
+  it("speech-to-text is unsupported where the browser cannot record", () => {
+    vi.stubGlobal("MediaRecorder", undefined);
+    const { result } = renderHook(() => usePushToTalk({ ...mkArgs(), dictation: stt }));
+    expect(result.current.supported).toBe(false);
+  });
+});
 
 describe("usePushToTalk — speech-to-text without the AI consent (AI-01)", () => {
   const stt = { engine: "stt" as const, sttBaseUrl: "https://x/v1", sttApiKey: "k" };
