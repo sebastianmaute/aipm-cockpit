@@ -3206,7 +3206,7 @@ const enUS = {
   aiGuideSave: "Save",
   aiGuideCancel: "Cancel",
   aiGuideBuiltInBadge: "Built-in",
-  aiGuideBudgetWarning: "All enabled guides together exceed the recommended size. Every enabled guide without a view scope is sent with every message and cached after the first send; a view-scoped guide is sent only on its view and has no cache marker of its own, so it is cached only where a later cache breakpoint covers it. Actual token cost is usually lower — disable guides you don't need to reduce it.",
+  aiGuideBudgetWarning: "All enabled guides together exceed the recommended size. Every enabled guide without a view scope is sent with every message and cached after the first send; a view-scoped guide is sent only on its view and is not always cached. Actual token cost is usually lower — disable guides you don't need to reduce it.",
   aiGuideScopeModes: "Modes",
   aiGuideScopeModules: "Modules",
   aiGuideScopeViews: "Views",
