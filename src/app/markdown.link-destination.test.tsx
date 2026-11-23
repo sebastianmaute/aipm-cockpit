@@ -21,17 +21,36 @@ describe("Markdown link destination", () => {
     expect(screen.getByRole("link", { name: "shop (xn--exmple-cua.com)" })).toBeInTheDocument();
   });
 
-  it("adds nothing when the label already names the destination", () => {
+  it("adds nothing when the label IS the destination", () => {
     render(
-      <Markdown text="[example.com](https://example.com/x) [https://example.com/y](https://example.com/y) [Visit WWW.Example.com](https://www.example.com)" />,
+      <Markdown text="[example.com](https://example.com/x) [https://example.com/y](https://example.com/y) [WWW.Example.com/](https://www.example.com)" />,
     );
     const names = screen.getAllByRole("link").map((a) => a.textContent);
-    expect(names).toEqual(["example.com", "https://example.com/y", "Visit WWW.Example.com"]);
+    expect(names).toEqual(["example.com", "https://example.com/y", "WWW.Example.com/"]);
+  });
+
+  // A label that only CONTAINS the host, or a longer host that contains it, must not hide it: that is the
+  // misleading link this exists to show.
+  it.each([
+    ["paypal.com", "https://pal.com/login", "pal.com"],
+    ["Log in at paypal.com", "https://paypal.co/login", "paypal.co"],
+    ["paypal.com (not evil.com)", "https://evil.com", "evil.com"],
+    ["notevil.com", "https://www.evil.com", "www.evil.com"],
+    ["Visit example.com", "https://example.com", "example.com"],
+  ])("shows the host when the label %j only mentions it (%s)", (label, url, host) => {
+    render(<Markdown text={`[${label}](${url})`} />);
+    expect(screen.getByRole("link", { name: `${label} (${host})` })).toBeInTheDocument();
   });
 
   it("shows the address of an email link", () => {
     render(<Markdown text="[write to us](mailto:team@corp.example?subject=Hi)" />);
     expect(screen.getByRole("link", { name: "write to us (team@corp.example)" })).toBeInTheDocument();
+  });
+
+  it("shows where an email link with no address before its query, or an encoded one, really writes to", () => {
+    render(<Markdown text="[support](mailto:?to=attacker%40x.example) [desk](mailto:help%40corp.example)" />);
+    expect(screen.getByRole("link", { name: "support (attacker@x.example)" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "desk (help@corp.example)" })).toBeInTheDocument();
   });
 
   it("leaves a link to the app's own pages as it was", () => {

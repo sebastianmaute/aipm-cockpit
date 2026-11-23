@@ -190,6 +190,18 @@ describe("sheetForPrompt", () => {
     expect(text).toContain(`Bo Li <${EMAIL_PLACEHOLDER}>`);
   });
 
+  it("replaces an email address in the sheet's name too", () => {
+    const sent = sheetForPrompt({ name: "Plan (ada@corp.example)", rows: [["Name"]], truncated: false });
+    expect(sent.name).toBe(`Plan (${EMAIL_PLACEHOLDER})`);
+  });
+
+  it("refuses a mapping whose header row is not among the rows sent, as bad-mapping", async () => {
+    // The model cannot see a header below the cut, so a header row it names there is not one it read.
+    mockResponse({ layout: "wide", headerRow: 35, person: "A", periodCols: ["B"] });
+    const rows = [...people(34), ["Name", "2026-01"], ...people(5)];
+    await expect(runForecastImportCall({ name: "S", rows, truncated: false }, AI)).rejects.toThrow("bad-mapping");
+  });
+
   it("is what the request sends, while the mapping is still read against the whole sheet", async () => {
     const spy = mockResponse({ layout: "wide", headerRow: 1, person: "A", periodCols: ["B"] });
     const sheet: SheetGrid = { name: "S", rows: [["Name", "2026-01"], ...people(60)], truncated: false };
@@ -236,7 +248,8 @@ describe("runForecastImportCall", () => {
         "Choose the planned or forecast hours, never actuals (Ist, booked, gebucht, logged). " +
         "If the sheet holds several tables or blocks, map the forecast one and say so in notes. " +
         "Explain your choice, and anything you are unsure of, in notes. " +
-        "Only the sheet's first rows are shown, and email addresses are replaced by a placeholder.",
+        "Only the sheet's first rows are shown, and email addresses are replaced by a placeholder. " +
+        "If no header row or forecast block is among them, say so in notes.",
     );
     expect(system[system.length - 1].text).toBe("GUIDE-500");
   });

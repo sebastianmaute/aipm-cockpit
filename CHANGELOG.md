@@ -27,9 +27,9 @@ longer carries its own changelog comment.
 
 - **The forecast import sends Claude only the top of the sheet, without e-mail addresses.** Claude only names which
   column is which, so it now receives the sheet's first 30 non-empty rows instead of the whole sheet, and every
-  e-mail address in them is replaced by a placeholder. Its column mapping is still applied to the whole sheet. A sheet
-  whose header row sits below those rows is mapped by hand, as before. The AI disclosure says so, so the app asks
-  everyone to accept it once more.
+  e-mail address in them is replaced by a placeholder. Its column mapping is still applied to the whole sheet, and you
+  still check the proposed columns before confirming. If Claude names a header row it could not see, its proposal is
+  refused and the columns are set by hand. The AI disclosure says so, so the app asks everyone to accept it once more.
 - **A link in an AI chat reply shows where it goes.** The assistant chooses a link's label, so a link to another
   site now also shows that site's address after the label (an email link: the address), and the full address as its
   tooltip. A label that already names the address shows nothing extra, and links to the app's own pages are unchanged.

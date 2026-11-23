@@ -31,7 +31,9 @@ export const MAX_CLAUDE_IMPORT_CHARS = 200_000;
 
 /** Non-blank rows of the sheet the prompt shows, from the top. The model only names WHERE the fields are (the
  *  header row and the column letters), so it needs the header and a few rows below it, never every person in the
- *  plan. A header below these rows cannot be found, and the import says to map the columns by hand. */
+ *  plan. ★ A header below these rows cannot be seen: a reply naming a header row outside the rows sent is refused as
+ *  `bad-mapping`, and one naming a visible but wrong row is caught where every proposal is, at the user's check of
+ *  the proposed columns before confirming. */
 export const MAX_CLAUDE_IMPORT_ROWS = 30;
 
 /** What an email address in the sheet is sent as: the model can still tell an email column, without the address. */
@@ -44,7 +46,8 @@ const SYSTEM =
   "Choose the planned or forecast hours, never actuals (Ist, booked, gebucht, logged). " +
   "If the sheet holds several tables or blocks, map the forecast one and say so in notes. " +
   "Explain your choice, and anything you are unsure of, in notes. " +
-  "Only the sheet's first rows are shown, and email addresses are replaced by a placeholder.";
+  "Only the sheet's first rows are shown, and email addresses are replaced by a placeholder. " +
+  "If no header row or forecast block is among them, say so in notes.";
 
 const letter = (description: string) => ({ type: "string" as const, description: `${description}, as its column letter (A, B, … AA)` });
 
@@ -109,7 +112,9 @@ export function sheetForPrompt(sheet: SheetGrid): SheetGrid {
     kept++;
   }
   const rows = sheet.rows.slice(0, end).map((row) => row.map((c) => c.replace(EMAIL, EMAIL_PLACEHOLDER)));
-  return { ...sheet, rows, truncated: sheet.truncated || end < sheet.rows.length };
+  // The name too: a CSV file name can carry an address.
+  const name = sheet.name.replace(EMAIL, EMAIL_PLACEHOLDER);
+  return { ...sheet, name, rows, truncated: sheet.truncated || end < sheet.rows.length };
 }
 
 function countNonBlankCells(sheet: SheetGrid): number {
@@ -145,5 +150,7 @@ export async function runForecastImportCall(
   if (stopReason === "max_tokens") throw new Error("too-large");
   const converted = claudeMappingOf(raw, sheet);
   if ("refused" in converted) throw new Error("bad-mapping");
+  // A header row the model could not see (below the rows sent) is not one it read.
+  if (converted.mapping.headerRow >= sent.rows.length) throw new Error("bad-mapping");
   return { mapping: converted.mapping, notes: typeof raw.notes === "string" ? raw.notes : "" };
 }

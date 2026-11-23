@@ -213,13 +213,17 @@ function isSameOriginPath(url: string): boolean {
 
 /** Where an off-site link in model text goes, to show after its label: the host the browser will open (lower-cased,
  *  with its port, an internationalised name in its ASCII form, so a look-alike cannot pass as the real host), or an
- *  email link's address. `null` when there is nothing to add: a link to the app's own pages, a label that already
- *  names the destination, or an address that does not parse. The label is the model's choice, so without this a
- *  link could read as one thing and open another. */
+ *  email link's address, decoded, or its `to=` recipient when the address part is empty. `null` when there is
+ *  nothing to add: a link to the app's own pages, a label that IS the destination, or an address that does not
+ *  parse. The label is the model's choice, so without this a link could read as one thing and open another.
+ *  ★★ The label must BE the destination (scheme, a trailing slash and case aside; the host or the host and a path),
+ *  never merely contain it: a substring test let "paypal.com" hide a link to `pal.com`, and "Log in at paypal.com"
+ *  hide one to `paypal.co`. A `www.` is never dropped from the host for the same reason. */
 function linkDestination(url: string, label: string): string | null {
   let shown: string;
   if (/^mailto:/i.test(url)) {
-    shown = url.slice("mailto:".length).split("?")[0];
+    const [address, query = ""] = url.slice("mailto:".length).split("?");
+    shown = safeDecode(address) || (new URLSearchParams(query).get("to") ?? "");
   } else if (/^https?:/i.test(url)) {
     try {
       shown = new URL(url).host;
@@ -230,9 +234,17 @@ function linkDestination(url: string, label: string): string | null {
     return null;
   }
   if (!shown) return null;
-  const said = label.toLowerCase();
-  const bare = shown.toLowerCase().replace(/^www\./, "");
-  return said.includes(bare) ? null : shown;
+  const said = label.trim().toLowerCase().replace(/^(https?:\/\/|mailto:)/, "").replace(/\/$/, "");
+  const target = shown.toLowerCase();
+  return said === target || said.startsWith(`${target}/`) ? null : shown;
+}
+
+function safeDecode(s: string): string {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
 }
 
 function parseInline(input: string): ReactNode[] {
