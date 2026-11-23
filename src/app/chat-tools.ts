@@ -402,7 +402,9 @@ export type BudgetBucketSummary = {
 export type ToolDispatcher = {
   listTasks(): readonly Task[];
   getTask(id: number): Task | null;
-  createTask(input: TaskInput, origin: AiOrigin): Task;
+  /** The new task as `list_tasks` shows it (`slimTaskForList`): description as text, no note log, no address —
+   *  as the other create calls answer with a summary. `getTask` reads the stored row. */
+  createTask(input: TaskInput, origin: AiOrigin): TaskListItem;
   updateTask(id: number, patch: Partial<Task>, origin: AiOrigin): Task | null;
   /** §774 — what the last `updateTask` did to planned hours (the notice text), read once; null when nothing to say. */
   takePlannedHoursNote?(): string | null;
@@ -635,9 +637,9 @@ export type ToolDispatcher = {
 // ★ Tolerates a non-object: the staged-plan apply path deliberately survives a create whose
 // dispatcher returned no row ("a create with no usable id stays ok: true"), and a bare
 // destructure would turn that into a thrown, refused create.
-function withoutAssigneeEmail(task: Task): Omit<Task, "assigneeEmail"> {
+function withoutAssigneeEmail<T extends object>(task: T): Omit<T, "assigneeEmail"> {
   if (typeof task !== "object" || task === null) return task;
-  const { assigneeEmail, ...rest } = task;
+  const { assigneeEmail, ...rest } = task as T & { assigneeEmail?: unknown };
   void assigneeEmail;
   return rest;
 }
@@ -710,7 +712,7 @@ export {
   toCalendarEventSummary,
   toBudgetBucketSummary,
 } from "./chat-tool-summaries";
-import { listTasksEnvelope, withRowTokens, withToken } from "./chat-tools-lists";
+import { listTasksEnvelope, withRowTokens, withToken, type TaskListItem } from "./chat-tools-lists";
 import type { WbsOpenRefusal } from "./wbs-plan/wbs-open-refusal";
 
 /** Why `optimize_wbs` opened nothing, in words the model can relay. A
@@ -847,6 +849,7 @@ async function runToolAsSent(
         throw new Error("taskName, assignee, and dueDate are required");
       }
       const clashes = d.absenceClashesFor?.(name, input);
+      // The dispatcher already answers without the address; stripping it here too keeps the model boundary in this file.
       return withAbsenceClashes(withoutAssigneeEmail(d.createTask({
         taskName,
         assignee: assignee ?? "",

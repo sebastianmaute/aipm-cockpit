@@ -30905,7 +30905,7 @@ RUN 2026-09-05 — `update_task`, `set_task_dependencies`, `update_raid_item`, `
 ★★★ **THE OBVIOUS FIX IS BLOCKED, and the dead end is recorded so nobody re-derives it.** "Derive the
 token from what the create returned" fails because `entityToken` needs the FULL stored row, and five
 of the six entity create tools return a `*Summary`: `createRaid`, `createChange`, `createMilestone`,
-`createStakeholder` and `createResource` all do, and only `createTask` returns a full `Task`.
+`createStakeholder` and `createResource` all do, and only `createTask` returns a full `Task`. (Since 2026-11-23 `createTask` too answers with a slim row, `slimTaskForList`, so none returns a full row.)
 `withToken`'s docstring in `chat-tools-lists.ts` records that a summary-derived token is a FALSE
 PERMIT for every field the summary omits — `RaidSummary` drops `description` and `mitigation`, so the
 token is byte-identical before and after an edit to either — and names `chat-tools.test.ts` as what

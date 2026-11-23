@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import type { TaskListItem } from "./chat-tools-lists";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   dispatcherWrapper,
@@ -76,7 +77,7 @@ describe("AI writes capture undo", () => {
       { wrapper: dispatcherWrapper(existing) },
     );
 
-    let created: Task | undefined;
+    let created: TaskListItem | undefined;
     act(() => {
       created = result.current.createTask({
         taskName: "Third",
@@ -996,7 +997,7 @@ describe("capturing a create would duplicate the row", () => {
     // The PRE-op array — what a real capture site passes as `fromArray`.
     const beforeCreate = result.current.dispatcher.listTasks();
 
-    let created: Task | undefined;
+    let created: TaskListItem | undefined;
     act(() => {
       created = result.current.dispatcher.createTask({
         taskName: "Third",
@@ -1017,7 +1018,7 @@ describe("capturing a create would duplicate the row", () => {
     //   `act` closure does not survive into the next closure, so the capture
     //   below would need a non-null assertion without this hop.
     if (!created) throw new Error("createTask returned nothing — the capture below needs the row");
-    const createdRow: Task = created;
+    const createdRow: Task = result.current.dispatcher.getTask(created.id)!; // the stored row, not the slim answer
 
     // ── THE REFUSED CAPTURE, shaped exactly as a delete site would shape it:
     //    the created row as a `removed` image against the pre-op array.
