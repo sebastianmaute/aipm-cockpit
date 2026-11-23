@@ -22,7 +22,9 @@ vi.mock("./secrets-store", async (importOriginal) => {
 
 import {
   __settingsBroadcastDeliveriesForTests,
+  __resetStoredAiReadForTests,
   persistAiConsentChange,
+  readPersistedAiState,
   SETTINGS_KEY,
   useSettings,
 } from "./use-settings";
@@ -333,6 +335,26 @@ describe("useSettings — an explicit action widens only its own field (AI-01)",
     expect(persistedAi().backgroundConsent).toBeUndefined();
     expect(isInteractiveConsentLive()).toBe(false);
   });
+
+  // The background accept widens only its own field, so a tab that missed a revoke can save a background
+  // consent with no interactive consent beside it. A later interactive accept must not arm background AI with it.
+  it("a background consent saved by a tab that missed a revoke is not armed by a later interactive accept", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: { enabled: true, model: "claude-sonnet-5", consent: C } }));
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    otherTabWrites({ ai: { enabled: true, model: "claude-sonnet-5" } }, true); // revoked elsewhere; this tab missed it
+    const background = newConsent(new Date(500));
+    act(() => {
+      a.result.current.setSettings((s) =>
+        persistAiConsentChange({ ...s, ai: { ...s.ai, backgroundConsent: background } }, ["backgroundConsent"]) ?? s);
+    });
+    expect(persistedAi().backgroundConsent).toEqual(background); // control: saved beside no interactive consent
+    expect(persistedAi().consent).toBeUndefined();
+    // The interactive consent is accepted again later (in another tab).
+    otherTabWrites({ ai: { enabled: true, model: "claude-sonnet-5", consent: newConsent(new Date(1000)), backgroundConsent: background } });
+    expect(isInteractiveConsentLive()).toBe(true); // control: the new accept reached this tab
+    expect(() => assertBackgroundConsentLive()).toThrow();
+  });
 });
 
 // AI-01 — Settings → AI reports a failed consent write itself (a revoke that is in effect but not saved), so the
@@ -358,7 +380,7 @@ describe("useSettings — a consent write that failed (AI-01)", () => {
     return next;
   }
   // Each test starts with no noted revoke, whatever an earlier test left behind.
-  beforeEach(() => __resetConsentFailureForTests());
+  beforeEach(() => { __resetConsentFailureForTests(); __resetStoredAiReadForTests(); });
   // A failing test must not leave storage failing for the next one.
   afterEach(() => { vi.restoreAllMocks(); });
 
@@ -451,9 +473,162 @@ describe("useSettings — a consent write that failed (AI-01)", () => {
     expect(isInteractiveConsentLive()).toBe(false);
     act(() => { a.result.current.setSettings({ ...stale, expertMode: false }); }); // a caller spreading an old object
     spy.mockRestore();
-    expect(a.result.current.settings.ai.consent).toBeDefined(); // control: the stale copy was committed
+    expect(a.result.current.settings.expertMode).toBe(false); // control: the stale copy was committed
+    // And what the page shows is the withdrawal too, not the stale copy's consent.
+    expect(a.result.current.settings.ai.consent).toBeUndefined();
+    expect(a.result.current.settings.ai.backgroundConsent).toBeUndefined();
     expect(isInteractiveConsentLive()).toBe(false);
     expect(() => assertBackgroundConsentLive()).toThrow();
+  });
+
+  // The stale copy's commit is the write that saves the withdrawal: what stays in memory, and is published,
+  // must be what was saved, not the stale copy's consent.
+  it("a stale copy committed once storage works again saves the revoke and does not re-arm the flags", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const stale = a.result.current.settings;
+    const spy = failSettingsWrites();
+    act(() => { a.result.current.setSettings((s) => revokeNotSaved(s)); });
+    spy.mockRestore(); // storage works again
+    act(() => { a.result.current.setSettings({ ...stale, expertMode: false }); });
+    expect(persistedAi().consent).toBeUndefined(); // control: this write saved the withdrawal
+    expect(a.result.current.settings.ai.consent).toBeUndefined();
+    expect(isInteractiveConsentLive()).toBe(false);
+    expect(() => assertBackgroundConsentLive()).toThrow();
+  });
+
+  // A switch-off this tab could not save must not undo a switch-on another tab saved afterwards. Each saved
+  // change of the switch stores a new `enabledRevision`; a different revision in storage releases the held switch-off.
+  it("a switch-off that could not be saved yields to a switch-off and switch-on saved in another tab later", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const spy = failSettingsWrites();
+    act(() => { a.result.current.setSettings((s) => ({ ...s, ai: { ...s.ai, enabled: false } })); });
+    spy.mockRestore();
+    expect(persistedAi().enabled).toBe(true); // control: the switch-off was not saved
+    expect(a.result.current.settings.ai.enabled).toBe(false);
+    // The other tab, which still saw AI on, switches it off and then on again: each a saved change of the switch.
+    otherTabWrites({ ai: { enabled: false, model: "claude-sonnet-5", consent: C, backgroundConsent: C, enabledRevision: "r1" } });
+    otherTabWrites({ ai: { enabled: true, model: "claude-sonnet-5", consent: C, backgroundConsent: C, enabledRevision: "r2" } });
+    expect(a.result.current.settings.ai.enabled).toBe(true);
+    expect(isInteractiveConsentLive()).toBe(true);
+    act(() => { a.result.current.setSettings((s) => ({ ...s, language: "de" })); }); // this tab's next write
+    expect(persistedAi().enabled).toBe(true);
+  });
+
+  it("a switch-off that could not be saved survives another tab's write that did not change the switch", async () => {
+    storeConsented({ ai: { enabled: true, model: "claude-sonnet-5", consent: C, backgroundConsent: C, enabledRevision: "r1" } });
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const spy = failSettingsWrites();
+    act(() => { a.result.current.setSettings((s) => ({ ...s, ai: { ...s.ai, enabled: false } })); });
+    spy.mockRestore();
+    otherTabWrites({ language: "de", ai: { enabled: true, model: "claude-sonnet-5", consent: C, backgroundConsent: C, enabledRevision: "r1" } });
+    expect(a.result.current.settings.ai.enabled).toBe(false);
+    expect(isInteractiveConsentLive()).toBe(false);
+    act(() => { a.result.current.setSettings((s) => ({ ...s, expertMode: false })); });
+    expect(persistedAi().enabled).toBe(false); // the held switch-off is saved by the next write
+    expect(persistedAi().enabledRevision).not.toBe("r1"); // a saved change of the switch gets a new revision
+  });
+
+  it("a write that does not change the switch keeps the stored revision", async () => {
+    storeConsented({ ai: { enabled: true, model: "claude-sonnet-5", consent: C, backgroundConsent: C, enabledRevision: "r1" } });
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    act(() => { a.result.current.setSettings((s) => ({ ...s, expertMode: false })); });
+    expect(persistedAi().enabledRevision).toBe("r1");
+  });
+
+  it("without randomUUID (no secure context), each change of the switch still stores a new revision", async () => {
+    storeConsented({ ai: { enabled: true, model: "claude-sonnet-5", consent: C, backgroundConsent: C, enabledRevision: "r1" } });
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const real = globalThis.crypto;
+    vi.stubGlobal("crypto", { getRandomValues: real.getRandomValues.bind(real) });
+    try {
+      act(() => { a.result.current.setSettings((s) => ({ ...s, ai: { ...s.ai, enabled: false } })); });
+      const off = persistedAi().enabledRevision;
+      act(() => {
+        a.result.current.setSettings((s) => persistAiConsentChange({ ...s, ai: { ...s.ai, enabled: true } }, ["enabled"]) ?? s);
+      });
+      const on = persistedAi().enabledRevision;
+      expect(typeof off).toBe("string");
+      expect(off).not.toBe("r1");
+      expect(on).not.toBe(off);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  const realGetItem = Storage.prototype.getItem;
+  function failSettingsReads() {
+    return vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, key: string) {
+      if (key === SETTINGS_KEY) throw new DOMException("denied", "SecurityError");
+      return realGetItem.call(this, key);
+    });
+  }
+
+  // When storage cannot even be read, the revoke is measured against the last state this page read, so it
+  // is still held for the page once storage can be read again.
+  it("a revoke made while storage cannot be read is still held once it can be read again", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const readSpy = failSettingsReads();
+    const writeSpy = failSettingsWrites();
+    act(() => { a.result.current.setSettings((s) => revokeNotSaved(s)); });
+    readSpy.mockRestore(); // storage can be read again; writes still fail
+    expect(a.result.current.settings.ai.enabled).toBe(true); // control: only the consents were withdrawn
+    const b = renderHook(() => useSettings());
+    await waitFor(() => expect(b.result.current.hydrated).toBe(true));
+    writeSpy.mockRestore();
+    expect(persistedAi().consent).toBeDefined(); // control: storage still holds the consent
+    expect(b.result.current.settings.ai.consent).toBeUndefined();
+    expect(b.result.current.settings.ai.enabled).toBe(true); // nothing but the revoke is held
+    expect(isInteractiveConsentLive()).toBe(false);
+    expect(() => assertBackgroundConsentLive()).toThrow();
+  });
+
+  it("while storage cannot be read, a re-read fails closed: a revoke elsewhere is not outlived by the last read", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    expect(isInteractiveConsentLive()).toBe(true); // control
+    const readSpy = failSettingsReads();
+    act(() => { window.dispatchEvent(new StorageEvent("storage", { key: SETTINGS_KEY, newValue: null })); });
+    readSpy.mockRestore();
+    expect(isInteractiveConsentLive()).toBe(false);
+    expect(a.result.current.settings.ai.consent).toBeUndefined();
+  });
+
+  it("while storage cannot be read, an ordinary write that fails holds nothing back, and the setter keeps AI as it is", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const readSpy = failSettingsReads();
+    const writeSpy = failSettingsWrites();
+    act(() => { a.result.current.setSettings((s) => ({ ...s, expertMode: false })); });
+    expect(a.result.current.settings.ai.enabled).toBe(true); // not narrowed to the fail-closed reading
+    expect(a.result.current.settings.ai.consent).toBeDefined();
+    readSpy.mockRestore();
+    writeSpy.mockRestore(); // storage works again
+    act(() => { a.result.current.setSettings((s) => ({ ...s, language: "de" })); });
+    expect((JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as { language?: string }).language).toBe("de"); // control
+    expect(persistedAi().enabled).toBe(true);
+    expect(persistedAi().consent).toEqual(C);
+    expect(isInteractiveConsentLive()).toBe(true);
+  });
+
+  it("with no earlier read, a read that throws reads as switched off with no consent", () => {
+    __resetStoredAiReadForTests();
+    const readSpy = failSettingsReads();
+    try {
+      expect(readPersistedAiState()).toEqual({ enabled: false, consent: undefined, backgroundConsent: undefined });
+    } finally {
+      readSpy.mockRestore();
+    }
   });
 
   // Both tabs' writes failed; storage recovers; the other tab accepts; this tab then edits something else.

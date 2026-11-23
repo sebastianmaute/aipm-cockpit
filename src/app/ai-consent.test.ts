@@ -11,6 +11,7 @@ import {
   assertBackgroundConsentLive,
   assertInteractiveConsentLive,
   isInteractiveConsentLive,
+  isBackgroundConsentCurrent,
   isConsentCurrent,
   newConsent,
   publishAiConsentState,
@@ -109,6 +110,17 @@ describe("assertBackgroundConsentLive (AI-01)", () => {
   it("a withdrawn background consent leaves the interactive level live", () => {
     publishAiConsentState({ ...live, backgroundConsent: undefined });
     expect(() => assertAiConsentLive("interactive")).not.toThrow();
+  });
+  // A background consent saved while no interactive consent was in force (a tab that missed a revoke made
+  // elsewhere) must not come back to life when the interactive consent is accepted again later.
+  it("a background consent given before the interactive consent in force does not count", () => {
+    const later = newConsent(new Date(D.getTime() + 1000));
+    publishAiConsentState({ ...live, consent: later });
+    expect(() => assertAiConsentLive("interactive")).not.toThrow(); // control: the interactive level is live
+    expect(() => assertBackgroundConsentLive()).toThrow(AiConsentRevokedError);
+    expect(isBackgroundConsentCurrent({ consent: later, backgroundConsent: newConsent(D) })).toBe(false);
+    expect(isBackgroundConsentCurrent({ consent: newConsent(D), backgroundConsent: later })).toBe(true);
+    expect(isBackgroundConsentCurrent({ consent: undefined, backgroundConsent: later })).toBe(false);
   });
 });
 

@@ -22,8 +22,16 @@ export type AiPermission = Pick<AiConfig, AiPermissionField>;
 
 /** What this page withdrew from the stored AI permission and could not save (`writeSettings` failed): the switch
  *  turned off, and the stored consent records it withdrew. A record counts only while storage still holds that
- *  same record: a different one is a newer accept made elsewhere, which this page takes. */
-export type UnsavedNarrowing = { switchedOff: boolean; consent: AiConsent | undefined; backgroundConsent: AiConsent | undefined };
+ *  same record: a different one is a newer accept made elsewhere, which this page takes. The switch-off counts only
+ *  while storage still holds the switch revision it was made against (`switchRevision`): every saved change
+ *  of the switch stores a new `ai.enabledRevision`, so a different one is a newer switch-off or switch-on made
+ *  elsewhere, which this page takes. */
+export type UnsavedNarrowing = {
+  switchedOff: boolean;
+  switchRevision?: string;
+  consent: AiConsent | undefined;
+  backgroundConsent: AiConsent | undefined;
+};
 
 /** The page-level records of the store.
  *  `unsavedNarrowing` — set when a write fails, from the narrowing that write carried; cleared when a write
@@ -54,6 +62,22 @@ export function parseStoredAiState(raw: string | null): PersistedAiState {
     ai = sanitizeAiConfig({});
   }
   return { enabled: ai.enabled === true, consent: ai.consent, backgroundConsent: ai.backgroundConsent };
+}
+
+/** The longest `ai.enabledRevision` read back; anything longer is not one this app wrote. */
+const MAX_ENABLED_REVISION_LENGTH = 64;
+
+/** The switch revision of a stored settings blob (`ai.enabledRevision`), or undefined when there is none (a
+ *  blob written before revisions existed, or an unreadable one). It lives only in storage: the load sanitizer drops
+ *  it, so no `Settings` object carries it. */
+export function parseStoredEnabledRevision(raw: string | null): string | undefined {
+  try {
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    const rev = isPlainObject(parsed) && isPlainObject(parsed.ai) ? parsed.ai.enabledRevision : undefined;
+    return typeof rev === "string" && rev.length > 0 && rev.length <= MAX_ENABLED_REVISION_LENGTH ? rev : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function sameConsent(a: AiConsent | undefined, b: AiConsent | undefined): boolean {
@@ -103,10 +127,34 @@ export function withUnsavedNarrowing<T extends Partial<AiPermission>>(ai: T, n: 
   };
 }
 
+/** `n` without its switch-off once storage holds another switch revision than the one the switch-off was
+ *  made against (`storedRevision`): the switch was changed elsewhere since, and that newer change wins. Null when
+ *  nothing is left to hold. Storage holding NO revision never releases it: a tab still running an older version
+ *  drops the revision on any write, which says nothing about the switch. */
+export function releaseSupersededSwitchOff(n: UnsavedNarrowing | null, storedRevision: string | undefined): UnsavedNarrowing | null {
+  if (n === null || !n.switchedOff || storedRevision === undefined || n.switchRevision === storedRevision) return n;
+  return n.consent || n.backgroundConsent ? { switchedOff: false, consent: n.consent, backgroundConsent: n.backgroundConsent } : null;
+}
+
 /** The AI switch and consent records in effect on a page: `stored`, narrowed by what the page withdrew and could
- *  not save. What a load, a re-read and every write's narrow-only base read. */
-export function pageAiStateOf(store: AiPermissionStore, stored: PersistedAiState): PersistedAiState {
-  return withUnsavedNarrowing(stored, store.unsavedNarrowing);
+ *  not save and storage has not since superseded (`storedRevision`, the stored switch revision). What a load, a
+ *  re-read and every write's narrow-only base read. */
+export function pageAiStateOf(store: AiPermissionStore, stored: PersistedAiState, storedRevision?: string): PersistedAiState {
+  return withUnsavedNarrowing(stored, releaseSupersededSwitchOff(store.unsavedNarrowing, storedRevision));
+}
+
+/** `settings` with its switch and consent records narrowed to what is in effect on the page (`page`), as
+ *  an ordinary write would persist them (`narrowOnly`); `settings` itself when it already holds them. Applied to
+ *  every commit through `useSettings`'s setter, so a stale copy committed after a withdrawal cannot show AI as
+ *  available, or keep a consent in memory that storage no longer holds. */
+export function withPageAiPermission(settings: Settings, page: PersistedAiState): Settings {
+  // A partial settings object without an AI slice (some callers' tests commit one) says nothing about AI permission.
+  if ((settings.ai as AiConfig | undefined) === undefined) return settings;
+  const permission = narrowOnly(settings.ai, page);
+  const unchanged = (permission.enabled === true) === (settings.ai.enabled === true)
+    && sameConsent(permission.consent, settings.ai.consent)
+    && sameConsent(permission.backgroundConsent, settings.ai.backgroundConsent);
+  return unchanged ? settings : { ...settings, ai: { ...settings.ai, ...permission } };
 }
 
 /** The AI switch and consent records of `ai`, taken only where they NARROW `base` (the switch off, a consent
@@ -139,35 +187,49 @@ export function aiPermissionToWrite(ai: AiPermission, widen: readonly AiPermissi
 }
 
 /** A write carrying `attempted` failed: where it narrows `stored`, or null when it narrows nothing. `attempted` is
- *  already narrowed against the page's state, so a narrowing noted earlier is carried on. */
-export function narrowingAfterFailedWrite(stored: PersistedAiState, attempted: Partial<AiPermission>): UnsavedNarrowing | null {
+ *  already narrowed against the page's state, so a narrowing noted earlier is carried on. A switch-off notes the
+ *  stored switch revision it was made against (`storedRevision`). */
+export function narrowingAfterFailedWrite(
+  stored: PersistedAiState,
+  attempted: Partial<AiPermission>,
+  storedRevision?: string,
+): UnsavedNarrowing | null {
   const switchedOff = stored.enabled && attempted.enabled !== true;
   const consent = attempted.consent === undefined ? stored.consent : undefined;
   const backgroundConsent = attempted.backgroundConsent === undefined ? stored.backgroundConsent : undefined;
-  return switchedOff || consent || backgroundConsent ? { switchedOff, consent, backgroundConsent } : null;
+  if (!switchedOff && !consent && !backgroundConsent) return null;
+  return switchedOff ? { switchedOff, switchRevision: storedRevision, consent, backgroundConsent } : { switchedOff, consent, backgroundConsent };
 }
 
-/** One write of the settings key, planned: what it stores, and the store after it succeeds or fails. */
-export type AiPermissionWritePlan = { permission: AiPermission; afterSuccess: AiPermissionStore; afterFailure: AiPermissionStore };
+/** One write of the settings key, planned: what it stores, the store after it succeeds or fails, and whether it
+ *  changes the stored switch (so a success stores a new switch revision). */
+export type AiPermissionWritePlan = {
+  permission: AiPermission;
+  switchChanged: boolean;
+  afterSuccess: AiPermissionStore;
+  afterFailure: AiPermissionStore;
+};
 
 /** Plans a write of settings whose AI slice is `ai` (undefined: a partial settings object that says nothing about AI
  *  permission, so the page's state is kept), widening the fields in `widen`, with `stored` the AI state persisted
  *  now. A success persists the page's unsaved narrowing (the write narrowed against it) and clears both records;
  *  a failure keeps the reported revoke and notes the narrowing the write carried — a failed widening is not
- *  committed by its caller, so only that narrowing counts. */
+ *  committed by its caller, so only that narrowing counts. `storedRevision` is the stored switch revision. */
 export function planAiPermissionWrite(
   store: AiPermissionStore,
   stored: PersistedAiState,
   ai: AiConfig | undefined,
   widen: readonly AiPermissionField[],
+  storedRevision?: string,
 ): AiPermissionWritePlan {
-  const page = pageAiStateOf(store, stored);
+  const page = pageAiStateOf(store, stored, storedRevision);
   const permission = ai ? aiPermissionToWrite(ai, widen, page) : page;
   const attempted = ai ? narrowOnly(ai, page) : page;
   return {
     permission,
+    switchChanged: (permission.enabled === true) !== stored.enabled,
     afterSuccess: EMPTY_AI_PERMISSION_STORE,
-    afterFailure: { ...store, unsavedNarrowing: narrowingAfterFailedWrite(stored, attempted) },
+    afterFailure: { ...store, unsavedNarrowing: narrowingAfterFailedWrite(stored, attempted, storedRevision) },
   };
 }
 
@@ -182,9 +244,13 @@ export function aiToPublishOf(store: AiPermissionStore, ai: AiConfig): AiConfig 
 
 let pageStore: AiPermissionStore = EMPTY_AI_PERMISSION_STORE;
 
-/** The AI state in effect on this page, given the stored one (`pageAiStateOf` over this page's store). */
-export function pageAiState(stored: PersistedAiState): PersistedAiState {
-  return pageAiStateOf(pageStore, stored);
+/** The AI state in effect on this page, given the stored one and its switch revision (`pageAiStateOf` over this
+ *  page's store). A switch-off that storage has superseded is dropped from the store here for good, so the
+ *  published flags (`aiForPublish`) stop applying it too. */
+export function pageAiState(stored: PersistedAiState, storedRevision?: string): PersistedAiState {
+  const released = releaseSupersededSwitchOff(pageStore.unsavedNarrowing, storedRevision);
+  if (released !== pageStore.unsavedNarrowing) pageStore = { ...pageStore, unsavedNarrowing: released };
+  return pageAiStateOf(pageStore, stored, storedRevision);
 }
 
 /** Plans a write against this page's store (`planAiPermissionWrite`); hand the outcome to `settleAiPermissionWrite`. */
@@ -192,8 +258,9 @@ export function planPageAiPermissionWrite(
   stored: PersistedAiState,
   ai: AiConfig | undefined,
   widen: readonly AiPermissionField[],
+  storedRevision?: string,
 ): AiPermissionWritePlan {
-  return planAiPermissionWrite(pageStore, stored, ai, widen);
+  return planAiPermissionWrite(pageStore, stored, ai, widen, storedRevision);
 }
 
 /** Records the outcome of a planned write in this page's store. */

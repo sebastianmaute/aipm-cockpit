@@ -7,7 +7,7 @@ import { ALL_MODULE_IDS } from "./feature-modules";
 import { getSessionAiKey } from "./session-ai-key";
 import { isAiDeploymentOn } from "./ai-deployment";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
-import { type AiConsent, isConsentCurrent, sanitizeConsent } from "./ai-consent";
+import { type AiConsent, isBackgroundConsentCurrent, isConsentCurrent, sanitizeConsent } from "./ai-consent";
 import { BRANDING_EXPORT_FOOTER_MAX } from "./export-footer";
 export { DEFAULT_EXPORT_FOOTER, BRANDING_EXPORT_FOOTER_MAX, exportFooterEnv, exportFooterText } from "./export-footer";
 export type { ExportFooterEnv } from "./export-footer";
@@ -228,9 +228,10 @@ export function isAiEnabled(ai: AiConfig | undefined): boolean {
   return isAiDeploymentOn() && ai?.enabled === true && liveAiKey(ai) !== "" && isConsentCurrent(ai.consent);
 }
 
-/** Unattended AI (scheduled jobs, background recommendations): AI is enabled AND the separate background consent is current. */
+/** Unattended AI (scheduled jobs, background recommendations): AI is enabled AND the separate background consent is
+ *  current, and no older than the interactive consent (`isBackgroundConsentCurrent`). */
 export function isAiBackgroundEnabled(ai: AiConfig | undefined): boolean {
-  return isAiEnabled(ai) && isConsentCurrent(ai?.backgroundConsent);
+  return isAiEnabled(ai) && isBackgroundConsentCurrent(ai);
 }
 
 /** Cloud speech-to-text (R9, D9): the AI master switch is ON and the interactive consent is current.

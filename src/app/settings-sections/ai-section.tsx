@@ -5,7 +5,7 @@ import { AiBackgroundPausedNotice, useAiBackgroundPaused } from "./ai-background
 import { CheckIcon } from "../icons";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
-import { type AiConsent, isConsentCurrent, newConsent } from "../ai-consent";
+import { type AiConsent, isBackgroundConsentCurrent, isConsentCurrent, newConsent } from "../ai-consent";
 import { type AiPermissionField, noteConsentRevokeNotSaved } from "../ai-permission-store";
 import { persistAiConsentChange } from "../use-settings";
 import { AiConsentDialog } from "../ai-consent-dialog";
@@ -170,7 +170,8 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const recPausedNoticeId = useId();
   const backgroundPaused = useAiBackgroundPaused();
   const deploymentNoticeId = useId();
-  const backgroundOk = isConsentCurrent(settings.ai.backgroundConsent);
+  // The rule the send-time check applies: a background consent older than the interactive one is void.
+  const backgroundOk = isBackgroundConsentCurrent(settings.ai);
   // AI-01 — only switching ON needs the background consent: a toggle left on from before can always be switched off.
   const recToggleLocked = !backgroundOk && settings.ai.insightRecommendations !== true;
   const confirm = useConfirm();
@@ -880,9 +881,16 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           {t(lang, "settingsAiChatSearchHelp")}
         </FieldHint>
 
-        {/* Background consent (AI-10): the unattended runners call the AI without a click, so they need their own consent. */}
-        {backgroundConsentBlock}
-        <FieldHint className="mt-1">{t(lang, "aiBackgroundConsentHelp")}</FieldHint>
+        {/* Background consent (AI-10): the unattended runners call the AI without a click, so they need their own consent.
+            ★ Offered only while the interactive consent is current: a background consent counts only when it is no
+            older than the interactive one (`isBackgroundConsentCurrent`), so one accepted before it would be voided
+            by that accept, and the toggle would stay unticked. */}
+        {consentCurrent && (
+          <>
+            {backgroundConsentBlock}
+            <FieldHint className="mt-1">{t(lang, "aiBackgroundConsentHelp")}</FieldHint>
+          </>
+        )}
         {backgroundConsentOpen && (
           <AiConsentDialog
             lang={lang}

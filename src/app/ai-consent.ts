@@ -51,6 +51,20 @@ export function isConsentCurrent(c: AiConsent | undefined): boolean {
     && (c.keyRestricted ?? false) === getAiDeploymentState().keyRestricted;
 }
 
+/** The background consent counts only while it is current AND was given no earlier than the interactive
+ *  consent in force. A background accept widens only its own field, so a tab that missed a revoke made elsewhere
+ *  can save one with no interactive consent beside it; this rule keeps a later interactive accept from arming
+ *  background AI with that older record. In the app's own flow the background consent is accepted after the
+ *  interactive one: Settings → AI offers it only while the interactive consent is current, and a revoke withdraws
+ *  both. A record that predates the interactive consent is such a leftover, or one given before a re-accept (a new
+ *  disclosure version), which is asked for again. */
+export function isBackgroundConsentCurrent(ai: { consent?: AiConsent; backgroundConsent?: AiConsent } | undefined): boolean {
+  const interactive = ai?.consent;
+  const background = ai?.backgroundConsent;
+  return interactive !== undefined && background !== undefined && isConsentCurrent(background)
+    && Date.parse(background.acceptedAt) >= Date.parse(interactive.acceptedAt);
+}
+
 /** Load-time validation: anything that is not a well-formed record is no consent at all. */
 export function sanitizeConsent(v: unknown): AiConsent | undefined {
   if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
@@ -175,7 +189,7 @@ export function isInteractiveAiAllowed(ai: Pick<AiConfig, "enabled" | "consent">
  *  background consent is current too. */
 export function publishAiConsentState(ai: AiConfig | undefined): void {
   interactiveConsentLive = isInteractiveAiAllowed(ai);
-  backgroundConsentLive = interactiveConsentLive && isConsentCurrent(ai?.backgroundConsent);
+  backgroundConsentLive = interactiveConsentLive && isBackgroundConsentCurrent(ai);
 }
 
 /** The published interactive flag: what speech-to-text asks before it uploads a finished recording. */
