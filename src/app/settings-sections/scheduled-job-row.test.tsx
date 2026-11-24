@@ -1,12 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { JobRow } from "./scheduled-job-row";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import { ACCEPTANCE_KEY, acceptJob } from "../scheduled-job-acceptance";
 
 const deviceLabel = vi.hoisted(() => ({ value: "aaaa1111" }));
-vi.mock("../device-label", () => ({ getDeviceLabel: () => deviceLabel.value }));
+vi.mock("../device-label", () => ({
+  getDeviceLabel: () => deviceLabel.value,
+  peekDeviceLabel: () => deviceLabel.value,
+}));
 
 function job(over: Partial<ScheduledJob> = {}): ScheduledJob {
   return {
@@ -25,7 +29,11 @@ function job(over: Partial<ScheduledJob> = {}): ScheduledJob {
   };
 }
 
-function renderRow(j: ScheduledJob, onAccept: (job: ScheduledJob) => void = acceptJob) {
+function renderRow(
+  j: ScheduledJob,
+  onAccept: (job: ScheduledJob) => void = acceptJob,
+  acceptNotice: "failed" | "changed" | null = null,
+) {
   return render(
     <ul>
       <JobRow
@@ -43,6 +51,7 @@ function renderRow(j: ScheduledJob, onAccept: (job: ScheduledJob) => void = acce
         onAssign={vi.fn()}
         onDelete={vi.fn()}
         onAccept={onAccept}
+        acceptNotice={acceptNotice}
       />
     </ul>,
   );
@@ -58,16 +67,15 @@ describe("JobRow acceptance", () => {
     renderRow(job());
     expect(screen.getByText(t("en-US", "scheduledJobNeedsOk"))).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Accept Weekly review" }));
-    expect(screen.getByText(t("en-US", "scheduledJobRunsHere"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Stop on this device: Weekly review" })).toBeInTheDocument();
   });
 
-  it("an accepted job that cannot run now does not claim to run here", () => {
+  it("an accepted job never claims to run here", () => {
     acceptJob(job());
-    renderRow(job({ enabled: false }));
+    renderRow(job());
     expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
-    expect(screen.queryByText(t("en-US", "scheduledJobRunsHere"))).toBeNull();
-    expect(screen.getByRole("button", { name: "Stop on this device: Weekly review" })).toBeInTheDocument();
+    expect(screen.queryByText(/Runs on this device/)).toBeNull();
   });
 
   it("a changed job says so", () => {
@@ -77,11 +85,48 @@ describe("JobRow acceptance", () => {
     expect(screen.getByRole("button", { name: "Accept Weekly review" })).toBeInTheDocument();
   });
 
-  it("Stop forgets the job", () => {
+  it("Stop records a decline: the row says stopped and offers Accept", () => {
     acceptJob(job());
     renderRow(job());
     fireEvent.click(screen.getByRole("button", { name: "Stop on this device: Weekly review" }));
-    expect(screen.getByText(t("en-US", "scheduledJobNeedsOk"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "scheduledJobNeedsOk"))).toBeNull();
+    expect(screen.getByRole("button", { name: "Accept Weekly review" })).toBeInTheDocument();
+  });
+
+  it("keeps focus on the action button when Accept turns into Stop", async () => {
+    const user = userEvent.setup();
+    renderRow(job());
+    await user.tab();
+    const accept = screen.getByRole("button", { name: "Accept Weekly review" });
+    accept.focus();
+    expect(document.activeElement).toBe(accept);
+    await user.click(accept);
+    const stop = screen.getByRole("button", { name: "Stop on this device: Weekly review" });
+    expect(document.activeElement).toBe(stop);
+  });
+
+  it("an unassigned job shows no status and no action", () => {
+    renderRow(job({ projectId: null }));
+    expect(screen.queryByText(t("en-US", "scheduledJobNeedsOk"))).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Accept/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Stop on this device/ })).toBeNull();
+  });
+
+  it("shows the accept notice inside a status region", () => {
+    renderRow(job(), acceptJob, "failed");
+    expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobAcceptFailed"));
+  });
+
+  it("shows the changed-elsewhere notice", () => {
+    renderRow(job(), acceptJob, "changed");
+    expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobAcceptChanged"));
+  });
+
+  it("does not read the device label's storage while rendering", () => {
+    localStorage.removeItem("aipm-cockpit:device-label");
+    renderRow(job({ createdBy: "bbbb2222" }));
+    expect(screen.getByText("Created on device bbbb2222")).toBeInTheDocument();
   });
 
   it("a legacy job has no Accept or Stop", () => {

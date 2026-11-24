@@ -26,7 +26,7 @@ import { useDisplayTzOrBrowser } from "../display-timezone-context";
 import { loadCurrentTursoProjectId, loadPortfolioMode } from "../portfolio-mode";
 import { listProjectRefs } from "../turso-portfolio";
 import { resolveTimezone, tzZones } from "../timezone";
-import { DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
+import { type AcceptNotice, DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
 import { Banner } from "../banner";
 import { isRunnable } from "../scheduled-jobs/schedule";
 import { acceptanceState, acceptJob, jobFingerprint, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
@@ -111,15 +111,32 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
     void Promise.resolve(write).then(() => setWriteFailed(false), () => setWriteFailed(true));
   };
 
+  // What the last Accept on each row found out when it accepted nothing, keyed by the job's permanent key.
+  const [acceptNotices, setAcceptNotices] = useState<ReadonlyMap<string, AcceptNotice>>(new Map());
+  function setAcceptNotice(key: string | null, notice: AcceptNotice | null): void {
+    if (key === null) return;
+    setAcceptNotices((prev) => {
+      const next = new Map(prev);
+      if (notice === null) next.delete(key);
+      else next.set(key, notice);
+      return next;
+    });
+  }
+
   // The row may show a stale job: re-read, and accept only what the store still holds unchanged. Otherwise show the
-  // current job and let the user decide again; a failed read accepts nothing.
+  // current job and say so; a failed read accepts nothing and says that.
   async function acceptFresh(job: ScheduledJob): Promise<void> {
+    setAcceptNotice(job.key, null);
     try {
       const fresh = (await loadScheduledJobs(config)).find((j) => j.key !== null && j.key === job.key);
-      if (fresh && jobFingerprint(fresh) === jobFingerprint(job)) acceptJob(fresh);
-      else await refresh();
+      if (fresh && jobFingerprint(fresh) === jobFingerprint(job)) {
+        if (!acceptJob(fresh)) setAcceptNotice(job.key, "failed");
+        return;
+      }
+      setAcceptNotice(job.key, "changed");
+      await refresh();
     } catch {
-      // nothing accepted
+      setAcceptNotice(job.key, "failed");
     }
   }
 
@@ -208,6 +225,8 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     onAssign={(id, projectId, timeZone) => track(assignProject(id, projectId, timeZone, job.key ?? undefined))}
                     onDelete={(id) => track(deleteJob(id, job.key ?? undefined))}
                     onAccept={(j) => { void acceptFresh(j); }}
+                    acceptNotice={job.key !== null ? (acceptNotices.get(job.key) ?? null) : null}
+                    onNoticeClear={() => setAcceptNotice(job.key, null)}
                   />
                 ))}
               </ul>

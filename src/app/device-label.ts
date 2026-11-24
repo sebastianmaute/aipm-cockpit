@@ -14,3 +14,12 @@ export function getDeviceLabel(): string {
     return "unknown";
   }
 }
+
+/** The stored label, or null when none was minted or storage is unreadable. Never writes: safe during render. */
+export function peekDeviceLabel(): string | null {
+  try {
+    return localStorage.getItem(KEY) || null;
+  } catch {
+    return null;
+  }
+}

@@ -808,14 +808,50 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     expect(acceptanceState(mockJobs[0])).toBe("none");
   });
 
-  it("a failed re-read accepts nothing", async () => {
+  it("Accept on a job changed elsewhere says so", async () => {
+    mockJobs = [runnable(1, { instruction: "x" })];
+    loadJobsMock.mockResolvedValue([runnable(1, { instruction: "changed elsewhere" })]);
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept Job 1" }));
+    expect(await screen.findByText(t("en-US", "scheduledJobAcceptChanged"))).toBeInTheDocument();
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("Accept on a job that is gone says it changed", async () => {
+    mockJobs = [runnable(1)];
+    loadJobsMock.mockResolvedValue([]);
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept Job 1" }));
+    expect(await screen.findByText(t("en-US", "scheduledJobAcceptChanged"))).toBeInTheDocument();
+  });
+
+  it("a failed re-read says so and accepts nothing", async () => {
     const { acceptanceState } = await import("../scheduled-job-acceptance");
     mockJobs = [runnable(1)];
     loadJobsMock.mockRejectedValue(new Error("offline"));
     setup(withKey({ scheduledJobs: true }));
     fireEvent.click(screen.getByRole("button", { name: "Accept Job 1" }));
-    await waitFor(() => expect(loadJobsMock).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText(t("en-US", "scheduledJobAcceptFailed"))).toBeInTheDocument());
     expect(acceptanceState(mockJobs[0])).toBe("none");
+  });
+
+  it("the message clears on the next Accept", async () => {
+    mockJobs = [runnable(1)];
+    loadJobsMock.mockRejectedValueOnce(new Error("offline"));
+    loadJobsMock.mockResolvedValue([runnable(1)]);
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept Job 1" }));
+    await screen.findByText(t("en-US", "scheduledJobAcceptFailed"));
+    fireEvent.click(screen.getByRole("button", { name: "Accept Job 1" }));
+    await waitFor(() => expect(screen.queryByText(t("en-US", "scheduledJobAcceptFailed"))).toBeNull());
+  });
+
+  it("a runnable job this device stopped is not counted in the notice", async () => {
+    const { declineJob } = await import("../scheduled-job-acceptance");
+    mockJobs = [runnable(1), runnable(2)];
+    act(() => { declineJob(runnable(1)); });
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.getByRole("status")).toHaveTextContent("1 shared job needs your OK to run on this device.");
   });
 
   it("no notice when the switch is off or all are accepted", async () => {

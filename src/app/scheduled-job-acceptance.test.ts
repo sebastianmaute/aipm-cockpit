@@ -4,6 +4,7 @@ import {
   ACCEPTANCE_KEY,
   acceptJob,
   acceptanceState,
+  declineJob,
   forgetJob,
   isAcceptedHere,
   jobFingerprint,
@@ -67,6 +68,37 @@ describe("scheduled job acceptance", () => {
     expect(acceptJob(legacy)).toBe(false);
     expect(acceptJob(foreign)).toBe(false);
     expect(localStorage.getItem(ACCEPTANCE_KEY)).toBeNull();
+  });
+
+  it("declining records it: the same job reads declined, never accepted", () => {
+    expect(declineJob(job({ instruction: "a" }))).toBe(true);
+    expect(acceptanceState(job({ instruction: "a" }))).toBe("declined");
+    expect(isAcceptedHere(job({ instruction: "a" }))).toBe(false);
+  });
+
+  it("a declined job whose instruction changed is asked again", () => {
+    declineJob(job({ instruction: "a" }));
+    expect(acceptanceState(job({ instruction: "b" }))).toBe("changed");
+  });
+
+  it("declining a job that cannot run does nothing", () => {
+    expect(declineJob(job({ key: null }))).toBe(false);
+    expect(declineJob(job({ foreign: { raw: {} } }))).toBe(false);
+    expect(localStorage.getItem(ACCEPTANCE_KEY)).toBeNull();
+  });
+
+  it("a decline write that throws returns false and leaves the state", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("quota");
+    });
+    expect(declineJob(job())).toBe(false);
+    expect(acceptanceState(job())).toBe("none");
+  });
+
+  it("accepting after a decline accepts", () => {
+    declineJob(job());
+    acceptJob(job());
+    expect(acceptanceState(job())).toBe("accepted");
   });
 
   it("forgetJob removes the entry", () => {

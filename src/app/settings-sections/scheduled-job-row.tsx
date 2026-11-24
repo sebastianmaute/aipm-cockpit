@@ -14,9 +14,8 @@ import { formatDisplayTimestamp } from "../tz-display";
 import { TEXTAREA_MAX } from "../sanitize-core";
 import type { UseScheduledJobsResult } from "../use-scheduled-jobs";
 import { REPORT_ERROR_KEY, type ReportErrorToken } from "../scheduled-reports-store";
-import { acceptanceState, forgetJob, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
-import { getDeviceLabel } from "../device-label";
-import { isRunnable } from "../scheduled-jobs/schedule";
+import { acceptanceState, declineJob, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
+import { peekDeviceLabel } from "../device-label";
 
 /** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
  *  token is the digit string the runner stores, so history recorded before this change reads the
@@ -117,33 +116,71 @@ function InstructionField({
   );
 }
 
-/** Whether this device runs the job, with Accept / Stop and where the job was made. Local only: nothing is written to the store. */
-function AcceptanceLine({ lang, job, token, onAccept }: { lang: Lang; job: ScheduledJob; token: string; onAccept: (job: ScheduledJob) => void }) {
+/** What the last Accept on a row found out when it did not accept: the re-read failed, or the job changed elsewhere. */
+export type AcceptNotice = "failed" | "changed";
+
+function noop(): void {}
+
+const ACCEPT_NOTICE_KEY: Record<AcceptNotice, TranslationKey> = {
+  failed: "scheduledJobAcceptFailed",
+  changed: "scheduledJobAcceptChanged",
+};
+
+const ACCEPTANCE_STATUS_KEY: Record<"accepted" | "declined" | "changed" | "none", TranslationKey> = {
+  accepted: "scheduledJobAcceptedHere",
+  declined: "scheduledJobStoppedHere",
+  changed: "scheduledJobChanged",
+  none: "scheduledJobNeedsOk",
+};
+
+/** Whether this device accepted the job, with ONE Accept / Stop button (so focus survives the switch) and where the job was made. Local only: nothing is written to the store. */
+function AcceptanceLine({
+  lang,
+  job,
+  token,
+  onAccept,
+  notice,
+  onNoticeClear,
+}: {
+  lang: Lang;
+  job: ScheduledJob;
+  token: string;
+  onAccept: (job: ScheduledJob) => void;
+  notice: AcceptNotice | null;
+  onNoticeClear: () => void;
+}) {
   useAcceptanceSnapshot(); // re-render when this device's acceptances change
   const state = acceptanceState(job);
-  const statusKey: TranslationKey | null =
-    state === "accepted" ? (isRunnable(job) ? "scheduledJobRunsHere" : "scheduledJobAcceptedHere") : state === "changed" ? "scheduledJobChanged" : state === "none" ? "scheduledJobNeedsOk" : null;
+  // A job with no project reports nothing, so there is nothing to accept; a cannot-run job has no state to show.
+  const decided = state === "cannot-run" || job.projectId === null ? null : state;
+  // A device with no stored label cannot have created the job; peeking never writes during render.
   const createdText =
     job.createdBy === undefined
       ? null
-      : job.createdBy === getDeviceLabel()
+      : job.createdBy === peekDeviceLabel()
         ? t(lang, "scheduledJobCreatedHere")
         : t(lang, "scheduledJobCreatedOn", job.createdBy);
-  if (statusKey === null && createdText === null) return null;
+  if (decided === null && createdText === null) return null;
+  const accepted = decided === "accepted";
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-      {statusKey !== null && <span>{t(lang, statusKey)}</span>}
-      {state === "accepted" && job.key !== null && (
-        <Button variant="secondary" size="xs" onClick={() => forgetJob(job.key as string)} aria-label={t(lang, "scheduledJobStopNamed", token)}>
-          {t(lang, "scheduledJobStop")}
-        </Button>
-      )}
-      {(state === "none" || state === "changed") && (
-        <Button variant="primary" size="xs" onClick={() => onAccept(job)} aria-label={t(lang, "scheduledJobAcceptNamed", token)}>
-          {t(lang, "scheduledJobAccept")}
+      {decided !== null && <span>{t(lang, ACCEPTANCE_STATUS_KEY[decided])}</span>}
+      {decided !== null && (
+        <Button
+          variant={accepted ? "secondary" : "primary"}
+          size="xs"
+          onClick={() => {
+            onNoticeClear();
+            if (accepted) declineJob(job);
+            else onAccept(job);
+          }}
+          aria-label={t(lang, accepted ? "scheduledJobStopNamed" : "scheduledJobAcceptNamed", token)}
+        >
+          {t(lang, accepted ? "scheduledJobStop" : "scheduledJobAccept")}
         </Button>
       )}
       {createdText !== null && <span>{createdText}</span>}
+      {notice !== null && <span role="status">{t(lang, ACCEPT_NOTICE_KEY[notice])}</span>}
     </div>
   );
 }
@@ -163,6 +200,8 @@ export function JobRow({
   onAssign,
   onDelete,
   onAccept,
+  acceptNotice,
+  onNoticeClear,
 }: {
   lang: Lang;
   job: ScheduledJob;
@@ -184,6 +223,10 @@ export function JobRow({
   onDelete: (id: number) => void;
   /** Accept the job on this device; the owner re-reads the stored job first, so a stale row never accepts what it did not show. */
   onAccept: (job: ScheduledJob) => void;
+  /** Why the last Accept on this row accepted nothing, until the next Accept or Stop. */
+  acceptNotice?: AcceptNotice | null;
+  /** Called when Accept or Stop is pressed, so the owner can clear the notice. */
+  onNoticeClear?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const { cadence } = job;
@@ -356,7 +399,14 @@ export function JobRow({
 
       <InstructionField key={job.instruction ?? ""} lang={lang} job={job} token={token} onUpdate={onUpdate} />
 
-      <AcceptanceLine lang={lang} job={job} token={token} onAccept={onAccept} />
+      <AcceptanceLine
+        lang={lang}
+        job={job}
+        token={token}
+        onAccept={onAccept}
+        notice={acceptNotice ?? null}
+        onNoticeClear={onNoticeClear ?? noop}
+      />
 
       {job.projectId === null && (
         <span className="text-xs text-muted-foreground">{t(lang, "scheduledJobChooseProject")}</span>
