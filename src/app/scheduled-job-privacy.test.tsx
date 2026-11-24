@@ -54,7 +54,7 @@ const job: ScheduledJob = {
 function args(): ScheduledJobRunnerArgs {
   return {
     enabled: true, guidesReady: true, jobs: [job], jobsSource: "https://example.test",
-    recordRun: vi.fn(), config: { httpUrl: "https://example.test", authToken: "t" } as never, available: true, openProjectId: null,
+    recordRun: vi.fn(), config: { httpUrl: "https://example.test", authToken: "t" } as never, available: true, openProjectId: null, isAcceptedHere: () => true,
     deviceSettings: defaultSettings, lang: "en-US",
     clearProject: vi.fn(async () => undefined), disableJob: vi.fn(async () => undefined),
     ai: { apiKey: "sk-test", model: "m" }, notify: vi.fn(), now: () => new Date("2026-10-23T14:00:00.000Z"),
