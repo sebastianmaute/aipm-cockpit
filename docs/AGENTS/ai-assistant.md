@@ -1623,12 +1623,19 @@
     re-renders the row), `isEditedHere` compares it to the job as it stands (so a later change from another device
     reads as such again), and any answer or a delete clears it. Display only: it never decides a run, and storage
     that cannot be read or written reads as "not edited here".
-  - **The instruction draft** (`useInstructionDraft` in the row) saves on blur and on unmount, and counts as saved
-    only once the write succeeds. After a failed save the field keeps the draft, the next blur retries, and until then
-    both answer buttons read "Not saved" (`scheduledJobNotSaved`), are `aria-disabled` and ignore clicks, with
-    `scheduledJobChangeNotSaved` in the row's status. When the stored instruction changes while the field holds an
-    unsaved draft from a different starting point (another device's change), the draft is DROPPED, never written over
-    it, and the row says so (`scheduledJobDraftDropped`).
+  - **The instruction draft** (`useInstructionDraft`, `use-instruction-draft.ts`) saves on blur and on unmount, and
+    counts as saved only once the write succeeds. ★★ Its save is CONDITIONAL: `updateJob(id, patch, key,
+    { ifInstructionIn })` checks the FRESH stored instruction inside the write chain and writes only while it is the
+    text the draft started from or one this row is still saving; otherwise it writes nothing and rejects with
+    `JobChangedError` (the list is read again, and the section does not count it as a failed write). So only this
+    device's save that started from a now-changed text is refused — whether or not this tab has re-read the job — and
+    the row drops the draft and says so (`scheduledJobDraftDropped`). While the field holds no unsaved change the draft
+    follows the stored text; an unsaved draft is kept and its save decides. After a failed save the field keeps the
+    draft and the next blur retries; while the field still differs from the stored text, both answer buttons read
+    "Not saved" (`scheduledJobNotSaved`), are `aria-disabled` and ignore clicks, with `scheduledJobChangeNotSaved` in
+    the row's status. Draft notices outrank an ignored press, which is cleared when the job or the draft changes.
+    ★ Closing the dialog while "Not saved" retries the save once on unmount; if that fails too, the text is lost after
+    the warning the row already showed.
   - ★★★ **A press answers the version shown when it was pressed.** Pressing Accept / Stop or "Not on this device"
     does not take focus from the instruction field (`onMouseDown` prevents the default), so the press does not end
     the edit: the button answers the version the row shows, and the edit saves on the next blur and then asks again.
@@ -1637,7 +1644,9 @@
     held Space spans renders like a held pointer); the click is ignored when the job was saving at the press or is
     saving now, or when the action or fingerprint changed between press and release (`pressStillValid`). A press
     that is cancelled, leaves the button before release, or a button that loses focus leaves nothing behind. An
-    activation with no press at all (a screen reader's click) acts on the current render. An ignored press says so in
+    activation with no press at all (a screen reader's click) acts on the current render; a held Enter or Space
+    (key repeat) never answers — its repeated keydowns are default-prevented and a click while the key repeats is
+    ignored silently. An ignored press says so in
     the row's status (`scheduledJobPressIgnored`, cleared by the next answer) unless the button visibly could not be
     used for the whole press ("Saving…" or "Not saved" at both press and click), where silence is correct.
   - ★★★ **Answer buttons wait for this device's saves.** `useScheduledJobs` exposes `savingJobs` (`jobSaveId`: the key,
