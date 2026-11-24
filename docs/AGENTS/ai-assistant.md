@@ -1632,7 +1632,8 @@
     `expectInstruction()` returning `null` refuses outright. Otherwise it writes nothing and rejects with
     `JobChangedError` (the list is read again, and the section does not count it as a failed write). So a save is
     refused only when the stored text changed from what this edit started from or this row wrote — whether or not
-    this tab has re-read the job — and the row drops the draft and says so (`scheduledJobDraftDropped`). ★★ A refusal
+    this tab has re-read the job — and the row drops the draft, says so (`scheduledJobDraftDropped`) and offers the
+    refused text read-only below the field (see "lost text" below). ★★ A refusal
     starts a new generation (a counter in the draft hook), bumped in `onRefused`, which the hook calls INSIDE the write
     chain where the precondition refuses, before any later queued save is judged: every save this row queued before it — the closing save
     included — is refused when it runs, whatever the stored text has done since, and an edit made after the refusal
@@ -1646,24 +1647,30 @@
     from the stored text, both answer buttons read "Not saved" (`scheduledJobNotSaved`), are `aria-disabled` and ignore
     clicks, with `scheduledJobChangeNotSaved` in the row's status. Draft notices outrank an ignored press; the
     ignored-press notice clears when the job's version or the draft's status changes (not on typing). ★ Closing the
-    editor runs one last save on unmount; if that save fails or is refused after the row is gone, the text is kept in
-    sessionStorage `LOST_DRAFT_KEY` (`scheduled-jobs/lost-draft.ts`: `{ text, reason, base }` keyed by `jobSaveId`,
-    `base` = the stored text the lost save was judged against; every access guarded, a storage that cannot be used just
-    loses the text; a job without a key keeps none, since ids collide across portfolios). The next time the row
-    mounts it is restored, ★★ never so that a press or a save acts on text the user cannot see: a "notSaved" text
-    goes back into the field as an unsaved draft with `scheduledJobChangeNotSaved`, and its first save is judged
-    against the lost entry's `base` (one-shot), so a change made elsewhere meanwhile is refused (the dropped flow); a
-    "dropped" text does NOT go back into the field — the field shows the stored text, and the lost text is offered
-    read-only beside `scheduledJobDraftDropped` (`scheduledJobLostText`, named "<label> – <job>") to copy from, until
-    the next answer or saved edit, or until the job holds that text (then nothing is shown). Restoring never saves or
-    answers; closing again without touching it keeps it for next time; the entry is forgotten once shown, and when the
-    job is deleted. ★ A user's edit (`updateJob` / `assignProject`) that reaches no job never resolves as written:
+    editor runs one last save on unmount. ★★ **Lost text is offered for copying only, never put back.** Text this row
+    could not save — refused (the job changed elsewhere), or a closing save that failed after the editor closed — is
+    offered read-only in `LostTextBox` (`scheduled-job-lost-text.tsx`) below the instruction field: a `readOnly`
+    textarea named "<`scheduledJobLostText`> – <job>", `aria-describedby` its visible hint (`scheduledJobLostTextHint`),
+    and a Dismiss button (`scheduledJobLostTextDismiss`, named `scheduledJobLostTextDismissNamed`). The field always
+    shows the stored text, so a press answers and a blur saves only what is shown, and a restore blocks nothing (only
+    the mounted failed-save flow reads "Not saved"). Only the newest text of one edit is offered (a save followed by a
+    later save of the same refusal generation offers nothing). The texts are kept per tab in sessionStorage
+    `LOST_DRAFT_KEY` (`scheduled-jobs/lost-draft.ts`: up to `MAX_LOST_DRAFTS` `{ text, reason }` per `jobSaveId`,
+    newest first, one box with the texts separated by a blank line; every access guarded, a storage that cannot be used
+    just loses the text; older single-entry shapes are ignored), so they are offered again when the row next mounts, with
+    `scheduledJobDraftDropped` or `scheduledJobLostNotSaved` by the newest one's reason. A text the job already holds
+    is not offered (at mount it is also forgotten). The offer stays across answers and edits and goes with Dismiss,
+    with any successful save of this row (the closing one included), or when the job is deleted (`deleteJob`, or a
+    re-read of the same backend no longer listing it). Nothing is kept for a job without a key (ids collide across
+    portfolios) or for a job turned foreign. ★ A user's edit (`updateJob` / `assignProject`) that reaches no job never resolves as written:
     a job deleted on another device rejects with `JobGoneError`, one that is no longer editable here (it turned
     foreign) with `JobNotEditableError`, and `writeJob` reads the list again on either (and on a `JobChangedError`)
     whichever path the edit came from. `onWritten` runs only when a job was written; the runner's own writes to a
     gone job stay quiet. The section does not count `JobGoneError` as a failed write and shows
     `scheduledJobDeletedElsewhere` in its always-mounted status region — as does an Accept whose re-read finds the
-    job gone — because the row disappears with the refresh; `JobNotEditableError` shows the failed-write alert.
+    job gone — because the row disappears with the refresh. `JobNotEditableError` is not a connection failure either:
+    the section shows `scheduledJobEditedByNewerVersion` in the same status region, and the typed text is offered in
+    the (now read-only) row's `LostTextBox` while it is shown — never kept for later.
   - ★★★ **A press answers the version shown when it was pressed.** Pressing Accept / Stop or "Not on this device"
     does not take focus from the instruction field (`onMouseDown` prevents the default), so the press does not end
     the edit: the button answers the saved instruction, even while the field shows text not yet saved, and the edit

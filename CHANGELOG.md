@@ -31,12 +31,12 @@ longer carries its own changelog comment.
   create is accepted on the device where you create it. Accept and Stop answer the job's saved instruction: a change
   you are still typing does not count, and once it is saved the job asks for your OK again. While a change is being
   saved, or after it could not be saved, Accept and Stop cannot be used until it is saved. If another device changes
-  the job while you are typing, your unsaved text is not written over that change, and the job says so — if you have
-  already closed the settings, the next time you open them in the same browser tab your text is shown next to that
-  message for you to copy, and the job keeps the other device's change; only a change made at almost exactly the
-  moment your change is being saved can still be overwritten. A change that could not be saved before you closed the
-  settings is put back in the field the next time you open them in the same browser tab. If another device deletes
-  the job while you edit it, Settings says so. Jobs that existed before this update wait for your OK, and a job waiting
+  the job while you are typing, your unsaved text is not written over that change: the job keeps the other device's
+  change, says so, and shows your text below the instruction for you to copy (with a Dismiss button). Text that could
+  not be saved before you closed the settings is shown the same way the next time you open them in the same browser
+  tab; it is never put back into the job by itself. Only a change made at almost exactly the moment your change is
+  being saved can still be overwritten. If another device deletes the job while you edit it, Settings says so; if a
+  newer version of the app changed the job, Settings says your change was not saved. Jobs that existed before this update wait for your OK, and a job waiting
   can be declined with "Not on this device" without ever running. Devices that have not updated yet still run shared
   jobs without asking, so update every device that uses the portfolio.
 - **The forecast import sends Claude only the top of the sheet, without e-mail addresses.** Claude only names which
