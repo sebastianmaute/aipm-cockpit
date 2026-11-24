@@ -9,7 +9,7 @@ import type { ScheduledJob } from "../scheduled-jobs/types";
 import type { UpdateJobOptions, UseScheduledJobsResult } from "../use-scheduled-jobs";
 import { JobChangedError, JobGoneError, JobNotEditableError, jobSaveId } from "../scheduled-jobs/schedule";
 import {
-  addLostText, forgetLostDraft, peekLostDrafts, removeLostTexts, subscribeLostTexts, withLostDraft, type LostText,
+  addLostText, peekLostDrafts, removeLostTexts, subscribeLostTexts, withLostDraft, type LostText,
 } from "../scheduled-jobs/lost-draft";
 
 /** The fields `updateJob` accepts — exactly its patch type, so a row can never write a project or key. */
@@ -163,16 +163,44 @@ function flushDraft(r: DraftRefs): void {
 const restoreStatus = (lost: readonly LostText[]): DraftStatus =>
   lost.length === 0 ? "ok" : lost[0].reason === "dropped" ? "dropped" : "lostNotSaved";
 
-/** The two lost-text writes a save makes, through `lost-draft.ts` (one text at a time; every open row is told). */
-function lostActions(latest: DraftRefs["latest"]): Pick<DraftRefs, "offerLost" | "savedLost"> {
+type SetLost = (update: (prev: readonly LostText[]) => readonly LostText[]) => void;
+
+/** The two lost-text writes a save makes. A keyed job's go through `lost-draft.ts` (one text at a time; every open row
+ *  of that job is told). A keyless job's stay in this row's memory: its `id:N` save id is not unique across
+ *  portfolios, so it is neither kept nor reported to other rows. */
+function lostActions(latest: DraftRefs["latest"], mounted: DraftRefs["mounted"], setLost: SetLost): Pick<DraftRefs, "offerLost" | "savedLost"> {
   return {
     offerLost: (text) => {
       const now = latest.current;
-      // Kept for later only for a keyed job this version can edit (ids of keyless jobs collide across portfolios).
-      addLostText(now.saveId, text, { keep: !now.keyless && !now.foreign });
+      if (!now.keyless) {
+        // Kept for later only for a job this version can edit.
+        addLostText(now.saveId, text, { keep: !now.foreign });
+        return;
+      }
+      if (mounted.current) setLost((prev) => withLostDraft(prev, text));
     },
-    savedLost: (text) => removeLostTexts(latest.current.saveId, [text]),
+    savedLost: (text) => {
+      const now = latest.current;
+      if (!now.keyless) {
+        removeLostTexts(now.saveId, [text]);
+        return;
+      }
+      if (mounted.current) setLost((prev) => withoutTexts(prev, [text]));
+    },
   };
+}
+
+/** `list` without the texts equal (trimmed) to any of `texts` — the same array when none is there (no render). */
+function withoutTexts(list: readonly LostText[], texts: readonly string[]): readonly LostText[] {
+  const gone = new Set(texts.map((x) => x.trim()));
+  const left = list.filter((d) => !gone.has(d.text.trim()));
+  return left.length === list.length ? list : left;
+}
+
+/** `list` with the `more` texts it does not hold yet appended — the same array when there are none. */
+function withMissing(list: readonly LostText[], more: readonly LostText[]): readonly LostText[] {
+  const missing = more.filter((d) => !list.some((p) => p.text === d.text));
+  return missing.length === 0 ? list : [...list, ...missing];
 }
 
 /** The standing instruction as a draft against the stored job. It saves on blur and on unmount (closing the dialog
@@ -183,8 +211,9 @@ function lostActions(latest: DraftRefs["latest"]): Pick<DraftRefs, "offerLost" |
  *  stored text, and the lost texts are offered read-only for copying, newest first. They are added and removed one at
  *  a time through `lost-draft.ts` (kept per tab, so they are offered again after the editor closes), and the row
  *  follows every change it is told of — including a text a closed editor lost after this row mounted. A text the job
- *  holds is removed; a successful save removes only the texts equal to what it saved; Dismiss removes all. A job
- *  without a key, or turned foreign, keeps none for later. */
+ *  holds is removed; a successful save removes only the texts equal to what it saved; Dismiss removes the texts shown.
+ *  A job without a key keeps its texts in this row's memory only (until it is given a key); a job turned foreign keeps
+ *  none for later. */
 export function useInstructionDraft(job: ScheduledJob, onUpdate: JobUpdate) {
   const stored = job.instruction ?? "";
   const saveId = jobSaveId(job);
@@ -222,32 +251,50 @@ export function useInstructionDraft(job: ScheduledJob, onUpdate: JobUpdate) {
   useEffect(() => {
     latest.current = { jobId: job.id, saveId, keyless, foreign, draft, base, onUpdate };
   });
-  // Follow every change to this job's lost texts, one text at a time (never a whole list written over another).
-  useEffect(() => subscribeLostTexts((id, change) => {
-    if (id !== saveId) return;
-    if ("added" in change) {
-      setLost((prev) => withLostDraft(prev, change.added));
-      return;
-    }
-    const removed = change.removed;
-    if (removed === "all") {
-      setLost([]);
-      return;
-    }
-    const gone = new Set(removed);
-    setLost((prev) => prev.filter((d) => !gone.has(d.text.trim())));
-  }), [saveId]);
+  const lostRef = useRef(lost);
+  useEffect(() => { lostRef.current = lost; }, [lost]);
+  // Follow every change to a keyed job's lost texts, one text at a time (never a whole list written over another).
+  // Subscribing also reads what is kept now, so a text kept between the first render's read and this effect is shown.
+  useEffect(() => {
+    if (keyless) return undefined;
+    const stop = subscribeLostTexts((id, change) => {
+      if (id !== saveId) return;
+      if ("added" in change) {
+        const { added } = change;
+        setLost((prev) => (prev[0]?.text === added.text && prev[0]?.reason === added.reason ? prev : withLostDraft(prev, added)));
+        return;
+      }
+      if ("kept" in change) {
+        const { kept } = change;
+        setLost((prev) => withMissing(prev, kept));
+        return;
+      }
+      const removed = change.removed;
+      setLost((prev) => (removed === "all" ? (prev.length === 0 ? prev : []) : withoutTexts(prev, removed)));
+    }, saveId);
+    return stop;
+  }, [saveId, keyless]);
   // A text the job holds is not lost (at mount too): remove it from what is kept.
   useEffect(() => {
     if (!keyless) removeLostTexts(saveId, [stored]);
   }, [saveId, stored, keyless]);
+  // A keyless job given its key (assigning a project mints one): the texts this row shows are kept under it from now on.
+  const wasKeyless = useRef(keyless);
+  useEffect(() => {
+    const was = wasKeyless.current;
+    wasKeyless.current = keyless;
+    if (!was || keyless) return;
+    for (const text of [...lostRef.current].reverse()) addLostText(saveId, text, { keep: !foreign });
+  }, [saveId, keyless, foreign]);
   const refs = (): DraftRefs => ({
-    latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending, ...lostActions(latest),
+    latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending,
+    ...lostActions(latest, mounted, setLost),
   });
   useEffect(() => {
     mounted.current = true;
     const unmountRefs: DraftRefs = {
-      latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending, ...lostActions(latest),
+      latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending,
+      ...lostActions(latest, mounted, setLost),
     };
     return () => {
       mounted.current = false;
@@ -269,10 +316,11 @@ export function useInstructionDraft(job: ScheduledJob, onUpdate: JobUpdate) {
     onBlur: () => flushDraft(refs()),
     /** An answer ends the dropped or restore notice; the offered text stays until dismissed. */
     clearDropped: endNotice,
-    /** The only thing that removes every offered text. */
+    /** Removes the texts shown (a text kept since, and not shown yet, stays). */
     dismissLost: () => {
-      forgetLostDraft(saveId);
-      setLost([]);
+      const shown = lost.map((d) => d.text);
+      if (!keyless) removeLostTexts(saveId, shown);
+      setLost((prev) => withoutTexts(prev, shown));
       endNotice();
     },
   };

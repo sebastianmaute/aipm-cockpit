@@ -74,6 +74,19 @@ function holdSaves(): () => void {
   return heldRelease;
 }
 
+/** A job a newer version rewrote, exactly as the real decoder reads it (the store module is mocked here). */
+async function decodedForeign(over: Record<string, unknown> = {}): Promise<ScheduledJob> {
+  const actual = await vi.importActual<typeof import("../scheduled-jobs-store")>("../scheduled-jobs-store");
+  const raw = { ...actual.serializeJob(job()), type: "somethingNew", ...over };
+  localStorage.setItem(actual.LOCAL_KEY, JSON.stringify([raw]));
+  try {
+    const [decoded] = await actual.loadScheduledJobs(null);
+    return decoded;
+  } finally {
+    localStorage.removeItem(actual.LOCAL_KEY);
+  }
+}
+
 const field = () => screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
 const saving = t("en-US", "scheduledJobSaving");
 const storedEntry = () => storedAcceptanceEntry(KEY);
@@ -952,7 +965,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     show();
     await screen.findAllByText(t("en-US", "scheduledJobNeedsOk"));
     await typeInstruction(user, "c");
-    store.list = [job({ foreign: { raw: { id: 1, type: "somethingNew" } } }), job({ id: 2, key: "second-key", name: "Weekly" })];
+    store.list = [await decodedForeign(), job({ id: 2, key: "second-key", name: "Weekly" })];
     await user.click(document.body);
     await screen.findByText(t("en-US", "scheduledJobEditedByNewerVersion"));
     await user.click(screen.getByRole("button", { name: "Accept: Weekly" }));
@@ -1040,7 +1053,8 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     show();
     await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
     await typeInstruction(user, "c");
-    const turned = job({ foreign: { raw: { id: 1, type: "somethingNew" } } });
+    const turned = await decodedForeign();
+    expect(turned.foreign).toBeDefined();
     store.list = [turned];
     await user.click(document.body);
     await screen.findByText(t("en-US", "scheduledJobEditedByNewerVersion"));
@@ -1055,10 +1069,105 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     const first = show();
     await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
     await typeInstruction(user, "c");
-    store.list = [job({ foreign: { raw: { id: 1, type: "somethingNew" } } })];
+    store.list = [await decodedForeign()];
     first.unmount(); // the closing save finds the job no longer editable here
     await sleep(100);
     expect(sessionStorage.getItem(LOST)).toBeNull();
+  });
+
+  it("a keyed job a newer version rewrote while typing: not editable (not deleted), the text offered, kept texts survive", async () => {
+    const user = userEvent.setup();
+    store.list = [job({ instruction: "x" })];
+    seedLost({ text: "cd", reason: "dropped" });
+    show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    await typeInstruction(user, "c");
+    store.list = [await decodedForeign({ instruction: "x" })];
+    fireEvent.focusOut(field());
+    await screen.findByText(t("en-US", "scheduledJobEditedByNewerVersion"));
+    await sleep(100);
+    expect(screen.queryByText(t("en-US", "scheduledJobDeletedElsewhere"))).toBeNull();
+    expect(screen.getByText(t("en-US", "scheduledJobForeign"))).toBeInTheDocument();
+    expect(lostText()).toHaveValue("c\n\ncd");
+    expect(lostEntries()).toEqual([{ text: "cd", reason: "dropped" }]);
+  });
+
+  it("an Accept whose re-read finds the job rewritten by a newer version answers nothing and says so", async () => {
+    const user = userEvent.setup();
+    show();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    store.list = [await decodedForeign()];
+    await user.click(screen.getByRole("button", { name: "Accept: Daily risks" }));
+    await screen.findByText(t("en-US", "scheduledJobEditedByNewerVersion"));
+    expect(storedEntry()).toBeNull();
+    expect(screen.queryByText(t("en-US", "scheduledJobDeletedElsewhere"))).toBeNull();
+  });
+
+  it("a keyless row keeps its offered text when assigning a project gives the job its key, and keeps it under that key", async () => {
+    const user = userEvent.setup();
+    store.list = [job({ key: null, projectId: null, timeZone: null })];
+    show();
+    await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
+    await typeInstruction(user, "c");
+    store.list = [job({ key: null, projectId: null, timeZone: null, instruction: "y" })];
+    fireEvent.focusOut(field());
+    await sleep(200);
+    expect(lostText()).toHaveValue("c");
+    await user.selectOptions(screen.getByRole("combobox", { name: `${t("en-US", "scheduledJobProject")} – Daily risks` }), "p1");
+    await sleep(250);
+    const minted = (store.list[0] as ScheduledJob).key;
+    expect(minted).not.toBeNull();
+    expect(lostText()).toHaveValue("c");
+    const raw = JSON.parse(sessionStorage.getItem(LOST) ?? "{}") as Record<string, unknown>;
+    expect(raw[minted as string]).toEqual([{ text: "c", reason: "dropped" }]);
+  });
+
+  it("a keyless job's late loss is not shown in another portfolio's keyless job with the same id", async () => {
+    const user = userEvent.setup();
+    store.list = [job({ key: null, projectId: null, timeZone: null })];
+    const first = show();
+    await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
+    await typeInstruction(user, "secretA");
+    const release = holdSaves();
+    first.unmount();
+    await sleep(50);
+    store.list = [job({ key: null, projectId: null, timeZone: null, name: "Other job", instruction: "o" })];
+    show();
+    await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Other job` });
+    store.fail = true;
+    release();
+    await sleep(200);
+    expect(screen.queryByRole("textbox", { name: `${t("en-US", "scheduledJobLostText")} – Other job` })).toBeNull();
+  });
+
+  it("a text kept between the row's first read and its subscription is shown; Dismiss leaves a text it never showed", async () => {
+    const user = userEvent.setup();
+    store.list = [job({ instruction: "x" })];
+    seedLost({ text: "cd", reason: "dropped" });
+    const realGet = Storage.prototype.getItem;
+    let injected = false;
+    const spy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, k: string) {
+      const value = realGet.call(this, k);
+      if (k === LOST && !injected) {
+        // Another write lands right after the row's first read (no listener is told: it is not subscribed yet).
+        injected = true;
+        Storage.prototype.setItem.call(this, LOST, JSON.stringify({ [KEY]: [{ text: "gap", reason: "notSaved" }, { text: "cd", reason: "dropped" }] }));
+      }
+      return value;
+    });
+    try {
+      show();
+      await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+      await sleep(50);
+    } finally {
+      spy.mockRestore();
+    }
+    expect((lostText() as HTMLTextAreaElement).value.split("\n\n").sort()).toEqual(["cd", "gap"]);
+    // A text written without telling anyone is not shown; Dismiss leaves it.
+    sessionStorage.setItem(LOST, JSON.stringify({ [KEY]: [{ text: "unseen", reason: "dropped" }, { text: "gap", reason: "notSaved" }, { text: "cd", reason: "dropped" }] }));
+    await user.click(dismiss());
+    expect(lostText()).toBeNull();
+    expect(lostEntries()).toEqual([{ text: "unseen", reason: "dropped" }]);
   });
 
   it("a job without a key keeps no lost text (ids collide across portfolios)", async () => {

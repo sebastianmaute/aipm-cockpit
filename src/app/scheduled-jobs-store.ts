@@ -130,11 +130,15 @@ const KNOWN_JOB_KEYS: ReadonlySet<string> = new Set([
   "id", "name", "type", "cadence", "enabled", "projectId", "instruction", "timeZone", "key", "createdBy", "lastRunAt", "history",
 ]);
 
-/** A job this version cannot read (an unknown type or cadence): a placeholder that carries the stored JSON verbatim. */
+/** A job this version cannot read (an unknown type or cadence): a placeholder that carries the stored JSON verbatim.
+ *  It keeps its permanent key in memory (an edit made here before it turned foreign is then told "not editable", not
+ *  "deleted"), yet still never runs or takes an answer: `isRunnable` and the acceptance store exclude every foreign job,
+ *  and no write of this version reaches it. */
 function foreignJob(id: number, raw: Record<string, unknown>, rowId?: string): ScheduledJob {
   return {
     id, name: typeof raw.name === "string" ? raw.name : "", type: "portfolioAnalysis",
-    cadence: { kind: "daily", timeOfDay: "00:00" }, enabled: false, projectId: null, timeZone: null, key: null,
+    cadence: { kind: "daily", timeOfDay: "00:00" }, enabled: false, projectId: null, timeZone: null,
+    key: typeof raw.key === "string" && raw.key !== "" ? raw.key : null,
     lastRunAt: null, history: [], foreign: rowId !== undefined ? { raw, rowId } : { raw },
   };
 }

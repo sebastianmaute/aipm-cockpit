@@ -162,6 +162,12 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
         if (fresh && jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();
         return;
       }
+      if (fresh?.foreign !== undefined) {
+        // A newer version rewrote the job: this version can neither run nor answer it. Nothing is answered.
+        setEditedByNewer(true);
+        await refresh();
+        return;
+      }
       if (fresh && acceptanceState(fresh) === "accepted") {
         // This device already accepted the current version; a row still showing an older one is brought up to date.
         if (jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();
@@ -259,8 +265,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
               <ul className="flex flex-col gap-2">
                 {jobs.map((job) => (
                   <JobRow
-                    // The job's save identity, not its id: an id reused for another job never keeps the old row's state.
-                    key={jobSaveId(job)}
+                    key={job.id}
                     lang={lang}
                     job={job}
                     token={jobTokens.get(job.id) ?? job.name}

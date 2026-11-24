@@ -271,6 +271,16 @@ describe("useScheduledJobRunner: jobs are judged on a fresh read of the store (Â
     expect(mClaim.mock.calls[0][1].jobKey).toBe("k5");
   });
 
+  it("never runs a foreign job that keeps its key, even one this device counts as accepted", async () => {
+    const keyed = dailyJob({ foreign: { raw: { id: 1, type: "future", key: dailyJob().key } } });
+    expect(keyed.key).not.toBeNull();
+    const args = baseArgs({ jobs: [keyed], isAcceptedHere: () => true });
+    renderHook(() => useScheduledJobRunner(args));
+    await settle();
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(mClaim).not.toHaveBeenCalled();
+  });
+
   it("never runs a foreign job (a type or cadence this version does not know)", async () => {
     const args = baseArgs({ jobs: [dailyJob({ foreign: { raw: { id: 1, type: "future" } } })] });
     renderHook(() => useScheduledJobRunner(args));

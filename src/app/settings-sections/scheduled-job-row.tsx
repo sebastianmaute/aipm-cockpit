@@ -91,26 +91,7 @@ function InstructionField({
 
 function noop(): void {}
 
-export function JobRow({
-  lang,
-  job,
-  token,
-  busy,
-  tz,
-  projects,
-  archivedProjects,
-  projectsLoaded,
-  zones,
-  defaultZone,
-  onUpdate,
-  onAssign,
-  onDelete,
-  onAccept,
-  acceptNotice,
-  acceptPending,
-  saving,
-  onNoticeClear,
-}: {
+type JobRowProps = {
   lang: Lang;
   job: ScheduledJob;
   /** §715 — the zone a run's time is shown in (the stored `ranAt` is UTC). */
@@ -139,7 +120,47 @@ export function JobRow({
   saving?: boolean;
   /** Called when Accept or Stop is pressed, so the owner can clear the notice. */
   onNoticeClear?: () => void;
-}) {
+};
+
+/** The row's remount key: it changes only when the job's permanent key changes to a DIFFERENT key (the id now names
+ *  another job), so no state of the old job is shown for the new one. A keyless job given its key (assigning a project
+ *  mints one) keeps its row, and with it the text the row shows. Render-phase reconcile, not an effect. */
+function useRowIdentity(job: ScheduledJob): number {
+  const [identity, setIdentity] = useState({ key: job.key, n: 0 });
+  if (job.key !== null && job.key !== identity.key) {
+    const n = identity.key === null ? identity.n : identity.n + 1;
+    setIdentity({ key: job.key, n });
+    return n;
+  }
+  return identity.n;
+}
+
+/** One scheduled job: keyed by the section on its id, and remounted when that id comes to name another job. */
+export function JobRow(props: JobRowProps) {
+  const identity = useRowIdentity(props.job);
+  return <JobRowBody key={identity} {...props} />;
+}
+
+function JobRowBody({
+  lang,
+  job,
+  token,
+  busy,
+  tz,
+  projects,
+  archivedProjects,
+  projectsLoaded,
+  zones,
+  defaultZone,
+  onUpdate,
+  onAssign,
+  onDelete,
+  onAccept,
+  acceptNotice,
+  acceptPending,
+  saving,
+  onNoticeClear,
+}: JobRowProps) {
   const [expanded, setExpanded] = useState(false);
   const instruction = useInstructionDraft(job, onUpdate);
   const fieldId = useId();

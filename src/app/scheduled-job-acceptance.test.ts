@@ -74,6 +74,20 @@ describe("scheduled job acceptance", () => {
     expect(localStorage.getItem(ACCEPTANCE_KEY)).toBeNull();
   });
 
+  it("a foreign job that keeps its key cannot be answered, even when its earlier version was accepted and edited here", () => {
+    acceptJob(job());
+    const before = localStorage.getItem(ACCEPTANCE_KEY);
+    const foreign = job({ foreign: { raw: { id: 1, type: "future", key: job().key } } });
+    expect(foreign.key).not.toBeNull();
+    expect(acceptanceState(foreign)).toBe("cannot-run");
+    expect(isAcceptedHere(foreign)).toBe(false);
+    expect(acceptJob(foreign)).toBe(false);
+    expect(declineJob(foreign)).toBe(false);
+    expect(localStorage.getItem(ACCEPTANCE_KEY)).toBe(before);
+    markEditedHere(job().key as string, jobFingerprint(foreign));
+    expect(isEditedHere(foreign)).toBe(false); // display only, but never about a job this version cannot edit
+  });
+
   it("declining records it: the same job reads declined, never accepted", () => {
     expect(declineJob(job({ instruction: "a" }))).toBe(true);
     expect(acceptanceState(job({ instruction: "a" }))).toBe("declined");

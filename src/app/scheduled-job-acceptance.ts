@@ -110,7 +110,8 @@ export function markEditedHere(key: string, fingerprint: string): void {
 
 /** Whether the job, as it stands, is the version this device saved: a later change from elsewhere is not. */
 export function isEditedHere(job: ScheduledJob): boolean {
-  return job.key !== null && parse(readEditedRaw())[job.key] === jobFingerprint(job);
+  const key = keyOf(job);
+  return key !== null && parse(readEditedRaw())[key] === jobFingerprint(job);
 }
 
 /** Test-only: forget every mark, so test order cannot matter. */

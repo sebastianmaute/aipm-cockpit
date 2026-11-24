@@ -31,6 +31,10 @@ describe("lost-draft store", () => {
     }
     stop();
     addLostText("k", { text: "c", reason: "dropped" });
+    // Subscribing with a replay id first tells what is kept for it now.
+    const replayed: unknown[] = [];
+    subscribeLostTexts((id, change) => replayed.push([id, change]), "k")();
+    expect(replayed).toEqual([["k", { kept: [{ text: "c", reason: "dropped" }] }]]);
     expect(seen).toEqual([
       ["k", { added: { text: "a", reason: "dropped" } }],
       ["k", { removed: ["a"] }],

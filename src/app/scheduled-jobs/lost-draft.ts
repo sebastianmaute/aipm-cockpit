@@ -28,15 +28,21 @@ export interface LostText {
   reason: LostDraftReason | "newerVersion";
 }
 
-/** One change to the texts kept for a job: a text added, texts removed (trimmed), or all of them forgotten. */
-export type LostTextChange = { added: LostText } | { removed: readonly string[] | "all" };
+/** One change to the texts kept for a job: a text added, texts removed (trimmed), or all of them forgotten; or, once
+ *  when subscribing with a replay id, everything kept for it now. */
+export type LostTextChange =
+  | { added: LostText }
+  | { removed: readonly string[] | "all" }
+  | { kept: readonly LostDraft[] };
 
 type Listener = (saveId: string, change: LostTextChange) => void;
 const listeners = new Set<Listener>();
 
-/** Calls `listener` with every change made through this module; returns the unsubscribe. */
-export function subscribeLostTexts(listener: Listener): () => void {
+/** Calls `listener` with every change made through this module; returns the unsubscribe. With `replay`, it is first
+ *  called once with everything kept for that id now, so a text kept before the subscription is not missed. */
+export function subscribeLostTexts(listener: Listener, replay?: string): () => void {
   listeners.add(listener);
+  if (replay !== undefined) listener(replay, { kept: peekLostDrafts(replay) });
   return () => { listeners.delete(listener); };
 }
 

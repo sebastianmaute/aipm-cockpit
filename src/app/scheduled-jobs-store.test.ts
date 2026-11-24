@@ -1,5 +1,6 @@
 // src/app/scheduled-jobs-store.test.ts
 import { describe, it, expect, beforeEach } from "vitest";
+import { isRunnable } from "./scheduled-jobs/schedule";
 import {
   loadScheduledJobs, saveScheduledJobs, LOCAL_KEY, SCHEDULED_JOBS_TABLE, SCHEDULED_JOBS_V2_TABLE,
 } from "./scheduled-jobs-store";
@@ -128,6 +129,20 @@ describe("scheduled-jobs-store (localStorage path, config=null)", () => {
     localStorage.setItem(LOCAL_KEY, JSON.stringify([{ ...job, history: runs }]));
     const out = await loadScheduledJobs(null);
     expect(out[0].history).toHaveLength(JOB_HISTORY_CAP);
+  });
+
+  it("a foreign job keeps a non-empty stored key in memory (and only that); it still never runs", async () => {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([
+      { ...job, id: 7, type: "future", key: "k-7" },
+      { ...job, id: 8, type: "future", key: "" },
+      { ...job, id: 9, type: "future", key: 42 },
+      { ...job, id: 10, type: "future" },
+    ]));
+    const out = await loadScheduledJobs(null);
+    expect(out.map((j) => [j.id, j.foreign !== undefined, j.key])).toEqual([
+      [7, true, "k-7"], [8, true, null], [9, true, null], [10, true, null],
+    ]);
+    expect(out.every((j) => !isRunnable(j))).toBe(true);
   });
 
   it("keeps a job with a cadence kind it does not know, as a foreign job carrying its stored JSON", async () => {
