@@ -12,7 +12,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { isBackgroundOffForced } from "../ai-project-switches";
-import { type Lang, t } from "../i18n";
+import { type Lang, t, tPlural } from "../i18n";
 import { FieldHint } from "../field-hint";
 import { isAiBackgroundEnabled, isAiEnabled, type Settings } from "../settings-types";
 import { aiDeploymentBlockedMessageKey } from "../ai-deployment";
@@ -27,6 +27,9 @@ import { loadCurrentTursoProjectId, loadPortfolioMode } from "../portfolio-mode"
 import { listProjectRefs } from "../turso-portfolio";
 import { resolveTimezone, tzZones } from "../timezone";
 import { DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
+import { Banner } from "../banner";
+import { isRunnable } from "../scheduled-jobs/schedule";
+import { acceptanceState, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
 
 export interface ScheduledJobsSectionProps {
   lang: Lang;
@@ -94,6 +97,12 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   const backgroundHintId = useId();
   // A LEGACY job predates §772: it carries no permanent key. A job added now has one (createJob mints it) and
   // only lacks a project, which its own row says.
+  useAcceptanceSnapshot(); // the notice follows Accept / Stop on this device
+  const awaitingOk = jobs.filter((j) => {
+    if (!isRunnable(j)) return false;
+    const state = acceptanceState(j);
+    return state === "none" || state === "changed";
+  }).length;
   const hasLegacyJob = jobs.some((j) => j.foreign === undefined && j.key === null);
   // A write that fails (the database unreachable) must not look as if it worked until the next reload.
   const [writeFailed, setWriteFailed] = useState(false);
@@ -159,6 +168,11 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
 
           {enabled && (
             <>
+              {awaitingOk > 0 && (
+                <Banner severity="info" role="status">
+                  {tPlural(lang, "scheduledJobsAwaitingOk", awaitingOk, String(awaitingOk))}
+                </Banner>
+              )}
               {projects.failed && <FieldHint>{t(lang, "tursoPickerError")}</FieldHint>}
               {writeFailed && <p role="alert" className="text-xs text-foreground">{t(lang, "scheduledJobsWriteFailed")}</p>}
 

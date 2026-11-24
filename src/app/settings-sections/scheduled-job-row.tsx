@@ -14,6 +14,8 @@ import { formatDisplayTimestamp } from "../tz-display";
 import { TEXTAREA_MAX } from "../sanitize-core";
 import type { UseScheduledJobsResult } from "../use-scheduled-jobs";
 import { REPORT_ERROR_KEY, type ReportErrorToken } from "../scheduled-reports-store";
+import { acceptanceState, acceptJob, forgetJob, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
+import { getDeviceLabel } from "../device-label";
 
 /** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
  *  token is the digit string the runner stores, so history recorded before this change reads the
@@ -111,6 +113,37 @@ function InstructionField({
         onBlur={() => flushInstruction(latest.current)}
       />
     </label>
+  );
+}
+
+/** Whether this device runs the job, with Accept / Stop and where the job was made. Local only: nothing is written to the store. */
+function AcceptanceLine({ lang, job, token }: { lang: Lang; job: ScheduledJob; token: string }) {
+  useAcceptanceSnapshot(); // re-render when this device's acceptances change
+  const state = acceptanceState(job);
+  const statusKey: TranslationKey | null =
+    state === "accepted" ? "scheduledJobRunsHere" : state === "changed" ? "scheduledJobChanged" : state === "none" ? "scheduledJobNeedsOk" : null;
+  const createdText =
+    job.createdBy === undefined
+      ? null
+      : job.createdBy === getDeviceLabel()
+        ? t(lang, "scheduledJobCreatedHere")
+        : t(lang, "scheduledJobCreatedOn", job.createdBy);
+  if (statusKey === null && createdText === null) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      {statusKey !== null && <span>{t(lang, statusKey)}</span>}
+      {state === "accepted" && job.key !== null && (
+        <Button variant="secondary" size="xs" onClick={() => forgetJob(job.key as string)} aria-label={t(lang, "scheduledJobStopNamed", token)}>
+          {t(lang, "scheduledJobStop")}
+        </Button>
+      )}
+      {(state === "none" || state === "changed") && (
+        <Button variant="primary" size="xs" onClick={() => acceptJob(job)} aria-label={t(lang, "scheduledJobAcceptNamed", token)}>
+          {t(lang, "scheduledJobAccept")}
+        </Button>
+      )}
+      {createdText !== null && <span>{createdText}</span>}
+    </div>
   );
 }
 
@@ -318,6 +351,8 @@ export function JobRow({
       </div>
 
       <InstructionField key={job.instruction ?? ""} lang={lang} job={job} token={token} onUpdate={onUpdate} />
+
+      <AcceptanceLine lang={lang} job={job} token={token} />
 
       {job.projectId === null && (
         <span className="text-xs text-muted-foreground">{t(lang, "scheduledJobChooseProject")}</span>

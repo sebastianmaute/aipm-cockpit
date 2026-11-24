@@ -759,3 +759,30 @@ describe("§772 cr3: foreign jobs and failed writes", () => {
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   });
 });
+
+describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () => {
+  const runnable = (id: number, over: Partial<ScheduledJob> = {}) =>
+    job({ id, name: `Job ${id}`, projectId: "p1", timeZone: "UTC", key: `k${id}`, ...over });
+
+  beforeEach(() => {
+    localStorage.removeItem("aipm-cockpit:scheduled-job-acceptance");
+  });
+
+  it("the notice counts runnable jobs waiting for an OK", () => {
+    mockJobs = [runnable(1), runnable(2), runnable(3, { enabled: false })];
+    setup(withKey({ scheduledJobs: true }));
+    const notice = screen.getByRole("status");
+    expect(notice).toHaveTextContent("2 shared jobs need your OK to run on this device.");
+  });
+
+  it("no notice when the switch is off or all are accepted", async () => {
+    mockJobs = [runnable(1)];
+    const { unmount } = render(<ScheduledJobsSection lang="en-US" settings={withKey({ scheduledJobs: false })} onChange={vi.fn()} config={TURSO} />);
+    expect(screen.queryByText(/need your OK|needs your OK to run/)).toBeNull();
+    unmount();
+    const { acceptJob } = await import("../scheduled-job-acceptance");
+    act(() => { acceptJob(mockJobs[0]); });
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.queryByText(/shared jobs? needs? your OK/)).toBeNull();
+  });
+});

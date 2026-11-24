@@ -1605,6 +1605,11 @@
   `RUNNING_STALE_MS` shows as failed and is never re-run. `scheduled_reports` is a side table registered in
   `PROJECT_SCOPED_SIDE_TABLES` (`project-side-tables.ts`), retained at `REPORT_RETENTION_PER_JOB` per job; the view is
   Turso-only. Its live probe, `e2e/scheduled-reports-claim-live.spec.ts`, has NOT yet been run against a real database.
+  ★★ **A shared job runs on a device only after that device accepted it.** Acceptance is per device, in localStorage
+  `aipm-cockpit:scheduled-job-acceptance` (`scheduled-job-acceptance.ts`), keyed by the job's permanent key, holding a
+  fingerprint of project + instruction (a time change keeps it). Creating, assigning or editing the instruction in
+  `use-scheduled-jobs.ts` accepts it on that device; elsewhere the Settings row offers Accept / Stop. The runner filters
+  before any claim and re-checks in `stillRunnable`. `ScheduledJob.createdBy` is display-only, never a permission.
 - **AI weight suggestions:** "Suggest with AI" in the next-actions settings → ONE forced-tool call
   (`suggest_weights`, forced, NO loop) in `weight-suggestion-call.ts` (the fetch now routes through the shared
   `runForcedToolCallWithRetry` (`ai-forced-call.ts`) — the single never-log envelope; a 4096-token reply cut at
