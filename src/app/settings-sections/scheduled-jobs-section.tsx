@@ -142,7 +142,10 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
       // After the saves in progress settle, so a just-typed instruction is what is compared.
       const fresh = (await readFresh()).find((j) => j.key !== null && j.key === job.key);
       // The user answered again while the read was in flight (a decline, in this or another tab): that answer wins.
-      if (storedAcceptanceEntry(job.key) !== entryAtClick) return;
+      if (storedAcceptanceEntry(job.key) !== entryAtClick) {
+        if (fresh && jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();
+        return;
+      }
       if (fresh && acceptanceState(fresh) === "accepted") {
         // This device already accepted the current version; a row still showing an older one is brought up to date.
         if (jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();

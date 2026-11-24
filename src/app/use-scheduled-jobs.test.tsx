@@ -3,7 +3,7 @@ import { StrictMode } from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useScheduledJobs } from "./use-scheduled-jobs";
-import { ACCEPTANCE_KEY, acceptanceState, isAcceptedHere, jobFingerprint } from "./scheduled-job-acceptance";
+import { ACCEPTANCE_KEY, acceptanceState, declineJob, isAcceptedHere, jobFingerprint } from "./scheduled-job-acceptance";
 import { getDeviceLabel } from "./device-label";
 import { JOB_HISTORY_CAP, type JobCadence, type ScheduledJobRun } from "./scheduled-jobs/types";
 
@@ -570,6 +570,36 @@ describe("useScheduledJobs acceptance on this device", () => {
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
     await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "key-1"); });
     expect(acceptanceState(result.current.jobs[0])).toBe("accepted");
+  });
+
+  it("a decline that lands while an edit's save is pending wins over the edit", async () => {
+    seed();
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ "key-1": jobFingerprint({ projectId: "p1", instruction: "b" }) }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    const old = result.current.jobs[0];
+    await act(async () => {
+      const saving = result.current.updateJob(1, { instruction: "c" }, "key-1");
+      declineJob(old); // the user stops the job while the save is in the write chain
+      await saving;
+    });
+    expect(result.current.jobs[0].instruction).toBe("c");
+    expect(isAcceptedHere(result.current.jobs[0])).toBe(false);
+    expect(acceptanceState(old)).toBe("declined");
+  });
+
+  it("an assignment while a decline lands is not accepted either", async () => {
+    seed();
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ "key-1": jobFingerprint({ projectId: "p1", instruction: "b" }) }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    const old = result.current.jobs[0];
+    await act(async () => {
+      const saving = result.current.assignProject(1, "p2", "UTC", "key-1");
+      declineJob(old);
+      await saving;
+    });
+    expect(isAcceptedHere(result.current.jobs[0])).toBe(false);
   });
 
   it("resetting the instruction to the default accepts the default fingerprint", async () => {

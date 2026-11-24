@@ -933,6 +933,20 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
   });
 
+  it("an answer given during the read, with a newer job found, refreshes and accepts nothing", async () => {
+    const { declineJob, acceptanceState } = await import("../scheduled-job-acceptance");
+    let release: (v: ScheduledJob[]) => void = () => {};
+    loadJobsMock.mockReturnValue(new Promise<ScheduledJob[]>((r) => { release = r; }));
+    mockJobs = [runnable(1, { instruction: "x" })];
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
+    act(() => { declineJob(runnable(1, { instruction: "x" })); });
+    release([runnable(1, { instruction: "newer" })]);
+    await waitFor(() => expect(refreshMock).toHaveBeenCalledTimes(1));
+    expect(acceptanceState(runnable(1, { instruction: "newer" }))).not.toBe("accepted");
+    expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
+  });
+
   it("a runnable job this device stopped is not counted in the notice", async () => {
     const { declineJob } = await import("../scheduled-job-acceptance");
     mockJobs = [runnable(1), runnable(2)];

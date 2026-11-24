@@ -12,7 +12,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceLabel } from "./device-label";
-import { acceptanceState, acceptJob, declineJob, forgetJob } from "./scheduled-job-acceptance";
+import { acceptanceState, acceptJob, declineJob, forgetJob, storedAcceptanceEntry } from "./scheduled-job-acceptance";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
 import { appendRun, normalizeJobFields } from "./scheduled-jobs/schedule";
 import type {
@@ -66,7 +66,9 @@ function wasStoppedHere(displayed: ScheduledJob | undefined): boolean {
 }
 
 /** An edit accepts the job it wrote on this device, unless this device had stopped it: then it stays stopped. */
-function recordEdit(written: ScheduledJob, stopped: boolean): void {
+function recordEdit(written: ScheduledJob, stopped: boolean, entryAtCall: string | null): void {
+  // An answer given while the save was in the write chain is newer than this edit: it wins.
+  if (written.key === null || storedAcceptanceEntry(written.key) !== entryAtCall) return;
   if (stopped) declineJob(written);
   else acceptJob(written);
 }
@@ -271,6 +273,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
       let written: ScheduledJob | undefined;
       const displayed = jobsRef.current.find((j) => matches(j, id, key));
       const stopped = wasStoppedHere(displayed);
+      const entryAtCall = displayed?.key != null ? storedAcceptanceEntry(displayed.key) : null;
       return mutate((list) =>
         list.map((j) => {
           if (!(editable(j) && matches(j, id, key))) return j;
@@ -279,7 +282,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
         }),
       ).then(() => {
         // Accept only when the half this edit did not touch (the project) is what this tab displayed.
-        if (written && displayed && "instruction" in patch && written.projectId === displayed.projectId) recordEdit(written, stopped);
+        if (written && displayed && "instruction" in patch && written.projectId === displayed.projectId) recordEdit(written, stopped, entryAtCall);
       });
     },
     [mutate],
@@ -298,6 +301,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
       let written: ScheduledJob | undefined;
       const displayed = jobsRef.current.find((j) => matches(j, id, key));
       const stopped = wasStoppedHere(displayed);
+      const entryAtCall = displayed?.key != null ? storedAcceptanceEntry(displayed.key) : null;
       return mutate((list) =>
         list.map((j) => {
           if (!(editable(j) && matches(j, id, key))) return j;
@@ -306,7 +310,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
         }),
       ).then(() => {
         // Accept only when the half this assignment did not touch (the instruction) is what this tab displayed.
-        if (written && displayed && (written.instruction ?? null) === (displayed.instruction ?? null)) recordEdit(written, stopped);
+        if (written && displayed && (written.instruction ?? null) === (displayed.instruction ?? null)) recordEdit(written, stopped, entryAtCall);
       });
     },
     [mutate],

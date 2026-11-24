@@ -254,6 +254,36 @@ describe("JobRow acceptance", () => {
     expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobAcceptChanged"));
   });
 
+  it("the status element keeps its identity when the project is assigned", () => {
+    const el = (j: ScheduledJob) => (
+      <ul>
+        <JobRow
+          lang="en-US"
+          job={j}
+          token="Weekly review"
+          busy={false}
+          tz="UTC"
+          projects={[{ id: "p1", name: "Alpha" }]}
+          archivedProjects={[]}
+          projectsLoaded
+          zones={["UTC"]}
+          defaultZone="UTC"
+          onUpdate={vi.fn()}
+          onAssign={vi.fn()}
+          onDelete={vi.fn()}
+          onAccept={acceptJob}
+          acceptNotice="changed"
+        />
+      </ul>
+    );
+    const view = render(el(job({ projectId: null })));
+    const region = screen.getByRole("status");
+    expect(region).toHaveTextContent(t("en-US", "scheduledJobAcceptChanged"));
+    view.rerender(el(job({ projectId: "p1" })));
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region).toHaveTextContent(t("en-US", "scheduledJobAcceptChanged"));
+  });
+
   it("without a pending Accept there is no aria-disabled", () => {
     renderRow(job());
     expect(screen.getByRole("button", { name: "Accept: Weekly review" })).not.toHaveAttribute("aria-disabled");
