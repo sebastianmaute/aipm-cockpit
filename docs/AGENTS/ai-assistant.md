@@ -1647,18 +1647,27 @@
     clicks, with `scheduledJobChangeNotSaved` in the row's status. Draft notices outrank an ignored press; the
     ignored-press notice clears when the job's version or the draft's status changes (not on typing). ★ Closing the
     editor runs one last save on unmount; if that save fails or is refused after the row is gone, the text is kept in
-    sessionStorage `LOST_DRAFT_KEY` (`scheduled-jobs/lost-draft.ts`, keyed by `jobSaveId`, every access guarded: a
-    storage that cannot be used just loses the text) and restored the next time the row mounts as an unsaved draft
-    with its notice (`scheduledJobDraftDropped` / `scheduledJobChangeNotSaved`). Restoring never saves or answers;
-    closing again without touching it keeps it for next time; deleting the job forgets it. ★ An edit of a job deleted
-    on another device (`updateJob` / `assignProject`) writes nothing and rejects with `JobGoneError` (`onWritten` runs
-    only when a job was written; the runner's own writes to a gone job stay quiet); the section, not counting it as a
-    failed write, shows `scheduledJobDeletedElsewhere` in its always-mounted status region — as does an Accept whose
-    re-read finds the job gone — because the row disappears with the refresh.
+    sessionStorage `LOST_DRAFT_KEY` (`scheduled-jobs/lost-draft.ts`: `{ text, reason, base }` keyed by `jobSaveId`,
+    `base` = the stored text the lost save was judged against; every access guarded, a storage that cannot be used just
+    loses the text; a job without a key keeps none, since ids collide across portfolios). The next time the row
+    mounts it is restored, ★★ never so that a press or a save acts on text the user cannot see: a "notSaved" text
+    goes back into the field as an unsaved draft with `scheduledJobChangeNotSaved`, and its first save is judged
+    against the lost entry's `base` (one-shot), so a change made elsewhere meanwhile is refused (the dropped flow); a
+    "dropped" text does NOT go back into the field — the field shows the stored text, and the lost text is offered
+    read-only beside `scheduledJobDraftDropped` (`scheduledJobLostText`, named "<label> – <job>") to copy from, until
+    the next answer or saved edit, or until the job holds that text (then nothing is shown). Restoring never saves or
+    answers; closing again without touching it keeps it for next time; the entry is forgotten once shown, and when the
+    job is deleted. ★ A user's edit (`updateJob` / `assignProject`) that reaches no job never resolves as written:
+    a job deleted on another device rejects with `JobGoneError`, one that is no longer editable here (it turned
+    foreign) with `JobNotEditableError`, and `writeJob` reads the list again on either (and on a `JobChangedError`)
+    whichever path the edit came from. `onWritten` runs only when a job was written; the runner's own writes to a
+    gone job stay quiet. The section does not count `JobGoneError` as a failed write and shows
+    `scheduledJobDeletedElsewhere` in its always-mounted status region — as does an Accept whose re-read finds the
+    job gone — because the row disappears with the refresh; `JobNotEditableError` shows the failed-write alert.
   - ★★★ **A press answers the version shown when it was pressed.** Pressing Accept / Stop or "Not on this device"
     does not take focus from the instruction field (`onMouseDown` prevents the default), so the press does not end
-    the edit: the button answers the version the row shows (the saved instruction, not text still being typed), and
-    the edit saves on the next blur and then asks again.
+    the edit: the button answers the saved instruction, even while the field shows text not yet saved, and the edit
+    saves on the next blur and then asks again.
     Backstop (`usePressGuard`): a press records the button's action, the job's fingerprint and whether it was saving —
     a pointer press on pointerdown, a key press on the first keydown of Space or Enter (Space clicks on keyup, so a
     held Space spans renders like a held pointer); the click is ignored when the job was saving at the press or is
@@ -1671,7 +1680,7 @@
     used for the whole press ("Saving…" or "Not saved" at both press and click), where silence is correct.
   - ★★★ **Answer buttons wait for this device's saves.** `useScheduledJobs({ trackSaving: true })` (the Settings list
     only) exposes `savingJobs` (`jobSaveId`: the key, or the id of a keyless job), counted per job from the call until
-    every save of it settled, success or failure; without the option the set stays empty and a save adds no re-render.
+    every save of it settled, success or failure; without the option the set stays empty and a save adds no `savingJobs` re-render.
     Meanwhile the row's Accept / Stop and "Not on this device" read "Saving…" (their names start with it, then the
     answer they will give), are `aria-disabled` and ignore clicks; a press that starts or ends while the job is saving
     is ignored, even if the save is over by the time of the click. When the save ends, a focused button keeps focus and
