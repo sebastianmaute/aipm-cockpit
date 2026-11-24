@@ -1616,14 +1616,22 @@
   - ★★★ **An edit never answers.** `updateJob` and `assignProject` write no entry, ever: editing the project or
     instruction of a job this device accepted makes it read `changed` once the save lands, and the user accepts again; an
     edited stopped job stays stopped until answered. Editing it back to the version this device accepted makes it
-    runnable again, because the old entry matches again. A row this tab changed reads `scheduledJobChangedHere`
-    instead of "changed" wording (`markEditedHere`, set when such a save lands, cleared by any answer or a delete) —
-    display only, it never decides a run.
+    runnable again, because the old entry matches again. While the job is still the version this tab saved, its row
+    reads `scheduledJobChangedHere` (was accepted) or `scheduledJobChangedHereStopped` (was stopped) instead of the
+    "changed" wording: `markEditedHere` records the saved version's fingerprint when such a save lands, `isEditedHere`
+    compares it to the job as it stands (so a later change from another device reads as such again), and any answer
+    or a delete clears it — display only, it never decides a run.
+  - ★★★ **A press answers the version shown when it was pressed.** Pressing Accept / Stop or "Not on this device"
+    does not take focus from the instruction field (`onMouseDown` prevents the default), so the press does not end
+    the edit: the button answers the version the row shows, and the edit saves on the next blur and then asks again.
+    Backstop: a pointer press records the button's action, the job's fingerprint and whether it was saving; the click
+    is ignored when the job was saving at the press or is saving now, or when the action or fingerprint changed
+    between press and release (`pressStillValid`). A keyboard activation (no pointerdown) acts on the current render.
   - ★★★ **Answer buttons wait for this device's saves.** `useScheduledJobs` exposes `savingJobs` (`jobSaveId`: the key,
     or the id of a keyless job), counted per job from the call until every save of it settled, success or failure.
-    Meanwhile the row's Accept / Stop and "Not on this device" read "Saving…", are `aria-disabled` and ignore clicks,
-    and a press that began while saving stays ignored even if the save ends before the click. The instruction field
-    saves on blur, which a click on those buttons causes, so the click that ends an edit never gives an answer.
+    Meanwhile the row's Accept / Stop and "Not on this device" read "Saving…" (their names start with it, then the
+    answer they will give), are `aria-disabled` and ignore clicks. When the save ends, a focused button keeps focus and
+    its name becomes the answer again; the row's status region is unchanged, so nothing extra is announced.
   - **Accept** re-reads the store through `readFresh` (after the saves in progress settle; pending meanwhile) and accepts
     only the version the row showed; a job changed elsewhere is refreshed with `scheduledJobAcceptChanged`, and an answer
     given during the read wins. Other notices: `scheduledJobAcceptFailed` (re-read failed),
