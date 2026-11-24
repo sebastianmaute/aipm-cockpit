@@ -1289,6 +1289,8 @@ const enUS = {
   chatThinking: "Thinking…",
   chatRetryWait: "Claude is busy, trying again in {0} s…",
   chatConfigureAi: "Configure AI",
+  chatAiSwitchedOff:
+    "The AI assistant is switched off. Turn it on under Settings → AI Assistant to start chatting.",
   chatNoApiKey:
     "Add your Anthropic API key in Settings to start chatting.",
   secretLockPassphrase: "Require a passphrase to unlock",

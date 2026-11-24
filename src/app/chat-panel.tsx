@@ -612,6 +612,11 @@ function ChatPanelInner({
   // else the inline-unlocked passphrase key (if any).
   const effectiveApiKey = masterOn ? (ai.apiKey.trim() ? ai.apiKey : (unlockedKey ?? "")) : "";
   const apiKeyMissing = !effectiveApiKey.trim();
+  // With the user's switch off a saved key is hidden, not missing: name the switch instead of asking for a key.
+  const userSwitchedOff = deploymentOn && ai.enabled !== true;
+  const noKeyMessage = userSwitchedOff ? "chatAiSwitchedOff" : "chatNoApiKey";
+  // Why a send is refused, in the order the panel's notices use: the deployment, the switch, the consent, the key.
+  const sendBlockedMessage = blockedMessageKey ?? (consentStale ? "aiConsentReviewPrompt" : noKeyMessage);
   // Cheap synchronous localStorage read — fine in the render body (pure read).
   const apiKeyLocked =
     masterOn && !ai.apiKey.trim() && unlockedKey === null && isPassphraseLocked("anthropicApiKey");
@@ -646,7 +651,7 @@ function ChatPanelInner({
     //   send's `finally`, so it reads true for the whole life of a send.
     if ((!text && atts.length === 0) || busy || abortRef.current !== null || guidesPending || proposalApplying) return;
     if (!effectiveApiKey.trim()) {
-      setError(t(lang, "chatNoApiKey"));
+      setError(t(lang, sendBlockedMessage));
       return;
     }
     // With attachments the user turn is a multimodal content array (text first,
@@ -1683,7 +1688,7 @@ function ChatPanelInner({
               <div className="space-y-2">
                 {!consentStale && (
                   <p className="text-sm text-muted-foreground">
-                    {apiKeyMissing ? t(lang, "chatNoApiKey") : t(lang, "chatGreeting")}
+                    {apiKeyMissing ? t(lang, noKeyMessage) : t(lang, "chatGreeting")}
                   </p>
                 )}
                 {apiKeyMissing && !consentStale && onConfigureAi && (
@@ -1804,6 +1809,13 @@ function ChatPanelInner({
       {!deploymentOn && display.length > 0 && (
         <Banner severity="info" role="status" className="mt-2 shrink-0">
           <p id={deploymentNoticeId} className="min-w-0">{blockedMessageKey !== null && t(lang, blockedMessageKey)}</p>
+        </Banner>
+      )}
+
+      {userSwitchedOff && display.length > 0 && (
+        <Banner severity="info" role="status" className="mt-2 flex shrink-0 items-center justify-between gap-2">
+          <p className="min-w-0">{t(lang, "chatAiSwitchedOff")}</p>
+          {onConfigureAi && <Button onClick={onConfigureAi}>{t(lang, "chatConfigureAi")}</Button>}
         </Banner>
       )}
 

@@ -1190,6 +1190,8 @@ export const de: Record<TranslationKey, string> = {
   chatThinking: "Denke nach…",
   chatRetryWait: "Claude ist ausgelastet, neuer Versuch in {0} s…",
   chatConfigureAi: "KI konfigurieren",
+  chatAiSwitchedOff:
+    "Der KI-Assistent ist ausgeschaltet. Schalten Sie ihn unter Einstellungen → KI-Assistent ein, um den Chat zu nutzen.",
   chatNoApiKey:
     "API-Schlüssel in den Einstellungen hinterlegen, um den Chat zu nutzen.",
   secretLockPassphrase: "Passphrase zum Entsperren verlangen",
