@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceLabel } from "./device-label";
 import { acceptJob, forgetJob, jobFingerprint, markEditedHere } from "./scheduled-job-acceptance";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
-import { appendRun, jobSaveId, normalizeJobFields } from "./scheduled-jobs/schedule";
+import { appendRun, JobChangedError, jobSaveId, normalizeJobFields } from "./scheduled-jobs/schedule";
 import type {
   JobCadence, ScheduledJob, ScheduledJobRun,
 } from "./scheduled-jobs/types";
@@ -34,6 +34,13 @@ export interface UseScheduledJobsArgs {
   config: TursoConfig | null; // null = localStorage backend
 }
 
+/** A precondition checked on the FRESH store list inside the write chain: the write happens only while the stored
+ *  instruction ("" for none) is one of `ifInstructionIn`; otherwise nothing is written and the write rejects with a
+ *  `JobChangedError` (the list is read again). */
+export interface UpdateJobOptions {
+  ifInstructionIn: readonly string[];
+}
+
 export interface UseScheduledJobsResult {
   jobs: ScheduledJob[];
   /** The backend `jobs` was read from (`backendOf`): undefined before the first read. After a config change `jobs`
@@ -43,7 +50,9 @@ export interface UseScheduledJobsResult {
   ready: boolean;
   createJob: (input: CreateScheduledJobInput) => Promise<void>;
   /** projectId and key are set only by assignProject, so a patch can never save a project without them. */
-  updateJob: (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string) => Promise<void>;
+  updateJob: (
+    id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string, options?: UpdateJobOptions,
+  ) => Promise<void>;
   deleteJob: (id: number, key?: string) => Promise<void>;
   /** Names the project (and zone) of a job; mints the permanent key in the same save when it has none. */
   assignProject: (id: number, projectId: string, timeZone: string, key?: string) => Promise<void>;
@@ -311,11 +320,19 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   }, [mutate]);
 
   const updateJob = useCallback(
-    (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string): Promise<void> => {
+    (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string, options?: UpdateJobOptions): Promise<void> => {
       const normalized = normalizePatch(patch);
-      return writeJob(id, key, (j) => ({ ...j, ...normalized, id: j.id }), true);
+      const edit = (j: ScheduledJob): ScheduledJob => {
+        const stored = j.instruction ?? "";
+        if (options !== undefined && !options.ifInstructionIn.includes(stored)) throw new JobChangedError(stored);
+        return { ...j, ...normalized, id: j.id };
+      };
+      return writeJob(id, key, edit, true).catch((err: unknown) => {
+        if (err instanceof JobChangedError) void refresh(); // show what the store holds now
+        throw err;
+      });
     },
-    [writeJob],
+    [writeJob, refresh],
   );
 
   const deleteJob = useCallback((id: number, key?: string): Promise<void> => {

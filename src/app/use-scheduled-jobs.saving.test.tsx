@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useScheduledJobs } from "./use-scheduled-jobs";
-import { jobSaveId } from "./scheduled-jobs/schedule";
+import { JobChangedError, jobSaveId } from "./scheduled-jobs/schedule";
 import { acceptJob, storedAcceptanceEntry } from "./scheduled-job-acceptance";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 import type { TursoConfig } from "./turso-config";
@@ -109,5 +109,37 @@ describe("useScheduledJobs — jobs with a save in flight", () => {
     releaseHeld();
     await act(async () => { await saving; });
     expect(result.current.savingJobs.size).toBe(0);
+  });
+});
+
+describe("useScheduledJobs — a save that checks the stored instruction first", () => {
+  it("writes when the stored instruction is one the caller allows", async () => {
+    const { result } = await mounted();
+    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "saving-key", { ifInstructionIn: ["b"] }); });
+    expect((store.list[0] as ScheduledJob).instruction).toBe("c");
+  });
+
+  it("refuses, writes nothing, answers nothing and re-reads the list when the stored instruction changed", async () => {
+    act(() => { acceptJob(job()); });
+    const before = storedAcceptanceEntry("saving-key");
+    const { result } = await mounted();
+    store.list = [job({ instruction: "d" })]; // another device, not yet re-read here
+    let error: unknown = null;
+    await act(async () => {
+      await result.current.updateJob(1, { instruction: "c" }, "saving-key", { ifInstructionIn: ["b"] }).catch((e: unknown) => { error = e; });
+    });
+    expect(error).toBeInstanceOf(JobChangedError);
+    expect((error as JobChangedError).stored).toBe("d");
+    expect((store.list[0] as ScheduledJob).instruction).toBe("d");
+    expect(storedAcceptanceEntry("saving-key")).toBe(before);
+    await waitFor(() => expect(result.current.jobs[0].instruction).toBe("d")); // the list was read again
+    expect(result.current.savingJobs.size).toBe(0);
+  });
+
+  it("an empty stored instruction compares as the empty text", async () => {
+    store.list = [job({ instruction: undefined })];
+    const { result } = await mounted();
+    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "saving-key", { ifInstructionIn: [""] }); });
+    expect((store.list[0] as ScheduledJob).instruction).toBe("c");
   });
 });

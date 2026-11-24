@@ -28,7 +28,7 @@ import { listProjectRefs } from "../turso-portfolio";
 import { resolveTimezone, tzZones } from "../timezone";
 import { type AcceptNotice, DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
 import { Banner } from "../banner";
-import { isRunnable, jobSaveId } from "../scheduled-jobs/schedule";
+import { isRunnable, JobChangedError, jobSaveId } from "../scheduled-jobs/schedule";
 import { acceptanceState, acceptJob, jobFingerprint, storedAcceptanceEntry, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
 
 export interface ScheduledJobsSectionProps {
@@ -107,7 +107,8 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   // A write that fails (the database unreachable) must not look as if it worked until the next reload.
   const [writeFailed, setWriteFailed] = useState(false);
   const track = (write: Promise<void>): void => {
-    void Promise.resolve(write).then(() => setWriteFailed(false), () => setWriteFailed(true));
+    // A conditional save refused because the job changed elsewhere is not a failed write: the row says what happened.
+    void Promise.resolve(write).then(() => setWriteFailed(false), (err: unknown) => { if (!(err instanceof JobChangedError)) setWriteFailed(true); });
   };
 
   // What the last Accept on each row found out when it accepted nothing, keyed by the job's permanent key.
@@ -249,8 +250,9 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     zones={zones}
                     defaultZone={defaultZone}
                     // The permanent key rides along, so a write can only reach THIS portfolio's job (ids collide across portfolios).
-                    onUpdate={(id, patch) => {
-                      const write = updateJob(id, patch, job.key ?? undefined);
+                    onUpdate={(id, patch, options) => {
+                      const key = job.key ?? undefined;
+                      const write = options === undefined ? updateJob(id, patch, key) : updateJob(id, patch, key, options);
                       track(write);
                       return write; // the instruction draft waits for it: a failed save keeps the draft
                     }}

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { JobRow } from "./scheduled-job-row";
+import { JobChangedError } from "../scheduled-jobs/schedule";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import {
@@ -299,6 +300,50 @@ describe("JobRow acceptance", () => {
       fireEvent.pointerLeave(main); // a finger lifting leaves the button before the click fires
       fireEvent.click(main);
       expect(onAccept).not.toHaveBeenCalled(); // the press began while saving
+    });
+
+    it("a draft notice outranks an ignored press, and a draft status change clears the ignored press", async () => {
+      acceptJob(job());
+      const onUpdate = vi.fn(async () => { throw new Error("offline"); });
+      const props = {
+        lang: "en-US" as const, token: "Weekly review", busy: false, tz: "UTC", projects: [{ id: "p1", name: "Alpha" }],
+        archivedProjects: [], projectsLoaded: true, zones: ["UTC"], defaultZone: "UTC", onUpdate, onAssign: vi.fn(),
+        onDelete: vi.fn(), onAccept: vi.fn(),
+      };
+      const view = render(<ul><JobRow {...props} job={job()} /></ul>);
+      const main = screen.getByRole("button", { name: "Stop on this device: Weekly review" });
+      fireEvent.pointerDown(main);
+      view.rerender(<ul><JobRow {...props} job={job({ instruction: "Changed" })} /></ul>);
+      fireEvent.click(main);
+      expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobPressIgnored"));
+      const field = screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Weekly review` });
+      fireEvent.change(field, { target: { value: "Mine" } });
+      await act(async () => { fireEvent.blur(field); fireEvent.focusOut(field); await Promise.resolve(); });
+      await act(async () => { await new Promise((res) => setTimeout(res, 10)); });
+      expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobChangeNotSaved"));
+      expect(screen.getByRole("status")).not.toHaveTextContent(t("en-US", "scheduledJobPressIgnored"));
+      fireEvent.change(field, { target: { value: "Changed" } }); // typed back to the stored text: nothing unsaved
+      expect(screen.getByRole("status")).toBeEmptyDOMElement(); // the stale ignored press does not come back
+    });
+
+    it("a dropped-draft notice outranks a press ignored after it", async () => {
+      const onUpdate = vi.fn(async () => { throw new JobChangedError("Remote"); });
+      const props = {
+        lang: "en-US" as const, token: "Weekly review", busy: false, tz: "UTC", projects: [{ id: "p1", name: "Alpha" }],
+        archivedProjects: [], projectsLoaded: true, zones: ["UTC"], defaultZone: "UTC", onUpdate, onAssign: vi.fn(),
+        onDelete: vi.fn(), onAccept: vi.fn(),
+      };
+      const view = render(<ul><JobRow {...props} job={job()} /></ul>);
+      const field = screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Weekly review` });
+      fireEvent.change(field, { target: { value: "Mine" } });
+      await act(async () => { fireEvent.focusOut(field); await new Promise((res) => setTimeout(res, 10)); });
+      expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobDraftDropped"));
+      const main = screen.getByRole("button", { name: "Accept: Weekly review" });
+      fireEvent.pointerDown(main);
+      view.rerender(<ul><JobRow {...props} job={job({ instruction: "Remote" })} /></ul>);
+      fireEvent.click(main);
+      expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobDraftDropped"));
+      expect(screen.getByRole("status")).not.toHaveTextContent(t("en-US", "scheduledJobPressIgnored"));
     });
 
     it("a held key repeat does not replace the press it started", () => {

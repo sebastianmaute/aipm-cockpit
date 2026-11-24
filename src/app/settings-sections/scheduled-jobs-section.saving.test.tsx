@@ -55,6 +55,8 @@ function holdSaves(): () => void {
 const field = () => screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
 const saving = t("en-US", "scheduledJobSaving");
 const storedEntry = () => storedAcceptanceEntry(KEY);
+const stored = () => (store.list[0] as ScheduledJob).instruction;
+const sleep = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
 
 beforeEach(() => {
   localStorage.removeItem(ACCEPTANCE_KEY);
@@ -227,22 +229,123 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(screen.queryByText(t("en-US", "scheduledJobChangeNotSaved"))).toBeNull();
   });
 
-  it("a change from another device while a draft is open drops the draft instead of writing it over the change", async () => {
+  it("P4: a change from another device that this tab has NOT re-read is not overwritten by the draft's save", async () => {
     acceptJob(job());
     const user = userEvent.setup();
     render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
     await screen.findByText(t("en-US", "scheduledJobAcceptedHere"));
     await typeInstruction(user, "c");
-    store.list = [job({ instruction: "d" })]; // another device saves d
-    act(() => { window.dispatchEvent(new Event("focus")); }); // the list is read again
+    store.list = [job({ instruction: "d" })]; // another device saves d; this tab does not know yet
+    await user.click(document.body); // the draft's save started from b: refused
     await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
-    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
-    expect((store.list[0] as ScheduledJob).instruction).toBe("d");
+    await sleep(50);
+    expect(stored()).toBe("d");
     expect(field()).toHaveValue("d");
-    await user.click(document.body); // leaving the field writes nothing either
-    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
-    expect((store.list[0] as ScheduledJob).instruction).toBe("d");
+    expect(screen.queryByText(t("en-US", "scheduledJobsWriteFailed"))).toBeNull(); // not a failed save ...
+    expect(screen.queryByText(t("en-US", "scheduledJobChangeNotSaved"))).toBeNull(); // ... and not "not saved"
     expect(storedEntry()).toBe(jobFingerprint(job())); // nothing answered
+  });
+
+  it("a change from another device seen by a re-read keeps the draft until its save is refused the same way", async () => {
+    acceptJob(job());
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobAcceptedHere"));
+    await typeInstruction(user, "c");
+    store.list = [job({ instruction: "d" })];
+    act(() => { window.dispatchEvent(new Event("focus")); }); // the list is read again
+    await sleep(50);
+    expect(field()).toHaveValue("c"); // the draft stays while it is open
+    await user.click(document.body);
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    await sleep(50);
+    expect(stored()).toBe("d");
+    expect(field()).toHaveValue("d");
+    expect(storedEntry()).toBe(jobFingerprint(job()));
+  });
+
+  it("P2: this tab's own save landing while the user keeps typing keeps the draft, with no notice, and the next blur saves it", async () => {
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    const release = holdSaves();
+    await typeInstruction(user, "c");
+    fireEvent.focusOut(field()); // save of c, held
+    await sleep(10);
+    await user.type(field(), "d");
+    release();
+    await sleep(80);
+    expect(field()).toHaveValue("cd");
+    expect(stored()).toBe("c");
+    expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
+    fireEvent.focusOut(field());
+    await sleep(80);
+    expect(stored()).toBe("cd");
+    expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
+  });
+
+  it("P3: two held saves from two blurs both land, with no notice", async () => {
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    const release = holdSaves();
+    await typeInstruction(user, "c");
+    fireEvent.focusOut(field());
+    await sleep(10);
+    await user.type(field(), "d");
+    fireEvent.focusOut(field());
+    await sleep(10);
+    release();
+    await sleep(120);
+    expect(stored()).toBe("cd");
+    expect(field()).toHaveValue("cd");
+    expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
+  });
+
+  it("P5: a failed save of text the user has since typed back to the stored text leaves the buttons usable", async () => {
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    const release = holdSaves();
+    store.fail = true;
+    await typeInstruction(user, "c");
+    fireEvent.focusOut(field());
+    await sleep(10);
+    await typeInstruction(user, "b");
+    release();
+    await sleep(80);
+    // The failed text is no longer in the field: nothing is "not saved", even before the next blur.
+    expect(screen.getByRole("button", { name: "Accept: Daily risks" })).not.toHaveAttribute("aria-disabled");
+    store.fail = false;
+    fireEvent.focusOut(field());
+    await sleep(80);
+    expect(screen.getByRole("button", { name: "Accept: Daily risks" })).not.toHaveAttribute("aria-disabled");
+    expect(screen.queryByText(t("en-US", "scheduledJobNotSaved"))).toBeNull();
+    expect(screen.queryByText(t("en-US", "scheduledJobChangeNotSaved"))).toBeNull();
+  });
+
+  it("P1: a held Enter (key repeat) never answers again after the first answer lands", async () => {
+    store.list = [job({ instruction: "b" })];
+    acceptJob(job({ instruction: "a" }));
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobChanged"));
+    const btn = screen.getByRole("button", { name: "Accept: Daily risks" });
+    act(() => { btn.focus(); });
+    fireEvent.keyDown(btn, { key: "Enter" });
+    fireEvent.click(btn);
+    await sleep(60);
+    expect(acceptanceState(job())).toBe("accepted");
+    expect(btn).toHaveAccessibleName("Stop on this device: Daily risks");
+    const repeat = fireEvent.keyDown(btn, { key: "Enter", repeat: true });
+    expect(repeat).toBe(false); // default prevented: no further click from the browser
+    fireEvent.click(btn); // a click that still arrives while the key repeats is ignored, silently
+    await sleep(30);
+    expect(acceptanceState(job())).toBe("accepted");
+    expect(screen.queryByText(t("en-US", "scheduledJobPressIgnored"))).toBeNull();
+    fireEvent.keyUp(btn, { key: "Enter" });
+    fireEvent.keyDown(btn, { key: "Enter" }); // a new press after the release answers again
+    fireEvent.click(btn);
+    expect(acceptanceState(job())).toBe("declined");
   });
 
   it("keyboard: Enter on the focused Stop button answers", async () => {

@@ -80,6 +80,17 @@ export function normalizeJobFields(
   };
 }
 
+/** A conditional job write found the stored instruction changed (another device saved over it): nothing was written.
+ *  `stored` is the instruction the store holds now ("" for none). */
+export class JobChangedError extends Error {
+  readonly stored: string;
+  constructor(stored: string) {
+    super("The job changed before this write.");
+    this.name = "JobChangedError";
+    this.stored = stored;
+  }
+}
+
 /** The identity of a job for "a save is in flight": its permanent key, or its id while it has none. */
 export function jobSaveId(job: Pick<ScheduledJob, "id" | "key">): string {
   return job.key ?? `id:${job.id}`;
