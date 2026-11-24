@@ -1663,8 +1663,11 @@
     ONE AT A TIME through `lost-draft.ts` (`addLostText`, `removeLostTexts`, `forgetLostDraft`) — never a whole
     list written over the stored one, which once let one row erase a text a closed editor had just kept — and every
     change is told to `subscribeLostTexts` listeners, so an open row also shows a text a closed editor lost after it
-    mounted. A row subscribes with a replay of what is kept at that moment, so a text kept between its first render
-    and the subscription is not missed; a change that alters nothing returns the same list (no extra render).
+    mounted. A row subscribes with a replay of what is kept at that moment (merged newest first, texts only this row
+    holds staying in place), so a text kept between its first render and the subscription is not missed; the removal
+    of a text the job holds runs BEFORE the subscription, so the replay never shows one (one commit at mount); a
+    change that alters nothing returns the same state (no render). The offered texts and the draft status are ONE
+    state: a removal reported by another writer that empties the offer ends its notice in the same update.
     They are kept per tab in sessionStorage `LOST_DRAFT_KEY` (newest first, `{ text, reason }` per
     `jobSaveId`; every access guarded, a storage that cannot be used keeps nothing but the open row still shows the
     text; older single-entry shapes are ignored) and offered again when the row next mounts, with
@@ -1676,9 +1679,14 @@
     (`deleteJob`, or a re-read of the same backend no longer listing it). A job without a key keeps its texts in the
     row's memory only — its `id:N` save id is not unique across portfolios, so nothing is stored or reported to
     other rows — until it is given a key (assigning a project mints one), when the shown texts are kept under that key.
-    Nothing is kept for later for a job turned foreign. Rows are keyed by job id, and `useRowIdentity` remounts a
-    row only when its permanent key changes to a DIFFERENT key (the id now names another job): a keyless job given
-    its key keeps its row and the text it shows, and an id reused for another job never carries the old row's state.
+    Nothing is kept for later for a job turned foreign. ★★ Rows are keyed by job id, and `useRowIdentity` remounts a
+    row whenever its permanent key changes — to another key, to none, or from none to a key — so no text, draft or
+    notice of the job that held the id is shown for another; the ONE exception is a keyless job given a key THIS tab
+    minted (`mintJobKey` / `isKeyMintedHere` in `schedule.ts`, assigning a project), which is the same job and keeps
+    its row and the text it shows. A row's writes carry its job's key, `null` for a keyless job (`matches` then
+    reaches only a keyless job with that id): so the closing save of a keyless row whose id now names another job
+    reaches no job (`JobGoneError`, the section's deleted-elsewhere notice) — nothing is written into the other job,
+    and nothing is offered or kept, since the row is gone.
     ★ A user's edit (`updateJob` / `assignProject`) that reaches no job never resolves as written:
     a job deleted on another device rejects with `JobGoneError`, one that is still listed but no longer editable here
     (a newer version rewrote it; it keeps its key, so the edit still finds it) with `JobNotEditableError`, and
@@ -1688,8 +1696,9 @@
     `scheduledJobDeletedElsewhere` in its always-mounted status region — as does an Accept whose re-read finds the
     job gone — because the row disappears with the refresh. `JobNotEditableError` is not a connection failure either:
     the section shows `scheduledJobEditedByNewerVersion` in the same status region — as does an Accept whose re-read
-    finds the job rewritten, which answers nothing — and the typed text is offered in the (now read-only) row's
-    `LostTextBox` while it is shown, never kept for later; texts kept earlier for the job stay.
+    finds the job rewritten, which answers nothing (checked first, even when an answer changed during the read) —
+    and the typed text is offered in the (now read-only) row's `LostTextBox` while it is shown, never kept for later;
+    texts kept earlier for the job stay.
   - ★★★ **A press answers the version shown when it was pressed.** Pressing Accept / Stop or "Not on this device"
     does not take focus from the instruction field (`onMouseDown` prevents the default), so the press does not end
     the edit: the button answers the saved instruction, even while the field shows text not yet saved, and the edit
