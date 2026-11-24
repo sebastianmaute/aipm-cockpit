@@ -14,7 +14,8 @@ import { formatDisplayTimestamp } from "../tz-display";
 import { TEXTAREA_MAX } from "../sanitize-core";
 import type { UseScheduledJobsResult } from "../use-scheduled-jobs";
 import { REPORT_ERROR_KEY, type ReportErrorToken } from "../scheduled-reports-store";
-import { acceptanceState, declineJob, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
+import { acceptanceStateAt, declineJobVersion, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
+import { ownEditTarget } from "../scheduled-job-own-edit";
 import { peekDeviceLabel } from "../device-label";
 
 /** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
@@ -116,14 +117,16 @@ function InstructionField({
   );
 }
 
-/** What the last Accept on a row found out when it did not accept: the re-read failed, or the job changed elsewhere. */
-export type AcceptNotice = "failed" | "changed";
+/** Why the last answer on a row did not land: the Accept's re-read failed, the job changed elsewhere, or this device
+ *  could not store the answer. */
+export type AcceptNotice = "failed" | "changed" | "saveFailed";
 
 function noop(): void {}
 
 const ACCEPT_NOTICE_KEY: Record<AcceptNotice, TranslationKey> = {
   failed: "scheduledJobAcceptFailed",
   changed: "scheduledJobAcceptChanged",
+  saveFailed: "scheduledJobAnswerSaveFailed",
 };
 
 const ACCEPTANCE_STATUS_KEY: Record<"accepted" | "declined" | "declined-changed" | "changed" | "none", TranslationKey> = {
@@ -153,15 +156,18 @@ function AcceptanceLine({
   onNoticeClear: () => void;
 }) {
   useAcceptanceSnapshot(); // re-render when this device's acceptances change
-  // A Stop that could not be recorded is reported like a failed Accept, until the next click.
+  // A Stop that could not be recorded says so, until the next click.
   const [stopFailed, setStopFailed] = useState(false);
   const mainRef = useRef<HTMLButtonElement>(null);
-  const state = acceptanceState(job);
+  // While this tab's own edit saves, the row still shows the old version but the answer is already the new one's:
+  // read and answer the version being saved, so a Stop clicked right after typing stops what was typed.
+  const state = acceptanceStateAt(job, ownEditTarget(job));
+  const declineShown = (): boolean => declineJobVersion(job, ownEditTarget(job));
   // A job with no project reports nothing, so there is nothing to accept; a cannot-run job has no state to show.
   const decided = state === "cannot-run" || job.projectId === null ? null : state;
   // An Accept notice never sits beside "Accepted on this device".
   // A failed Stop is shown even then: the job is still accepted precisely because the Stop did not land.
-  const shown: AcceptNotice | null = stopFailed ? "failed" : decided === "accepted" ? null : notice;
+  const shown: AcceptNotice | null = stopFailed ? "saveFailed" : decided === "accepted" ? null : notice;
   // A device with no stored label cannot have created the job; peeking never writes during render.
   const createdText =
     job.createdBy === undefined
@@ -191,7 +197,7 @@ function AcceptanceLine({
                 if (pending) return;
                 onNoticeClear();
                 setStopFailed(false);
-                if (accepted) setStopFailed(!declineJob(job));
+                if (accepted) setStopFailed(!declineShown());
                 else onAccept(job);
               }}
               aria-label={t(lang, accepted ? "scheduledJobStopNamed" : "scheduledJobAcceptNamed", token)}
@@ -208,7 +214,7 @@ function AcceptanceLine({
               onClick={() => {
                 if (pending) return;
                 onNoticeClear();
-                const declined = declineJob(job);
+                const declined = declineShown();
                 setStopFailed(!declined);
                 // The button is about to unmount: the main one (same element, now reading Accept) takes focus.
                 if (declined) mainRef.current?.focus();

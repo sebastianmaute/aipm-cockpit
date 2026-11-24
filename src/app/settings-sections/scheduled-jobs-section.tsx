@@ -29,7 +29,8 @@ import { resolveTimezone, tzZones } from "../timezone";
 import { type AcceptNotice, DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
 import { Banner } from "../banner";
 import { isRunnable } from "../scheduled-jobs/schedule";
-import { acceptanceState, acceptJob, jobFingerprint, storedAcceptanceEntry, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
+import { acceptanceState, acceptanceStateAt, acceptJob, jobFingerprint, storedAcceptanceEntry, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
+import { ownEditTarget } from "../scheduled-job-own-edit";
 
 export interface ScheduledJobsSectionProps {
   lang: Lang;
@@ -100,7 +101,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   useAcceptanceSnapshot(); // the notice follows Accept / Stop on this device
   const awaitingOk = jobs.filter((j) => {
     if (!isRunnable(j)) return false;
-    const state = acceptanceState(j);
+    const state = acceptanceStateAt(j, ownEditTarget(j)); // the version an own edit is saving, as the row reads it
     return state === "none" || state === "changed" || state === "declined-changed";
   }).length;
   const hasLegacyJob = jobs.some((j) => j.foreign === undefined && j.key === null);
@@ -137,7 +138,10 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
     if (job.key === null || acceptPending.has(job.key)) return;
     setAcceptNotice(job.key, null);
     setPending(job.key, true);
+    // Taken at click time, which is AFTER an own edit's answer (recorded when the edit was called): the edit is not
+    // mistaken for a newer answer, and the version it is saving is one the row stands for.
     const entryAtClick = storedAcceptanceEntry(job.key);
+    const target = ownEditTarget(job);
     try {
       // After the saves in progress settle, so a just-typed instruction is what is compared.
       const fresh = (await readFresh()).find((j) => j.key !== null && j.key === job.key);
@@ -151,8 +155,8 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
         if (jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();
         return;
       }
-      if (fresh && jobFingerprint(fresh) === jobFingerprint(job)) {
-        if (!acceptJob(fresh)) setAcceptNotice(job.key, "failed");
+      if (fresh && (jobFingerprint(fresh) === jobFingerprint(job) || jobFingerprint(fresh) === target)) {
+        if (!acceptJob(fresh)) setAcceptNotice(job.key, "saveFailed");
         return;
       }
       setAcceptNotice(job.key, "changed");

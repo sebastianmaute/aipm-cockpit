@@ -4,7 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { JobRow } from "./scheduled-job-row";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
-import { ACCEPTANCE_KEY, acceptJob, declineJob } from "../scheduled-job-acceptance";
+import { ACCEPTANCE_KEY, acceptanceState, acceptJob, declineJob, jobFingerprint } from "../scheduled-job-acceptance";
+import { forgetOwnEdit, noteOwnEdit } from "../scheduled-job-own-edit";
 
 const deviceLabel = vi.hoisted(() => ({ value: "aaaa1111" }));
 vi.mock("../device-label", () => ({
@@ -158,8 +159,38 @@ describe("JobRow acceptance", () => {
       throw new Error("quota");
     });
     fireEvent.click(screen.getByRole("button", { name: "Stop on this device: Weekly review" }));
-    expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobAcceptFailed"));
+    expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobAnswerSaveFailed"));
     expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
+  });
+
+  describe("while this tab's own edit of the job saves", () => {
+    const edited = job({ instruction: "Look at costs" });
+    beforeEach(() => noteOwnEdit("job-key-1", jobFingerprint(edited)));
+    afterEach(() => forgetOwnEdit("job-key-1"));
+
+    it("reads the answer for the version being saved, and Stop stops that version", () => {
+      acceptJob(edited); // what the edit recorded when it was called
+      renderRow(job());
+      expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Stop on this device: Weekly review" }));
+      expect(acceptanceState(edited)).toBe("declined");
+    });
+
+    it("Not on this device declines the version being saved", () => {
+      acceptJob(job({ instruction: "Older" }));
+      // An own edit whose answer the user has since replaced is no longer the target: the row reads its own version.
+      renderRow(job());
+      expect(screen.getByText(t("en-US", "scheduledJobChanged"))).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Not on this device: Weekly review" }));
+      expect(acceptanceState(job())).toBe("declined");
+    });
+
+    it("a stopped edited version offers Accept and Not on this device is absent", () => {
+      declineJob(edited);
+      renderRow(job());
+      expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Not on this device: Weekly review" })).toBeNull();
+    });
   });
 
   describe("Not on this device", () => {
@@ -190,7 +221,7 @@ describe("JobRow acceptance", () => {
         throw new Error("quota");
       });
       fireEvent.click(screen.getByRole("button", decline));
-      expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobAcceptFailed"));
+      expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobAnswerSaveFailed"));
       expect(screen.getByText(t("en-US", "scheduledJobNeedsOk"))).toBeInTheDocument();
       expect(screen.getByRole("button", decline)).toBeInTheDocument();
     });

@@ -41,7 +41,7 @@ function parse(raw: string): Record<string, string> {
   }
 }
 
-const DECLINED_PREFIX = "declined:";
+export const DECLINED_PREFIX = "declined:";
 
 /** A job this device cannot run: a legacy one (no permanent key) or one a newer version made. Narrows `key`. */
 function keyOf(job: ScheduledJob): string | null {
@@ -49,11 +49,16 @@ function keyOf(job: ScheduledJob): string | null {
 }
 
 export function acceptanceState(job: ScheduledJob): AcceptanceState {
+  return acceptanceStateAt(job, jobFingerprint(job));
+}
+
+/** This device's answer for the job's key, read against the version `fingerprint` names (the job's own, or the one
+ *  an edit still saving will write). */
+export function acceptanceStateAt(job: ScheduledJob, fingerprint: string): AcceptanceState {
   const key = keyOf(job);
   if (key === null) return "cannot-run";
   const stored = parse(readRaw());
   if (!Object.prototype.hasOwnProperty.call(stored, key)) return "none";
-  const fingerprint = jobFingerprint(job);
   if (stored[key] === fingerprint) return "accepted";
   if (stored[key] === DECLINED_PREFIX + fingerprint) return "declined";
   // A decline of another version never reads "since you accepted it": this device never accepted anything.
@@ -97,15 +102,26 @@ export function declineJob(job: ScheduledJob): boolean {
   return record(job, acceptanceEntryValue(job, true));
 }
 
-export function forgetJob(key: string): void {
+/** Records a Stop of the version `fingerprint` names (the one an edit still saving will write), under the same
+ *  fail-closed rules as `declineJob`. */
+export function declineJobVersion(job: ScheduledJob, fingerprint: string): boolean {
+  return record(job, DECLINED_PREFIX + fingerprint);
+}
+
+/** Puts a raw entry back (or removes the key for null): the undo of an edit's answer whose save failed. */
+export function restoreAcceptanceEntry(key: string, value: string | null): void {
   try {
-    const { [key]: _removed, ...rest } = parse(readRaw());
-    void _removed;
-    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify(rest));
+    const { [key]: _current, ...rest } = parse(readRaw());
+    void _current;
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify(value === null ? rest : { ...rest, [key]: value }));
   } catch {
     return;
   }
   notify();
+}
+
+export function forgetJob(key: string): void {
+  restoreAcceptanceEntry(key, null);
 }
 
 function subscribe(onChange: () => void): () => void {

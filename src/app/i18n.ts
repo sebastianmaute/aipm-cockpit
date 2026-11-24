@@ -1690,6 +1690,7 @@ const enUS = {
   scheduledJobAcceptedHere: "Accepted on this device",
   scheduledJobStoppedHere: "Stopped on this device",
   scheduledJobAcceptFailed: "Couldn't check this job. Try again.",
+  scheduledJobAnswerSaveFailed: "Couldn't save your answer on this device. Try again.",
   scheduledJobAcceptChanged: "This job changed on another device. Review it and accept again.",
   scheduledJobNeedsOk: "Needs your OK to run on this device",
   scheduledJobChanged: "Changed since you accepted it: needs your OK again",

@@ -12,7 +12,10 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceLabel } from "./device-label";
-import { acceptanceEntryValue, acceptanceState, acceptJob, declineJob, forgetJob, storedAcceptanceEntry } from "./scheduled-job-acceptance";
+import {
+  acceptanceEntryValue, acceptanceState, acceptJob, declineJob, forgetJob, jobFingerprint, restoreAcceptanceEntry, storedAcceptanceEntry,
+} from "./scheduled-job-acceptance";
+import { endOwnEdit, forgetOwnEdit, noteOwnEdit } from "./scheduled-job-own-edit";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
 import { appendRun, normalizeJobFields } from "./scheduled-jobs/schedule";
 import type {
@@ -58,37 +61,51 @@ export interface UseScheduledJobsResult {
   readFresh: () => Promise<ScheduledJob[]>;
 }
 
-/** What this device's own last edit wrote per job key, and when (a position in one monotonic sequence). UI
- *  Accept / Stop never write here, so their entries match nothing. */
-const ownEditEntries = new Map<string, { value: string; seq: number }>();
-let ownEditSeq = 0;
-
-/** Test-only: forget every own-edit write, so test order cannot matter. */
-export function __resetOwnEditEntriesForTests(): void {
-  ownEditEntries.clear();
-  ownEditSeq = 0;
+/** This device's answer to its own edit, recorded when the edit is CALLED (not when its save resolves): an answer the
+ *  user gives while the save is in the write chain is then simply newer, and wins. */
+interface OwnEdit {
+  key: string;
+  /** The entry before the edit, put back when the save fails. */
+  prev: string | null;
+  /** The entry the edit wrote. */
+  value: string;
+  fingerprint: string;
 }
 
-/** Whether this device had stopped the job (as displayed) before an edit. */
-function wasStoppedHere(displayed: ScheduledJob | undefined): boolean {
-  if (displayed === undefined) return false;
+/** The edit keeps a job this device had stopped (as displayed) stopped, for the new version; otherwise it accepts the
+ *  version it predicts: exactly what the tab displayed with the edit applied, so a half changed elsewhere meanwhile
+ *  makes the stored job read changed. */
+function answerOwnEdit(displayed: ScheduledJob, predicted: ScheduledJob): OwnEdit | null {
+  const key = displayed.key;
+  if (key === null) return null;
   const state = acceptanceState(displayed);
-  return state === "declined" || state === "declined-changed";
+  const stopped = state === "declined" || state === "declined-changed";
+  const prev = storedAcceptanceEntry(key);
+  if (!(stopped ? declineJob(predicted) : acceptJob(predicted))) return null;
+  const fingerprint = jobFingerprint(predicted);
+  noteOwnEdit(key, fingerprint);
+  return { key, prev, value: acceptanceEntryValue(predicted, stopped), fingerprint };
 }
 
-/** An edit accepts the job it wrote on this device, unless this device had stopped it: then it stays stopped. */
-function recordEdit(written: ScheduledJob, stopped: boolean, entryAtCall: string | null, seqAtCall: number): void {
-  const key = written.key;
-  if (key === null) return;
-  // An answer given while the save was in the write chain is newer than this edit: it wins. The entry THIS device's
-  // own edit wrote is not such an answer, but only one that landed AFTER this edit was called: an older own write
-  // that the user has since answered over would otherwise be mistaken for ours.
-  const current = storedAcceptanceEntry(key);
-  const own = ownEditEntries.get(key);
-  const isOurs = own !== undefined && own.value === current && own.seq > seqAtCall;
-  if (current !== entryAtCall && !isOurs) return;
-  const ok = stopped ? declineJob(written) : acceptJob(written);
-  if (ok) ownEditEntries.set(key, { value: acceptanceEntryValue(written, stopped), seq: ++ownEditSeq });
+/** The save settled. A failed one takes its answer back, unless the user has answered since. */
+function settleOwnEdit(edit: OwnEdit | null, failed: boolean): void {
+  if (edit === null) return;
+  if (failed && storedAcceptanceEntry(edit.key) === edit.value) restoreAcceptanceEntry(edit.key, edit.prev);
+  endOwnEdit(edit.key, edit.fingerprint);
+}
+
+/** Runs `write` (a mutate given the edit's settle as its `onSaved`); a write that rejects before it saved takes the
+ *  answer back. */
+function withOwnEdit(edit: OwnEdit | null, write: (onSaved: () => void) => Promise<void>): Promise<void> {
+  let saved = false;
+  const onSaved = () => {
+    saved = true;
+    settleOwnEdit(edit, false);
+  };
+  return write(onSaved).catch((err: unknown) => {
+    if (!saved) settleOwnEdit(edit, true);
+    throw err;
+  });
 }
 
 function nextJobId(jobs: readonly ScheduledJob[]): number {
@@ -219,6 +236,18 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     void refresh();
   }, [refresh, config]);
 
+  // Another device may have changed a job while this tab was in the background: read again when it is looked at.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === "visible") void refresh(); };
+    const onFocus = () => { void refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refresh]);
+
   // §750 — this instance's re-read, which another instance's write calls.
   const rereadRef = useRef<() => void>(() => {});
   useEffect(() => {
@@ -230,7 +259,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
 
   // Run a mutation on the live store list, serialized behind the write chain.
   const mutate = useCallback(
-    (transform: (list: readonly ScheduledJob[]) => ScheduledJob[]): Promise<void> => {
+    (transform: (list: readonly ScheduledJob[]) => ScheduledJob[], onSaved?: () => void): Promise<void> => {
       if (mountedRef.current) setBusy(true);
       const run = writeChain.then(async () => {
         // ONE backend per write: read the config once, so a switch mid-write cannot load from one and save
@@ -240,6 +269,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
         const next = transform(existing);
         await saveScheduledJobs(config, next);
         savedGenerations.set(backendOf(config), generationOf(config) + 1);
+        onSaved?.(); // before the new list renders, so a row never pairs it with the edit's prediction
         if (mountedRef.current && backendOf(cfgRef.current) === backendOf(config)) { setJobs(next); setJobsSource(backendOf(config)); }
         for (const reread of instances) if (reread !== rereadRef.current) reread();
       });
@@ -288,21 +318,15 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
 
   const updateJob = useCallback(
     (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string): Promise<void> => {
-      let written: ScheduledJob | undefined;
+      const normalized = normalizePatch(patch);
       const displayed = jobsRef.current.find((j) => matches(j, id, key));
-      const stopped = wasStoppedHere(displayed);
-      const entryAtCall = displayed?.key != null ? storedAcceptanceEntry(displayed.key) : null;
-      const seqAtCall = ownEditSeq;
-      return mutate((list) =>
-        list.map((j) => {
-          if (!(editable(j) && matches(j, id, key))) return j;
-          written = { ...j, ...normalizePatch(patch), id: j.id };
-          return written;
-        }),
-      ).then(() => {
-        // Accept only when the half this edit did not touch (the project) is what this tab displayed.
-        if (written && displayed && "instruction" in patch && written.projectId === displayed.projectId) recordEdit(written, stopped, entryAtCall, seqAtCall);
-      });
+      // Only a real instruction change is an answer; the project half stays what this tab displayed.
+      const changesInstruction = displayed !== undefined && Object.prototype.hasOwnProperty.call(patch, "instruction")
+        && (normalized.instruction ?? null) !== (displayed.instruction ?? null);
+      const edit = changesInstruction ? answerOwnEdit(displayed, { ...displayed, instruction: normalized.instruction }) : null;
+      const transform = (list: readonly ScheduledJob[]) =>
+        list.map((j) => (editable(j) && matches(j, id, key) ? { ...j, ...normalized, id: j.id } : j));
+      return withOwnEdit(edit, (onSaved) => mutate(transform, onSaved));
     },
     [mutate],
   );
@@ -312,25 +336,24 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     return mutate((list) => {
       removedKey = list.find((j) => matches(j, id, key))?.key;
       return list.filter((j) => !matches(j, id, key));
-    }).then(() => { if (typeof removedKey === "string") { forgetJob(removedKey); ownEditEntries.delete(removedKey); } });
+    }).then(() => { if (typeof removedKey === "string") { forgetJob(removedKey); forgetOwnEdit(removedKey); } });
   }, [mutate]);
 
   const assignProject = useCallback(
     (id: number, projectId: string, timeZone: string, key?: string): Promise<void> => {
       let written: ScheduledJob | undefined;
       const displayed = jobsRef.current.find((j) => matches(j, id, key));
-      const stopped = wasStoppedHere(displayed);
-      const entryAtCall = displayed?.key != null ? storedAcceptanceEntry(displayed.key) : null;
-      const seqAtCall = ownEditSeq;
-      return mutate((list) =>
+      // The instruction half stays what this tab displayed. A job without a key gets a fresh one in this save: no answer
+      // can predate it, so it is accepted once written.
+      const edit = displayed?.key != null ? answerOwnEdit(displayed, { ...displayed, projectId }) : null;
+      const transform = (list: readonly ScheduledJob[]) =>
         list.map((j) => {
           if (!(editable(j) && matches(j, id, key))) return j;
           written = { ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: j.key ?? crypto.randomUUID() };
           return written;
-        }),
-      ).then(() => {
-        // Accept only when the half this assignment did not touch (the instruction) is what this tab displayed.
-        if (written && displayed && (written.instruction ?? null) === (displayed.instruction ?? null)) recordEdit(written, stopped, entryAtCall, seqAtCall);
+        });
+      return withOwnEdit(edit, (onSaved) => mutate(transform, onSaved)).then(() => {
+        if (displayed?.key === null && written && (written.instruction ?? null) === (displayed.instruction ?? null)) acceptJob(written);
       });
     },
     [mutate],
