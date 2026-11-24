@@ -34,11 +34,14 @@ export interface UseScheduledJobsArgs {
   config: TursoConfig | null; // null = localStorage backend
 }
 
-/** A precondition checked on the FRESH store list inside the write chain: the write happens only while the stored
- *  instruction ("" for none) is one of `ifInstructionIn`; otherwise nothing is written and the write rejects with a
- *  `JobChangedError` (the list is read again). */
+/** A precondition judged when the write RUNS, on the FRESH store list inside the write chain: the write happens only
+ *  while the stored instruction ("" for none) is `expectInstruction()` at that moment, or already equals the text being
+ *  written (the same text from both sides is a success); otherwise nothing is written and the write rejects with a
+ *  `JobChangedError` (the list is read again). `onWritten` runs inside the chain once the write landed, before any
+ *  later write's precondition is judged. */
 export interface UpdateJobOptions {
-  ifInstructionIn: readonly string[];
+  expectInstruction: () => string;
+  onWritten?: () => void;
 }
 
 export interface UseScheduledJobsResult {
@@ -267,7 +270,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
    *  edited here (display only). An edit NEVER writes an acceptance answer: this device answers only by creating a job
    *  or by the user's Accept / Stop / "Not on this device". */
   const writeJob = useCallback(
-    (id: number, key: string | undefined, edit: (j: ScheduledJob) => ScheduledJob, markEdit = false): Promise<void> => {
+    (id: number, key: string | undefined, edit: (j: ScheduledJob) => ScheduledJob, markEdit = false, afterSave?: () => void): Promise<void> => {
       const displayed = jobsRef.current.find((j) => matches(j, id, key));
       let edited: ScheduledJob | null = null;
       const transform = (list: readonly ScheduledJob[]) =>
@@ -280,6 +283,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
       const onSaved = () => {
         const saved: ScheduledJob | null = edited;
         if (saved !== null && saved.key !== null) markEditedHere(saved.key, jobFingerprint(saved));
+        afterSave?.();
       };
       return trackSave(jobSaveId(displayed ?? { id, key: key ?? null }), mutate(transform, onSaved));
     },
@@ -324,10 +328,11 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
       const normalized = normalizePatch(patch);
       const edit = (j: ScheduledJob): ScheduledJob => {
         const stored = j.instruction ?? "";
-        if (options !== undefined && !options.ifInstructionIn.includes(stored)) throw new JobChangedError(stored);
+        const writing = normalized.instruction ?? "";
+        if (options !== undefined && stored !== options.expectInstruction() && stored !== writing) throw new JobChangedError(stored);
         return { ...j, ...normalized, id: j.id };
       };
-      return writeJob(id, key, edit, true).catch((err: unknown) => {
+      return writeJob(id, key, edit, true, options?.onWritten).catch((err: unknown) => {
         if (err instanceof JobChangedError) void refresh(); // show what the store holds now
         throw err;
       });

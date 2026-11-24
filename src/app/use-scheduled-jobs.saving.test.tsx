@@ -115,7 +115,38 @@ describe("useScheduledJobs — jobs with a save in flight", () => {
 describe("useScheduledJobs — a save that checks the stored instruction first", () => {
   it("writes when the stored instruction is one the caller allows", async () => {
     const { result } = await mounted();
-    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "saving-key", { ifInstructionIn: ["b"] }); });
+    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "saving-key", { expectInstruction: () => "b" }); });
+    expect((store.list[0] as ScheduledJob).instruction).toBe("c");
+  });
+
+  it("judges the expected text when the save RUNS, not when it is called", async () => {
+    const { result } = await mounted();
+    const opens: (() => void)[] = [];
+    store.gates = [0].map(() => new Promise<void>((r) => { opens.push(r); }));
+    let expected = "not yet";
+    let first: Promise<void> = Promise.resolve();
+    let second: Promise<void> = Promise.resolve();
+    act(() => {
+      first = result.current.updateJob(1, { name: "n" }, "saving-key"); // holds the chain
+      second = result.current.updateJob(1, { instruction: "c" }, "saving-key", { expectInstruction: () => expected });
+    });
+    expected = "b"; // learned after the call, before the save runs
+    opens[0]();
+    await act(async () => { await first; await second; });
+    expect((store.list[0] as ScheduledJob).instruction).toBe("c");
+  });
+
+  it("tells the caller, inside the write chain, that its text was written", async () => {
+    const { result } = await mounted();
+    const onWritten = vi.fn();
+    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "saving-key", { expectInstruction: () => "b", onWritten }); });
+    expect(onWritten).toHaveBeenCalledTimes(1);
+  });
+
+  it("a stored text that already equals the text being saved counts as success, not a refusal", async () => {
+    store.list = [job({ instruction: "c" })]; // another device saved the same text
+    const { result } = await mounted();
+    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "saving-key", { expectInstruction: () => "b" }); });
     expect((store.list[0] as ScheduledJob).instruction).toBe("c");
   });
 
@@ -126,7 +157,7 @@ describe("useScheduledJobs — a save that checks the stored instruction first",
     store.list = [job({ instruction: "d" })]; // another device, not yet re-read here
     let error: unknown = null;
     await act(async () => {
-      await result.current.updateJob(1, { instruction: "c" }, "saving-key", { ifInstructionIn: ["b"] }).catch((e: unknown) => { error = e; });
+      await result.current.updateJob(1, { instruction: "c" }, "saving-key", { expectInstruction: () => "b" }).catch((e: unknown) => { error = e; });
     });
     expect(error).toBeInstanceOf(JobChangedError);
     expect((error as JobChangedError).stored).toBe("d");
@@ -139,7 +170,7 @@ describe("useScheduledJobs — a save that checks the stored instruction first",
   it("an empty stored instruction compares as the empty text", async () => {
     store.list = [job({ instruction: undefined })];
     const { result } = await mounted();
-    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "saving-key", { ifInstructionIn: [""] }); });
+    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "saving-key", { expectInstruction: () => "" }); });
     expect((store.list[0] as ScheduledJob).instruction).toBe("c");
   });
 });

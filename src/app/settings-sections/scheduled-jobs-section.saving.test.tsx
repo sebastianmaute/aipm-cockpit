@@ -16,13 +16,22 @@ const store = vi.hoisted(() => ({
   list: [] as unknown[],
   gate: null as Promise<void> | null,
   fail: false,
+  failOnce: false,
+  afterSaveOnce: null as (() => void) | null,
 }));
 vi.mock("../scheduled-jobs-store", () => ({
   loadScheduledJobs: async () => structuredClone(store.list),
   saveScheduledJobs: async (_config: unknown, next: unknown[]) => {
     if (store.gate) await store.gate;
     if (store.fail) throw new Error("offline");
+    if (store.failOnce) {
+      store.failOnce = false;
+      throw new Error("offline");
+    }
     store.list = structuredClone(next);
+    const after = store.afterSaveOnce;
+    store.afterSaveOnce = null;
+    after?.();
   },
 }));
 vi.mock("../turso-portfolio", () => ({ listProjectRefs: async () => ({ active: [{ id: "p1", name: "Alpha" }], archived: [] }) }));
@@ -64,6 +73,8 @@ beforeEach(() => {
   store.list = [job()];
   store.gate = null;
   store.fail = false;
+  store.failOnce = false;
+  store.afterSaveOnce = null;
 });
 afterEach(() => { heldRelease(); heldRelease = () => {}; });
 
@@ -229,7 +240,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(screen.queryByText(t("en-US", "scheduledJobChangeNotSaved"))).toBeNull();
   });
 
-  it("P4: a change from another device that this tab has NOT re-read is not overwritten by the draft's save", async () => {
+  it("a change from another device that this tab has NOT re-read is not overwritten by the draft's save", async () => {
     acceptJob(job());
     const user = userEvent.setup();
     render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
@@ -264,7 +275,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(storedEntry()).toBe(jobFingerprint(job()));
   });
 
-  it("P2: this tab's own save landing while the user keeps typing keeps the draft, with no notice, and the next blur saves it", async () => {
+  it("this tab's own save landing while the user keeps typing keeps the draft, with no notice, and the next blur saves it", async () => {
     const user = userEvent.setup();
     render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
     await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
@@ -284,7 +295,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
   });
 
-  it("P3: two held saves from two blurs both land, with no notice", async () => {
+  it("two held saves from two blurs both land, with no notice", async () => {
     const user = userEvent.setup();
     render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
     await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
@@ -302,7 +313,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
   });
 
-  it("P5: a failed save of text the user has since typed back to the stored text leaves the buttons usable", async () => {
+  it("a failed save of text the user has since typed back to the stored text leaves the buttons usable", async () => {
     const user = userEvent.setup();
     render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
     await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
@@ -324,7 +335,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(screen.queryByText(t("en-US", "scheduledJobChangeNotSaved"))).toBeNull();
   });
 
-  it("P1: a held Enter (key repeat) never answers again after the first answer lands", async () => {
+  it("a held Enter (key repeat) never answers again after the first answer lands", async () => {
     store.list = [job({ instruction: "b" })];
     acceptJob(job({ instruction: "a" }));
     render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
@@ -346,6 +357,86 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     fireEvent.keyDown(btn, { key: "Enter" }); // a new press after the release answers again
     fireEvent.click(btn);
     expect(acceptanceState(job())).toBe("declined");
+  });
+
+  it("typing back to the start text while this row's save is held keeps the typed text when that save lands; the next blur saves it", async () => {
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    const release = holdSaves();
+    await typeInstruction(user, "c");
+    fireEvent.focusOut(field()); // save of c, held
+    await sleep(10);
+    await typeInstruction(user, "b"); // typed back to the start text
+    release();
+    await sleep(80);
+    expect(stored()).toBe("c");
+    expect(field()).toHaveValue("b"); // the landing save does not overwrite the field
+    fireEvent.focusOut(field());
+    await sleep(80);
+    expect(stored()).toBe("b"); // saved over c, the text this row wrote
+    expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
+  });
+
+  it("another device reverting the job right after this row's first save lands refuses the second save", async () => {
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    const release = holdSaves();
+    await typeInstruction(user, "c");
+    fireEvent.focusOut(field());
+    await sleep(10);
+    await user.type(field(), "d");
+    fireEvent.focusOut(field());
+    await sleep(10);
+    store.afterSaveOnce = () => { store.list = [job({ instruction: "b" })]; }; // another device reverts to b at once
+    release();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    await sleep(50);
+    expect(stored()).toBe("b");
+    expect(field()).toHaveValue("b");
+  });
+
+  it("after this row's first save failed, a change from another device to that same text still refuses the second save", async () => {
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    const release = holdSaves();
+    store.failOnce = true;
+    await typeInstruction(user, "c");
+    fireEvent.focusOut(field()); // fails
+    await sleep(10);
+    await user.type(field(), "d");
+    fireEvent.focusOut(field()); // cd, started from b
+    await sleep(10);
+    store.list = [job({ instruction: "c" })]; // another device stores c
+    release();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    await sleep(50);
+    expect(stored()).toBe("c");
+    expect(field()).toHaveValue("c");
+  });
+
+  it("another device storing exactly the draft's text is not a dropped draft", async () => {
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    await typeInstruction(user, "c");
+    store.list = [job({ instruction: "c" })]; // the same text, saved elsewhere
+    fireEvent.focusOut(field());
+    await sleep(80);
+    expect(stored()).toBe("c");
+    expect(field()).toHaveValue("c");
+    expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
+    // Seen by a re-read first, too: the draft rebases with no notice.
+    await typeInstruction(user, "e");
+    store.list = [job({ instruction: "e" })];
+    act(() => { window.dispatchEvent(new Event("focus")); });
+    await sleep(50);
+    fireEvent.focusOut(field());
+    await sleep(80);
+    expect(stored()).toBe("e");
+    expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
   });
 
   it("keyboard: Enter on the focused Stop button answers", async () => {

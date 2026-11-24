@@ -431,7 +431,7 @@ describe("§772 — project, time zone and instruction", () => {
     fireEvent.change(box, { target: { value: "  focus on risks  " } });
     expect(updateJob).not.toHaveBeenCalled();
     fireEvent.blur(box);
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "focus on risks" }, undefined, { ifInstructionIn: ["keep"] });
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "focus on risks" }, undefined, expect.objectContaining({ expectInstruction: expect.any(Function) }));
   });
 
   it("saves the time zone through updateJob and lists the IANA zones", async () => {
@@ -530,7 +530,7 @@ describe("§772 — project, time zone and instruction", () => {
     const box = await screen.findByRole("textbox", { name: nameOf("scheduledJobInstruction", "Alpha") });
     fireEvent.change(box, { target: { value: "   " } });
     fireEvent.blur(box);
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: undefined }, undefined, { ifInstructionIn: ["keep"] });
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: undefined }, undefined, expect.objectContaining({ expectInstruction: expect.any(Function) }));
   });
 
   it("saves a typed instruction when the section unmounts before the field is blurred", async () => {
@@ -540,7 +540,7 @@ describe("§772 — project, time zone and instruction", () => {
     fireEvent.change(box, { target: { value: "  watch the budget " } });
     expect(updateJob).not.toHaveBeenCalled();
     unmount();
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "watch the budget" }, undefined, { ifInstructionIn: [""] });
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "watch the budget" }, undefined, expect.objectContaining({ expectInstruction: expect.any(Function) }));
   });
 
   it("does not write on unmount when nothing was typed", async () => {
@@ -657,7 +657,7 @@ describe("§772 final review: Settings run history, Add job, keyed writes", () =
     const box = screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Alpha` });
     fireEvent.change(box, { target: { value: "x" } });
     fireEvent.blur(box);
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "x" }, "key-abc", { ifInstructionIn: [""] });
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "x" }, "key-abc", expect.objectContaining({ expectInstruction: expect.any(Function) }));
     fireEvent.click(screen.getByLabelText(`${t("en-US", "delete")} – Alpha`));
     expect(deleteJob).toHaveBeenCalledWith(3, "key-abc");
   });
