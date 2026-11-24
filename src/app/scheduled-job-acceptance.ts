@@ -89,12 +89,12 @@ function record(job: ScheduledJob, value: string): boolean {
 }
 
 export function acceptJob(job: ScheduledJob): boolean {
-  return record(job, jobFingerprint(job));
+  return record(job, acceptanceEntryValue(job, false));
 }
 
 /** Records that this device stopped the job as it stands now; a later change to it asks again. */
 export function declineJob(job: ScheduledJob): boolean {
-  return record(job, DECLINED_PREFIX + jobFingerprint(job));
+  return record(job, acceptanceEntryValue(job, true));
 }
 
 export function forgetJob(key: string): void {
