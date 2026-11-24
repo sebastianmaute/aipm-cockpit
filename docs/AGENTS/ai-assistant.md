@@ -1624,18 +1624,22 @@
     reads as such again), and any answer or a delete clears it. Display only: it never decides a run, and storage
     that cannot be read or written reads as "not edited here".
   - **The instruction draft** (`useInstructionDraft`, `use-instruction-draft.ts`) saves on blur and on unmount, and
-    counts as saved only once the write succeeds. ★★ Its save is CONDITIONAL: `updateJob(id, patch, key,
-    { ifInstructionIn })` checks the FRESH stored instruction inside the write chain and writes only while it is the
-    text the draft started from or one this row is still saving; otherwise it writes nothing and rejects with
-    `JobChangedError` (the list is read again, and the section does not count it as a failed write). So only this
-    device's save that started from a now-changed text is refused — whether or not this tab has re-read the job — and
-    the row drops the draft and says so (`scheduledJobDraftDropped`). While the field holds no unsaved change the draft
-    follows the stored text; an unsaved draft is kept and its save decides. After a failed save the field keeps the
-    draft and the next blur retries; while the field still differs from the stored text, both answer buttons read
-    "Not saved" (`scheduledJobNotSaved`), are `aria-disabled` and ignore clicks, with `scheduledJobChangeNotSaved` in
-    the row's status. Draft notices outrank an ignored press, which is cleared when the job or the draft changes.
-    ★ Closing the dialog while "Not saved" retries the save once on unmount; if that fails too, the text is lost after
-    the warning the row already showed.
+    counts as saved only once the write succeeds. ★★ Its save is CONDITIONAL, judged when the save RUNS:
+    `updateJob(id, patch, key, { expectInstruction, onWritten })` calls `expectInstruction()` inside the write chain,
+    on the FRESH store list, and writes only while the stored instruction is that text (the text this row last wrote,
+    learned through `onWritten` inside the chain, or the text the draft started from) or already equals the text
+    being saved (the same text from both sides is a success, not a refusal). Otherwise it writes nothing and rejects
+    with `JobChangedError` (the list is read again, and the section does not count it as a failed write). So only this
+    device's save over a text that changed since this row last wrote or started from is refused — whether or not this
+    tab has re-read the job — and the row drops the draft and says so (`scheduledJobDraftDropped`). When the stored
+    text changes: if it equals the draft, the draft rebases with no notice; the draft follows the stored text only when
+    the field holds no unsaved change AND no save of this row is pending; otherwise the draft is kept and its save
+    decides. After a failed save the field keeps the draft and the next blur retries; while the field still differs
+    from the stored text, both answer buttons read "Not saved" (`scheduledJobNotSaved`), are `aria-disabled` and ignore
+    clicks, with `scheduledJobChangeNotSaved` in the row's status. Draft notices outrank an ignored press; the
+    ignored-press notice clears when the job's version or the draft's status changes (not on typing). ★ Closing the
+    editor runs one last save on unmount; if that save fails or is refused, the text is lost and no notice can show,
+    because the row is gone.
   - ★★★ **A press answers the version shown when it was pressed.** Pressing Accept / Stop or "Not on this device"
     does not take focus from the instruction field (`onMouseDown` prevents the default), so the press does not end
     the edit: the button answers the version the row shows, and the edit saves on the next blur and then asks again.
