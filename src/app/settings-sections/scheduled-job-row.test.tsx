@@ -234,6 +234,71 @@ describe("JobRow acceptance", () => {
       expect(acceptanceState(job())).toBe("accepted");
     });
 
+    const notSaving = (onAccept: (job: ScheduledJob) => void) => (
+      <ul>
+        <JobRow lang="en-US" job={job()} token="Weekly review" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
+          archivedProjects={[]} projectsLoaded zones={["UTC"]} defaultZone="UTC" onUpdate={vi.fn()} onAssign={vi.fn()}
+          onDelete={vi.fn()} onAccept={onAccept} saving={false} />
+      </ul>
+    );
+
+    it("a cancelled press never swallows a later activation without a press (e.g. a screen reader's click)", () => {
+      const onAccept = vi.fn();
+      const view = saving(job(), onAccept);
+      const main = screen.getByRole("button", { name: "Saving… Accept: Weekly review" });
+      fireEvent.pointerDown(main);
+      fireEvent.pointerCancel(main);
+      view.rerender(notSaving(onAccept));
+      fireEvent.click(main);
+      expect(onAccept).toHaveBeenCalledTimes(1);
+    });
+
+    it("a press that left the button, or a button that lost focus, leaves no stale press behind", () => {
+      const onAccept = vi.fn();
+      const view = saving(job(), onAccept);
+      const main = screen.getByRole("button", { name: "Saving… Accept: Weekly review" });
+      fireEvent.pointerDown(main);
+      fireEvent.pointerLeave(main);
+      view.rerender(notSaving(onAccept));
+      fireEvent.click(main);
+      expect(onAccept).toHaveBeenCalledTimes(1);
+      view.rerender(
+        <ul>
+          <JobRow lang="en-US" job={job()} token="Weekly review" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
+            archivedProjects={[]} projectsLoaded zones={["UTC"]} defaultZone="UTC" onUpdate={vi.fn()} onAssign={vi.fn()}
+            onDelete={vi.fn()} onAccept={onAccept} saving />
+        </ul>,
+      );
+      fireEvent.keyDown(main, { key: "Enter" });
+      fireEvent.blur(main);
+      view.rerender(notSaving(onAccept));
+      fireEvent.click(main);
+      expect(onAccept).toHaveBeenCalledTimes(2);
+    });
+
+    it("a touch release (pointerup, then pointerleave, then click) still completes the press it started", () => {
+      const onAccept = vi.fn();
+      const view = saving(job(), onAccept);
+      const main = screen.getByRole("button", { name: "Saving… Accept: Weekly review" });
+      fireEvent.pointerDown(main);
+      view.rerender(notSaving(onAccept));
+      fireEvent.pointerUp(main);
+      fireEvent.pointerLeave(main); // a finger lifting leaves the button before the click fires
+      fireEvent.click(main);
+      expect(onAccept).not.toHaveBeenCalled(); // the press began while saving
+    });
+
+    it("a held key repeat does not replace the press it started", () => {
+      const onAccept = vi.fn();
+      const view = saving(job(), onAccept);
+      const main = screen.getByRole("button", { name: "Saving… Accept: Weekly review" });
+      fireEvent.keyDown(main, { key: " " });
+      view.rerender(notSaving(onAccept));
+      fireEvent.keyDown(main, { key: " ", repeat: true });
+      fireEvent.click(main);
+      expect(onAccept).not.toHaveBeenCalled();
+    });
+
     it("a press that began while saving does nothing, even when the save ends before the click", () => {
       const onAccept = vi.fn();
       const view = saving(job(), onAccept);

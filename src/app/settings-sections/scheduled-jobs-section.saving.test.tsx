@@ -156,6 +156,43 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(acceptanceState(job({ instruction: "c" }))).toBe("changed");
   });
 
+  it("Space held on Saving… Stop across the end of the save answers nothing (accepted b, typed c)", async () => {
+    acceptJob(job());
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobAcceptedHere"));
+    await typeInstruction(user, "c");
+    const release = holdSaves();
+    await user.tab(); // the field's blur starts the (held) save; focus lands on the main button
+    const main = screen.getByRole("button", { name: `${saving} Stop on this device: Daily risks` });
+    expect(document.activeElement).toBe(main);
+    await user.keyboard("[Space>]"); // pressed while saving ...
+    release();
+    await waitFor(() => expect(main).toHaveAccessibleName("Accept: Daily risks"));
+    await user.keyboard("[/Space]"); // ... released after the save: the click must not answer the new version
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    expect(acceptanceState(job({ instruction: "c" }))).toBe("changed");
+    expect(acceptanceState(job())).toBe("accepted"); // and no Stop of b either
+  });
+
+  it("Space held on Saving… Accept across the end of a revert's save records no Stop (accepted a, stored b, typed a)", async () => {
+    store.list = [job({ instruction: "b" })];
+    acceptJob(job({ instruction: "a" }));
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobChanged"));
+    await typeInstruction(user, "a");
+    const release = holdSaves();
+    await user.tab();
+    const main = screen.getByRole("button", { name: `${saving} Accept: Daily risks` });
+    await user.keyboard("[Space>]");
+    release();
+    await waitFor(() => expect(main).toHaveAccessibleName("Stop on this device: Daily risks"));
+    await user.keyboard("[/Space]");
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    expect(acceptanceState(job({ instruction: "a" }))).toBe("accepted"); // the earlier answer stands: no Stop recorded
+  });
+
   it("keyboard: Enter on the focused Stop button answers", async () => {
     acceptJob(job());
     const user = userEvent.setup();

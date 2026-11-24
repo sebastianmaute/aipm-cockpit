@@ -136,19 +136,47 @@ const ACCEPTANCE_STATUS_KEY: Record<"accepted" | "declined" | "declined-changed"
   none: "scheduledJobNeedsOk",
 };
 
-/** What an answer button showed when it was pressed (pointerdown). */
+/** What an answer button showed when it was pressed (pointerdown, or keydown of Space / Enter). */
 interface PressSnapshot {
   action: "accept" | "stop" | "decline";
   fingerprint: string;
   saving: boolean;
 }
 
-/** A pointer press answers only what it was pressed on: it is ignored when the job was saving at the press or is
- *  saving now, or when the button's action or the job's version changed between press and release. A keyboard
- *  activation (no pointerdown) is judged on the current render. */
+/** A press answers only what it was pressed on: it is ignored when the job was saving at the press or is saving now,
+ *  or when the button's action or the job's version changed between press and release. An activation with no press
+ *  (a screen reader's click) is judged on the current render. */
 function pressStillValid(press: PressSnapshot | null, now: PressSnapshot): boolean {
   if (press === null) return !now.saving;
   return !press.saving && !now.saving && press.action === now.action && press.fingerprint === now.fingerprint;
+}
+
+/** Records what an answer button showed when it was pressed — by pointer, or by Space / Enter (Space clicks on keyup,
+ *  so a held Space spans renders just like a held pointer) — and hands it to the click. A press that is cancelled,
+ *  leaves the button before release, or a button that loses focus leaves nothing behind, so a stale press never
+ *  swallows a later activation. */
+function usePressGuard(now: PressSnapshot) {
+  const press = useRef<{ snapshot: PressSnapshot; held: boolean } | null>(null);
+  const forget = () => { press.current = null; };
+  const forgetIfHeld = () => { if (press.current?.held) press.current = null; };
+  const handlers = {
+    onPointerDown: () => { press.current = { snapshot: now, held: true }; },
+    onPointerUp: () => { if (press.current) press.current = { ...press.current, held: false }; },
+    onPointerCancel: forget,
+    onPointerLeave: forgetIfHeld,
+    onLostPointerCapture: forgetIfHeld,
+    onBlur: forget,
+    onKeyDown: (e: { key: string; repeat: boolean }) => {
+      if ((e.key === " " || e.key === "Enter") && !e.repeat) press.current = { snapshot: now, held: false };
+    },
+  };
+  /** The press the current click completes (or null), consumed. */
+  const takePress = (): PressSnapshot | null => {
+    const taken = press.current?.snapshot ?? null;
+    press.current = null;
+    return taken;
+  };
+  return { handlers, takePress };
 }
 
 /** Keeps focus where it is (the instruction field) when an answer button is pressed with the mouse: the press must not
@@ -186,8 +214,6 @@ function AcceptanceLine({
   // A press answers the version shown when it was pressed. Pressing does not take focus from the instruction field,
   // so the edit is not saved by the press; it saves on the next blur and the job then asks again. While a save of this
   // job is in flight no answer can be given (see `pressStillValid` for a press that spans a save).
-  const mainPress = useRef<PressSnapshot | null>(null);
-  const declinePress = useRef<PressSnapshot | null>(null);
   const declineRef = useRef<HTMLButtonElement>(null);
   const fingerprint = jobFingerprint(job);
   const savingLabel = t(lang, "scheduledJobSaving");
@@ -207,6 +233,8 @@ function AcceptanceLine({
   const mainNow: PressSnapshot = { action: accepted ? "stop" : "accept", fingerprint, saving };
   const declineNow: PressSnapshot = { action: "decline", fingerprint, saving };
   const unusable = pending || saving;
+  const mainGuard = usePressGuard(mainNow);
+  const declineGuard = usePressGuard(declineNow);
   // "Changed on another device" never describes the version this tab saved (display only); a stopped job is never
   // asked to be accepted "again".
   const editedHere = (decided === "changed" || decided === "declined-changed") && isEditedHere(job);
@@ -235,12 +263,9 @@ function AcceptanceLine({
               aria-disabled={unusable ? true : undefined}
               className="aria-disabled:cursor-wait aria-disabled:opacity-50"
               onMouseDown={keepFocus}
-              onPointerDown={() => { mainPress.current = mainNow; }}
-              onKeyDown={() => { mainPress.current = null; }}
+              {...mainGuard.handlers}
               onClick={() => {
-                const press = mainPress.current;
-                mainPress.current = null;
-                if (pending || !pressStillValid(press, mainNow)) return;
+                if (pending || !pressStillValid(mainGuard.takePress(), mainNow)) return;
                 onNoticeClear();
                 setStopFailed(false);
                 if (accepted) setStopFailed(!declineJob(job));
@@ -260,12 +285,9 @@ function AcceptanceLine({
               className="aria-disabled:cursor-wait aria-disabled:opacity-50"
               ref={declineRef}
               onMouseDown={keepFocus}
-              onPointerDown={() => { declinePress.current = declineNow; }}
-              onKeyDown={() => { declinePress.current = null; }}
+              {...declineGuard.handlers}
               onClick={() => {
-                const press = declinePress.current;
-                declinePress.current = null;
-                if (pending || !pressStillValid(press, declineNow)) return;
+                if (pending || !pressStillValid(declineGuard.takePress(), declineNow)) return;
                 // Only a focused button hands focus on (a keyboard press); a mouse press left focus where it was.
                 const hadFocus = document.activeElement === declineRef.current;
                 onNoticeClear();

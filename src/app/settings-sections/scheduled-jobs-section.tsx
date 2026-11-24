@@ -139,7 +139,8 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
     setPending(job.key, true);
     const entryAtClick = storedAcceptanceEntry(job.key);
     try {
-      // After the saves in progress settle, so a just-typed instruction is what is compared.
+      // After the saves in progress settle, so the job is compared with what the store holds once they land. (An answer
+      // press never ends the edit: an instruction still being typed is not saved yet, and the row shows the stored job.)
       const fresh = (await readFresh()).find((j) => j.key !== null && j.key === job.key);
       // The user answered again while the read was in flight (a decline, in this or another tab): that answer wins.
       if (storedAcceptanceEntry(job.key) !== entryAtClick) {
