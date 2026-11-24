@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { JobRow } from "./scheduled-job-row";
@@ -56,6 +56,8 @@ function renderRow(
     </ul>,
   );
 }
+
+afterEach(() => vi.restoreAllMocks());
 
 beforeEach(() => {
   localStorage.removeItem(ACCEPTANCE_KEY);
@@ -116,6 +118,46 @@ describe("JobRow acceptance", () => {
   it("shows the accept notice inside a status region", () => {
     renderRow(job(), acceptJob, "failed");
     expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobAcceptFailed"));
+  });
+
+  it("the status region exists, empty, before any click, and gets the text after a failed Accept", () => {
+    const view = renderRow(job());
+    const region = screen.getByRole("status");
+    expect(region).toBeEmptyDOMElement();
+    view.rerender(
+      <ul>
+        <JobRow
+          lang="en-US"
+          job={job()}
+          token="Weekly review"
+          busy={false}
+          tz="UTC"
+          projects={[{ id: "p1", name: "Alpha" }]}
+          archivedProjects={[]}
+          projectsLoaded
+          zones={["UTC"]}
+          defaultZone="UTC"
+          onUpdate={vi.fn()}
+          onAssign={vi.fn()}
+          onDelete={vi.fn()}
+          onAccept={acceptJob}
+          acceptNotice="failed"
+        />
+      </ul>,
+    );
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region).toHaveTextContent(t("en-US", "scheduledJobAcceptFailed"));
+  });
+
+  it("Stop that cannot be recorded says so and keeps the job accepted", () => {
+    acceptJob(job());
+    renderRow(job());
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("quota");
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Stop on this device: Weekly review" }));
+    expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobAcceptFailed"));
+    expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
   });
 
   it("shows the changed-elsewhere notice", () => {

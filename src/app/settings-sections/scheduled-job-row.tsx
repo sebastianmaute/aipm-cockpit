@@ -150,6 +150,9 @@ function AcceptanceLine({
   onNoticeClear: () => void;
 }) {
   useAcceptanceSnapshot(); // re-render when this device's acceptances change
+  // A Stop that could not be recorded is reported like a failed Accept, until the next click.
+  const [stopFailed, setStopFailed] = useState(false);
+  const shown: AcceptNotice | null = stopFailed ? "failed" : notice;
   const state = acceptanceState(job);
   // A job with no project reports nothing, so there is nothing to accept; a cannot-run job has no state to show.
   const decided = state === "cannot-run" || job.projectId === null ? null : state;
@@ -171,7 +174,8 @@ function AcceptanceLine({
           size="xs"
           onClick={() => {
             onNoticeClear();
-            if (accepted) declineJob(job);
+            setStopFailed(false);
+            if (accepted) setStopFailed(!declineJob(job));
             else onAccept(job);
           }}
           aria-label={t(lang, accepted ? "scheduledJobStopNamed" : "scheduledJobAcceptNamed", token)}
@@ -180,7 +184,8 @@ function AcceptanceLine({
         </Button>
       )}
       {createdText !== null && <span>{createdText}</span>}
-      {notice !== null && <span role="status">{t(lang, ACCEPT_NOTICE_KEY[notice])}</span>}
+      {/* Always mounted: a live region must exist before its text changes. */}
+      <span role="status">{shown !== null ? t(lang, ACCEPT_NOTICE_KEY[shown]) : null}</span>
     </div>
   );
 }

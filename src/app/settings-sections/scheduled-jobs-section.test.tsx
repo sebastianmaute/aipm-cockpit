@@ -776,7 +776,7 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
   it("the notice counts runnable jobs waiting for an OK", () => {
     mockJobs = [runnable(1), runnable(2), runnable(3, { enabled: false })];
     setup(withKey({ scheduledJobs: true }));
-    const notice = screen.getByRole("status");
+    const notice = screen.getByText(/shared jobs? needs? your OK/);
     expect(notice).toHaveTextContent("2 shared jobs need your OK to run on this device.");
   });
 
@@ -785,7 +785,7 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     mockJobs = [runnable(1, { instruction: "now" })];
     act(() => { acceptJob(runnable(1, { instruction: "before" })); });
     setup(withKey({ scheduledJobs: true }));
-    expect(screen.getByRole("status")).toHaveTextContent("1 shared job needs your OK to run on this device.");
+    expect(screen.getByText(/shared jobs? needs? your OK/)).toHaveTextContent("1 shared job needs your OK to run on this device.");
   });
 
   it("Accept on an unchanged job accepts it", async () => {
@@ -851,7 +851,7 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     mockJobs = [runnable(1), runnable(2)];
     act(() => { declineJob(runnable(1)); });
     setup(withKey({ scheduledJobs: true }));
-    expect(screen.getByRole("status")).toHaveTextContent("1 shared job needs your OK to run on this device.");
+    expect(screen.getByText(/shared jobs? needs? your OK/)).toHaveTextContent("1 shared job needs your OK to run on this device.");
   });
 
   it("no notice when the switch is off or all are accepted", async () => {
