@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useScheduledJobs } from "./use-scheduled-jobs";
 import {
-  ACCEPTANCE_KEY, acceptanceState, acceptJob, clearEditedHere, declineJob, isAcceptedHere, isEditedHere, storedAcceptanceEntry,
+  __resetEditedHereForTests, ACCEPTANCE_KEY, acceptanceState, acceptJob, declineJob, isAcceptedHere, isEditedHere, storedAcceptanceEntry,
 } from "./scheduled-job-acceptance";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 import { getDeviceLabel } from "./device-label";
@@ -467,7 +467,7 @@ describe("useScheduledJobs acceptance on this device", () => {
 
   beforeEach(() => {
     localStorage.clear();
-    clearEditedHere("key-1");
+    __resetEditedHereForTests();
     vi.mocked(getDeviceLabel).mockReturnValue("unknown");
   });
 
@@ -541,7 +541,8 @@ describe("useScheduledJobs acceptance on this device", () => {
     expect(rejected).toBe(true);
     expect(result.current.savingJobs.size).toBe(0);
     expect(storedAcceptanceEntry("key-1")).toBe(before);
-    expect(isEditedHere("key-1")).toBe(false);
+    expect(isEditedHere(result.current.jobs[0])).toBe(false);
+    expect(isEditedHere(version({ instruction: "c" }))).toBe(false);
   });
 
   it("a saved change of the instruction or project marks the job edited here; a rename does not", async () => {
@@ -549,15 +550,24 @@ describe("useScheduledJobs acceptance on this device", () => {
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
     await act(async () => { await result.current.updateJob(1, { name: "n" }, "key-1"); });
-    expect(isEditedHere("key-1")).toBe(false);
+    expect(isEditedHere(result.current.jobs[0])).toBe(false);
     await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "key-1"); });
-    expect(isEditedHere("key-1")).toBe(true);
+    expect(isEditedHere(result.current.jobs[0])).toBe(true);
     act(() => { acceptJob(result.current.jobs[0]); }); // the user answers
-    expect(isEditedHere("key-1")).toBe(false);
+    expect(isEditedHere(result.current.jobs[0])).toBe(false);
     await act(async () => { await result.current.assignProject(1, "p2", "UTC", "key-1"); });
-    expect(isEditedHere("key-1")).toBe(true);
+    expect(isEditedHere(result.current.jobs[0])).toBe(true);
     act(() => { declineJob(result.current.jobs[0]); });
-    expect(isEditedHere("key-1")).toBe(false);
+    expect(isEditedHere(result.current.jobs[0])).toBe(false);
+  });
+
+  it("the edited mark describes only the version this tab saved: a later change from elsewhere is not 'yours'", async () => {
+    seed();
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "key-1"); });
+    expect(isEditedHere(version({ instruction: "c" }))).toBe(true);
+    expect(isEditedHere(version({ instruction: "d" }))).toBe(false); // another device's later version
   });
 
   it("renaming does not accept", async () => {
@@ -590,10 +600,11 @@ describe("useScheduledJobs acceptance on this device", () => {
     const oldKey = result.current.jobs[0].key as string;
     await act(async () => { await result.current.updateJob(result.current.jobs[0].id, { instruction: "y" }, oldKey); });
     expect(accepted()).toHaveProperty(oldKey);
-    expect(isEditedHere(oldKey)).toBe(true);
+    const edited = result.current.jobs[0];
+    expect(isEditedHere(edited)).toBe(true);
     await act(async () => { await result.current.deleteJob(result.current.jobs[0].id, oldKey); });
     expect(accepted()).not.toHaveProperty(oldKey);
-    expect(isEditedHere(oldKey)).toBe(false);
+    expect(isEditedHere(edited)).toBe(false);
     await act(async () => { await result.current.createJob(input); });
     const fresh = result.current.jobs[0];
     expect(fresh.key).not.toBe(oldKey);

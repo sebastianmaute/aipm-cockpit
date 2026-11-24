@@ -1591,6 +1591,7 @@ export const de: Record<TranslationKey, string> = {
   scheduledJobChanged: "Seit Ihrer Zustimmung geändert: braucht Ihre Zustimmung erneut",
   scheduledJobChangedElsewhere: "Auf einem anderen Gerät geändert: braucht Ihre Zustimmung",
   scheduledJobChangedHere: "Sie haben diesen Job geändert: Stimmen Sie erneut zu, damit er auf diesem Gerät läuft",
+  scheduledJobChangedHereStopped: "Sie haben diesen Job geändert: Stimmen Sie zu, damit er auf diesem Gerät läuft",
   scheduledJobSaving: "Wird gespeichert …",
   scheduledJobAccept: "Zustimmen",
   scheduledJobAcceptNamed: "Zustimmen: {0}",

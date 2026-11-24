@@ -75,20 +75,23 @@ function acceptanceEntryValue(job: ScheduledJob, declined: boolean): string {
   return declined ? DECLINED_PREFIX + jobFingerprint(job) : jobFingerprint(job);
 }
 
-/** Keys of jobs whose project or instruction THIS tab changed (a save that landed) and that this device has not
- *  answered since. Display-only: it picks the wording of a "changed" row and never decides whether a job runs. */
-const editedHere = new Set<string>();
+/** Per job key, the fingerprint of the version THIS tab saved when it changed the job's project or instruction, until
+ *  this device answers. Display-only: it picks the wording of a "changed" row and never decides whether a job runs. */
+const editedHere = new Map<string, string>();
 
-export function markEditedHere(key: string): void {
-  editedHere.add(key);
+/** This tab's save of job `key` landed with the version `fingerprint`. */
+export function markEditedHere(key: string, fingerprint: string): void {
+  editedHere.set(key, fingerprint);
 }
 
-export function isEditedHere(key: string): boolean {
-  return editedHere.has(key);
+/** Whether the job, as it stands, is the version this tab saved: a later change from elsewhere is not. */
+export function isEditedHere(job: ScheduledJob): boolean {
+  return job.key !== null && editedHere.get(job.key) === jobFingerprint(job);
 }
 
-export function clearEditedHere(key: string): void {
-  editedHere.delete(key);
+/** Test-only: forget every mark, so test order cannot matter. */
+export function __resetEditedHereForTests(): void {
+  editedHere.clear();
 }
 
 /** Writes an answer. Only a user's Accept / Stop / "Not on this device" and creating a job answer, so an answer ends

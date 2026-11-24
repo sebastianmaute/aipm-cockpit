@@ -260,15 +260,18 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   const writeJob = useCallback(
     (id: number, key: string | undefined, edit: (j: ScheduledJob) => ScheduledJob, markEdit = false): Promise<void> => {
       const displayed = jobsRef.current.find((j) => matches(j, id, key));
-      let editedKey: string | null = null;
+      let edited: ScheduledJob | null = null;
       const transform = (list: readonly ScheduledJob[]) =>
         list.map((j) => {
           if (!(editable(j) && matches(j, id, key))) return j;
           const next = edit(j);
-          editedKey = markEdit && jobFingerprint(next) !== jobFingerprint(j) ? next.key : null;
+          edited = markEdit && jobFingerprint(next) !== jobFingerprint(j) ? next : null;
           return next;
         });
-      const onSaved = () => { if (editedKey !== null) markEditedHere(editedKey); };
+      const onSaved = () => {
+        const saved: ScheduledJob | null = edited;
+        if (saved !== null && saved.key !== null) markEditedHere(saved.key, jobFingerprint(saved));
+      };
       return trackSave(jobSaveId(displayed ?? { id, key: key ?? null }), mutate(transform, onSaved));
     },
     [mutate, trackSave],

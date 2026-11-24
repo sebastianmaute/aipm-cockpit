@@ -1,7 +1,8 @@
-// An answer clicked right after an instruction edit, through the REAL hook and section with saves held: the click
-// blurs the field, which starts the save, and the row's answer buttons wait for that save. An edit never answers.
+// An answer pressed right after an instruction edit, through the REAL hook and section (saves immediate, or held): a
+// press on an answer button keeps focus in the field, so it answers the version shown and the edit saves on the next
+// blur; while a save is in flight the buttons wait. An edit never answers.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ScheduledJobsSection } from "./scheduled-jobs-section";
 import { newConsent } from "../ai-consent";
@@ -9,7 +10,7 @@ import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import type { TursoConfig } from "../turso-config";
-import { ACCEPTANCE_KEY, acceptanceState, acceptJob, clearEditedHere } from "../scheduled-job-acceptance";
+import { __resetEditedHereForTests, ACCEPTANCE_KEY, acceptanceState, acceptJob } from "../scheduled-job-acceptance";
 
 const store = vi.hoisted(() => ({
   list: [] as unknown[],
@@ -56,7 +57,7 @@ const saving = t("en-US", "scheduledJobSaving");
 
 beforeEach(() => {
   localStorage.removeItem(ACCEPTANCE_KEY);
-  clearEditedHere(KEY);
+  __resetEditedHereForTests();
   store.list = [job()];
   store.gate = null;
   store.fail = false;
@@ -68,40 +69,101 @@ async function typeInstruction(user: ReturnType<typeof userEvent.setup>, text: s
   await user.type(field(), text);
 }
 
-describe("ScheduledJobsSection — answers wait for this device's save", () => {
-  it("Stop clicked right after editing an accepted job does nothing; after the save the job asks again, and Accept accepts the new version", async () => {
+describe("ScheduledJobsSection — a press answers the version shown, and waits for this device's saves", () => {
+  it("Stop pressed right after typing (saves land at once) stops the version shown: the field keeps focus and nothing is saved by the press", async () => {
+    acceptJob(job());
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobAcceptedHere"));
+    await typeInstruction(user, "c");
+    await user.click(screen.getByRole("button", { name: "Stop on this device: Daily risks" }));
+    expect(document.activeElement).toBe(field()); // the press did not end the edit
+    expect((store.list[0] as ScheduledJob).instruction).toBe("b"); // no save started
+    expect(acceptanceState(job())).toBe("declined"); // the version that was shown
+    expect(acceptanceState(job({ instruction: "c" }))).not.toBe("accepted");
+    await user.click(document.body); // the edit saves on the next blur and then asks again
+    await screen.findByText(t("en-US", "scheduledJobChangedHereStopped"));
+    expect((store.list[0] as ScheduledJob).instruction).toBe("c");
+    expect(acceptanceState(job({ instruction: "c" }))).toBe("declined-changed");
+  });
+
+  it("Accept pressed after typing back the accepted text accepts the version shown and records no Stop", async () => {
+    store.list = [job({ instruction: "b" })];
+    acceptJob(job({ instruction: "a" })); // this device accepted a; another device made it b
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobChanged"));
+    await typeInstruction(user, "a");
+    const writes = vi.spyOn(Storage.prototype, "setItem");
+    let answers: string[] = [];
+    try {
+      await user.click(screen.getByRole("button", { name: "Accept: Daily risks" }));
+      await waitFor(() => expect(acceptanceState(job({ instruction: "b" }))).toBe("accepted")); // the version shown
+      answers = writes.mock.calls.filter(([k]) => k === ACCEPTANCE_KEY).map(([, v]) => JSON.parse(v as string)[KEY] as string);
+    } finally {
+      writes.mockRestore();
+    }
+    expect(answers.length).toBeGreaterThan(0);
+    expect(answers.some((v) => v.startsWith("declined:"))).toBe(false); // no Stop the user did not press
+    expect(document.activeElement).toBe(field());
+    expect((store.list[0] as ScheduledJob).instruction).toBe("b");
+    await user.click(document.body);
+    await screen.findByText(t("en-US", "scheduledJobChangedHere"));
+    expect(acceptanceState(job({ instruction: "a" }))).toBe("changed"); // a was not accepted by that press
+  });
+
+  it("Not on this device pressed right after typing on a never-answered job stops the version shown", async () => {
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    await typeInstruction(user, "c");
+    await user.click(screen.getByRole("button", { name: "Not on this device: Daily risks" }));
+    expect(document.activeElement).toBe(field());
+    expect(acceptanceState(job())).toBe("declined");
+    expect(acceptanceState(job({ instruction: "c" }))).not.toBe("accepted");
+  });
+
+  it("a press is ignored when a save started by another path changes the job before the release", async () => {
+    acceptJob(job());
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobAcceptedHere"));
+    const user = userEvent.setup();
+    await typeInstruction(user, "c");
+    const main = screen.getByRole("button", { name: "Stop on this device: Daily risks" });
+    fireEvent.pointerDown(main);
+    fireEvent.focusOut(field()); // the field's own blur saves the edit while the press is held
+    await waitFor(() => expect(main).toHaveAccessibleName("Accept: Daily risks")); // the save landed: the label changed
+    fireEvent.click(main);
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    expect(acceptanceState(job())).toBe("accepted"); // untouched: no Stop of b ...
+    expect(acceptanceState(job({ instruction: "c" }))).toBe("changed"); // ... and no Accept of c
+  });
+
+  it("a press that began while saving is ignored even when the save ends before the release", async () => {
     acceptJob(job());
     const user = userEvent.setup();
     render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
     await screen.findByText(t("en-US", "scheduledJobAcceptedHere"));
     await typeInstruction(user, "c");
     const release = holdSaves();
-    await user.click(screen.getByRole("button", { name: "Stop on this device: Daily risks" })); // the click blurs the field
+    await user.click(document.body);
     const main = screen.getByRole("button", { name: `${saving} Stop on this device: Daily risks` });
-    expect(main).toHaveAttribute("aria-disabled", "true");
-    expect(acceptanceState(job())).toBe("accepted"); // the Stop did nothing
+    fireEvent.pointerDown(main);
     release();
-    await screen.findByText(t("en-US", "scheduledJobChangedHere"));
+    await waitFor(() => expect(main).toHaveAccessibleName("Accept: Daily risks"));
+    fireEvent.click(main);
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
     expect(acceptanceState(job({ instruction: "c" }))).toBe("changed");
-    await user.click(screen.getByRole("button", { name: "Accept: Daily risks" }));
-    await waitFor(() => expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument());
-    expect(acceptanceState(job({ instruction: "c" }))).toBe("accepted");
   });
 
-  it("Not on this device clicked right after editing a never-answered job does nothing until the save; then it stops the new version", async () => {
+  it("keyboard: Enter on the focused Stop button answers", async () => {
+    acceptJob(job());
     const user = userEvent.setup();
     render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
-    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
-    await typeInstruction(user, "c");
-    const release = holdSaves();
-    await user.click(screen.getByRole("button", { name: "Not on this device: Daily risks" }));
-    expect(screen.getByRole("button", { name: `${saving} Not on this device: Daily risks` })).toHaveAttribute("aria-disabled", "true");
-    expect(localStorage.getItem(ACCEPTANCE_KEY)).toBeNull(); // nothing was answered
-    release();
-    await waitFor(() => expect(field()).toHaveValue("c"));
-    await user.click(await screen.findByRole("button", { name: "Not on this device: Daily risks" }));
-    await waitFor(() => expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument());
-    expect(acceptanceState(job({ instruction: "c" }))).toBe("declined");
+    await screen.findByText(t("en-US", "scheduledJobAcceptedHere"));
+    act(() => { screen.getByRole("button", { name: "Stop on this device: Daily risks" }).focus(); });
+    await user.keyboard("{Enter}");
+    expect(acceptanceState(job())).toBe("declined");
   });
 
   it("a failed save re-enables the buttons and leaves the answer as it was", async () => {

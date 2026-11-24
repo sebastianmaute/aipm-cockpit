@@ -1696,6 +1696,7 @@ const enUS = {
   scheduledJobChanged: "Changed since you accepted it: needs your OK again",
   scheduledJobChangedElsewhere: "Changed on another device: needs your OK",
   scheduledJobChangedHere: "You changed this job: accept it again to run it on this device",
+  scheduledJobChangedHereStopped: "You changed this job: accept it to run it on this device",
   scheduledJobSaving: "Saving…",
   scheduledJobAccept: "Accept",
   scheduledJobAcceptNamed: "Accept: {0}",

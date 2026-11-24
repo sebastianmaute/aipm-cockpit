@@ -4,7 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { JobRow } from "./scheduled-job-row";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
-import { ACCEPTANCE_KEY, acceptanceState, acceptJob, clearEditedHere, declineJob, isEditedHere, markEditedHere } from "../scheduled-job-acceptance";
+import {
+  __resetEditedHereForTests, ACCEPTANCE_KEY, acceptanceState, acceptJob, declineJob, isEditedHere, jobFingerprint, markEditedHere,
+} from "../scheduled-job-acceptance";
 
 const deviceLabel = vi.hoisted(() => ({ value: "aaaa1111" }));
 vi.mock("../device-label", () => ({
@@ -189,6 +191,49 @@ describe("JobRow acceptance", () => {
       expect(acceptanceState(job())).toBe("accepted");
     });
 
+    it("when the save ends the focused button keeps focus and its name becomes the answer again", () => {
+      const view = saving(job(), vi.fn());
+      const main = screen.getByRole("button", { name: "Saving… Accept: Weekly review" });
+      main.focus();
+      view.rerender(
+        <ul>
+          <JobRow lang="en-US" job={job()} token="Weekly review" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
+            archivedProjects={[]} projectsLoaded zones={["UTC"]} defaultZone="UTC" onUpdate={vi.fn()} onAssign={vi.fn()}
+            onDelete={vi.fn()} onAccept={vi.fn()} saving={false} />
+        </ul>,
+      );
+      expect(main).toHaveAccessibleName("Accept: Weekly review");
+      expect(main).not.toHaveAttribute("aria-disabled");
+      expect(document.activeElement).toBe(main);
+    });
+
+    it("a mouse press does not take focus from the field being edited", () => {
+      renderRow(job());
+      const field = screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Weekly review` });
+      field.focus();
+      const pressed = fireEvent.mouseDown(screen.getByRole("button", { name: "Accept: Weekly review" }));
+      expect(pressed).toBe(false); // default prevented: the browser keeps focus in the field
+      expect(fireEvent.mouseDown(screen.getByRole("button", { name: "Not on this device: Weekly review" }))).toBe(false);
+    });
+
+    it("a press is ignored when the job's version changed between press and release", () => {
+      acceptJob(job());
+      const onAccept = vi.fn();
+      const view = renderRow(job(), onAccept);
+      const main = screen.getByRole("button", { name: "Stop on this device: Weekly review" });
+      fireEvent.pointerDown(main);
+      view.rerender(
+        <ul>
+          <JobRow lang="en-US" job={job({ instruction: "Changed" })} token="Weekly review" busy={false} tz="UTC"
+            projects={[{ id: "p1", name: "Alpha" }]} archivedProjects={[]} projectsLoaded zones={["UTC"]} defaultZone="UTC"
+            onUpdate={vi.fn()} onAssign={vi.fn()} onDelete={vi.fn()} onAccept={onAccept} />
+        </ul>,
+      );
+      fireEvent.click(main);
+      expect(onAccept).not.toHaveBeenCalled();
+      expect(acceptanceState(job())).toBe("accepted");
+    });
+
     it("a press that began while saving does nothing, even when the save ends before the click", () => {
       const onAccept = vi.fn();
       const view = saving(job(), onAccept);
@@ -213,59 +258,90 @@ describe("JobRow acceptance", () => {
   });
 
   describe("a job this tab changed", () => {
-    afterEach(() => clearEditedHere("job-key-1"));
+    afterEach(() => __resetEditedHereForTests());
+    const markShown = () => markEditedHere("job-key-1", jobFingerprint(job()));
 
-    it("reads You changed this job instead of a change from elsewhere, accepted or stopped before", () => {
+    it("a job this device had accepted reads You changed this job: accept it again", () => {
       acceptJob(job({ instruction: "Before" }));
-      markEditedHere("job-key-1");
-      const first = renderRow(job());
-      expect(screen.getByText(t("en-US", "scheduledJobChangedHere"))).toBeInTheDocument();
-      expect(screen.queryByText(t("en-US", "scheduledJobChanged"))).toBeNull();
-      first.unmount();
-      declineJob(job({ instruction: "Before" }));
-      markEditedHere("job-key-1");
+      markShown();
       renderRow(job());
       expect(screen.getByText(t("en-US", "scheduledJobChangedHere"))).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "scheduledJobChanged"))).toBeNull();
+    });
+
+    it("a job this device had stopped reads You changed this job: accept it (never 'again')", () => {
+      declineJob(job({ instruction: "Before" }));
+      markShown();
+      renderRow(job());
+      expect(screen.getByText(t("en-US", "scheduledJobChangedHereStopped"))).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "scheduledJobChangedHere"))).toBeNull();
       expect(screen.queryByText(t("en-US", "scheduledJobChangedElsewhere"))).toBeNull();
+    });
+
+    it("a later change from another device reads as such again", () => {
+      acceptJob(job({ instruction: "Before" }));
+      markShown();
+      renderRow(job({ instruction: "Changed elsewhere" }));
+      expect(screen.getByText(t("en-US", "scheduledJobChanged"))).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "scheduledJobChangedHere"))).toBeNull();
+    });
+
+    it("a later change from another device of a stopped job reads changed on another device again", () => {
+      declineJob(job({ instruction: "Before" }));
+      markShown();
+      renderRow(job({ instruction: "Changed elsewhere" }));
+      expect(screen.getByText(t("en-US", "scheduledJobChangedElsewhere"))).toBeInTheDocument();
     });
 
     it("the mark only changes the wording of a changed job", () => {
       acceptJob(job());
-      markEditedHere("job-key-1");
+      markShown();
       renderRow(job());
       expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
     });
 
     it("answering ends the mark", () => {
       acceptJob(job({ instruction: "Before" }));
-      markEditedHere("job-key-1");
+      markShown();
       renderRow(job());
       fireEvent.click(screen.getByRole("button", { name: "Not on this device: Weekly review" }));
       expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Accept: Weekly review" }));
       expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Stop on this device: Weekly review" }));
-      expect(isEditedHere("job-key-1")).toBe(false);
+      expect(isEditedHere(job())).toBe(false);
     });
   });
 
   describe("Not on this device", () => {
     const decline = { name: "Not on this device: Weekly review" };
 
-    it("from none: declines, drops the button and moves focus to the main button", async () => {
+    it("from none, by keyboard: declines, drops the button and moves focus to the main button", async () => {
       const user = userEvent.setup();
       renderRow(job());
-      await user.click(screen.getByRole("button", decline));
+      screen.getByRole("button", decline).focus();
+      await user.keyboard("{Enter}");
       expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument();
       expect(screen.queryByRole("button", decline)).toBeNull();
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "Accept: Weekly review" }));
     });
 
-    it("from changed: the same", async () => {
+    it("by mouse: declines and leaves focus where it was (the press never took it)", async () => {
+      const user = userEvent.setup();
+      renderRow(job());
+      const name = screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobName")} – Weekly review` });
+      name.focus();
+      await user.click(screen.getByRole("button", decline));
+      expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument();
+      expect(document.activeElement).toBe(name);
+    });
+
+    it("from changed, by keyboard: the same", async () => {
       const user = userEvent.setup();
       acceptJob(job({ instruction: "Something else" }));
       renderRow(job());
-      await user.click(screen.getByRole("button", decline));
+      screen.getByRole("button", decline).focus();
+      await user.keyboard("{Enter}");
       expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument();
       expect(screen.queryByRole("button", decline)).toBeNull();
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "Accept: Weekly review" }));

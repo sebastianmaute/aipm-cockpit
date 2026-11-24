@@ -14,7 +14,7 @@ import { formatDisplayTimestamp } from "../tz-display";
 import { TEXTAREA_MAX } from "../sanitize-core";
 import type { UseScheduledJobsResult } from "../use-scheduled-jobs";
 import { REPORT_ERROR_KEY, type ReportErrorToken } from "../scheduled-reports-store";
-import { acceptanceState, declineJob, isEditedHere, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
+import { acceptanceState, declineJob, isEditedHere, jobFingerprint, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
 import { peekDeviceLabel } from "../device-label";
 
 /** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
@@ -136,6 +136,27 @@ const ACCEPTANCE_STATUS_KEY: Record<"accepted" | "declined" | "declined-changed"
   none: "scheduledJobNeedsOk",
 };
 
+/** What an answer button showed when it was pressed (pointerdown). */
+interface PressSnapshot {
+  action: "accept" | "stop" | "decline";
+  fingerprint: string;
+  saving: boolean;
+}
+
+/** A pointer press answers only what it was pressed on: it is ignored when the job was saving at the press or is
+ *  saving now, or when the button's action or the job's version changed between press and release. A keyboard
+ *  activation (no pointerdown) is judged on the current render. */
+function pressStillValid(press: PressSnapshot | null, now: PressSnapshot): boolean {
+  if (press === null) return !now.saving;
+  return !press.saving && !now.saving && press.action === now.action && press.fingerprint === now.fingerprint;
+}
+
+/** Keeps focus where it is (the instruction field) when an answer button is pressed with the mouse: the press must not
+ *  blur the field, whose blur saves the edit and would change the version the button answers mid-press. */
+function keepFocus(e: { preventDefault: () => void }): void {
+  e.preventDefault();
+}
+
 /** Whether this device accepted the job, with ONE Accept / Stop button (so focus survives the switch) and where the job was made. Local only: nothing is written to the store. */
 function AcceptanceLine({
   lang,
@@ -162,12 +183,13 @@ function AcceptanceLine({
   const [stopFailed, setStopFailed] = useState(false);
   const mainRef = useRef<HTMLButtonElement>(null);
   const state = acceptanceState(job);
-  // While a save of this job is in flight (typing in the instruction field saves it on blur, which a click on these
-  // buttons causes), no answer can be given. A press that began while saving stays ignored even if the save ends
-  // before the click; a keyboard activation has no pointerdown and is judged when it happens.
-  const mainPressedWhileSaving = useRef(false);
-  const declinePressedWhileSaving = useRef(false);
-  const unusable = pending || saving;
+  // A press answers the version shown when it was pressed. Pressing does not take focus from the instruction field,
+  // so the edit is not saved by the press; it saves on the next blur and the job then asks again. While a save of this
+  // job is in flight no answer can be given (see `pressStillValid` for a press that spans a save).
+  const mainPress = useRef<PressSnapshot | null>(null);
+  const declinePress = useRef<PressSnapshot | null>(null);
+  const declineRef = useRef<HTMLButtonElement>(null);
+  const fingerprint = jobFingerprint(job);
   const savingLabel = t(lang, "scheduledJobSaving");
   // A job with no project reports nothing, so there is nothing to accept; a cannot-run job has no state to show.
   const decided = state === "cannot-run" || job.projectId === null ? null : state;
@@ -182,11 +204,16 @@ function AcceptanceLine({
         ? t(lang, "scheduledJobCreatedHere")
         : t(lang, "scheduledJobCreatedOn", job.createdBy);
   const accepted = decided === "accepted";
-  // "Changed on another device" never describes a change this tab made (display only).
+  const mainNow: PressSnapshot = { action: accepted ? "stop" : "accept", fingerprint, saving };
+  const declineNow: PressSnapshot = { action: "decline", fingerprint, saving };
+  const unusable = pending || saving;
+  // "Changed on another device" never describes the version this tab saved (display only); a stopped job is never
+  // asked to be accepted "again".
+  const editedHere = (decided === "changed" || decided === "declined-changed") && isEditedHere(job);
   const statusKey: TranslationKey | null = decided === null
     ? null
-    : (decided === "changed" || decided === "declined-changed") && job.key !== null && isEditedHere(job.key)
-      ? "scheduledJobChangedHere"
+    : editedHere
+      ? (decided === "changed" ? "scheduledJobChangedHere" : "scheduledJobChangedHereStopped")
       : ACCEPTANCE_STATUS_KEY[decided];
   const mainName = t(lang, accepted ? "scheduledJobStopNamed" : "scheduledJobAcceptNamed", token);
   const declineName = t(lang, "scheduledJobDeclineNamed", token);
@@ -207,12 +234,13 @@ function AcceptanceLine({
               // aria-disabled, never `disabled`: a disabled button drops keyboard focus.
               aria-disabled={unusable ? true : undefined}
               className="aria-disabled:cursor-wait aria-disabled:opacity-50"
-              onPointerDown={() => { mainPressedWhileSaving.current = saving; }}
-              onKeyDown={() => { mainPressedWhileSaving.current = false; }}
+              onMouseDown={keepFocus}
+              onPointerDown={() => { mainPress.current = mainNow; }}
+              onKeyDown={() => { mainPress.current = null; }}
               onClick={() => {
-                const pressedWhileSaving = mainPressedWhileSaving.current;
-                mainPressedWhileSaving.current = false;
-                if (pressedWhileSaving || unusable) return;
+                const press = mainPress.current;
+                mainPress.current = null;
+                if (pending || !pressStillValid(press, mainNow)) return;
                 onNoticeClear();
                 setStopFailed(false);
                 if (accepted) setStopFailed(!declineJob(job));
@@ -230,17 +258,21 @@ function AcceptanceLine({
               size="xs"
               aria-disabled={unusable ? true : undefined}
               className="aria-disabled:cursor-wait aria-disabled:opacity-50"
-              onPointerDown={() => { declinePressedWhileSaving.current = saving; }}
-              onKeyDown={() => { declinePressedWhileSaving.current = false; }}
+              ref={declineRef}
+              onMouseDown={keepFocus}
+              onPointerDown={() => { declinePress.current = declineNow; }}
+              onKeyDown={() => { declinePress.current = null; }}
               onClick={() => {
-                const pressedWhileSaving = declinePressedWhileSaving.current;
-                declinePressedWhileSaving.current = false;
-                if (pressedWhileSaving || unusable) return;
+                const press = declinePress.current;
+                declinePress.current = null;
+                if (pending || !pressStillValid(press, declineNow)) return;
+                // Only a focused button hands focus on (a keyboard press); a mouse press left focus where it was.
+                const hadFocus = document.activeElement === declineRef.current;
                 onNoticeClear();
                 const declined = declineJob(job);
                 setStopFailed(!declined);
                 // The button is about to unmount: the main one (same element, now reading Accept) takes focus.
-                if (declined) mainRef.current?.focus();
+                if (declined && hadFocus) mainRef.current?.focus();
               }}
               aria-label={saving ? `${savingLabel} ${declineName}` : declineName}
             >
