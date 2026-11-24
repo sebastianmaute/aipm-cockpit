@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useScheduledJobs } from "./use-scheduled-jobs";
-import { JobChangedError, jobSaveId } from "./scheduled-jobs/schedule";
+import { JobChangedError, JobGoneError, jobSaveId } from "./scheduled-jobs/schedule";
 import { acceptJob, storedAcceptanceEntry } from "./scheduled-job-acceptance";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 import type { TursoConfig } from "./turso-config";
@@ -50,7 +50,7 @@ beforeEach(() => {
 afterEach(() => { releaseHeld(); releaseHeld = () => {}; });
 
 async function mounted() {
-  const hook = renderHook(() => useScheduledJobs({ config: TURSO }));
+  const hook = renderHook(() => useScheduledJobs({ config: TURSO, trackSaving: true }));
   await waitFor(() => expect(hook.result.current.jobs).toHaveLength(1));
   return hook;
 }
@@ -207,5 +207,41 @@ describe("useScheduledJobs — a save that checks the stored instruction first",
     const { result } = await mounted();
     await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "saving-key", { expectInstruction: () => "" }); });
     expect((store.list[0] as ScheduledJob).instruction).toBe("c");
+  });
+});
+
+describe("useScheduledJobs — instances that do not track saves, and jobs deleted elsewhere", () => {
+  it("an instance without trackSaving keeps one empty saving set and adds no re-render for it (recordRun)", async () => {
+    let renders = 0;
+    const { result } = renderHook(() => { renders += 1; return useScheduledJobs({ config: TURSO }); });
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    const before = result.current.savingJobs;
+    const rendersBefore = renders;
+    await act(async () => { await result.current.recordRun(1, { ranAt: "2026-11-24T09:00:00Z", summary: "s", actionCount: 0, ok: true }, "saving-key"); });
+    expect(result.current.savingJobs).toBe(before);
+    expect(result.current.savingJobs.size).toBe(0);
+    // Only the new list re-renders (no saving-state renders on either side of the write).
+    expect(renders - rendersBefore).toBeLessThanOrEqual(2);
+  });
+
+  it("an edit of a job deleted on another device writes nothing, tells nobody it was written, and rejects as gone", async () => {
+    const { result } = await mounted();
+    store.list = []; // deleted elsewhere
+    const onWritten = vi.fn();
+    let error: unknown = null;
+    await act(async () => {
+      await result.current.updateJob(1, { instruction: "c" }, "saving-key", { expectInstruction: () => "b", onWritten }).catch((e: unknown) => { error = e; });
+    });
+    expect(error).toBeInstanceOf(JobGoneError);
+    expect(onWritten).not.toHaveBeenCalled();
+    expect(store.list).toEqual([]);
+  });
+
+  it("the runner's writes to a deleted job still resolve quietly", async () => {
+    const { result } = await mounted();
+    store.list = [];
+    await act(async () => { await result.current.clearProject(1, "saving-key"); });
+    await act(async () => { await result.current.disableJob(1, "saving-key"); });
+    expect(store.list).toEqual([]);
   });
 });

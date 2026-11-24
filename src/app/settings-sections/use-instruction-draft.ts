@@ -7,7 +7,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import type { UpdateJobOptions, UseScheduledJobsResult } from "../use-scheduled-jobs";
-import { JobChangedError } from "../scheduled-jobs/schedule";
+import { JobChangedError, JobGoneError, jobSaveId } from "../scheduled-jobs/schedule";
+import { forgetLostDraft, keepLostDraft, peekLostDraft } from "../scheduled-jobs/lost-draft";
 
 /** The fields `updateJob` accepts — exactly its patch type, so a row can never write a project or key. */
 export type JobPatch = Parameters<UseScheduledJobsResult["updateJob"]>[1];
@@ -22,7 +23,7 @@ export type DraftStatus = "ok" | "notSaved" | "dropped";
 
 /** What a draft save needs, kept current by the handlers and an effect (never written during render). */
 interface DraftRefs {
-  latest: { current: { jobId: number; draft: string; base: string; onUpdate: JobUpdate } };
+  latest: { current: { jobId: number; saveId: string; draft: string; base: string; onUpdate: JobUpdate } };
   /** Saves this row has sent and not yet seen settle, oldest first, each with the refusal generation it started in. */
   pending: { current: readonly { text: string; gen: number }[] };
   /** The stored text this row expects when its next save of the current generation RUNS: the text the field showed
@@ -88,12 +89,20 @@ function flushDraft(r: DraftRefs): void {
     },
     (err: unknown) => {
       settle();
+      // The job was deleted on another device: its row goes away; the section says so.
+      if (err instanceof JobGoneError) return;
+      if (!r.mounted.current) {
+        // The editor has closed, so nothing here can tell the user: keep the text for the next time the row mounts.
+        const reason = err instanceof JobChangedError ? "dropped" : "notSaved";
+        keepLostDraft(r.latest.current.saveId, { text: typed, reason });
+        if (err instanceof JobChangedError) r.latest.current = { ...r.latest.current, draft: err.stored, base: err.stored };
+        return;
+      }
       if (err instanceof JobChangedError) {
         if (startedGeneration) {
           // Another device changed the job since this row last wrote it: drop the draft, never write over that change
           // (the new generation refuses every save of this row started before).
           r.latest.current = { ...r.latest.current, draft: err.stored, base: err.stored };
-          if (!r.mounted.current) return;
           r.setDraft(err.stored);
           r.setBase(err.stored);
           r.setStatus(() => "dropped");
@@ -104,13 +113,12 @@ function flushDraft(r: DraftRefs): void {
         const now = r.latest.current;
         if (now.draft.trim() !== now.base) return;
         r.latest.current = { ...now, draft: err.stored, base: err.stored };
-        if (!r.mounted.current) return;
         r.setDraft(err.stored);
         r.setBase(err.stored);
         return;
       }
       const now = r.latest.current;
-      if (r.mounted.current && now.draft.trim() !== now.base) r.setStatus(() => "notSaved");
+      if (now.draft.trim() !== now.base) r.setStatus(() => "notSaved");
     },
   );
 }
@@ -118,14 +126,18 @@ function flushDraft(r: DraftRefs): void {
 /** The standing instruction as a draft against the stored job. It saves on blur and on unmount (closing the dialog
  *  fires no blur on a focused node that unmounts); see `flushDraft`. When the stored instruction changes: a stored
  *  text equal to the draft rebases it (no notice); with no unsaved change AND no save of this row pending, the draft
- *  follows the store; otherwise the draft is kept and its conditional save decides. */
+ *  follows the store; otherwise the draft is kept and its conditional save decides. Text a closed editor could not
+ *  save (`lost-draft.ts`) is restored on mount as an unsaved draft with its notice; restoring never saves or answers,
+ *  and closing again without touching it keeps it for next time. */
 export function useInstructionDraft(job: ScheduledJob, onUpdate: JobUpdate) {
   const stored = job.instruction ?? "";
-  const [draft, setDraft] = useState(stored);
+  const saveId = jobSaveId(job);
+  const [restored] = useState(() => peekLostDraft(saveId));
+  const [draft, setDraft] = useState(restored?.text ?? stored);
   const [base, setBase] = useState(stored);
   const [seen, setSeen] = useState(stored);
   const [hasPending, setHasPending] = useState(false);
-  const [status, setStatus] = useState<DraftStatus>("ok");
+  const [status, setStatus] = useState<DraftStatus>(restored?.reason ?? "ok");
   if (stored !== seen) {
     setSeen(stored);
     const typed = draft.trim();
@@ -137,33 +149,47 @@ export function useInstructionDraft(job: ScheduledJob, onUpdate: JobUpdate) {
       setBase(stored);
     }
   }
-  const latest = useRef({ jobId: job.id, draft, base, onUpdate });
+  const latest = useRef({ jobId: job.id, saveId, draft, base, onUpdate });
+  // The restored text, until the user edits or leaves the field (then it is the user's draft like any other).
+  const untouchedRestore = useRef<string | null>(restored?.text ?? null);
   const pending = useRef<readonly { text: string; gen: number }[]>([]);
   const expected = useRef(stored);
   const generation = useRef(0);
   const mounted = useRef(true);
   useEffect(() => {
-    latest.current = { jobId: job.id, draft, base, onUpdate };
+    latest.current = { jobId: job.id, saveId, draft, base, onUpdate };
   });
   const refs = (): DraftRefs => ({ latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending });
   useEffect(() => {
     mounted.current = true;
     const unmountRefs: DraftRefs = { latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending };
+    const restoredOnMount = restored;
+    if (restoredOnMount !== null) forgetLostDraft(latest.current.saveId); // it is in the field now
     return () => {
       mounted.current = false;
+      const kept = untouchedRestore.current;
+      if (restoredOnMount !== null && kept !== null && latest.current.draft === kept) {
+        // Closed again without touching the restored text: keep it for next time, never save it by itself.
+        keepLostDraft(latest.current.saveId, { text: kept, reason: restoredOnMount.reason });
+        return;
+      }
       flushDraft(unmountRefs);
     };
-  }, []);
+  }, [restored]);
   return {
     draft,
     status,
     onChange: (value: string) => {
+      untouchedRestore.current = null;
       latest.current = { ...latest.current, draft: value };
       setDraft(value);
       // A draft typed back to the stored text has nothing left unsaved; a new edit ends the dropped notice.
       setStatus((st) => (value.trim() === base || st === "dropped" ? "ok" : st));
     },
-    onBlur: () => flushDraft(refs()),
+    onBlur: () => {
+      untouchedRestore.current = null;
+      flushDraft(refs());
+    },
     clearDropped: () => setStatus((st) => (st === "dropped" ? "ok" : st)),
   };
 }

@@ -28,7 +28,7 @@ import { listProjectRefs } from "../turso-portfolio";
 import { resolveTimezone, tzZones } from "../timezone";
 import { type AcceptNotice, DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
 import { Banner } from "../banner";
-import { isRunnable, JobChangedError, jobSaveId } from "../scheduled-jobs/schedule";
+import { isRunnable, JobChangedError, JobGoneError, jobSaveId } from "../scheduled-jobs/schedule";
 import { acceptanceState, acceptJob, jobFingerprint, storedAcceptanceEntry, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
 
 export interface ScheduledJobsSectionProps {
@@ -79,7 +79,7 @@ function useProjectLists(config: TursoConfig | null, available: boolean): Projec
 }
 
 export function ScheduledJobsSection({ lang, settings, onChange, config }: ScheduledJobsSectionProps) {
-  const { jobs, busy, createJob, updateJob, deleteJob, assignProject, refresh, readFresh, savingJobs } = useScheduledJobs({ config });
+  const { jobs, busy, createJob, updateJob, deleteJob, assignProject, refresh, readFresh, savingJobs } = useScheduledJobs({ config, refreshOnFocus: true, trackSaving: true });
   // §316 — every new job starts with the same default name.
   const jobTokens = useRowTokens(jobs, nameOfJob);
   const tz = useDisplayTzOrBrowser();
@@ -106,9 +106,18 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   const hasLegacyJob = jobs.some((j) => j.foreign === undefined && j.key === null);
   // A write that fails (the database unreachable) must not look as if it worked until the next reload.
   const [writeFailed, setWriteFailed] = useState(false);
+  // A job deleted on another device leaves no row to speak in: the section's status region says so instead.
+  const [deletedElsewhere, setDeletedElsewhere] = useState(false);
   const track = (write: Promise<void>): void => {
     // A conditional save refused because the job changed elsewhere is not a failed write: the row says what happened.
-    void Promise.resolve(write).then(() => setWriteFailed(false), (err: unknown) => { if (!(err instanceof JobChangedError)) setWriteFailed(true); });
+    // A conditional save refused, or an edit of a job deleted elsewhere, is not a failed write: say what happened instead.
+    void Promise.resolve(write).then(
+      () => { setWriteFailed(false); setDeletedElsewhere(false); },
+      (err: unknown) => {
+        if (err instanceof JobGoneError) setDeletedElsewhere(true);
+        else if (!(err instanceof JobChangedError)) setWriteFailed(true);
+      },
+    );
   };
 
   // What the last Accept on each row found out when it accepted nothing, keyed by the job's permanent key.
@@ -137,6 +146,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   async function acceptFresh(job: ScheduledJob): Promise<void> {
     if (job.key === null || acceptPending.has(job.key)) return;
     setAcceptNotice(job.key, null);
+    setDeletedElsewhere(false);
     setPending(job.key, true);
     const entryAtClick = storedAcceptanceEntry(job.key);
     try {
@@ -157,7 +167,12 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
         if (!acceptJob(fresh)) setAcceptNotice(job.key, "saveFailed");
         return;
       }
-      setAcceptNotice(job.key, "changed");
+      if (fresh === undefined) {
+        // Deleted on another device: its row goes away with the refresh, so the section says so.
+        setDeletedElsewhere(true);
+      } else {
+        setAcceptNotice(job.key, "changed");
+      }
       await refresh();
     } catch {
       setAcceptNotice(job.key, "failed");
@@ -231,6 +246,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     {tPlural(lang, "scheduledJobsAwaitingOk", awaitingOk, String(awaitingOk))}
                   </Banner>
                 )}
+                {deletedElsewhere && <p className="text-xs text-foreground">{t(lang, "scheduledJobDeletedElsewhere")}</p>}
               </div>
               {projects.failed && <FieldHint>{t(lang, "tursoPickerError")}</FieldHint>}
               {writeFailed && <p role="alert" className="text-xs text-foreground">{t(lang, "scheduledJobsWriteFailed")}</p>}

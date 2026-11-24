@@ -387,6 +387,18 @@ describe("useScheduledJobs: a newer version's jobs and fields survive (§772 cr3
     expect(after[1]).toEqual(foreign);
   });
 
+  it("an edit that reached no job (a foreign one) never tells its caller it was written", async () => {
+    localStorage.setItem(KEY, JSON.stringify([known, foreign]));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(2));
+    const onWritten = vi.fn();
+    await act(async () => {
+      await result.current.updateJob(2, { instruction: "c" }, undefined, { expectInstruction: () => "", onWritten }).catch(() => {});
+    });
+    expect(onWritten).not.toHaveBeenCalled();
+    expect(stored()[1]).toEqual(foreign);
+  });
+
   // KILLED BY: letting an edit, a run record or a project change reach a foreign job.
   it("no write other than a delete reaches a foreign job", async () => {
     localStorage.setItem(KEY, JSON.stringify([known, foreign]));
@@ -631,7 +643,7 @@ describe("useScheduledJobs re-reads when the page is looked at again", () => {
 
   it("a visible tab and a focused window load the list again", async () => {
     store(1);
-    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null, refreshOnFocus: true }));
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
     store(2);
     const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
@@ -645,7 +657,7 @@ describe("useScheduledJobs re-reads when the page is looked at again", () => {
 
   it("a hidden tab does not load", async () => {
     store(1);
-    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null, refreshOnFocus: true }));
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
     const getItem = vi.spyOn(Storage.prototype, "getItem");
     const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
@@ -660,7 +672,7 @@ describe("useScheduledJobs re-reads when the page is looked at again", () => {
     const addWin = vi.spyOn(window, "addEventListener");
     const removeDoc = vi.spyOn(document, "removeEventListener");
     const removeWin = vi.spyOn(window, "removeEventListener");
-    const { result, unmount } = renderHook(() => useScheduledJobs({ config: null }));
+    const { result, unmount } = renderHook(() => useScheduledJobs({ config: null, refreshOnFocus: true }));
     await waitFor(() => expect(result.current.ready).toBe(true));
     const onVisible = addDoc.mock.calls.find(([type]) => type === "visibilitychange")?.[1];
     const onFocus = addWin.mock.calls.find(([type]) => type === "focus")?.[1];
@@ -670,5 +682,16 @@ describe("useScheduledJobs re-reads when the page is looked at again", () => {
     expect(removeDoc.mock.calls.some(([type, fn]) => type === "visibilitychange" && fn === onVisible)).toBe(true);
     expect(removeWin.mock.calls.some(([type, fn]) => type === "focus" && fn === onFocus)).toBe(true);
     for (const s of [addDoc, addWin, removeDoc, removeWin]) s.mockRestore();
+  });
+
+  it("an instance that does not ask for it (the runner's) registers no focus or visibility listener", async () => {
+    const addDoc = vi.spyOn(document, "addEventListener");
+    const addWin = vi.spyOn(window, "addEventListener");
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(addDoc.mock.calls.some(([type]) => type === "visibilitychange")).toBe(false);
+    expect(addWin.mock.calls.some(([type]) => type === "focus")).toBe(false);
+    addDoc.mockRestore();
+    addWin.mockRestore();
   });
 });

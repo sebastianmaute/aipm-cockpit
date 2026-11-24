@@ -1695,6 +1695,7 @@ const enUS = {
   scheduledJobNotSaved: "Not saved",
   scheduledJobChangeNotSaved: "Couldn't save your change. Leave the field to try again.",
   scheduledJobDraftDropped: "This job changed on another device, so your unsaved change was not saved.",
+  scheduledJobDeletedElsewhere: "This job was deleted on another device.",
   scheduledJobAcceptChanged: "This job changed on another device. Review it and accept again.",
   scheduledJobNeedsOk: "Needs your OK to run on this device",
   scheduledJobChanged: "Changed since you accepted it: needs your OK again",

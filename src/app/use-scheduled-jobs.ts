@@ -14,7 +14,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceLabel } from "./device-label";
 import { acceptJob, forgetJob, jobFingerprint, markEditedHere } from "./scheduled-job-acceptance";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
-import { appendRun, JobChangedError, jobSaveId, normalizeJobFields } from "./scheduled-jobs/schedule";
+import { appendRun, JobChangedError, JobGoneError, jobSaveId, normalizeJobFields } from "./scheduled-jobs/schedule";
+import { forgetLostDraft } from "./scheduled-jobs/lost-draft";
 import type {
   JobCadence, ScheduledJob, ScheduledJobRun,
 } from "./scheduled-jobs/types";
@@ -32,6 +33,12 @@ export interface CreateScheduledJobInput {
 
 export interface UseScheduledJobsArgs {
   config: TursoConfig | null; // null = localStorage backend
+  /** Read the list again when the tab becomes visible or the window regains focus (the Settings list; not the
+   *  always-mounted runner instance). */
+  refreshOnFocus?: boolean;
+  /** Keep `savingJobs` current (the Settings list, whose answer buttons wait for saves). Without it the set stays
+   *  empty and a save adds no re-render. */
+  trackSaving?: boolean;
 }
 
 /** A precondition judged when the write RUNS, on the FRESH store list inside the write chain. The write happens only
@@ -120,12 +127,21 @@ function normalizePatch<P extends { instruction?: string; timeZone?: string | nu
   } as P;
 }
 
+/** How `writeJob` treats one write: mark a saved change of project or instruction as this device's (`markEdit`), run
+ *  `afterSave` inside the chain once it landed, and reject with `JobGoneError` when the job is gone (`rejectIfGone`,
+ *  for a user's edits). */
+interface WriteJobHow {
+  markEdit?: boolean;
+  afterSave?: () => void;
+  rejectIfGone?: boolean;
+}
+
 /** A failed read (a busy database while another tab migrates, a dropped connection) is retried a few times, so a tab
  *  that lost the race does not stay empty for the session. */
 const MAX_LOAD_RETRIES = 3;
 const LOAD_RETRY_MS = 5_000;
 
-export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduledJobsResult {
+export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving = false }: UseScheduledJobsArgs): UseScheduledJobsResult {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
   const [jobsSource, setJobsSource] = useState<string | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -207,6 +223,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
 
   // Another device may have changed a job while this tab was in the background: read again when it is looked at.
   useEffect(() => {
+    if (!refreshOnFocus) return;
     const onVisible = () => { if (document.visibilityState === "visible") void refresh(); };
     const onFocus = () => { void refresh(); };
     document.addEventListener("visibilitychange", onVisible);
@@ -215,7 +232,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onFocus);
     };
-  }, [refresh]);
+  }, [refresh, refreshOnFocus]);
 
   // §750 — this instance's re-read, which another instance's write calls.
   const rereadRef = useRef<() => void>(() => {});
@@ -254,6 +271,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
 
   // Counts a save of the job `saveId` from the call until it settles; overlapping saves keep it saving until all settle.
   const trackSave = useCallback((saveId: string, write: Promise<void>): Promise<void> => {
+    if (!trackSaving) return write;
     const bump = (delta: number) => {
       const next = new Map(savingCounts.current);
       const count = (next.get(saveId) ?? 0) + delta;
@@ -266,26 +284,33 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     const settle = () => bump(-1);
     write.then(settle, settle);
     return write;
-  }, []);
+  }, [trackSaving]);
 
   /** Writes one job (by id, and key when known). With `markEdit`, a saved change of its project or instruction marks it
    *  edited here (display only). An edit NEVER writes an acceptance answer: this device answers only by creating a job
    *  or by the user's Accept / Stop / "Not on this device". */
   const writeJob = useCallback(
-    (id: number, key: string | undefined, edit: (j: ScheduledJob) => ScheduledJob, markEdit = false, afterSave?: () => void): Promise<void> => {
+    (id: number, key: string | undefined, edit: (j: ScheduledJob) => ScheduledJob, how: WriteJobHow = {}): Promise<void> => {
       const displayed = jobsRef.current.find((j) => matches(j, id, key));
       let edited: ScheduledJob | null = null;
-      const transform = (list: readonly ScheduledJob[]) =>
-        list.map((j) => {
+      let matched = false;
+      const transform = (list: readonly ScheduledJob[]) => {
+        const next = list.map((j) => {
           if (!(editable(j) && matches(j, id, key))) return j;
-          const next = edit(j);
-          edited = markEdit && jobFingerprint(next) !== jobFingerprint(j) ? next : null;
-          return next;
+          matched = true;
+          const written = edit(j);
+          edited = how.markEdit && jobFingerprint(written) !== jobFingerprint(j) ? written : null;
+          return written;
         });
+        // A user's edit of a job deleted elsewhere writes nothing and says so; the runner's writes stay quiet.
+        if (how.rejectIfGone && !list.some((j) => matches(j, id, key))) throw new JobGoneError(); // a foreign job is not gone
+        return next;
+      };
       const onSaved = () => {
+        if (!matched) return; // nothing of this job was written
         const saved: ScheduledJob | null = edited;
         if (saved !== null && saved.key !== null) markEditedHere(saved.key, jobFingerprint(saved));
-        afterSave?.();
+        how.afterSave?.();
       };
       return trackSave(jobSaveId(displayed ?? { id, key: key ?? null }), mutate(transform, onSaved));
     },
@@ -340,8 +365,8 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
         }
         return { ...j, ...normalized, id: j.id };
       };
-      return writeJob(id, key, edit, true, options?.onWritten).catch((err: unknown) => {
-        if (err instanceof JobChangedError) void refresh(); // show what the store holds now
+      return writeJob(id, key, edit, { markEdit: true, afterSave: options?.onWritten, rejectIfGone: true }).catch((err: unknown) => {
+        if (err instanceof JobChangedError || err instanceof JobGoneError) void refresh(); // show what the store holds now
         throw err;
       });
     },
@@ -354,7 +379,10 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     const write = mutate((list) => {
       removedKey = list.find((j) => matches(j, id, key))?.key;
       return list.filter((j) => !matches(j, id, key));
-    }).then(() => { if (typeof removedKey === "string") forgetJob(removedKey); });
+    }).then(() => {
+      if (typeof removedKey === "string") forgetJob(removedKey);
+      forgetLostDraft(jobSaveId({ id, key: removedKey ?? key ?? null }));
+    });
     return trackSave(jobSaveId(displayed ?? { id, key: key ?? null }), write);
   }, [mutate, trackSave]);
 
@@ -362,7 +390,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     (id: number, projectId: string, timeZone: string, key?: string): Promise<void> =>
       writeJob(id, key, (j) => ({
         ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: j.key ?? crypto.randomUUID(),
-      }), true),
+      }), { markEdit: true, rejectIfGone: true }),
     [writeJob],
   );
 

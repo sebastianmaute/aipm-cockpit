@@ -819,12 +819,14 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     expect(refreshMock).toHaveBeenCalledTimes(1);
   });
 
-  it("Accept on a job that is gone says it changed", async () => {
+  it("Accept on a job that is gone says it was deleted on another device", async () => {
     mockJobs = [runnable(1)];
     loadJobsMock.mockResolvedValue([]);
     setup(withKey({ scheduledJobs: true }));
     fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
-    expect(await screen.findByText(t("en-US", "scheduledJobAcceptChanged"))).toBeInTheDocument();
+    expect(await screen.findByText(t("en-US", "scheduledJobDeletedElsewhere"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
+    expect(refreshMock).toHaveBeenCalled();
   });
 
   it("a failed re-read says so and accepts nothing", async () => {

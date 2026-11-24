@@ -1590,6 +1590,7 @@ export const de: Record<TranslationKey, string> = {
   scheduledJobNotSaved: "Nicht gespeichert",
   scheduledJobChangeNotSaved: "Ihre Änderung konnte nicht gespeichert werden. Verlassen Sie das Feld, um es erneut zu versuchen.",
   scheduledJobDraftDropped: "Dieser Job wurde auf einem anderen Gerät geändert, daher wurde Ihre nicht gespeicherte Änderung nicht gespeichert.",
+  scheduledJobDeletedElsewhere: "Dieser Job wurde auf einem anderen Gerät gelöscht.",
   scheduledJobAcceptChanged: "Dieser Job wurde auf einem anderen Gerät geändert. Prüfen Sie ihn und stimmen Sie erneut zu.",
   scheduledJobNeedsOk: "Braucht Ihre Zustimmung, um auf diesem Gerät zu laufen",
   scheduledJobChanged: "Seit Ihrer Zustimmung geändert: braucht Ihre Zustimmung erneut",

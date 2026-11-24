@@ -81,6 +81,7 @@ const stored = () => (store.list[0] as ScheduledJob).instruction;
 const sleep = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
 
 beforeEach(() => {
+  sessionStorage.clear();
   localStorage.removeItem(ACCEPTANCE_KEY);
   __resetEditedHereForTests();
   store.list = [job()];
@@ -610,6 +611,110 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(stored()).toBe("xz");
     expect(field()).toHaveValue("xz");
     expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
+  });
+
+  const show = () => render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+
+  it("text whose closing save is refused after the dialog closed is shown again, with the dropped notice, next time", async () => {
+    const user = userEvent.setup();
+    const first = show();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    const release = holdLoads();
+    await typeInstruction(user, "c");
+    fireEvent.focusOut(field());
+    await sleep(10);
+    await user.type(field(), "d");
+    first.unmount(); // the closing save of cd is queued behind c
+    store.list = [job({ instruction: "x" })];
+    release();
+    await sleep(200);
+    expect(stored()).toBe("x");
+    show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    expect(field()).toHaveValue("cd"); // the lost text, as an unsaved draft
+    expect(stored()).toBe("x"); // restoring saves nothing
+    expect(storedEntry()).toBeNull(); // and answers nothing
+  });
+
+  it("text whose closing save failed is shown again, with the not-saved notice, next time", async () => {
+    const user = userEvent.setup();
+    const first = show();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    await typeInstruction(user, "c");
+    store.fail = true;
+    first.unmount(); // the closing save fails
+    await sleep(100);
+    store.fail = false;
+    show();
+    await screen.findByText(t("en-US", "scheduledJobChangeNotSaved"));
+    expect(field()).toHaveValue("c");
+    expect(stored()).toBe("b");
+    // The next blur saves it under the normal rules.
+    fireEvent.focusOut(field());
+    await sleep(100);
+    expect(stored()).toBe("c");
+  });
+
+  it("restored text is not saved by closing again untouched, and is shown again after that", async () => {
+    const user = userEvent.setup();
+    const first = show();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    await typeInstruction(user, "c");
+    store.fail = true;
+    first.unmount();
+    await sleep(100);
+    store.fail = false;
+    const second = show();
+    await screen.findByText(t("en-US", "scheduledJobChangeNotSaved"));
+    second.unmount(); // closed again without touching the restored text
+    await sleep(100);
+    expect(stored()).toBe("b");
+    show();
+    await screen.findByText(t("en-US", "scheduledJobChangeNotSaved"));
+    expect(field()).toHaveValue("c");
+  });
+
+  it("a lost-draft store that cannot be used changes nothing else", async () => {
+    const realGet = Storage.prototype.getItem;
+    const realSet = Storage.prototype.setItem;
+    const getSpy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, k: string) {
+      if (k === "aipm-cockpit:scheduled-job-lost-draft") throw new Error("blocked");
+      return realGet.call(this, k);
+    });
+    const setSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === "aipm-cockpit:scheduled-job-lost-draft") throw new Error("blocked");
+      realSet.call(this, k, v);
+    });
+    try {
+      const user = userEvent.setup();
+      const first = show();
+      await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+      await typeInstruction(user, "c");
+      store.fail = true;
+      first.unmount();
+      await sleep(100);
+      store.fail = false;
+      show();
+      await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+      expect(field()).toHaveValue("b"); // as before: the text is lost, nothing crashes
+    } finally {
+      getSpy.mockRestore();
+      setSpy.mockRestore();
+    }
+  });
+
+  it("a save of a job deleted on another device writes nothing and says so where it stays visible", async () => {
+    const user = userEvent.setup();
+    show();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    await typeInstruction(user, "c");
+    store.list = []; // another device deleted the job
+    await user.click(document.body);
+    await screen.findByText(t("en-US", "scheduledJobDeletedElsewhere"));
+    await sleep(50);
+    expect(store.list).toEqual([]);
+    expect(screen.queryByText(t("en-US", "scheduledJobsWriteFailed"))).toBeNull(); // not a failed write
+    expect(screen.queryByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` })).toBeNull();
   });
 
   it("keyboard: Enter on the focused Stop button answers", async () => {

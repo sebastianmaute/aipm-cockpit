@@ -91,6 +91,14 @@ export class JobChangedError extends Error {
   }
 }
 
+/** A user's edit found its job gone from the store (deleted on another device): nothing was written. */
+export class JobGoneError extends Error {
+  constructor() {
+    super("The job was deleted before this write.");
+    this.name = "JobGoneError";
+  }
+}
+
 /** The identity of a job for "a save is in flight": its permanent key, or its id while it has none. */
 export function jobSaveId(job: Pick<ScheduledJob, "id" | "key">): string {
   return job.key ?? `id:${job.id}`;
