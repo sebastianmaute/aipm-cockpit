@@ -32,7 +32,8 @@ longer carries its own changelog comment.
   press them, even while you are still typing a new instruction; your change is saved afterwards and then asks for
   your OK again. While a change is being saved, or after it could not be saved, Accept and Stop cannot be used until
   it is saved. If another device changes the job while you are typing, your unsaved text is not written over that
-  change, and the job says so. Jobs that existed before this update wait for your OK, and a job waiting
+  change, and the job says so; only a change made at almost exactly the moment your change is being saved can still be
+  overwritten. Jobs that existed before this update wait for your OK, and a job waiting
   can be declined with "Not on this device" without ever running. Devices that have not updated yet still run shared
   jobs without asking, so update every device that uses the portfolio.
 - **The forecast import sends Claude only the top of the sheet, without e-mail addresses.** Claude only names which

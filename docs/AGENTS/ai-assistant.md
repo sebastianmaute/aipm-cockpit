@@ -1631,7 +1631,11 @@
     being saved (the same text from both sides is a success, not a refusal). Otherwise it writes nothing and rejects
     with `JobChangedError` (the list is read again, and the section does not count it as a failed write). So only this
     device's save over a text that changed since this row last wrote or started from is refused — whether or not this
-    tab has re-read the job — and the row drops the draft and says so (`scheduledJobDraftDropped`). When the stored
+    tab has re-read the job — and the row drops the draft and says so (`scheduledJobDraftDropped`). A refusal does not
+    move the text this row expects, so its saves still queued behind the refused one are refused too; the next save
+    started with nothing pending is judged against the text the field then shows. ★★ Inherent limit: the check runs
+    on a fresh read inside this device's write chain, but the store has no conditional write, so a change another
+    device writes in the instant between this device's read and its write can still be overwritten. When the stored
     text changes: if it equals the draft, the draft rebases with no notice; the draft follows the stored text only when
     the field holds no unsaved change AND no save of this row is pending; otherwise the draft is kept and its save
     decides. After a failed save the field keeps the draft and the next blur retries; while the field still differs
