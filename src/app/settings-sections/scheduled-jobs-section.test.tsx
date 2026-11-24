@@ -846,6 +846,14 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     await waitFor(() => expect(screen.queryByText(t("en-US", "scheduledJobAcceptFailed"))).toBeNull());
   });
 
+  it("a waiting job declined with Not on this device is not counted", () => {
+    mockJobs = [runnable(1), runnable(2)];
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.getByText(/shared jobs? needs? your OK/)).toHaveTextContent("2 shared jobs");
+    fireEvent.click(screen.getByRole("button", { name: "Not on this device: Job 1" }));
+    expect(screen.getByText(/shared jobs? needs? your OK/)).toHaveTextContent("1 shared job needs");
+  });
+
   it("a runnable job this device stopped is not counted in the notice", async () => {
     const { declineJob } = await import("../scheduled-job-acceptance");
     mockJobs = [runnable(1), runnable(2)];

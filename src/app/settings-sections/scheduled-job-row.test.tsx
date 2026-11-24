@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { JobRow } from "./scheduled-job-row";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
-import { ACCEPTANCE_KEY, acceptJob } from "../scheduled-job-acceptance";
+import { ACCEPTANCE_KEY, acceptJob, declineJob } from "../scheduled-job-acceptance";
 
 const deviceLabel = vi.hoisted(() => ({ value: "aaaa1111" }));
 vi.mock("../device-label", () => ({
@@ -158,6 +158,54 @@ describe("JobRow acceptance", () => {
     fireEvent.click(screen.getByRole("button", { name: "Stop on this device: Weekly review" }));
     expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobAcceptFailed"));
     expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
+  });
+
+  describe("Not on this device", () => {
+    const decline = { name: "Not on this device: Weekly review" };
+
+    it("from none: declines, drops the button and moves focus to the main button", async () => {
+      const user = userEvent.setup();
+      renderRow(job());
+      await user.click(screen.getByRole("button", decline));
+      expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument();
+      expect(screen.queryByRole("button", decline)).toBeNull();
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Accept Weekly review" }));
+    });
+
+    it("from changed: the same", async () => {
+      const user = userEvent.setup();
+      acceptJob(job({ instruction: "Something else" }));
+      renderRow(job());
+      await user.click(screen.getByRole("button", decline));
+      expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument();
+      expect(screen.queryByRole("button", decline)).toBeNull();
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Accept Weekly review" }));
+    });
+
+    it("a decline that cannot be recorded says so and changes nothing", () => {
+      renderRow(job());
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new Error("quota");
+      });
+      fireEvent.click(screen.getByRole("button", decline));
+      expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobAcceptFailed"));
+      expect(screen.getByText(t("en-US", "scheduledJobNeedsOk"))).toBeInTheDocument();
+      expect(screen.getByRole("button", decline)).toBeInTheDocument();
+    });
+
+    it("is absent when accepted, when declined and without a project", () => {
+      acceptJob(job());
+      const first = renderRow(job());
+      expect(screen.queryByRole("button", decline)).toBeNull();
+      first.unmount();
+      localStorage.removeItem(ACCEPTANCE_KEY);
+      declineJob(job());
+      const second = renderRow(job());
+      expect(screen.queryByRole("button", decline)).toBeNull();
+      second.unmount();
+      renderRow(job({ projectId: null }));
+      expect(screen.queryByRole("button", decline)).toBeNull();
+    });
   });
 
   it("shows the changed-elsewhere notice", () => {

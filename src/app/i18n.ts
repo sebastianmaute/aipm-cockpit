@@ -1697,6 +1697,8 @@ const enUS = {
   scheduledJobAcceptNamed: "Accept {0}",
   scheduledJobStop: "Stop on this device",
   scheduledJobStopNamed: "Stop on this device: {0}",
+  scheduledJobDecline: "Not on this device",
+  scheduledJobDeclineNamed: "Not on this device: {0}",
   scheduledJobCreatedHere: "Created on this device",
   scheduledJobCreatedOn: "Created on device {0}",
   scheduledJobsAwaitingOk: "{0} shared jobs need your OK to run on this device.",

@@ -152,6 +152,7 @@ function AcceptanceLine({
   useAcceptanceSnapshot(); // re-render when this device's acceptances change
   // A Stop that could not be recorded is reported like a failed Accept, until the next click.
   const [stopFailed, setStopFailed] = useState(false);
+  const mainRef = useRef<HTMLButtonElement>(null);
   const shown: AcceptNotice | null = stopFailed ? "failed" : notice;
   const state = acceptanceState(job);
   // A job with no project reports nothing, so there is nothing to accept; a cannot-run job has no state to show.
@@ -170,6 +171,7 @@ function AcceptanceLine({
       {decided !== null && <span>{t(lang, ACCEPTANCE_STATUS_KEY[decided])}</span>}
       {decided !== null && (
         <Button
+          ref={mainRef}
           variant={accepted ? "secondary" : "primary"}
           size="xs"
           onClick={() => {
@@ -181,6 +183,22 @@ function AcceptanceLine({
           aria-label={t(lang, accepted ? "scheduledJobStopNamed" : "scheduledJobAcceptNamed", token)}
         >
           {t(lang, accepted ? "scheduledJobStop" : "scheduledJobAccept")}
+        </Button>
+      )}
+      {(decided === "none" || decided === "changed") && (
+        <Button
+          variant="secondary"
+          size="xs"
+          onClick={() => {
+            onNoticeClear();
+            const declined = declineJob(job);
+            setStopFailed(!declined);
+            // The button is about to unmount: the main one (same element, now reading Accept) takes focus.
+            if (declined) mainRef.current?.focus();
+          }}
+          aria-label={t(lang, "scheduledJobDeclineNamed", token)}
+        >
+          {t(lang, "scheduledJobDecline")}
         </Button>
       )}
       {createdText !== null && <span>{createdText}</span>}

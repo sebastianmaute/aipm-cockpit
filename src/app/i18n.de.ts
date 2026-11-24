@@ -1592,6 +1592,8 @@ export const de: Record<TranslationKey, string> = {
   scheduledJobAcceptNamed: "Zustimmen: {0}",
   scheduledJobStop: "Auf diesem Gerät beenden",
   scheduledJobStopNamed: "Auf diesem Gerät beenden: {0}",
+  scheduledJobDecline: "Nicht auf diesem Gerät",
+  scheduledJobDeclineNamed: "Nicht auf diesem Gerät: {0}",
   scheduledJobCreatedHere: "Auf diesem Gerät erstellt",
   scheduledJobCreatedOn: "Auf Gerät {0} erstellt",
   scheduledJobsAwaitingOk: "{0} geteilte Jobs brauchen Ihre Zustimmung, um auf diesem Gerät zu laufen.",
