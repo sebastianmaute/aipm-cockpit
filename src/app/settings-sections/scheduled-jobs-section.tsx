@@ -249,7 +249,11 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     zones={zones}
                     defaultZone={defaultZone}
                     // The permanent key rides along, so a write can only reach THIS portfolio's job (ids collide across portfolios).
-                    onUpdate={(id, patch) => track(updateJob(id, patch, job.key ?? undefined))}
+                    onUpdate={(id, patch) => {
+                      const write = updateJob(id, patch, job.key ?? undefined);
+                      track(write);
+                      return write; // the instruction draft waits for it: a failed save keeps the draft
+                    }}
                     onAssign={(id, projectId, timeZone) => track(assignProject(id, projectId, timeZone, job.key ?? undefined))}
                     onDelete={(id) => track(deleteJob(id, job.key ?? undefined))}
                     onAccept={(j) => { void acceptFresh(j); }}

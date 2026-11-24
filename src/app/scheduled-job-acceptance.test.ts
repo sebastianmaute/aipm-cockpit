@@ -2,11 +2,14 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ACCEPTANCE_KEY,
+  EDITED_HERE_KEY,
   acceptJob,
   acceptanceState,
   declineJob,
   forgetJob,
   isAcceptedHere,
+  isEditedHere,
+  markEditedHere,
   storedAcceptanceEntry,
   jobFingerprint,
   useAcceptanceSnapshot,
@@ -154,5 +157,50 @@ describe("scheduled job acceptance", () => {
       window.dispatchEvent(new StorageEvent("storage", { key: ACCEPTANCE_KEY }));
     });
     expect(result.current).not.toBe(second);
+  });
+});
+
+describe("the 'you changed this job' marker", () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("lives in localStorage, so a reload (fresh module state) still reads it", async () => {
+    markEditedHere("k1", jobFingerprint(job()));
+    expect(JSON.parse(localStorage.getItem(EDITED_HERE_KEY) ?? "{}")).toEqual({ k1: jobFingerprint(job()) });
+    vi.resetModules();
+    const fresh = await import("./scheduled-job-acceptance");
+    expect(fresh.isEditedHere(job())).toBe(true);
+    expect(fresh.isEditedHere(job({ instruction: "other" }))).toBe(false);
+  });
+
+  it("an answer or a forget clears it", () => {
+    markEditedHere("k1", jobFingerprint(job()));
+    acceptJob(job());
+    expect(isEditedHere(job())).toBe(false);
+    markEditedHere("k1", jobFingerprint(job()));
+    forgetJob("k1");
+    expect(isEditedHere(job())).toBe(false);
+  });
+
+  it("storage that throws reads as not edited here, and writing never throws", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("blocked"); });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("blocked"); });
+    expect(() => markEditedHere("k1", jobFingerprint(job()))).not.toThrow();
+    expect(isEditedHere(job())).toBe(false);
+  });
+
+  it("corrupt storage reads as not edited here", () => {
+    localStorage.setItem(EDITED_HERE_KEY, "{not json");
+    expect(isEditedHere(job())).toBe(false);
+  });
+
+  it("the snapshot hook re-renders when another tab writes the marker", () => {
+    const { result } = renderHook(() => useAcceptanceSnapshot());
+    const first = result.current;
+    act(() => {
+      localStorage.setItem(EDITED_HERE_KEY, JSON.stringify({ k1: jobFingerprint(job()) }));
+      window.dispatchEvent(new StorageEvent("storage", { key: EDITED_HERE_KEY }));
+    });
+    expect(result.current).not.toBe(first);
   });
 });

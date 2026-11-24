@@ -55,47 +55,101 @@ const WEEKDAY_KEYS: TranslationKey[] = [
 
 export const DEFAULT_TIME = "09:00";
 
-interface InstructionDraft {
-  jobId: number;
-  draft: string;
-  saved: string;
-  onUpdate: (id: number, patch: JobPatch) => void;
+/** A job write from the row; the instruction draft waits for it, so a failed save keeps the draft. */
+type JobUpdate = (id: number, patch: JobPatch) => Promise<void> | void;
+
+/** Where the instruction draft stands against the stored job: in step, kept after a failed save (`notSaved`), or
+ *  dropped because another device changed the job while it was open (`dropped`). */
+export type DraftStatus = "ok" | "notSaved" | "dropped";
+
+/** What a draft save needs, kept current by the handlers and an effect (never written during render). */
+interface DraftRefs {
+  latest: { current: { jobId: number; draft: string; base: string; onUpdate: JobUpdate } };
+  inFlight: { current: string | null };
+  mounted: { current: boolean };
+  setStatus: (update: (s: DraftStatus) => DraftStatus) => void;
 }
 
-/** Writes the trimmed draft when it differs from what was last saved; clearing it writes `undefined`. */
-function flushInstruction(d: InstructionDraft) {
-  const trimmed = d.draft.trim();
-  if (trimmed === d.saved) return;
-  d.saved = trimmed;
-  d.onUpdate(d.jobId, { instruction: trimmed === "" ? undefined : trimmed });
+/** Saves the trimmed draft when it differs from the stored instruction it started from (clearing it writes
+ *  `undefined`). The draft counts as saved only once the write succeeds, so a failed save is retried on the next blur;
+ *  a write already in flight for the same text is not repeated. */
+function flushDraft(r: DraftRefs): void {
+  const d = r.latest.current;
+  const typed = d.draft.trim();
+  if (typed === d.base || typed === r.inFlight.current) return;
+  r.inFlight.current = typed;
+  Promise.resolve(d.onUpdate(d.jobId, { instruction: typed === "" ? undefined : typed })).then(
+    () => {
+      r.inFlight.current = null;
+      if (r.mounted.current) r.setStatus((st) => (st === "notSaved" ? "ok" : st));
+    },
+    () => {
+      r.inFlight.current = null;
+      if (r.mounted.current) r.setStatus(() => "notSaved");
+    },
+  );
 }
 
-/** The standing instruction, edited as a draft and saved (trimmed) when the field loses focus OR is unmounted
- *  (closing the dialog fires no blur on a focused node that unmounts). The caller keys it by the stored value,
- *  so a save from elsewhere starts a fresh draft. */
+/** The standing instruction as a draft against the stored job. It saves on blur and on unmount (closing the dialog
+ *  fires no blur on a focused node that unmounts). When the stored instruction changes: this device's own save landing
+ *  leaves the draft as it is; with no unsaved change the draft follows the store; an unsaved draft over a change from
+ *  another device is DROPPED (never written over it) and says so. */
+function useInstructionDraft(job: ScheduledJob, onUpdate: JobUpdate) {
+  const stored = job.instruction ?? "";
+  const [draft, setDraft] = useState(stored);
+  const [base, setBase] = useState(stored);
+  const [status, setStatus] = useState<DraftStatus>("ok");
+  if (stored !== base) {
+    const typed = draft.trim();
+    setBase(stored);
+    if (typed === stored) setStatus((st) => (st === "notSaved" ? "ok" : st));
+    else {
+      setDraft(stored);
+      if (typed !== base) setStatus(() => "dropped");
+    }
+  }
+  const latest = useRef({ jobId: job.id, draft, base, onUpdate });
+  const inFlight = useRef<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    latest.current = { jobId: job.id, draft, base, onUpdate };
+  });
+  useEffect(() => {
+    mounted.current = true;
+    const refs: DraftRefs = { latest, inFlight, mounted, setStatus };
+    return () => {
+      mounted.current = false;
+      flushDraft(refs);
+    };
+  }, []);
+  return {
+    draft,
+    status,
+    onChange: (value: string) => {
+      latest.current = { ...latest.current, draft: value };
+      setDraft(value);
+      // A draft typed back to the stored text has nothing left unsaved; a new edit ends the dropped notice.
+      setStatus((st) => (value.trim() === base || st === "dropped" ? "ok" : st));
+    },
+    onBlur: () => flushDraft({ latest, inFlight, mounted, setStatus }),
+    clearDropped: () => setStatus((st) => (st === "dropped" ? "ok" : st)),
+  };
+}
+
+/** The standing instruction field: presentational, the draft lives in `useInstructionDraft`. */
 function InstructionField({
   lang,
-  job,
   token,
-  onUpdate,
+  value,
+  onChange,
+  onBlur,
 }: {
   lang: Lang;
-  job: ScheduledJob;
   token: string;
-  onUpdate: (id: number, patch: JobPatch) => void;
+  value: string;
+  onChange: (value: string) => void;
+  onBlur: () => void;
 }) {
-  const [draft, setDraft] = useState(job.instruction ?? "");
-  // What a save needs, kept current from the handlers (no ref write during render).
-  const latest = useRef<InstructionDraft>({ jobId: job.id, draft, saved: draft, onUpdate });
-  useEffect(() => {
-    latest.current.onUpdate = onUpdate;
-  });
-  // The cleanup is the unmount save; a draft already saved on blur is a no-op there.
-  useEffect(() => {
-    const state = latest.current;
-    return () => flushInstruction(state);
-  }, []);
-
   return (
     <label className="flex flex-col gap-1 text-xs text-foreground">
       <span>{t(lang, "scheduledJobInstruction")}</span>
@@ -103,14 +157,11 @@ function InstructionField({
         size="xs"
         rows={2}
         maxLength={TEXTAREA_MAX}
-        value={draft}
+        value={value}
         placeholder={t(lang, "scheduledJobInstructionPlaceholder")}
         aria-label={`${t(lang, "scheduledJobInstruction")} – ${token}`}
-        onChange={(e) => {
-          latest.current.draft = e.target.value;
-          setDraft(e.target.value);
-        }}
-        onBlur={() => flushInstruction(latest.current)}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
       />
     </label>
   );
@@ -118,7 +169,7 @@ function InstructionField({
 
 /** Why the last answer on a row did not land: the Accept's re-read failed, the job changed elsewhere, or this device
  *  could not store the answer. */
-export type AcceptNotice = "failed" | "changed" | "saveFailed";
+export type AcceptNotice = "failed" | "changed" | "saveFailed" | "pressIgnored" | "changeNotSaved" | "draftDropped";
 
 function noop(): void {}
 
@@ -126,6 +177,9 @@ const ACCEPT_NOTICE_KEY: Record<AcceptNotice, TranslationKey> = {
   failed: "scheduledJobAcceptFailed",
   changed: "scheduledJobAcceptChanged",
   saveFailed: "scheduledJobAnswerSaveFailed",
+  pressIgnored: "scheduledJobPressIgnored",
+  changeNotSaved: "scheduledJobChangeNotSaved",
+  draftDropped: "scheduledJobDraftDropped",
 };
 
 const ACCEPTANCE_STATUS_KEY: Record<"accepted" | "declined" | "declined-changed" | "changed" | "none", TranslationKey> = {
@@ -149,6 +203,12 @@ interface PressSnapshot {
 function pressStillValid(press: PressSnapshot | null, now: PressSnapshot): boolean {
   if (press === null) return !now.saving;
   return !press.saving && !now.saving && press.action === now.action && press.fingerprint === now.fingerprint;
+}
+
+/** An ignored press is silent only when the button visibly could not be used for the whole press (no press recorded
+ *  and blocked now, or blocked both at the press and now); otherwise the job changed under it, and the row says so. */
+function ignoredSilently(press: PressSnapshot | null, now: PressSnapshot): boolean {
+  return press === null ? now.saving : press.saving && now.saving;
 }
 
 /** Records what an answer button showed when it was pressed — by pointer, or by Space / Enter (Space clicks on keyup,
@@ -194,6 +254,7 @@ function AcceptanceLine({
   notice,
   pending,
   saving,
+  draftStatus,
   onNoticeClear,
 }: {
   lang: Lang;
@@ -204,11 +265,15 @@ function AcceptanceLine({
   pending: boolean;
   /** A save of this job is in flight: the answer buttons cannot be used until it settles. */
   saving: boolean;
+  /** The instruction draft against the stored job: after a failed save the buttons cannot be used either. */
+  draftStatus: DraftStatus;
   onNoticeClear: () => void;
 }) {
   useAcceptanceSnapshot(); // re-render when this device's acceptances change
   // A Stop that could not be recorded says so, until the next click.
   const [stopFailed, setStopFailed] = useState(false);
+  // A press the press check ignored because the job changed while it was held says so, until the next answer.
+  const [pressIgnored, setPressIgnored] = useState(false);
   const mainRef = useRef<HTMLButtonElement>(null);
   const state = acceptanceState(job);
   // A press answers the version shown when it was pressed. Pressing does not take focus from the instruction field,
@@ -216,12 +281,20 @@ function AcceptanceLine({
   // job is in flight no answer can be given (see `pressStillValid` for a press that spans a save).
   const declineRef = useRef<HTMLButtonElement>(null);
   const fingerprint = jobFingerprint(job);
-  const savingLabel = t(lang, "scheduledJobSaving");
+  const notSaved = draftStatus === "notSaved";
+  // The field shows a version the buttons would not answer: blocked like a save in flight, and labelled as such.
+  const blocked = saving || notSaved;
+  const blockedLabel = t(lang, saving ? "scheduledJobSaving" : "scheduledJobNotSaved");
   // A job with no project reports nothing, so there is nothing to accept; a cannot-run job has no state to show.
   const decided = state === "cannot-run" || job.projectId === null ? null : state;
   // An Accept notice never sits beside "Accepted on this device".
   // A failed Stop is shown even then: the job is still accepted precisely because the Stop did not land.
-  const shown: AcceptNotice | null = stopFailed ? "saveFailed" : decided === "accepted" ? null : notice;
+  const draftNotice: AcceptNotice | null = notSaved ? "changeNotSaved" : draftStatus === "dropped" ? "draftDropped" : null;
+  const shown: AcceptNotice | null = stopFailed
+    ? "saveFailed"
+    : pressIgnored
+      ? "pressIgnored"
+      : draftNotice ?? (decided === "accepted" ? null : notice);
   // A device with no stored label cannot have created the job; peeking never writes during render.
   const createdText =
     job.createdBy === undefined
@@ -230,9 +303,9 @@ function AcceptanceLine({
         ? t(lang, "scheduledJobCreatedHere")
         : t(lang, "scheduledJobCreatedOn", job.createdBy);
   const accepted = decided === "accepted";
-  const mainNow: PressSnapshot = { action: accepted ? "stop" : "accept", fingerprint, saving };
-  const declineNow: PressSnapshot = { action: "decline", fingerprint, saving };
-  const unusable = pending || saving;
+  const mainNow: PressSnapshot = { action: accepted ? "stop" : "accept", fingerprint, saving: blocked };
+  const declineNow: PressSnapshot = { action: "decline", fingerprint, saving: blocked };
+  const unusable = pending || blocked;
   const mainGuard = usePressGuard(mainNow);
   const declineGuard = usePressGuard(declineNow);
   // "Changed on another device" never describes the version this tab saved (display only); a stopped job is never
@@ -265,16 +338,22 @@ function AcceptanceLine({
               onMouseDown={keepFocus}
               {...mainGuard.handlers}
               onClick={() => {
-                if (pending || !pressStillValid(mainGuard.takePress(), mainNow)) return;
+                const press = mainGuard.takePress();
+                if (pending) return;
+                if (!pressStillValid(press, mainNow)) {
+                  if (!ignoredSilently(press, mainNow)) setPressIgnored(true);
+                  return;
+                }
+                setPressIgnored(false);
                 onNoticeClear();
                 setStopFailed(false);
                 if (accepted) setStopFailed(!declineJob(job));
                 else onAccept(job);
               }}
               // The visible "Saving…" is part of the name (label in name), and the name stays unique in the row.
-              aria-label={saving ? `${savingLabel} ${mainName}` : mainName}
+              aria-label={blocked ? `${blockedLabel} ${mainName}` : mainName}
             >
-              {saving ? savingLabel : t(lang, accepted ? "scheduledJobStop" : "scheduledJobAccept")}
+              {blocked ? blockedLabel : t(lang, accepted ? "scheduledJobStop" : "scheduledJobAccept")}
             </Button>
           )}
           {(decided === "none" || decided === "changed" || decided === "declined-changed") && (
@@ -287,7 +366,13 @@ function AcceptanceLine({
               onMouseDown={keepFocus}
               {...declineGuard.handlers}
               onClick={() => {
-                if (pending || !pressStillValid(declineGuard.takePress(), declineNow)) return;
+                const press = declineGuard.takePress();
+                if (pending) return;
+                if (!pressStillValid(press, declineNow)) {
+                  if (!ignoredSilently(press, declineNow)) setPressIgnored(true);
+                  return;
+                }
+                setPressIgnored(false);
                 // Only a focused button hands focus on (a keyboard press); a mouse press left focus where it was.
                 const hadFocus = document.activeElement === declineRef.current;
                 onNoticeClear();
@@ -296,9 +381,9 @@ function AcceptanceLine({
                 // The button is about to unmount: the main one (same element, now reading Accept) takes focus.
                 if (declined && hadFocus) mainRef.current?.focus();
               }}
-              aria-label={saving ? `${savingLabel} ${declineName}` : declineName}
+              aria-label={blocked ? `${blockedLabel} ${declineName}` : declineName}
             >
-              {saving ? savingLabel : t(lang, "scheduledJobDecline")}
+              {blocked ? blockedLabel : t(lang, "scheduledJobDecline")}
             </Button>
           )}
           {createdText !== null && <span>{createdText}</span>}
@@ -345,7 +430,7 @@ export function JobRow({
   zones: readonly string[];
   /** The zone a newly assigned job starts in. */
   defaultZone: string;
-  onUpdate: (id: number, patch: JobPatch) => void;
+  onUpdate: JobUpdate;
   onAssign: (id: number, projectId: string, timeZone: string) => void;
   onDelete: (id: number) => void;
   /** Accept the job on this device; the owner re-reads the stored job first, so a stale row never accepts what it did not show. */
@@ -360,6 +445,7 @@ export function JobRow({
   onNoticeClear?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const instruction = useInstructionDraft(job, onUpdate);
   const { cadence } = job;
 
   // A job a newer version made (a type or cadence this one does not know): listed read-only, never edited or run,
@@ -528,7 +614,7 @@ export function JobRow({
         </label>
       </div>
 
-      <InstructionField key={job.instruction ?? ""} lang={lang} job={job} token={token} onUpdate={onUpdate} />
+      <InstructionField lang={lang} token={token} value={instruction.draft} onChange={instruction.onChange} onBlur={instruction.onBlur} />
 
       <AcceptanceLine
         lang={lang}
@@ -538,7 +624,11 @@ export function JobRow({
         notice={acceptNotice ?? null}
         pending={acceptPending ?? false}
         saving={saving ?? false}
-        onNoticeClear={onNoticeClear ?? noop}
+        draftStatus={instruction.status}
+        onNoticeClear={() => {
+          (onNoticeClear ?? noop)();
+          instruction.clearDropped();
+        }}
       />
 
       {job.projectId === null && (

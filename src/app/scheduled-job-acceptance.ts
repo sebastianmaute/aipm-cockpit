@@ -75,23 +75,51 @@ function acceptanceEntryValue(job: ScheduledJob, declined: boolean): string {
   return declined ? DECLINED_PREFIX + jobFingerprint(job) : jobFingerprint(job);
 }
 
-/** Per job key, the fingerprint of the version THIS tab saved when it changed the job's project or instruction, until
- *  this device answers. Display-only: it picks the wording of a "changed" row and never decides whether a job runs. */
-const editedHere = new Map<string, string>();
+/** Per job key, the fingerprint of the version THIS DEVICE saved when it changed the job's project or instruction, until
+ *  this device answers. In localStorage, so it survives a reload and is shared by this device's tabs. Display-only: it
+ *  picks the wording of a "changed" row and never decides whether a job runs, so any storage failure reads as "not
+ *  edited here". */
+export const EDITED_HERE_KEY = "aipm-cockpit:scheduled-job-edited-here";
 
-/** This tab's save of job `key` landed with the version `fingerprint`. */
-export function markEditedHere(key: string, fingerprint: string): void {
-  editedHere.set(key, fingerprint);
+function readEditedRaw(): string {
+  try {
+    return localStorage.getItem(EDITED_HERE_KEY) ?? "";
+  } catch {
+    return "";
+  }
 }
 
-/** Whether the job, as it stands, is the version this tab saved: a later change from elsewhere is not. */
+function writeEdited(update: (marks: Record<string, string>) => Record<string, string>): void {
+  try {
+    localStorage.setItem(EDITED_HERE_KEY, JSON.stringify(update(parse(readEditedRaw()))));
+  } catch {
+    return;
+  }
+  notify();
+}
+
+function dropEdited(key: string): void {
+  if (!Object.prototype.hasOwnProperty.call(parse(readEditedRaw()), key)) return;
+  writeEdited(({ [key]: _dropped, ...rest }) => { void _dropped; return rest; });
+}
+
+/** This device's save of job `key` landed with the version `fingerprint`. */
+export function markEditedHere(key: string, fingerprint: string): void {
+  writeEdited((marks) => ({ ...marks, [key]: fingerprint }));
+}
+
+/** Whether the job, as it stands, is the version this device saved: a later change from elsewhere is not. */
 export function isEditedHere(job: ScheduledJob): boolean {
-  return job.key !== null && editedHere.get(job.key) === jobFingerprint(job);
+  return job.key !== null && parse(readEditedRaw())[job.key] === jobFingerprint(job);
 }
 
 /** Test-only: forget every mark, so test order cannot matter. */
 export function __resetEditedHereForTests(): void {
-  editedHere.clear();
+  try {
+    localStorage.removeItem(EDITED_HERE_KEY);
+  } catch {
+    return;
+  }
 }
 
 /** Writes an answer. Only a user's Accept / Stop / "Not on this device" and creating a job answer, so an answer ends
@@ -105,7 +133,7 @@ function record(job: ScheduledJob, value: string): boolean {
   } catch {
     return false;
   }
-  editedHere.delete(key);
+  dropEdited(key);
   notify();
   return true;
 }
@@ -120,7 +148,7 @@ export function declineJob(job: ScheduledJob): boolean {
 }
 
 export function forgetJob(key: string): void {
-  editedHere.delete(key);
+  dropEdited(key);
   try {
     const { [key]: _removed, ...rest } = parse(readRaw());
     void _removed;
@@ -134,7 +162,7 @@ export function forgetJob(key: string): void {
 function subscribe(onChange: () => void): () => void {
   listeners.add(onChange);
   const onStorage = (e: StorageEvent) => {
-    if (e.key === ACCEPTANCE_KEY || e.key === null) onChange();
+    if (e.key === ACCEPTANCE_KEY || e.key === EDITED_HERE_KEY || e.key === null) onChange();
   };
   window.addEventListener("storage", onStorage);
   return () => {
@@ -143,7 +171,13 @@ function subscribe(onChange: () => void): () => void {
   };
 }
 
-/** Re-renders the caller when the stored acceptances change; read `acceptanceState` for the answer. */
+/** Both stores in one snapshot, so a change to either re-renders. */
+function readSnapshot(): string {
+  return `${readRaw()}\u0000${readEditedRaw()}`;
+}
+
+/** Re-renders the caller when the stored acceptances (or this device's "you changed this job" marks) change; read
+ *  `acceptanceState` / `isEditedHere` for the answer. */
 export function useAcceptanceSnapshot(): string {
-  return useSyncExternalStore(subscribe, readRaw, () => "");
+  return useSyncExternalStore(subscribe, readSnapshot, () => "");
 }

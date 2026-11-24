@@ -10,7 +10,7 @@ import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import type { TursoConfig } from "../turso-config";
-import { __resetEditedHereForTests, ACCEPTANCE_KEY, acceptanceState, acceptJob } from "../scheduled-job-acceptance";
+import { __resetEditedHereForTests, ACCEPTANCE_KEY, acceptanceState, acceptJob, jobFingerprint, storedAcceptanceEntry } from "../scheduled-job-acceptance";
 
 const store = vi.hoisted(() => ({
   list: [] as unknown[],
@@ -54,6 +54,7 @@ function holdSaves(): () => void {
 
 const field = () => screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
 const saving = t("en-US", "scheduledJobSaving");
+const storedEntry = () => storedAcceptanceEntry(KEY);
 
 beforeEach(() => {
   localStorage.removeItem(ACCEPTANCE_KEY);
@@ -137,6 +138,12 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
     expect(acceptanceState(job())).toBe("accepted"); // untouched: no Stop of b ...
     expect(acceptanceState(job({ instruction: "c" }))).toBe("changed"); // ... and no Accept of c
+    expect(screen.getByText(t("en-US", "scheduledJobPressIgnored"))).toBeInTheDocument(); // the ignored press says so
+    // The next valid press answers and clears the notice.
+    fireEvent.pointerDown(main);
+    fireEvent.click(main);
+    await waitFor(() => expect(acceptanceState(job({ instruction: "c" }))).toBe("accepted"));
+    expect(screen.queryByText(t("en-US", "scheduledJobPressIgnored"))).toBeNull();
   });
 
   it("a press that began while saving is ignored even when the save ends before the release", async () => {
@@ -193,6 +200,51 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(acceptanceState(job({ instruction: "a" }))).toBe("accepted"); // the earlier answer stands: no Stop recorded
   });
 
+  it("a failed save keeps the draft and blocks the answers (Not saved); the next blur retries and the job asks again", async () => {
+    acceptJob(job());
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobAcceptedHere"));
+    await typeInstruction(user, "c");
+    store.fail = true;
+    await user.click(document.body); // blur: the save fails
+    await screen.findByText(t("en-US", "scheduledJobChangeNotSaved"));
+    const notSaved = t("en-US", "scheduledJobNotSaved");
+    const main = screen.getByRole("button", { name: `${notSaved} Stop on this device: Daily risks` });
+    expect(main).toHaveAttribute("aria-disabled", "true");
+    expect(main).toHaveTextContent(notSaved);
+    expect(field()).toHaveValue("c"); // the draft is kept
+    fireEvent.pointerDown(main);
+    fireEvent.click(main);
+    expect(acceptanceState(job())).toBe("accepted"); // the Stop wrote nothing
+    expect(screen.queryByText(t("en-US", "scheduledJobPressIgnored"))).toBeNull(); // visibly blocked: silence
+    store.fail = false;
+    await user.click(field());
+    await user.click(document.body); // the next blur retries
+    await screen.findByText(t("en-US", "scheduledJobChangedHere"));
+    expect((store.list[0] as ScheduledJob).instruction).toBe("c");
+    expect(screen.getByRole("button", { name: "Accept: Daily risks" })).not.toHaveAttribute("aria-disabled");
+    expect(screen.queryByText(t("en-US", "scheduledJobChangeNotSaved"))).toBeNull();
+  });
+
+  it("a change from another device while a draft is open drops the draft instead of writing it over the change", async () => {
+    acceptJob(job());
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobAcceptedHere"));
+    await typeInstruction(user, "c");
+    store.list = [job({ instruction: "d" })]; // another device saves d
+    act(() => { window.dispatchEvent(new Event("focus")); }); // the list is read again
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    expect((store.list[0] as ScheduledJob).instruction).toBe("d");
+    expect(field()).toHaveValue("d");
+    await user.click(document.body); // leaving the field writes nothing either
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    expect((store.list[0] as ScheduledJob).instruction).toBe("d");
+    expect(storedEntry()).toBe(jobFingerprint(job())); // nothing answered
+  });
+
   it("keyboard: Enter on the focused Stop button answers", async () => {
     acceptJob(job());
     const user = userEvent.setup();
@@ -203,7 +255,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(acceptanceState(job())).toBe("declined");
   });
 
-  it("a failed save re-enables the buttons and leaves the answer as it was", async () => {
+  it("a held save that fails moves the buttons from Saving… to Not saved and leaves the answer as it was", async () => {
     acceptJob(job());
     const user = userEvent.setup();
     render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
@@ -215,8 +267,8 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(screen.getByRole("button", { name: `${saving} Stop on this device: Daily risks` })).toHaveAttribute("aria-disabled", "true");
     release();
     await screen.findByText(t("en-US", "scheduledJobsWriteFailed"));
-    const stop = await screen.findByRole("button", { name: "Stop on this device: Daily risks" });
-    expect(stop).not.toHaveAttribute("aria-disabled");
+    const stop = await screen.findByRole("button", { name: `${t("en-US", "scheduledJobNotSaved")} Stop on this device: Daily risks` });
+    expect(stop).toHaveAttribute("aria-disabled", "true"); // the field still shows the unsaved c
     expect(acceptanceState(job())).toBe("accepted");
     expect(screen.queryByText(t("en-US", "scheduledJobChangedHere"))).toBeNull();
   });

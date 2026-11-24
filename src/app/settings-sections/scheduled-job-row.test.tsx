@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { JobRow } from "./scheduled-job-row";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import {
-  __resetEditedHereForTests, ACCEPTANCE_KEY, acceptanceState, acceptJob, declineJob, isEditedHere, jobFingerprint, markEditedHere,
+  __resetEditedHereForTests, ACCEPTANCE_KEY, acceptanceState, acceptJob, declineJob, EDITED_HERE_KEY, isEditedHere, jobFingerprint,
+  markEditedHere,
 } from "../scheduled-job-acceptance";
 
 const deviceLabel = vi.hoisted(() => ({ value: "aaaa1111" }));
@@ -182,6 +183,17 @@ describe("JobRow acceptance", () => {
       expect(onAccept).not.toHaveBeenCalled();
       expect(acceptanceState(job())).toBe("none");
       expect(screen.getByText(t("en-US", "scheduledJobNeedsOk"))).toBeInTheDocument(); // the status text stays
+      expect(screen.queryByText(t("en-US", "scheduledJobPressIgnored"))).toBeNull(); // visibly Saving…: silence
+    });
+
+    it("a press made and released on a visibly Saving… button stays silent", () => {
+      const onAccept = vi.fn();
+      saving(job(), onAccept);
+      const main = screen.getByRole("button", { name: "Saving… Accept: Weekly review" });
+      fireEvent.pointerDown(main);
+      fireEvent.click(main);
+      expect(onAccept).not.toHaveBeenCalled();
+      expect(screen.queryByText(t("en-US", "scheduledJobPressIgnored"))).toBeNull();
     });
 
     it("an accepted job's Stop ignores clicks while saving", () => {
@@ -232,6 +244,7 @@ describe("JobRow acceptance", () => {
       fireEvent.click(main);
       expect(onAccept).not.toHaveBeenCalled();
       expect(acceptanceState(job())).toBe("accepted");
+      expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobPressIgnored"));
     });
 
     const notSaving = (onAccept: (job: ScheduledJob) => void) => (
@@ -363,6 +376,29 @@ describe("JobRow acceptance", () => {
       markShown();
       renderRow(job());
       expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
+    });
+
+    it("another tab's marker write updates the wording without a reload", () => {
+      acceptJob(job({ instruction: "Before" }));
+      renderRow(job());
+      expect(screen.getByText(t("en-US", "scheduledJobChanged"))).toBeInTheDocument();
+      act(() => {
+        localStorage.setItem(EDITED_HERE_KEY, JSON.stringify({ "job-key-1": jobFingerprint(job()) }));
+        window.dispatchEvent(new StorageEvent("storage", { key: EDITED_HERE_KEY }));
+      });
+      expect(screen.getByText(t("en-US", "scheduledJobChangedHere"))).toBeInTheDocument();
+    });
+
+    it("unreadable marker storage falls back to the generic wording", () => {
+      acceptJob(job({ instruction: "Before" }));
+      markShown();
+      const realGet = Storage.prototype.getItem;
+      vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, k: string) {
+        if (k === EDITED_HERE_KEY) throw new Error("blocked");
+        return realGet.call(this, k);
+      });
+      renderRow(job());
+      expect(screen.getByText(t("en-US", "scheduledJobChanged"))).toBeInTheDocument();
     });
 
     it("answering ends the mark", () => {
