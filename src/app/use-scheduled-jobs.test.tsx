@@ -2,8 +2,8 @@
 import { StrictMode } from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
-import { useScheduledJobs } from "./use-scheduled-jobs";
-import { ACCEPTANCE_KEY, acceptanceState, declineJob, isAcceptedHere, jobFingerprint } from "./scheduled-job-acceptance";
+import { __resetOwnEditEntriesForTests, useScheduledJobs } from "./use-scheduled-jobs";
+import { ACCEPTANCE_KEY, acceptanceState, acceptJob, declineJob, isAcceptedHere, jobFingerprint } from "./scheduled-job-acceptance";
 import { getDeviceLabel } from "./device-label";
 import { JOB_HISTORY_CAP, type JobCadence, type ScheduledJobRun } from "./scheduled-jobs/types";
 
@@ -435,6 +435,7 @@ describe("useScheduledJobs acceptance on this device", () => {
 
   beforeEach(() => {
     localStorage.clear();
+    __resetOwnEditEntriesForTests();
     vi.mocked(getDeviceLabel).mockReturnValue("unknown");
   });
 
@@ -631,6 +632,40 @@ describe("useScheduledJobs acceptance on this device", () => {
     });
     expect(result.current.jobs[0].instruction).toBe("d");
     expect(isAcceptedHere(result.current.jobs[0])).toBe(false);
+  });
+
+  it("a stale own-write value never lets a later edit override a Stop", async () => {
+    seed();
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ "key-1": "declined:" + jobFingerprint({ projectId: "p1", instruction: "b" }) }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "key-1"); }); // stays stopped
+    const c = result.current.jobs[0];
+    expect(acceptanceState(c)).toBe("declined");
+    act(() => { acceptJob(c); }); // the user accepts c
+    await act(async () => {
+      const saving = result.current.updateJob(1, { instruction: "d" }, "key-1");
+      declineJob(c); // ...and stops c during d's save
+      await saving;
+    });
+    expect(result.current.jobs[0].instruction).toBe("d");
+    expect(isAcceptedHere(result.current.jobs[0])).toBe(false);
+  });
+
+  it("an Accept clicked during a stopped job's edit save stands", async () => {
+    seed();
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ "key-1": jobFingerprint({ projectId: "p1", instruction: "b" }) }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "key-1"); }); // accepted c, map = fp(c)
+    const c = result.current.jobs[0];
+    act(() => { declineJob(c); }); // the user stops c
+    await act(async () => {
+      const saving = result.current.updateJob(1, { instruction: "d" }, "key-1");
+      acceptJob(c); // ...then accepts c again during d's save
+      await saving;
+    });
+    expect(acceptanceState(c)).toBe("accepted");
   });
 
   it("resetting the instruction to the default accepts the default fingerprint", async () => {

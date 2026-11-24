@@ -12,7 +12,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceLabel } from "./device-label";
-import { acceptanceState, acceptJob, declineJob, forgetJob, storedAcceptanceEntry } from "./scheduled-job-acceptance";
+import { acceptanceEntryValue, acceptanceState, acceptJob, declineJob, forgetJob, storedAcceptanceEntry } from "./scheduled-job-acceptance";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
 import { appendRun, normalizeJobFields } from "./scheduled-jobs/schedule";
 import type {
@@ -58,8 +58,16 @@ export interface UseScheduledJobsResult {
   readFresh: () => Promise<ScheduledJob[]>;
 }
 
-/** The acceptance entry per job key that this device's own last edit wrote (UI Accept / Stop never update it). */
-const ownEditEntries = new Map<string, string>();
+/** What this device's own last edit wrote per job key, and when (a position in one monotonic sequence). UI
+ *  Accept / Stop never write here, so their entries match nothing. */
+const ownEditEntries = new Map<string, { value: string; seq: number }>();
+let ownEditSeq = 0;
+
+/** Test-only: forget every own-edit write, so test order cannot matter. */
+export function __resetOwnEditEntriesForTests(): void {
+  ownEditEntries.clear();
+  ownEditSeq = 0;
+}
 
 /** Whether this device had stopped the job (as displayed) before an edit. */
 function wasStoppedHere(displayed: ScheduledJob | undefined): boolean {
@@ -69,17 +77,18 @@ function wasStoppedHere(displayed: ScheduledJob | undefined): boolean {
 }
 
 /** An edit accepts the job it wrote on this device, unless this device had stopped it: then it stays stopped. */
-function recordEdit(written: ScheduledJob, stopped: boolean, entryAtCall: string | null): void {
+function recordEdit(written: ScheduledJob, stopped: boolean, entryAtCall: string | null, seqAtCall: number): void {
   const key = written.key;
   if (key === null) return;
   // An answer given while the save was in the write chain is newer than this edit: it wins. The entry THIS device's
-  // own earlier edit wrote is not such an answer, or two overlapping edits would leave the second asking for an OK.
+  // own edit wrote is not such an answer, but only one that landed AFTER this edit was called: an older own write
+  // that the user has since answered over would otherwise be mistaken for ours.
   const current = storedAcceptanceEntry(key);
-  if (current !== entryAtCall && current !== ownEditEntries.get(key)) return;
-  if (stopped) declineJob(written);
-  else acceptJob(written);
-  const recorded = storedAcceptanceEntry(key);
-  if (recorded !== null) ownEditEntries.set(key, recorded);
+  const own = ownEditEntries.get(key);
+  const isOurs = own !== undefined && own.value === current && own.seq > seqAtCall;
+  if (current !== entryAtCall && !isOurs) return;
+  const ok = stopped ? declineJob(written) : acceptJob(written);
+  if (ok) ownEditEntries.set(key, { value: acceptanceEntryValue(written, stopped), seq: ++ownEditSeq });
 }
 
 function nextJobId(jobs: readonly ScheduledJob[]): number {
@@ -283,6 +292,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
       const displayed = jobsRef.current.find((j) => matches(j, id, key));
       const stopped = wasStoppedHere(displayed);
       const entryAtCall = displayed?.key != null ? storedAcceptanceEntry(displayed.key) : null;
+      const seqAtCall = ownEditSeq;
       return mutate((list) =>
         list.map((j) => {
           if (!(editable(j) && matches(j, id, key))) return j;
@@ -291,7 +301,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
         }),
       ).then(() => {
         // Accept only when the half this edit did not touch (the project) is what this tab displayed.
-        if (written && displayed && "instruction" in patch && written.projectId === displayed.projectId) recordEdit(written, stopped, entryAtCall);
+        if (written && displayed && "instruction" in patch && written.projectId === displayed.projectId) recordEdit(written, stopped, entryAtCall, seqAtCall);
       });
     },
     [mutate],
@@ -311,6 +321,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
       const displayed = jobsRef.current.find((j) => matches(j, id, key));
       const stopped = wasStoppedHere(displayed);
       const entryAtCall = displayed?.key != null ? storedAcceptanceEntry(displayed.key) : null;
+      const seqAtCall = ownEditSeq;
       return mutate((list) =>
         list.map((j) => {
           if (!(editable(j) && matches(j, id, key))) return j;
@@ -319,7 +330,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
         }),
       ).then(() => {
         // Accept only when the half this assignment did not touch (the instruction) is what this tab displayed.
-        if (written && displayed && (written.instruction ?? null) === (displayed.instruction ?? null)) recordEdit(written, stopped, entryAtCall);
+        if (written && displayed && (written.instruction ?? null) === (displayed.instruction ?? null)) recordEdit(written, stopped, entryAtCall, seqAtCall);
       });
     },
     [mutate],

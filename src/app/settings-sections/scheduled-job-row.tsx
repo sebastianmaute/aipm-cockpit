@@ -172,57 +172,57 @@ function AcceptanceLine({
   const accepted = decided === "accepted";
   const hasLine = decided !== null || createdText !== null;
   // The status element sits at a fixed position, outside the line, so its identity never depends on the line.
+  // ONE wrapper holds the line and the status element, so the always-mounted (empty) status adds no row gap of its own.
   return (
-      // ONE wrapper holds the line and the status element, so the always-mounted (empty) status adds no row gap of its own.
     <div className={hasLine || shown !== null ? undefined : "-mt-2"}>
       {hasLine && (
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        {decided !== null && <span>{t(lang, ACCEPTANCE_STATUS_KEY[decided])}</span>}
-        {decided !== null && (
-          <Button
-            ref={mainRef}
-            // A switched-off job is not about to run, so its Accept is not the page's call to action.
-            variant={accepted || !job.enabled ? "secondary" : "primary"}
-            size="xs"
-            // aria-disabled, never `disabled`: a disabled button drops keyboard focus.
-            aria-disabled={pending ? true : undefined}
-            className="aria-disabled:cursor-wait aria-disabled:opacity-50"
-            onClick={() => {
-              if (pending) return;
-              onNoticeClear();
-              setStopFailed(false);
-              if (accepted) setStopFailed(!declineJob(job));
-              else onAccept(job);
-            }}
-            aria-label={t(lang, accepted ? "scheduledJobStopNamed" : "scheduledJobAcceptNamed", token)}
-          >
-            {t(lang, accepted ? "scheduledJobStop" : "scheduledJobAccept")}
-          </Button>
-        )}
-        {(decided === "none" || decided === "changed" || decided === "declined-changed") && (
-          <Button
-            variant="secondary"
-            size="xs"
-            aria-disabled={pending ? true : undefined}
-            className="aria-disabled:cursor-wait aria-disabled:opacity-50"
-            onClick={() => {
-              if (pending) return;
-              onNoticeClear();
-              const declined = declineJob(job);
-              setStopFailed(!declined);
-              // The button is about to unmount: the main one (same element, now reading Accept) takes focus.
-              if (declined) mainRef.current?.focus();
-            }}
-            aria-label={t(lang, "scheduledJobDeclineNamed", token)}
-          >
-            {t(lang, "scheduledJobDecline")}
-          </Button>
-        )}
-        {createdText !== null && <span>{createdText}</span>}
-      </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          {decided !== null && <span>{t(lang, ACCEPTANCE_STATUS_KEY[decided])}</span>}
+          {decided !== null && (
+            <Button
+              ref={mainRef}
+              // A switched-off job is not about to run, so its Accept is not the page's call to action.
+              variant={accepted || !job.enabled ? "secondary" : "primary"}
+              size="xs"
+              // aria-disabled, never `disabled`: a disabled button drops keyboard focus.
+              aria-disabled={pending ? true : undefined}
+              className="aria-disabled:cursor-wait aria-disabled:opacity-50"
+              onClick={() => {
+                if (pending) return;
+                onNoticeClear();
+                setStopFailed(false);
+                if (accepted) setStopFailed(!declineJob(job));
+                else onAccept(job);
+              }}
+              aria-label={t(lang, accepted ? "scheduledJobStopNamed" : "scheduledJobAcceptNamed", token)}
+            >
+              {t(lang, accepted ? "scheduledJobStop" : "scheduledJobAccept")}
+            </Button>
+          )}
+          {(decided === "none" || decided === "changed" || decided === "declined-changed") && (
+            <Button
+              variant="secondary"
+              size="xs"
+              aria-disabled={pending ? true : undefined}
+              className="aria-disabled:cursor-wait aria-disabled:opacity-50"
+              onClick={() => {
+                if (pending) return;
+                onNoticeClear();
+                const declined = declineJob(job);
+                setStopFailed(!declined);
+                // The button is about to unmount: the main one (same element, now reading Accept) takes focus.
+                if (declined) mainRef.current?.focus();
+              }}
+              aria-label={t(lang, "scheduledJobDeclineNamed", token)}
+            >
+              {t(lang, "scheduledJobDecline")}
+            </Button>
+          )}
+          {createdText !== null && <span>{createdText}</span>}
+        </div>
       )}
       {/* Always mounted: a live region must exist before its text changes. */}
-      <span role="status" className="text-xs text-muted-foreground">{shown !== null ? t(lang, ACCEPT_NOTICE_KEY[shown]) : null}</span>
+      <span role="status" className={hasLine && shown !== null ? "mt-2 block text-xs text-muted-foreground" : "text-xs text-muted-foreground"}>{shown !== null ? t(lang, ACCEPT_NOTICE_KEY[shown]) : null}</span>
     </div>
   );
 }

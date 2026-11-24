@@ -284,6 +284,23 @@ describe("JobRow acceptance", () => {
     expect(region).toHaveTextContent(t("en-US", "scheduledJobAcceptChanged"));
   });
 
+  it("the wrapper pulls back the row gap only when there is no line and no notice", () => {
+    const bare = renderRow(job({ projectId: null }));
+    expect(screen.getByRole("status").parentElement?.className).toContain("-mt-2");
+    bare.unmount();
+    const noLine = renderRow(job({ projectId: null }), acceptJob, "changed");
+    expect(screen.getByRole("status").parentElement?.className ?? "").not.toContain("-mt-2");
+    expect(screen.getByRole("status").className).not.toContain("mt-2");
+    noLine.unmount();
+    const withNotice = renderRow(job(), acceptJob, "changed");
+    expect(screen.getByRole("status").parentElement?.className ?? "").not.toContain("-mt-2");
+    expect(screen.getByRole("status").className).toContain("mt-2");
+    withNotice.unmount();
+    renderRow(job());
+    expect(screen.getByRole("status").parentElement?.className ?? "").not.toContain("-mt-2");
+    expect(screen.getByRole("status").className).not.toContain("mt-2");
+  });
+
   it("the status element is not a direct child of the row and shares the line's wrapper", () => {
     const { container } = renderRow(job());
     const region = screen.getByRole("status");

@@ -70,6 +70,11 @@ export function isAcceptedHere(job: ScheduledJob): boolean {
   return acceptanceState(job) === "accepted";
 }
 
+/** The entry value an accept (or, with `declined`, a decline) of this job writes. */
+export function acceptanceEntryValue(job: ScheduledJob, declined: boolean): string {
+  return declined ? DECLINED_PREFIX + jobFingerprint(job) : jobFingerprint(job);
+}
+
 function record(job: ScheduledJob, value: string): boolean {
   const key = keyOf(job);
   if (key === null) return false;
