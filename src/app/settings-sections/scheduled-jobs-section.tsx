@@ -28,7 +28,7 @@ import { listProjectRefs } from "../turso-portfolio";
 import { resolveTimezone, tzZones } from "../timezone";
 import { type AcceptNotice, DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
 import { Banner } from "../banner";
-import { isRunnable, JobChangedError, JobGoneError, jobSaveId } from "../scheduled-jobs/schedule";
+import { isRunnable, JobChangedError, JobGoneError, JobNotEditableError, jobSaveId } from "../scheduled-jobs/schedule";
 import { acceptanceState, acceptJob, jobFingerprint, storedAcceptanceEntry, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
 
 export interface ScheduledJobsSectionProps {
@@ -108,13 +108,16 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   const [writeFailed, setWriteFailed] = useState(false);
   // A job deleted on another device leaves no row to speak in: the section's status region says so instead.
   const [deletedElsewhere, setDeletedElsewhere] = useState(false);
+  // An edit of a job a newer version rewrote (it cannot be edited here any more) is not a connection failure either.
+  const [editedByNewer, setEditedByNewer] = useState(false);
   const track = (write: Promise<void>): void => {
-    // A conditional save refused because the job changed elsewhere is not a failed write: the row says what happened.
-    // A conditional save refused, or an edit of a job deleted elsewhere, is not a failed write: say what happened instead.
+    // A conditional save refused (the row says so), an edit of a job deleted elsewhere or rewritten by a newer version
+    // is not a failed write: say what happened instead.
     void Promise.resolve(write).then(
-      () => { setWriteFailed(false); setDeletedElsewhere(false); },
+      () => { setWriteFailed(false); setDeletedElsewhere(false); setEditedByNewer(false); },
       (err: unknown) => {
         if (err instanceof JobGoneError) setDeletedElsewhere(true);
+        else if (err instanceof JobNotEditableError) setEditedByNewer(true);
         else if (!(err instanceof JobChangedError)) setWriteFailed(true);
       },
     );
@@ -247,6 +250,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                   </Banner>
                 )}
                 {deletedElsewhere && <p className="text-xs text-foreground">{t(lang, "scheduledJobDeletedElsewhere")}</p>}
+                {editedByNewer && <p className="text-xs text-foreground">{t(lang, "scheduledJobEditedByNewerVersion")}</p>}
               </div>
               {projects.failed && <FieldHint>{t(lang, "tursoPickerError")}</FieldHint>}
               {writeFailed && <p role="alert" className="text-xs text-foreground">{t(lang, "scheduledJobsWriteFailed")}</p>}

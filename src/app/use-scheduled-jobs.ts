@@ -157,6 +157,8 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
   // What this tab displays: a write names its job (and its save-in-flight identity) by what the user saw.
   const jobsRef = useRef<ScheduledJob[]>([]);
   useEffect(() => { jobsRef.current = jobs; }, [jobs]);
+  const jobsSourceRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => { jobsSourceRef.current = jobsSource; }, [jobsSource]);
   useEffect(() => { cfgRef.current = config; }, [config]);
   // ★★ Re-set on mount, not merely cleared on unmount. React StrictMode mounts,
   //    unmounts and remounts in development (Next 16 defaults reactStrictMode to
@@ -197,6 +199,11 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
       const startedAt = generationOf(config);
       const list = await loadScheduledJobs(config);
       if (!mountedRef.current || startedAt !== generationOf(config) || backendOf(cfgRef.current) !== backendOf(config)) return;
+      // A job this tab showed from the same backend and now gone was deleted elsewhere: forget any text kept for it.
+      if (jobsSourceRef.current === backendOf(config)) {
+        const keys = new Set(list.map((j) => j.key));
+        for (const gone of jobsRef.current) if (gone.key !== null && !keys.has(gone.key)) forgetLostDraft(jobSaveId(gone));
+      }
       setJobs(list);
       setJobsSource(backendOf(config));
       retriesRef.current = 0;

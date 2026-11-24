@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { JobRow } from "./scheduled-job-row";
-import { JobChangedError } from "../scheduled-jobs/schedule";
+import { JobChangedError, JobNotEditableError } from "../scheduled-jobs/schedule";
+import type { JobUpdate } from "./use-instruction-draft";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import {
@@ -68,6 +69,7 @@ function renderRow(
 afterEach(() => vi.restoreAllMocks());
 
 beforeEach(() => {
+  sessionStorage.clear(); // texts a row could not save are kept per tab
   localStorage.removeItem(ACCEPTANCE_KEY);
   deviceLabel.value = "aaaa1111";
 });
@@ -324,6 +326,44 @@ describe("JobRow acceptance", () => {
       expect(screen.getByRole("status")).not.toHaveTextContent(t("en-US", "scheduledJobPressIgnored"));
       fireEvent.change(field, { target: { value: "Changed" } }); // typed back to the stored text: nothing unsaved
       expect(screen.getByRole("status")).toBeEmptyDOMElement(); // the stale ignored press does not come back
+    });
+
+    const lostProps = (onUpdate: JobUpdate) => ({
+      lang: "en-US" as const, token: "Weekly review", busy: false, tz: "UTC", projects: [{ id: "p1", name: "Alpha" }],
+      archivedProjects: [], projectsLoaded: true, zones: ["UTC"], defaultZone: "UTC", onUpdate, onAssign: vi.fn(),
+      onDelete: vi.fn(), onAccept: vi.fn(),
+    });
+    const lostBox = () => screen.queryByRole("textbox", { name: `${t("en-US", "scheduledJobLostText")} – Weekly review` });
+
+    it("a refused text is offered read-only with its hint; Dismiss, named with its visible label, takes it away", async () => {
+      const onUpdate = vi.fn(async (_id: number, _patch: unknown, options?: { onRefused?: () => void }) => {
+        options?.onRefused?.();
+        throw new JobChangedError("Remote");
+      });
+      render(<ul><JobRow {...lostProps(onUpdate)} job={job()} /></ul>);
+      const field = screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Weekly review` });
+      fireEvent.change(field, { target: { value: "Mine" } });
+      await act(async () => { fireEvent.focusOut(field); await new Promise((res) => setTimeout(res, 10)); });
+      expect(lostBox()).toHaveValue("Mine");
+      expect(lostBox()).toHaveAttribute("readonly");
+      expect(lostBox()).toHaveAccessibleDescription(t("en-US", "scheduledJobLostTextHint"));
+      const dismiss = screen.getByRole("button", { name: t("en-US", "scheduledJobLostTextDismissNamed", "Weekly review") });
+      // WCAG 2.5.3: the accessible name contains the visible label.
+      expect(dismiss.getAttribute("aria-label")?.toLowerCase()).toContain(dismiss.textContent?.toLowerCase());
+      fireEvent.click(dismiss);
+      expect(lostBox()).toBeNull();
+    });
+
+    it("a text a newer version refused is still offered once the row shows the job read-only", async () => {
+      const onUpdate = vi.fn(async () => { throw new JobNotEditableError(); });
+      const view = render(<ul><JobRow {...lostProps(onUpdate)} job={job()} /></ul>);
+      const field = screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Weekly review` });
+      fireEvent.change(field, { target: { value: "Mine" } });
+      await act(async () => { fireEvent.focusOut(field); await new Promise((res) => setTimeout(res, 10)); });
+      view.rerender(<ul><JobRow {...lostProps(onUpdate)} job={job({ foreign: { raw: { id: 1 } } })} /></ul>);
+      expect(screen.getByText(t("en-US", "scheduledJobForeign"))).toBeInTheDocument();
+      expect(lostBox()).toHaveValue("Mine");
+      expect(sessionStorage.length).toBe(0); // never kept for later
     });
 
     it("a dropped-draft notice outranks a press ignored after it", async () => {

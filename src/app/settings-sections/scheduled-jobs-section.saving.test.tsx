@@ -629,9 +629,32 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     release();
     await sleep(200);
   }
+  /** Unmount with the closing save of c failing (no change elsewhere). */
+  async function loseFailedText(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+    const first = show();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    await typeInstruction(user, "c");
+    store.fail = true;
+    first.unmount();
+    await sleep(100);
+    store.fail = false;
+  }
+  const LOST = "aipm-cockpit:scheduled-job-lost-draft";
+  const seedLost = (...entries: { text: string; reason: "dropped" | "notSaved" }[]) =>
+    sessionStorage.setItem(LOST, JSON.stringify({ [KEY]: entries }));
+  const lostEntries = (): unknown => {
+    const raw = sessionStorage.getItem(LOST);
+    return raw === null ? null : (JSON.parse(raw) as Record<string, unknown>)[KEY] ?? null;
+  };
   const lostText = () => screen.queryByRole("textbox", { name: `${t("en-US", "scheduledJobLostText")} – Daily risks` });
+  const dismiss = () => screen.getByRole("button", { name: t("en-US", "scheduledJobLostTextDismissNamed", "Daily risks") });
+  const refocus = async () => {
+    await act(async () => { window.dispatchEvent(new Event("focus")); });
+    await sleep(100);
+  };
+  const lostNotSaved = t("en-US", "scheduledJobLostNotSaved");
 
-  it("text refused after the dialog closed is shown next time read-only beside the dropped notice; the field shows the stored text", async () => {
+  it("text refused after the dialog closed is offered next time read-only, with the dropped notice and a hint; the field shows the stored text", async () => {
     const user = userEvent.setup();
     await loseRefusedText(user);
     expect(stored()).toBe("x");
@@ -640,6 +663,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(field()).toHaveValue("x"); // what the job holds
     expect(lostText()).toHaveValue("cd"); // the lost text, to copy from
     expect(lostText()).toHaveAttribute("readonly");
+    expect(lostText()).toHaveAccessibleDescription(t("en-US", "scheduledJobLostTextHint"));
     expect(stored()).toBe("x"); // restoring saves nothing
     expect(storedEntry()).toBeNull(); // and answers nothing
   });
@@ -655,7 +679,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(stored()).toBe("x");
   });
 
-  it("Accept on such a restore accepts the version the field shows", async () => {
+  it("Accept on such a restore accepts the version the field shows, and leaves the offered text", async () => {
     const user = userEvent.setup();
     await loseRefusedText(user);
     show();
@@ -667,10 +691,25 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     fireEvent.click(accept);
     await sleep(80);
     expect(storedEntry()).toBe(jobFingerprint(job({ instruction: "x" })));
-    expect(lostText()).toBeNull(); // gone with the answer
+    expect(lostText()).toHaveValue("cd"); // an answer does not take it away
   });
 
-  it("a dropped restore whose lost text the job already holds shows nothing, and is forgotten", async () => {
+  it("Dismiss takes the offered text away and forgets it", async () => {
+    const user = userEvent.setup();
+    await loseRefusedText(user);
+    const second = show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    await user.click(dismiss());
+    expect(lostText()).toBeNull();
+    expect(lostEntries()).toBeNull();
+    second.unmount();
+    await sleep(50);
+    show();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    expect(lostText()).toBeNull();
+  });
+
+  it("a restore whose lost text the job already holds shows nothing, and is forgotten", async () => {
     const user = userEvent.setup();
     await loseRefusedText(user);
     store.list = [job({ instruction: "cd" })]; // the same text arrived after all
@@ -678,53 +717,195 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
     expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
     expect(lostText()).toBeNull();
-    expect(sessionStorage.getItem("aipm-cockpit:scheduled-job-lost-draft")).toBeNull();
+    expect(sessionStorage.getItem(LOST)).toBeNull();
   });
 
-  it("a not-saved restore whose job changed elsewhere meanwhile is refused on its first save (the dropped flow)", async () => {
+  it("a not-saved entry whose text the job already holds shows no notice, is forgotten, and a new edit saves", async () => {
     const user = userEvent.setup();
-    const first = show();
+    store.list = [job({ instruction: "c" })];
+    seedLost({ text: "c", reason: "notSaved" });
+    show();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    await sleep(50);
+    expect(screen.queryByText(lostNotSaved)).toBeNull();
+    expect(lostText()).toBeNull();
+    expect(sessionStorage.getItem(LOST)).toBeNull();
+    await typeInstruction(user, "d");
+    fireEvent.focusOut(field());
+    await sleep(200);
+    expect(stored()).toBe("d");
+    expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
+  });
+
+  it("text whose closing save failed is offered next time read-only; the field shows the stored text and the buttons answer it", async () => {
+    const user = userEvent.setup();
+    await loseFailedText(user);
+    show();
+    await screen.findByText(lostNotSaved);
+    expect(field()).toHaveValue("b");
+    expect(lostText()).toHaveValue("c");
+    expect(stored()).toBe("b");
+    const accept = screen.getByRole("button", { name: "Accept: Daily risks" }); // not "Not saved"
+    expect(accept).not.toHaveAttribute("aria-disabled");
+    fireEvent.pointerDown(accept);
+    fireEvent.pointerUp(accept);
+    fireEvent.click(accept);
+    await sleep(80);
+    expect(storedEntry()).toBe(jobFingerprint(job()));
+  });
+
+  it("after a not-saved restore, edits save normally even when the job changed elsewhere in between", async () => {
+    const user = userEvent.setup();
+    await loseFailedText(user);
+    show();
+    await screen.findByText(lostNotSaved);
+    await typeInstruction(user, "b");
+    fireEvent.focusOut(field());
+    await sleep(100);
+    expect(stored()).toBe("b");
+    store.list = [job({ instruction: "y" })];
+    await refocus();
+    expect(field()).toHaveValue("y");
+    await typeInstruction(user, "z");
+    fireEvent.focusOut(field());
+    await sleep(200);
+    expect(stored()).toBe("z");
+    expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
+  });
+
+  it("a not-saved restore whose text another device then stores loses its notice and box; a new edit saves", async () => {
+    const user = userEvent.setup();
+    await loseFailedText(user);
+    show();
+    await screen.findByText(lostNotSaved);
+    store.list = [job({ instruction: "c" })];
+    await refocus();
+    expect(screen.queryByText(lostNotSaved)).toBeNull();
+    expect(lostText()).toBeNull();
+    await typeInstruction(user, "d");
+    fireEvent.focusOut(field());
+    await sleep(200);
+    expect(stored()).toBe("d");
+  });
+
+  it("a not-saved restore after a change elsewhere writes nothing on blur", async () => {
+    const user = userEvent.setup();
+    await loseFailedText(user);
+    store.list = [job({ instruction: "x" })];
+    show();
+    await screen.findByText(lostNotSaved);
+    expect(field()).toHaveValue("x");
+    expect(lostText()).toHaveValue("c");
+    fireEvent.focusOut(field());
+    await sleep(150);
+    expect(stored()).toBe("x");
+  });
+
+  it("restored text is kept when closing again untouched, and offered again after that", async () => {
+    const user = userEvent.setup();
+    await loseFailedText(user);
+    const second = show();
+    await screen.findByText(lostNotSaved);
+    second.unmount();
+    await sleep(100);
+    expect(stored()).toBe("b");
+    show();
+    await screen.findByText(lostNotSaved);
+    expect(lostText()).toHaveValue("c");
+  });
+
+  it("a successful save, even the closing one, takes the offered text away for good", async () => {
+    const user = userEvent.setup();
+    await loseRefusedText(user);
+    const second = show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    await typeInstruction(user, "ef");
+    second.unmount(); // the closing save of ef lands
+    await sleep(200);
+    expect(stored()).toBe("ef");
+    expect(lostEntries()).toBeNull();
+    show();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    expect(lostText()).toBeNull();
+    expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
+  });
+
+  it("copying the offered text into the field and leaving it saves it and takes the offer away", async () => {
+    const user = userEvent.setup();
+    await loseRefusedText(user);
+    const second = show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    await typeInstruction(user, "cd");
+    fireEvent.focusOut(field());
+    await sleep(200);
+    expect(stored()).toBe("cd");
+    expect(lostText()).toBeNull();
+    second.unmount();
+    await sleep(100);
+    expect(lostEntries()).toBeNull();
+  });
+
+  it("a refusal while the editor is open offers the refused text read-only too", async () => {
+    const user = userEvent.setup();
+    show();
     await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
     await typeInstruction(user, "c");
-    store.fail = true;
-    first.unmount(); // the closing save of c (judged against b) fails
-    await sleep(100);
-    store.fail = false;
-    store.list = [job({ instruction: "y" })]; // another device, meanwhile
-    show();
-    await screen.findByText(t("en-US", "scheduledJobChangeNotSaved"));
-    expect(field()).toHaveValue("c");
+    store.list = [job({ instruction: "x" })]; // another device
     fireEvent.focusOut(field());
     await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
-    await sleep(50);
-    expect(stored()).toBe("y");
-    expect(field()).toHaveValue("y");
+    expect(field()).toHaveValue("x");
+    expect(lostText()).toHaveValue("c");
+    expect(stored()).toBe("x");
   });
 
-  it("a restored entry is forgotten once shown: edited, saved, then reopened, it does not come back", async () => {
+  it("when two saves of one edit are refused while the editor is open, the newest text is the one offered", async () => {
     const user = userEvent.setup();
-    const first = show();
-    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
-    await typeInstruction(user, "c");
-    store.fail = true;
-    first.unmount();
-    await sleep(100);
-    store.fail = false;
-    const second = show();
-    await screen.findByText(t("en-US", "scheduledJobChangeNotSaved"));
-    await user.type(field(), "e");
-    fireEvent.focusOut(field());
-    await sleep(100);
-    expect(stored()).toBe("ce");
-    second.unmount();
-    await sleep(50);
     show();
-    await sleep(50);
-    expect(field()).toHaveValue("ce");
-    expect(screen.queryByText(t("en-US", "scheduledJobChangeNotSaved"))).toBeNull();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    const release = holdLoads();
+    await typeInstruction(user, "c");
+    fireEvent.focusOut(field());
+    await sleep(10);
+    await user.type(field(), "d");
+    fireEvent.focusOut(field()); // cd queued behind c
+    store.list = [job({ instruction: "x" })];
+    release();
+    await sleep(200);
+    expect(stored()).toBe("x");
+    expect(field()).toHaveValue("x");
+    expect(lostText()).toHaveValue("cd"); // c was only on its way to cd
   });
 
-  it("a save of a job that another device turned into one this version cannot edit writes nothing and says it failed", async () => {
+  it("a newer lost text is offered together with the one already kept, newest first", async () => {
+    const user = userEvent.setup();
+    await loseRefusedText(user);
+    const second = show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    await typeInstruction(user, "ef");
+    store.list = [job({ instruction: "y" })]; // another device, before the closing save
+    second.unmount();
+    await sleep(200);
+    expect(stored()).toBe("y");
+    show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    expect(field()).toHaveValue("y");
+    expect(lostText()).toHaveValue("ef\n\ncd");
+  });
+
+  it("a job deleted elsewhere while its text is offered leaves nothing kept", async () => {
+    store.list = [job({ instruction: "x" })];
+    seedLost({ text: "cd", reason: "dropped" });
+    const a = show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    store.list = [];
+    await refocus();
+    expect(lostEntries()).toBeNull();
+    a.unmount();
+    await sleep(100);
+    expect(lostEntries()).toBeNull();
+  });
+
+  it("a save of a job that a newer version changed writes nothing, says so, and offers the text only while the row shows", async () => {
     const user = userEvent.setup();
     show();
     await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
@@ -732,8 +913,22 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     const turned = job({ foreign: { raw: { id: 1, type: "somethingNew" } } });
     store.list = [turned];
     await user.click(document.body);
-    await screen.findByText(t("en-US", "scheduledJobsWriteFailed")); // reported, not silently lost
+    await screen.findByText(t("en-US", "scheduledJobEditedByNewerVersion"));
+    expect(screen.queryByText(t("en-US", "scheduledJobsWriteFailed"))).toBeNull(); // not the connection alert
     expect(store.list).toEqual([turned]);
+    expect(lostText()).toHaveValue("c"); // the row is still listed (read-only): the text is offered there
+    expect(sessionStorage.getItem(LOST)).toBeNull(); // and never kept for later
+  });
+
+  it("a closing save of a job that a newer version changed keeps nothing for later", async () => {
+    const user = userEvent.setup();
+    const first = show();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    await typeInstruction(user, "c");
+    store.list = [job({ foreign: { raw: { id: 1, type: "somethingNew" } } })];
+    first.unmount(); // the closing save finds the job no longer editable here
+    await sleep(100);
+    expect(sessionStorage.getItem(LOST)).toBeNull();
   });
 
   it("a job without a key keeps no lost text (ids collide across portfolios)", async () => {
@@ -745,45 +940,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     store.fail = true;
     first.unmount();
     await sleep(100);
-    expect(sessionStorage.getItem("aipm-cockpit:scheduled-job-lost-draft")).toBeNull();
-  });
-
-  it("text whose closing save failed is shown again, with the not-saved notice, next time", async () => {
-    const user = userEvent.setup();
-    const first = show();
-    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
-    await typeInstruction(user, "c");
-    store.fail = true;
-    first.unmount(); // the closing save fails
-    await sleep(100);
-    store.fail = false;
-    show();
-    await screen.findByText(t("en-US", "scheduledJobChangeNotSaved"));
-    expect(field()).toHaveValue("c");
-    expect(stored()).toBe("b");
-    // The next blur saves it under the normal rules.
-    fireEvent.focusOut(field());
-    await sleep(100);
-    expect(stored()).toBe("c");
-  });
-
-  it("restored text is not saved by closing again untouched, and is shown again after that", async () => {
-    const user = userEvent.setup();
-    const first = show();
-    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
-    await typeInstruction(user, "c");
-    store.fail = true;
-    first.unmount();
-    await sleep(100);
-    store.fail = false;
-    const second = show();
-    await screen.findByText(t("en-US", "scheduledJobChangeNotSaved"));
-    second.unmount(); // closed again without touching the restored text
-    await sleep(100);
-    expect(stored()).toBe("b");
-    show();
-    await screen.findByText(t("en-US", "scheduledJobChangeNotSaved"));
-    expect(field()).toHaveValue("c");
+    expect(sessionStorage.getItem(LOST)).toBeNull();
   });
 
   it("a lost-draft store that cannot be used changes nothing else", async () => {

@@ -15,6 +15,7 @@ import { TEXTAREA_MAX } from "../sanitize-core";
 import { REPORT_ERROR_KEY, type ReportErrorToken } from "../scheduled-reports-store";
 import { type JobUpdate, useInstructionDraft } from "./use-instruction-draft";
 import { type AcceptNotice, AcceptanceLine } from "./scheduled-job-acceptance-line";
+import { LostTextBox } from "./scheduled-job-lost-text";
 
 /** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
  *  token is the digit string the runner stores, so history recorded before this change reads the
@@ -156,6 +157,7 @@ export function JobRow({
         >
           {t(lang, "delete")}
         </Button>
+        <LostTextBox lang={lang} token={token} text={instruction.lostText} onDismiss={instruction.dismissLost} />
       </li>
     );
   }
@@ -307,20 +309,7 @@ export function JobRow({
       </div>
 
       <InstructionField lang={lang} token={token} value={instruction.draft} onChange={instruction.onChange} onBlur={instruction.onBlur} />
-      {instruction.lostText !== null && (
-        // Text a closed editor could not save over another device's change: offered read-only, to copy from. Nothing
-        // is saved or answered from it.
-        <label className="flex flex-col gap-1 text-xs text-foreground">
-          <span>{t(lang, "scheduledJobLostText")}</span>
-          <Textarea
-            size="xs"
-            rows={2}
-            readOnly
-            value={instruction.lostText}
-            aria-label={`${t(lang, "scheduledJobLostText")} – ${token}`}
-          />
-        </label>
-      )}
+      <LostTextBox lang={lang} token={token} text={instruction.lostText} onDismiss={instruction.dismissLost} />
 
       <AcceptanceLine
         lang={lang}

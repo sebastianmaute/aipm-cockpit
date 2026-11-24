@@ -13,7 +13,7 @@ import type { DraftStatus } from "./use-instruction-draft";
 
 /** Why the last answer on a row did not land: the Accept's re-read failed, the job changed elsewhere, or this device
  *  could not store the answer. */
-export type AcceptNotice = "failed" | "changed" | "saveFailed" | "pressIgnored" | "changeNotSaved" | "draftDropped";
+export type AcceptNotice = "failed" | "changed" | "saveFailed" | "pressIgnored" | "changeNotSaved" | "draftDropped" | "lostNotSaved";
 
 const ACCEPT_NOTICE_KEY: Record<AcceptNotice, TranslationKey> = {
   failed: "scheduledJobAcceptFailed",
@@ -22,6 +22,7 @@ const ACCEPT_NOTICE_KEY: Record<AcceptNotice, TranslationKey> = {
   pressIgnored: "scheduledJobPressIgnored",
   changeNotSaved: "scheduledJobChangeNotSaved",
   draftDropped: "scheduledJobDraftDropped",
+  lostNotSaved: "scheduledJobLostNotSaved",
 };
 
 const ACCEPTANCE_STATUS_KEY: Record<"accepted" | "declined" | "declined-changed" | "changed" | "none", TranslationKey> = {
@@ -142,7 +143,13 @@ export function AcceptanceLine({
   const decided = state === "cannot-run" || job.projectId === null ? null : state;
   // An Accept notice never sits beside "Accepted on this device".
   // A failed Stop is shown even then: the job is still accepted precisely because the Stop did not land.
-  const draftNotice: AcceptNotice | null = notSaved ? "changeNotSaved" : draftStatus === "dropped" ? "draftDropped" : null;
+  const draftNotice: AcceptNotice | null = notSaved
+    ? "changeNotSaved"
+    : draftStatus === "dropped"
+      ? "draftDropped"
+      : draftStatus === "lostNotSaved"
+        ? "lostNotSaved"
+        : null;
   // Draft notices outrank an ignored press, which is stale once the job's version or the draft changed.
   const pressContext = `${jobFingerprint(job)}|${draftStatus}`;
   const [seenPressContext, setSeenPressContext] = useState(pressContext);
