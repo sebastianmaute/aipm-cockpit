@@ -19,11 +19,17 @@ const store = vi.hoisted(() => ({
   failOnce: false,
   afterSaveOnce: null as (() => void) | null,
   loadGate: null as Promise<void> | null,
+  /** Called once, right after the next list read took its copy (another device writing just after that read). */
+  afterNextLoad: null as (() => void) | null,
 }));
 vi.mock("../scheduled-jobs-store", () => ({
   loadScheduledJobs: async () => {
     if (store.loadGate) await store.loadGate;
-    return structuredClone(store.list);
+    const copy = structuredClone(store.list);
+    const after = store.afterNextLoad;
+    store.afterNextLoad = null;
+    after?.();
+    return copy;
   },
   saveScheduledJobs: async (_config: unknown, next: unknown[]) => {
     if (store.gate) await store.gate;
@@ -80,6 +86,7 @@ beforeEach(() => {
   store.failOnce = false;
   store.afterSaveOnce = null;
   store.loadGate = null;
+  store.afterNextLoad = null;
 });
 afterEach(() => { heldRelease(); heldRelease = () => {}; loadRelease(); loadRelease = () => {}; });
 
@@ -515,6 +522,91 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     release();
     await sleep(150);
     expect(stored()).toBe("x");
+  });
+
+  /** c and cd queued (reads held); another device stores x, then — right after c's read — puts b back. */
+  async function refusedThenReverted(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+    const release = holdLoads();
+    await typeInstruction(user, "c");
+    fireEvent.focusOut(field());
+    await sleep(10);
+    await user.type(field(), "d");
+    fireEvent.focusOut(field());
+    await sleep(10);
+    store.list = [job({ instruction: "x" })];
+    store.afterNextLoad = () => { store.list = [job({ instruction: "b" })]; }; // c reads x; everything after reads b
+    release();
+    await sleep(200);
+  }
+
+  it("every save queued before a refusal is refused, even if the stored text has gone back to what it expected", async () => {
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    await refusedThenReverted(user);
+    expect(stored()).toBe("b"); // cd was not written over it
+    expect(field()).toHaveValue("b"); // the field follows the store
+    expect(screen.getByText(t("en-US", "scheduledJobDraftDropped"))).toBeInTheDocument();
+  });
+
+  it("after such a refusal, Accept records the version the field shows", async () => {
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    await refusedThenReverted(user);
+    const accept = screen.getByRole("button", { name: "Accept: Daily risks" });
+    fireEvent.pointerDown(accept);
+    fireEvent.pointerUp(accept);
+    fireEvent.click(accept);
+    await sleep(80);
+    expect(field()).toHaveValue("b");
+    expect(storedEntry()).toBe(jobFingerprint(job({ instruction: "b" })));
+  });
+
+  it("a closing save queued before a refusal is refused too, whatever the stored text did since", async () => {
+    const user = userEvent.setup();
+    const view = render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    const release = holdLoads();
+    await typeInstruction(user, "c");
+    fireEvent.focusOut(field());
+    await sleep(10);
+    await user.type(field(), "d");
+    view.unmount(); // the closing save of cd is queued behind c
+    store.list = [job({ instruction: "x" })];
+    store.afterNextLoad = () => { store.list = [job({ instruction: "b" })]; };
+    release();
+    await sleep(200);
+    expect(stored()).toBe("b");
+  });
+
+  it("an edit typed after the refusal notice, while an older save is still queued, is judged against the text shown", async () => {
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    const release = holdLoads();
+    await typeInstruction(user, "c");
+    fireEvent.focusOut(field());
+    await sleep(10);
+    await user.type(field(), "d");
+    fireEvent.focusOut(field());
+    await sleep(10);
+    store.list = [job({ instruction: "x" })];
+    let releaseSecond: () => void = () => {};
+    const secondGate = new Promise<void>((r) => { releaseSecond = r; });
+    store.afterNextLoad = () => { store.loadGate = secondGate; }; // c reads x; cd's read waits
+    release();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    expect(field()).toHaveValue("x");
+    await user.type(field(), "z");
+    fireEvent.focusOut(field()); // xz, started from x
+    await sleep(10);
+    store.loadGate = null;
+    releaseSecond();
+    await sleep(250);
+    expect(stored()).toBe("xz");
+    expect(field()).toHaveValue("xz");
+    expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
   });
 
   it("keyboard: Enter on the focused Stop button answers", async () => {

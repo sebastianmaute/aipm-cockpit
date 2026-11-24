@@ -36,11 +36,11 @@ export interface UseScheduledJobsArgs {
 
 /** A precondition judged when the write RUNS, on the FRESH store list inside the write chain: the write happens only
  *  while the stored instruction ("" for none) is `expectInstruction()` at that moment, or already equals the text being
- *  written (the same text from both sides is a success); otherwise nothing is written and the write rejects with a
- *  `JobChangedError` (the list is read again). `onWritten` runs inside the chain once the write landed, before any
- *  later write's precondition is judged. */
+ *  written (the same text from both sides is a success); `null` means the caller no longer wants this write at all.
+ *  Otherwise nothing is written and the write rejects with a `JobChangedError` (the list is read again). `onWritten`
+ *  runs inside the chain once the write landed, before any later write's precondition is judged. */
 export interface UpdateJobOptions {
-  expectInstruction: () => string;
+  expectInstruction: () => string | null;
   onWritten?: () => void;
 }
 
@@ -329,7 +329,10 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
       const edit = (j: ScheduledJob): ScheduledJob => {
         const stored = j.instruction ?? "";
         const writing = normalized.instruction ?? "";
-        if (options !== undefined && stored !== options.expectInstruction() && stored !== writing) throw new JobChangedError(stored);
+        if (options !== undefined) {
+          const expected = options.expectInstruction();
+          if (expected === null || (stored !== expected && stored !== writing)) throw new JobChangedError(stored);
+        }
         return { ...j, ...normalized, id: j.id };
       };
       return writeJob(id, key, edit, true, options?.onWritten).catch((err: unknown) => {

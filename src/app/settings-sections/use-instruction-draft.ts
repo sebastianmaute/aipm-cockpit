@@ -1,7 +1,9 @@
 // src/app/settings-sections/use-instruction-draft.ts — the standing instruction of a scheduled job as a draft against the
-// stored job. It saves on blur and on unmount; each save is conditional, judged when it runs against the text this row
-// last wrote or started from, so it does not write over another device's change. A refused save drops the draft (and
-// this row's queued saves with it); a failed save keeps it and the next blur retries.
+// stored job. It saves on blur and on unmount; each save is conditional, judged when it runs against the stored text
+// the field showed before that edit (or what this row wrote since), so it does not write over another device's change.
+// A refusal drops the draft, and every save this row queued before it is refused too, whatever the stored text has
+// done since; an edit made after a refusal starts from the text then shown. A failed save keeps the draft and the
+// next blur retries.
 import { useEffect, useRef, useState } from "react";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import type { UpdateJobOptions, UseScheduledJobsResult } from "../use-scheduled-jobs";
@@ -21,12 +23,14 @@ export type DraftStatus = "ok" | "notSaved" | "dropped";
 /** What a draft save needs, kept current by the handlers and an effect (never written during render). */
 interface DraftRefs {
   latest: { current: { jobId: number; draft: string; base: string; onUpdate: JobUpdate } };
-  /** Texts this row has sent and not yet seen settle, oldest first. */
-  pending: { current: readonly string[] };
-  /** The stored text this row expects when its next save RUNS: the text the draft started from (set when a save starts
-   *  with nothing pending), then each text this row's save wrote (set inside the write chain). A refusal never moves
-   *  it, so this row's queued saves are refused too. */
+  /** Saves this row has sent and not yet seen settle, oldest first, each with the refusal generation it started in. */
+  pending: { current: readonly { text: string; gen: number }[] };
+  /** The stored text this row expects when its next save of the current generation RUNS: the text the field showed
+   *  when the generation's first save started, then each text this row's save wrote (set inside the write chain). */
   expected: { current: string };
+  /** Bumped by a refusal: every save started in an earlier generation is refused when it runs, whatever the stored
+   *  text has done since. */
+  generation: { current: number };
   mounted: { current: boolean };
   setStatus: (update: (s: DraftStatus) => DraftStatus) => void;
   setDraft: (value: string) => void;
@@ -43,20 +47,26 @@ interface DraftRefs {
 function flushDraft(r: DraftRefs): void {
   const d = r.latest.current;
   const typed = d.draft.trim();
-  const willHold = r.pending.current.length > 0 ? r.pending.current[r.pending.current.length - 1] : d.base;
+  const gen = r.generation.current;
+  const live = r.pending.current.filter((p) => p.gen === gen);
+  const willHold = live.length > 0 ? live[live.length - 1].text : d.base;
   if (typed === willHold) {
     if (r.pending.current.length === 0) r.setStatus((st) => (st === "notSaved" ? "ok" : st));
     return;
   }
-  if (r.pending.current.length === 0) r.expected.current = d.base;
-  r.pending.current = [...r.pending.current, typed];
+  // The generation's first save is judged against the stored text the field showed before this edit.
+  if (live.length === 0) r.expected.current = d.base;
+  const entry = { text: typed, gen };
+  r.pending.current = [...r.pending.current, entry];
   r.setHasPending(true);
   const settle = () => {
-    const sent = r.pending.current.indexOf(typed);
-    r.pending.current = r.pending.current.filter((_, i) => i !== sent);
+    r.pending.current = r.pending.current.filter((p) => p !== entry);
     if (r.mounted.current) r.setHasPending(r.pending.current.length > 0);
   };
-  const options = { expectInstruction: () => r.expected.current, onWritten: () => { r.expected.current = typed; } };
+  const options = {
+    expectInstruction: () => (gen === r.generation.current ? r.expected.current : null),
+    onWritten: () => { r.expected.current = typed; },
+  };
   Promise.resolve(d.onUpdate(d.jobId, { instruction: typed === "" ? undefined : typed }, options)).then(
     () => {
       settle();
@@ -68,14 +78,25 @@ function flushDraft(r: DraftRefs): void {
     (err: unknown) => {
       settle();
       if (err instanceof JobChangedError) {
-        // Another device changed the job since this row last wrote it: drop the draft, never write over that change.
-        // `expected` stays as it was, so every save of this row still queued behind this one is refused too; the next
-        // save started with nothing pending is judged against the text the field now shows (see `flushDraft`).
-        r.latest.current = { ...r.latest.current, draft: err.stored, base: err.stored };
+        if (gen === r.generation.current) {
+          // Another device changed the job since this row last wrote it: drop the draft, never write over that change,
+          // and refuse every save of this row started before now (a new generation).
+          r.generation.current = gen + 1;
+          r.latest.current = { ...r.latest.current, draft: err.stored, base: err.stored };
+          if (!r.mounted.current) return;
+          r.setDraft(err.stored);
+          r.setBase(err.stored);
+          r.setStatus(() => "dropped");
+          return;
+        }
+        // A save from before the refusal, refused as stale: the field follows the store only while it holds no edit
+        // made since the refusal.
+        const now = r.latest.current;
+        if (now.draft.trim() !== now.base) return;
+        r.latest.current = { ...now, draft: err.stored, base: err.stored };
         if (!r.mounted.current) return;
         r.setDraft(err.stored);
         r.setBase(err.stored);
-        r.setStatus(() => "dropped");
         return;
       }
       const now = r.latest.current;
@@ -107,16 +128,17 @@ export function useInstructionDraft(job: ScheduledJob, onUpdate: JobUpdate) {
     }
   }
   const latest = useRef({ jobId: job.id, draft, base, onUpdate });
-  const pending = useRef<readonly string[]>([]);
+  const pending = useRef<readonly { text: string; gen: number }[]>([]);
   const expected = useRef(stored);
+  const generation = useRef(0);
   const mounted = useRef(true);
   useEffect(() => {
     latest.current = { jobId: job.id, draft, base, onUpdate };
   });
-  const refs = (): DraftRefs => ({ latest, pending, expected, mounted, setStatus, setDraft, setBase, setHasPending });
+  const refs = (): DraftRefs => ({ latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending });
   useEffect(() => {
     mounted.current = true;
-    const unmountRefs: DraftRefs = { latest, pending, expected, mounted, setStatus, setDraft, setBase, setHasPending };
+    const unmountRefs: DraftRefs = { latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending };
     return () => {
       mounted.current = false;
       flushDraft(unmountRefs);

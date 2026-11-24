@@ -143,6 +143,16 @@ describe("useScheduledJobs — a save that checks the stored instruction first",
     expect(onWritten).toHaveBeenCalledTimes(1);
   });
 
+  it("a null expectation (a stale save) refuses, even when the stored text equals the text being saved", async () => {
+    store.list = [job({ instruction: "c" })];
+    const { result } = await mounted();
+    let error: unknown = null;
+    await act(async () => {
+      await result.current.updateJob(1, { instruction: "c" }, "saving-key", { expectInstruction: () => null }).catch((e: unknown) => { error = e; });
+    });
+    expect(error).toBeInstanceOf(JobChangedError);
+  });
+
   it("a stored text that already equals the text being saved counts as success, not a refusal", async () => {
     store.list = [job({ instruction: "c" })]; // another device saved the same text
     const { result } = await mounted();
