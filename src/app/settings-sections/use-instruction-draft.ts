@@ -9,7 +9,7 @@ import type { ScheduledJob } from "../scheduled-jobs/types";
 import type { UpdateJobOptions, UseScheduledJobsResult } from "../use-scheduled-jobs";
 import { JobChangedError, JobGoneError, JobNotEditableError, jobSaveId } from "../scheduled-jobs/schedule";
 import {
-  forgetLostDraft, keepLostDraft, peekLostDrafts, setLostDrafts, withLostDraft, type LostDraft, type LostDraftReason,
+  addLostText, forgetLostDraft, peekLostDrafts, removeLostTexts, subscribeLostTexts, withLostDraft, type LostText,
 } from "../scheduled-jobs/lost-draft";
 
 /** The fields `updateJob` accepts — exactly its patch type, so a row can never write a project or key. */
@@ -26,7 +26,9 @@ export type DraftStatus = "ok" | "notSaved" | "dropped" | "lostNotSaved";
 
 /** What a draft save needs, kept current by the handlers and an effect (never written during render). */
 interface DraftRefs {
-  latest: { current: { jobId: number; saveId: string; keyless: boolean; draft: string; base: string; onUpdate: JobUpdate } };
+  latest: {
+    current: { jobId: number; saveId: string; keyless: boolean; foreign: boolean; draft: string; base: string; onUpdate: JobUpdate };
+  };
   /** Saves this row has sent and not yet seen settle, oldest first, each with the refusal generation it started in. */
   pending: { current: readonly { text: string; gen: number }[] };
   /** The stored text this row expects when its next save of the current generation RUNS: the text the field showed
@@ -40,10 +42,19 @@ interface DraftRefs {
   setDraft: (value: string) => void;
   setBase: (value: string) => void;
   setHasPending: (value: boolean) => void;
-  /** Offers a text this row could not save read-only (kept for later once the editor has closed). */
+  /** Offers a text this row could not save read-only (and keeps it for later, where allowed). */
   offerLost: (text: LostText) => void;
-  /** A saved edit ends the offer of texts lost earlier. */
-  clearLost: () => void;
+  /** A saved text is not lost: removes the offered texts equal to it, and only those. */
+  savedLost: (text: string) => void;
+}
+
+/** A refusal resets the field: text typed into it after the refused save started (still unsaved, never blurred) is
+ *  offered as well, unless it is the refused text or what the job holds. Only while the editor is open. */
+function offerTypedSince(r: DraftRefs, since: string, typed: string, stored: string | null, reason: LostText["reason"]): void {
+  if (!r.mounted.current) return;
+  const current = since.trim();
+  if (current === "" || current === typed || current === stored) return;
+  r.offerLost({ text: current, reason });
 }
 
 /** Saves the trimmed draft, unless it equals what the store will hold: the last text this row is still saving in the
@@ -90,7 +101,7 @@ function flushDraft(r: DraftRefs): void {
     () => {
       settle();
       r.latest.current = { ...r.latest.current, base: typed };
-      r.clearLost();
+      r.savedLost(typed);
       if (!r.mounted.current) return;
       r.setBase(typed);
       r.setStatus((st) => (st === "notSaved" ? "ok" : st));
@@ -105,6 +116,7 @@ function flushDraft(r: DraftRefs): void {
       if (err instanceof JobNotEditableError) {
         // A newer version rewrote the job: the text is offered while the row is shown, never kept for later.
         offer({ text: typed, reason: "newerVersion" });
+        offerTypedSince(r, r.latest.current.draft, typed, null, "newerVersion");
         const now = r.latest.current;
         r.latest.current = { ...now, draft: now.base };
         if (!r.mounted.current) return;
@@ -122,11 +134,13 @@ function flushDraft(r: DraftRefs): void {
         if (startedGeneration) {
           // Another device changed the job since this row last wrote it: drop the draft, never write over that change
           // (the new generation refuses every save of this row started before).
+          const since = r.latest.current.draft;
           r.latest.current = { ...r.latest.current, draft: err.stored, base: err.stored };
           r.setDraft(err.stored);
           r.setBase(err.stored);
           r.setStatus(() => "dropped");
           offer({ text: typed, reason: "dropped" }); // read-only, to copy from
+          offerTypedSince(r, since, typed, err.stored, "dropped");
           return;
         }
         // A save from before the refusal, refused as stale: its text is offered too (when it is the newest of its
@@ -145,28 +159,32 @@ function flushDraft(r: DraftRefs): void {
   );
 }
 
-/** A text this row could not save, offered read-only for copying. "newerVersion" (the job turned into one this version
- *  cannot edit) is shown while the row is, and never kept for later. */
-export interface LostText {
-  text: string;
-  reason: LostDraftReason | "newerVersion";
-}
-
-const isKept = (d: LostText): d is LostDraft => d.reason !== "newerVersion";
-
 /** The notice for texts offered on mount: the newest one's reason. */
 const restoreStatus = (lost: readonly LostText[]): DraftStatus =>
   lost.length === 0 ? "ok" : lost[0].reason === "dropped" ? "dropped" : "lostNotSaved";
+
+/** The two lost-text writes a save makes, through `lost-draft.ts` (one text at a time; every open row is told). */
+function lostActions(latest: DraftRefs["latest"]): Pick<DraftRefs, "offerLost" | "savedLost"> {
+  return {
+    offerLost: (text) => {
+      const now = latest.current;
+      // Kept for later only for a keyed job this version can edit (ids of keyless jobs collide across portfolios).
+      addLostText(now.saveId, text, { keep: !now.keyless && !now.foreign });
+    },
+    savedLost: (text) => removeLostTexts(latest.current.saveId, [text]),
+  };
+}
 
 /** The standing instruction as a draft against the stored job. It saves on blur and on unmount (closing the dialog
  *  fires no blur on a focused node that unmounts); see `flushDraft`. When the stored instruction changes: a stored
  *  text equal to the draft rebases it (no notice); with no unsaved change AND no save of this row pending, the draft
  *  follows the store; otherwise the draft is kept and its conditional save decides.
  *  Text this row could not save (`lost`) is never put back into the job or the field: the field always starts from the
- *  stored text, and the lost texts are offered read-only for copying, newest first — kept in `lost-draft.ts` (per tab)
- *  so they are offered again after the editor closes. A text the job already holds is dropped from the offer; the offer
- *  goes with Dismiss or a successful save of this row (an answer leaves it). A job without a key keeps none (ids
- *  collide across portfolios), and a job turned foreign keeps none. */
+ *  stored text, and the lost texts are offered read-only for copying, newest first. They are added and removed one at
+ *  a time through `lost-draft.ts` (kept per tab, so they are offered again after the editor closes), and the row
+ *  follows every change it is told of — including a text a closed editor lost after this row mounted. A text the job
+ *  holds is removed; a successful save removes only the texts equal to what it saved; Dismiss removes all. A job
+ *  without a key, or turned foreign, keeps none for later. */
 export function useInstructionDraft(job: ScheduledJob, onUpdate: JobUpdate) {
   const stored = job.instruction ?? "";
   const saveId = jobSaveId(job);
@@ -196,46 +214,40 @@ export function useInstructionDraft(job: ScheduledJob, onUpdate: JobUpdate) {
       if (left.length === 0) setStatus((st) => (st === "dropped" || st === "lostNotSaved" ? "ok" : st));
     }
   }
-  const latest = useRef({ jobId: job.id, saveId, keyless, draft, base, onUpdate });
+  const latest = useRef({ jobId: job.id, saveId, keyless, foreign, draft, base, onUpdate });
   const pending = useRef<readonly { text: string; gen: number }[]>([]);
   const expected = useRef(stored);
   const generation = useRef(0);
   const mounted = useRef(true);
   useEffect(() => {
-    latest.current = { jobId: job.id, saveId, keyless, draft, base, onUpdate };
+    latest.current = { jobId: job.id, saveId, keyless, foreign, draft, base, onUpdate };
   });
-  // The kept copy follows the offer (also forgetting, at mount, a text the job already holds).
-  useEffect(() => {
-    if (keyless) return;
-    setLostDrafts(saveId, foreign ? [] : lost.filter(isKept));
-  }, [lost, saveId, keyless, foreign]);
-  const offerLost = (text: LostText) => {
-    if (mounted.current) {
-      setLost((prev) => withLostDraft(prev, text));
+  // Follow every change to this job's lost texts, one text at a time (never a whole list written over another).
+  useEffect(() => subscribeLostTexts((id, change) => {
+    if (id !== saveId) return;
+    if ("added" in change) {
+      setLost((prev) => withLostDraft(prev, change.added));
       return;
     }
-    // The editor has closed: keep it for the next time the row mounts (never for a keyless or foreign job).
-    const now = latest.current;
-    if (!now.keyless && isKept(text)) keepLostDraft(now.saveId, text);
-  };
-  const clearLost = () => {
-    if (mounted.current) setLost([]);
-    else if (!latest.current.keyless) forgetLostDraft(latest.current.saveId);
-  };
+    const removed = change.removed;
+    if (removed === "all") {
+      setLost([]);
+      return;
+    }
+    const gone = new Set(removed);
+    setLost((prev) => prev.filter((d) => !gone.has(d.text.trim())));
+  }), [saveId]);
+  // A text the job holds is not lost (at mount too): remove it from what is kept.
+  useEffect(() => {
+    if (!keyless) removeLostTexts(saveId, [stored]);
+  }, [saveId, stored, keyless]);
   const refs = (): DraftRefs => ({
-    latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending, offerLost, clearLost,
+    latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending, ...lostActions(latest),
   });
   useEffect(() => {
     mounted.current = true;
     const unmountRefs: DraftRefs = {
-      latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending,
-      offerLost: (text) => {
-        const now = latest.current;
-        if (!now.keyless && isKept(text)) keepLostDraft(now.saveId, text);
-      },
-      clearLost: () => {
-        if (!latest.current.keyless) forgetLostDraft(latest.current.saveId);
-      },
+      latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending, ...lostActions(latest),
     };
     return () => {
       mounted.current = false;
@@ -257,7 +269,9 @@ export function useInstructionDraft(job: ScheduledJob, onUpdate: JobUpdate) {
     onBlur: () => flushDraft(refs()),
     /** An answer ends the dropped or restore notice; the offered text stays until dismissed. */
     clearDropped: endNotice,
+    /** The only thing that removes every offered text. */
     dismissLost: () => {
+      forgetLostDraft(saveId);
       setLost([]);
       endNotice();
     },

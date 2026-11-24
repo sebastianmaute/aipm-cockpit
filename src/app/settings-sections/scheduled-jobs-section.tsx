@@ -150,6 +150,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
     if (job.key === null || acceptPending.has(job.key)) return;
     setAcceptNotice(job.key, null);
     setDeletedElsewhere(false);
+    setEditedByNewer(false);
     setPending(job.key, true);
     const entryAtClick = storedAcceptanceEntry(job.key);
     try {
@@ -258,7 +259,8 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
               <ul className="flex flex-col gap-2">
                 {jobs.map((job) => (
                   <JobRow
-                    key={job.id}
+                    // The job's save identity, not its id: an id reused for another job never keeps the old row's state.
+                    key={jobSaveId(job)}
                     lang={lang}
                     job={job}
                     token={jobTokens.get(job.id) ?? job.name}

@@ -4,7 +4,7 @@
 // project, cadence, time zone, standing instruction and run history (§772). Presentational: the job and the
 // project lists arrive as props, every write leaves through a callback.
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { type Lang, t, tPlural, type TranslationKey } from "../i18n";
 import { aiKeyMessageKeyForStatusToken } from "../ai-key-status";
 import type { JobCadence, ScheduledJob, ScheduledJobRun } from "../scheduled-jobs/types";
@@ -57,12 +57,14 @@ export const DEFAULT_TIME = "09:00";
 
 /** The standing instruction field: presentational, the draft lives in `useInstructionDraft`. */
 function InstructionField({
+  id,
   lang,
   token,
   value,
   onChange,
   onBlur,
 }: {
+  id: string;
   lang: Lang;
   token: string;
   value: string;
@@ -73,6 +75,7 @@ function InstructionField({
     <label className="flex flex-col gap-1 text-xs text-foreground">
       <span>{t(lang, "scheduledJobInstruction")}</span>
       <Textarea
+        id={id}
         size="xs"
         rows={2}
         maxLength={TEXTAREA_MAX}
@@ -139,6 +142,12 @@ export function JobRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const instruction = useInstructionDraft(job, onUpdate);
+  const fieldId = useId();
+  // Dismiss removes the box it sits in: focus goes to the instruction field (when the row has one) rather than the page.
+  const dismissLost = () => {
+    instruction.dismissLost();
+    document.getElementById(fieldId)?.focus();
+  };
   const { cadence } = job;
 
   // A job a newer version made (a type or cadence this one does not know): listed read-only, never edited or run,
@@ -157,7 +166,7 @@ export function JobRow({
         >
           {t(lang, "delete")}
         </Button>
-        <LostTextBox lang={lang} token={token} text={instruction.lostText} onDismiss={instruction.dismissLost} />
+        <LostTextBox lang={lang} token={token} text={instruction.lostText} onDismiss={dismissLost} />
       </li>
     );
   }
@@ -308,8 +317,8 @@ export function JobRow({
         </label>
       </div>
 
-      <InstructionField lang={lang} token={token} value={instruction.draft} onChange={instruction.onChange} onBlur={instruction.onBlur} />
-      <LostTextBox lang={lang} token={token} text={instruction.lostText} onDismiss={instruction.dismissLost} />
+      <InstructionField id={fieldId} lang={lang} token={token} value={instruction.draft} onChange={instruction.onChange} onBlur={instruction.onBlur} />
+      <LostTextBox lang={lang} token={token} text={instruction.lostText} onDismiss={dismissLost} />
 
       <AcceptanceLine
         lang={lang}

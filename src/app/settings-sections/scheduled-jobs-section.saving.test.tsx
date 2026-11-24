@@ -814,7 +814,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(lostText()).toHaveValue("c");
   });
 
-  it("a successful save, even the closing one, takes the offered text away for good", async () => {
+  it("a successful save of other text, even the closing one, leaves the offered text", async () => {
     const user = userEvent.setup();
     await loseRefusedText(user);
     const second = show();
@@ -823,11 +823,141 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     second.unmount(); // the closing save of ef lands
     await sleep(200);
     expect(stored()).toBe("ef");
-    expect(lostEntries()).toBeNull();
+    expect(lostEntries()).toEqual([{ text: "cd", reason: "dropped" }]);
+    show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    expect(lostText()).toHaveValue("cd");
+  });
+
+  it("a save removes only the offered texts equal to what it saved", async () => {
+    const user = userEvent.setup();
+    store.list = [job({ instruction: "x" })];
+    seedLost({ text: "cd", reason: "dropped" }, { text: "old", reason: "notSaved" });
+    show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    await typeInstruction(user, "z");
+    fireEvent.focusOut(field());
+    await sleep(200);
+    expect(stored()).toBe("z");
+    expect(lostText()).toHaveValue("cd\n\nold");
+    await typeInstruction(user, " old ");
+    fireEvent.focusOut(field());
+    await sleep(200);
+    expect(stored()).toBe("old");
+    expect(lostText()).toHaveValue("cd");
+    expect(lostEntries()).toEqual([{ text: "cd", reason: "dropped" }]);
+  });
+
+  it("a closed editor's late failure is offered in the row that has reopened, and survives that row's own save", async () => {
+    const user = userEvent.setup();
+    const first = show();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    await typeInstruction(user, "c");
+    const release = holdSaves();
+    first.unmount(); // the closing save of c waits
+    await sleep(50);
     show();
     await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    store.failOnce = true;
+    release();
+    await sleep(150);
+    expect(lostText()).toHaveValue("c"); // shown in the open row
+    await typeInstruction(user, "z");
+    fireEvent.focusOut(field());
+    await sleep(200);
+    expect(stored()).toBe("z");
+    expect(lostText()).toHaveValue("c");
+    expect(lostEntries()).toEqual([{ text: "c", reason: "notSaved" }]);
+  });
+
+  it("a closed editor's late failure survives a refusal in the reopened row", async () => {
+    const user = userEvent.setup();
+    const first = show();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    await typeInstruction(user, "c");
+    const release = holdSaves();
+    first.unmount();
+    await sleep(50);
+    show();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    store.failOnce = true;
+    release();
+    await sleep(150);
+    store.list = [job({ instruction: "y" })];
+    await typeInstruction(user, "z");
+    fireEvent.focusOut(field());
+    await sleep(200);
+    expect(stored()).toBe("y");
+    expect(lostText()).toHaveValue("z\n\nc");
+    expect(lostEntries()).toEqual([{ text: "z", reason: "dropped" }, { text: "c", reason: "notSaved" }]);
+  });
+
+  it("text typed after the blur is offered too when the save is refused", async () => {
+    const user = userEvent.setup();
+    show();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    const release = holdLoads();
+    await typeInstruction(user, "c");
+    fireEvent.focusOut(field());
+    store.list = [job({ instruction: "y" })];
+    await user.type(field(), "de"); // still typing, not blurred
+    release();
+    await sleep(200);
+    expect(stored()).toBe("y");
+    expect(field()).toHaveValue("y");
+    expect(lostText()).toHaveValue("cde\n\nc");
+    expect(screen.getByText(t("en-US", "scheduledJobDraftDropped"))).toBeInTheDocument();
+  });
+
+  it("Dismiss moves focus to the instruction field", async () => {
+    const user = userEvent.setup();
+    store.list = [job({ instruction: "x" })];
+    seedLost({ text: "cd", reason: "dropped" });
+    show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    await user.click(dismiss());
     expect(lostText()).toBeNull();
-    expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
+    expect(field()).toHaveFocus();
+  });
+
+  it("an open row never drops a text it shows; storage keeps the newest five", async () => {
+    const user = userEvent.setup();
+    store.list = [job({ instruction: "x" })];
+    seedLost(...["t5", "t4", "t3", "t2", "t1"].map((text) => ({ text, reason: "dropped" as const })));
+    show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    await typeInstruction(user, "t6");
+    store.list = [job({ instruction: "y" })];
+    fireEvent.focusOut(field());
+    await sleep(200);
+    expect(lostText()).toHaveValue("t6\n\nt5\n\nt4\n\nt3\n\nt2\n\nt1");
+    expect((lostEntries() as { text: string }[]).map((d) => d.text)).toEqual(["t6", "t5", "t4", "t3", "t2"]);
+  });
+
+  it("a row whose id now names a different job does not show the old job's texts", async () => {
+    store.list = [job({ instruction: "x" })];
+    seedLost({ text: "cd", reason: "dropped" });
+    show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    // Ids reassigned elsewhere: id 1 now names another job, and this job (still listed) has id 2.
+    store.list = [job({ key: "another-key", name: "Other", instruction: "x" }), job({ id: 2, instruction: "x" })];
+    await refocus();
+    expect(screen.queryByRole("textbox", { name: `${t("en-US", "scheduledJobLostText")} – Other` })).toBeNull();
+    expect(lostText()).toHaveValue("cd"); // still offered for its own job
+  });
+
+  it("an Accept clears the newer-version message", async () => {
+    const user = userEvent.setup();
+    store.list = [job(), job({ id: 2, key: "second-key", name: "Weekly" })];
+    show();
+    await screen.findAllByText(t("en-US", "scheduledJobNeedsOk"));
+    await typeInstruction(user, "c");
+    store.list = [job({ foreign: { raw: { id: 1, type: "somethingNew" } } }), job({ id: 2, key: "second-key", name: "Weekly" })];
+    await user.click(document.body);
+    await screen.findByText(t("en-US", "scheduledJobEditedByNewerVersion"));
+    await user.click(screen.getByRole("button", { name: "Accept: Weekly" }));
+    await sleep(150);
+    expect(screen.queryByText(t("en-US", "scheduledJobEditedByNewerVersion"))).toBeNull();
   });
 
   it("copying the offered text into the field and leaving it saves it and takes the offer away", async () => {
