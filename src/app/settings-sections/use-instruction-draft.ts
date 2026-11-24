@@ -1,6 +1,7 @@
 // src/app/settings-sections/use-instruction-draft.ts — the standing instruction of a scheduled job as a draft against the
-// stored job: saved on blur and on unmount, conditionally (never over another device's change), kept after a failed
-// save. Extracted from scheduled-job-row.tsx unchanged.
+// stored job. It saves on blur and on unmount; each save is conditional, judged when it runs against the text this row
+// last wrote or started from, so it does not write over another device's change. A refused save drops the draft (and
+// this row's queued saves with it); a failed save keeps it and the next blur retries.
 import { useEffect, useRef, useState } from "react";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import type { UpdateJobOptions, UseScheduledJobsResult } from "../use-scheduled-jobs";
@@ -22,8 +23,9 @@ interface DraftRefs {
   latest: { current: { jobId: number; draft: string; base: string; onUpdate: JobUpdate } };
   /** Texts this row has sent and not yet seen settle, oldest first. */
   pending: { current: readonly string[] };
-  /** The stored text this row expects when its next save RUNS: the text the draft started from, then each text this
-   *  row's save wrote (set inside the write chain), or the text a refusal found. */
+  /** The stored text this row expects when its next save RUNS: the text the draft started from (set when a save starts
+   *  with nothing pending), then each text this row's save wrote (set inside the write chain). A refusal never moves
+   *  it, so this row's queued saves are refused too. */
   expected: { current: string };
   mounted: { current: boolean };
   setStatus: (update: (s: DraftStatus) => DraftStatus) => void;
@@ -67,7 +69,8 @@ function flushDraft(r: DraftRefs): void {
       settle();
       if (err instanceof JobChangedError) {
         // Another device changed the job since this row last wrote it: drop the draft, never write over that change.
-        r.expected.current = err.stored;
+        // `expected` stays as it was, so every save of this row still queued behind this one is refused too; the next
+        // save started with nothing pending is judged against the text the field now shows (see `flushDraft`).
         r.latest.current = { ...r.latest.current, draft: err.stored, base: err.stored };
         if (!r.mounted.current) return;
         r.setDraft(err.stored);
