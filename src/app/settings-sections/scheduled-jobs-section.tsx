@@ -139,15 +139,20 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
     setAcceptNotice(job.key, null);
     setPending(job.key, true);
     // Taken at click time, which is AFTER an own edit's answer (recorded when the edit was called): the edit is not
-    // mistaken for a newer answer, and the version it is saving is one the row stands for.
+    // mistaken for a newer answer. While this tab's own edit saves, the click means the version being saved (`target`),
+    // not the one the row still shows.
     const entryAtClick = storedAcceptanceEntry(job.key);
     const target = ownEditTarget(job);
+    const meantEdit = target !== jobFingerprint(job);
     try {
       // After the saves in progress settle, so a just-typed instruction is what is compared.
       const fresh = (await readFresh()).find((j) => j.key !== null && j.key === job.key);
-      // The user answered again while the read was in flight (a decline, in this or another tab): that answer wins.
+      const isTarget = fresh !== undefined && jobFingerprint(fresh) === target;
+      // The entry changed while the read was in flight: the user answered again (a decline, in this or another tab),
+      // and that answer wins — or the edit the click meant failed to save and took its answer back: say so.
       if (storedAcceptanceEntry(job.key) !== entryAtClick) {
         if (fresh && jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();
+        if (meantEdit && !isTarget) setAcceptNotice(job.key, "changed");
         return;
       }
       if (fresh && acceptanceState(fresh) === "accepted") {
@@ -155,7 +160,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
         if (jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();
         return;
       }
-      if (fresh && (jobFingerprint(fresh) === jobFingerprint(job) || jobFingerprint(fresh) === target)) {
+      if (fresh && isTarget) {
         if (!acceptJob(fresh)) setAcceptNotice(job.key, "saveFailed");
         return;
       }

@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { JobRow } from "./scheduled-job-row";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
-import { ACCEPTANCE_KEY, acceptanceState, acceptJob, declineJob, jobFingerprint } from "../scheduled-job-acceptance";
+import { ACCEPTANCE_KEY, acceptanceState, acceptJob, declineJob } from "../scheduled-job-acceptance";
 import { forgetOwnEdit, noteOwnEdit } from "../scheduled-job-own-edit";
 
 const deviceLabel = vi.hoisted(() => ({ value: "aaaa1111" }));
@@ -165,7 +165,7 @@ describe("JobRow acceptance", () => {
 
   describe("while this tab's own edit of the job saves", () => {
     const edited = job({ instruction: "Look at costs" });
-    beforeEach(() => noteOwnEdit("job-key-1", jobFingerprint(edited)));
+    beforeEach(() => { noteOwnEdit("job-key-1", edited, null); });
     afterEach(() => forgetOwnEdit("job-key-1"));
 
     it("reads the answer for the version being saved, and Stop stops that version", () => {

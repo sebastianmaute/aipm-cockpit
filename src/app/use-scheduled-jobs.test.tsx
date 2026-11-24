@@ -508,6 +508,29 @@ describe("useScheduledJobs acceptance on this device", () => {
     expect(ownEditTarget(version({}))).toBe(jobFingerprint(version({})));
   });
 
+  it("a Stop of the new version, then a failed save, stops the version the store still holds", async () => {
+    seed();
+    act(() => { acceptJob(version({})); });
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    const realSetItem = Storage.prototype.setItem;
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === JOBS_KEY) throw new Error("quota");
+      realSetItem.call(this, k, v);
+    });
+    try {
+      await act(async () => {
+        const saving = result.current.updateJob(1, { instruction: "c" }, "key-1");
+        declineJob(version({ instruction: "c" })); // the user's Stop, aimed at the version being saved
+        await saving.catch(() => {});
+      });
+    } finally {
+      spy.mockRestore();
+    }
+    expect(result.current.jobs[0].instruction).toBe("b");
+    expect(acceptanceState(result.current.jobs[0])).toBe("declined");
+  });
+
   it("a Stop of the new version clicked while the edit saves stays stopped", async () => {
     seed();
     act(() => { acceptJob(version({})); });
@@ -537,6 +560,7 @@ describe("useScheduledJobs acceptance on this device", () => {
 
   it("an edit whose other half changed in the store leaves the stored job reading changed", async () => {
     seed();
+    act(() => { acceptJob(version({})); });
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
     seed({ projectId: "p9" }); // another device moved the job to another project
@@ -577,15 +601,44 @@ describe("useScheduledJobs acceptance on this device", () => {
     expect(acceptanceState(result.current.jobs[0])).toBe("accepted");
   });
 
-  it("editing the instruction re-accepts", async () => {
+  it("editing the instruction of an accepted job keeps it accepted", async () => {
     seed();
-    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ "key-1": jobFingerprint({ projectId: "p1", instruction: "a" }) }));
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ "key-1": jobFingerprint({ projectId: "p1", instruction: "b" }) }));
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
-    expect(acceptanceState(result.current.jobs[0])).toBe("changed");
     await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "key-1"); });
     expect(acceptanceState(result.current.jobs[0])).toBe("accepted");
     expect(accepted()["key-1"]).toBe(jobFingerprint({ projectId: "p1", instruction: "c" }));
+  });
+
+  it("editing a job that changed since this device accepted it answers nothing", async () => {
+    seed();
+    const before = jobFingerprint({ projectId: "p1", instruction: "a" });
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ "key-1": before }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    expect(acceptanceState(result.current.jobs[0])).toBe("changed");
+    await act(async () => {
+      const saving = result.current.updateJob(1, { instruction: "c" }, "key-1");
+      expect(accepted()["key-1"]).toBe(before);
+      await saving;
+    });
+    expect(acceptanceState(result.current.jobs[0])).toBe("changed");
+    expect(accepted()["key-1"]).toBe(before);
+  });
+
+  it("an own revert while the first edit still saves keeps the answer for the version written last", async () => {
+    seed();
+    act(() => { acceptJob(version({})); });
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    await act(async () => {
+      const first = result.current.updateJob(1, { instruction: "c" }, "key-1");
+      const back = result.current.updateJob(1, { instruction: "b" }, "key-1"); // the tab still displays b
+      await Promise.all([first, back]);
+    });
+    expect(result.current.jobs[0].instruction).toBe("b");
+    expect(acceptanceState(result.current.jobs[0])).toBe("accepted");
   });
 
   it("renaming does not accept", async () => {
@@ -684,12 +737,17 @@ describe("useScheduledJobs acceptance on this device", () => {
     expect(acceptanceState(result.current.jobs[0])).toBe("declined");
   });
 
-  it("an edit on a job with no entry still accepts it", async () => {
+  it("an edit on a job this device never answered answers nothing, but its version is the row's target", async () => {
     seed();
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
-    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "key-1"); });
-    expect(acceptanceState(result.current.jobs[0])).toBe("accepted");
+    await act(async () => {
+      const saving = result.current.updateJob(1, { instruction: "c" }, "key-1");
+      expect(storedAcceptanceEntry("key-1")).toBeNull();
+      expect(ownEditTarget(version({}))).toBe(jobFingerprint(version({ instruction: "c" })));
+      await saving;
+    });
+    expect(acceptanceState(result.current.jobs[0])).toBe("none");
   });
 
   it("a decline that lands while an edit's save is pending wins over the edit", async () => {
@@ -789,6 +847,7 @@ describe("useScheduledJobs acceptance on this device", () => {
 
   it("resetting the instruction to the default accepts the default fingerprint", async () => {
     seed();
+    act(() => { acceptJob(version({})); });
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
     await act(async () => { await result.current.updateJob(1, { instruction: undefined }, "key-1"); });

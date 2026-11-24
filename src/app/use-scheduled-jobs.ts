@@ -13,9 +13,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceLabel } from "./device-label";
 import {
-  acceptanceEntryValue, acceptanceState, acceptJob, declineJob, forgetJob, jobFingerprint, restoreAcceptanceEntry, storedAcceptanceEntry,
+  acceptanceEntryValue, acceptanceState, acceptJob, DECLINED_PREFIX, declineJob, forgetJob, jobFingerprint, restoreAcceptanceEntry,
+  storedAcceptanceEntry,
 } from "./scheduled-job-acceptance";
-import { endOwnEdit, forgetOwnEdit, noteOwnEdit } from "./scheduled-job-own-edit";
+import { endOwnEdit, forgetOwnEdit, noteOwnEdit, type OwnEditNote, pendingOwnEditVersion } from "./scheduled-job-own-edit";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
 import { appendRun, normalizeJobFields } from "./scheduled-jobs/schedule";
 import type {
@@ -61,37 +62,49 @@ export interface UseScheduledJobsResult {
   readFresh: () => Promise<ScheduledJob[]>;
 }
 
-/** This device's answer to its own edit, recorded when the edit is CALLED (not when its save resolves): an answer the
- *  user gives while the save is in the write chain is then simply newer, and wins. */
+/** An own edit's effect on this device's answer, decided when the edit is CALLED (not when its save resolves): an
+ *  answer the user gives while the save is in the write chain is then simply newer, and wins. */
 interface OwnEdit {
   key: string;
   /** The entry before the edit, put back when the save fails. */
   prev: string | null;
-  /** The entry the edit wrote. */
-  value: string;
-  fingerprint: string;
+  /** The entry the edit wrote: null when it answered nothing. */
+  value: string | null;
+  /** The version the edit started from (what the tab displayed, or the version an earlier own edit is saving). */
+  baseFingerprint: string;
+  note: OwnEditNote;
 }
 
-/** The edit keeps a job this device had stopped (as displayed) stopped, for the new version; otherwise it accepts the
- *  version it predicts: exactly what the tab displayed with the edit applied, so a half changed elsewhere meanwhile
- *  makes the stored job read changed. */
-function answerOwnEdit(displayed: ScheduledJob, predicted: ScheduledJob): OwnEdit | null {
-  const key = displayed.key;
-  if (key === null) return null;
-  const state = acceptanceState(displayed);
+/** An edit keeps an answer this device already gave, for the new version: accepted stays accepted, stopped stays
+ *  stopped. It never answers for a job this device had not answered (or that changed since it was accepted): the row
+ *  keeps asking, and its Accept / "Not on this device" mean the version being saved. `base` is the version the edit
+ *  starts from and `predicted` that version with the edit applied, so a half changed elsewhere meanwhile makes the
+ *  stored job read changed. */
+function answerOwnEdit(base: ScheduledJob, predicted: ScheduledJob): OwnEdit | null {
+  const key = base.key;
+  if (key === null || base.foreign !== undefined) return null;
+  const state = acceptanceState(base);
   const stopped = state === "declined" || state === "declined-changed";
   const prev = storedAcceptanceEntry(key);
-  if (!(stopped ? declineJob(predicted) : acceptJob(predicted))) return null;
-  const fingerprint = jobFingerprint(predicted);
-  noteOwnEdit(key, fingerprint);
-  return { key, prev, value: acceptanceEntryValue(predicted, stopped), fingerprint };
+  let value: string | null = null;
+  if (state === "accepted" || stopped) {
+    if (!(stopped ? declineJob(predicted) : acceptJob(predicted))) return null;
+    value = acceptanceEntryValue(predicted, stopped);
+  }
+  const note = noteOwnEdit(key, predicted, storedAcceptanceEntry(key));
+  return { key, prev, value, baseFingerprint: jobFingerprint(base), note };
 }
 
-/** The save settled. A failed one takes its answer back, unless the user has answered since. */
+/** The save settled. A failed one takes its answer back, unless the user has answered since; a Stop the user aimed at
+ *  the version that was never written stops the version the store still holds. */
 function settleOwnEdit(edit: OwnEdit | null, failed: boolean): void {
   if (edit === null) return;
-  if (failed && storedAcceptanceEntry(edit.key) === edit.value) restoreAcceptanceEntry(edit.key, edit.prev);
-  endOwnEdit(edit.key, edit.fingerprint);
+  if (failed) {
+    const entry = storedAcceptanceEntry(edit.key);
+    if (edit.value !== null && entry === edit.value) restoreAcceptanceEntry(edit.key, edit.prev);
+    else if (entry === DECLINED_PREFIX + edit.note.fingerprint) restoreAcceptanceEntry(edit.key, DECLINED_PREFIX + edit.baseFingerprint);
+  }
+  endOwnEdit(edit.key, edit.note);
 }
 
 /** Runs `write` (a mutate given the edit's settle as its `onSaved`); a write that rejects before it saved takes the
@@ -320,10 +333,12 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string): Promise<void> => {
       const normalized = normalizePatch(patch);
       const displayed = jobsRef.current.find((j) => matches(j, id, key));
-      // Only a real instruction change is an answer; the project half stays what this tab displayed.
-      const changesInstruction = displayed !== undefined && Object.prototype.hasOwnProperty.call(patch, "instruction")
-        && (normalized.instruction ?? null) !== (displayed.instruction ?? null);
-      const edit = changesInstruction ? answerOwnEdit(displayed, { ...displayed, instruction: normalized.instruction }) : null;
+      // What this tab displayed, or the version its own earlier edit is still saving (a revert compares to that).
+      const base = displayed === undefined ? undefined : pendingOwnEditVersion(displayed);
+      // Only a real instruction change counts; the project half stays the base's.
+      const changesInstruction = base !== undefined && Object.prototype.hasOwnProperty.call(patch, "instruction")
+        && (normalized.instruction ?? null) !== (base.instruction ?? null);
+      const edit = changesInstruction ? answerOwnEdit(base, { ...base, instruction: normalized.instruction }) : null;
       const transform = (list: readonly ScheduledJob[]) =>
         list.map((j) => (editable(j) && matches(j, id, key) ? { ...j, ...normalized, id: j.id } : j));
       return withOwnEdit(edit, (onSaved) => mutate(transform, onSaved));
@@ -343,9 +358,10 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     (id: number, projectId: string, timeZone: string, key?: string): Promise<void> => {
       let written: ScheduledJob | undefined;
       const displayed = jobsRef.current.find((j) => matches(j, id, key));
-      // The instruction half stays what this tab displayed. A job without a key gets a fresh one in this save: no answer
-      // can predate it, so it is accepted once written.
-      const edit = displayed?.key != null ? answerOwnEdit(displayed, { ...displayed, projectId }) : null;
+      // The instruction half stays the base's (what this tab displayed, or the version an own edit is still saving). A
+      // job without a key gets a fresh one in this save: no answer can predate it, so it is accepted once written.
+      const base = displayed?.key != null ? pendingOwnEditVersion(displayed) : undefined;
+      const edit = base !== undefined ? answerOwnEdit(base, { ...base, projectId }) : null;
       const transform = (list: readonly ScheduledJob[]) =>
         list.map((j) => {
           if (!(editable(j) && matches(j, id, key))) return j;
