@@ -1625,7 +1625,7 @@
     that cannot be read or written reads as "not edited here".
   - **The instruction draft** (`useInstructionDraft`, `use-instruction-draft.ts`) saves on blur and on unmount, and
     counts as saved only once the write succeeds. ★★ Its save is CONDITIONAL, judged when the save RUNS:
-    `updateJob(id, patch, key, { expectInstruction, onWritten })` calls `expectInstruction()` inside the write chain,
+    `updateJob(id, patch, key, { expectInstruction, onWritten, onRefused })` calls `expectInstruction()` inside the write chain,
     on the FRESH store list, and writes only while the stored instruction is that text (the stored text the field
     showed before that edit, or what this row's saves wrote since, learned through `onWritten` inside the chain) or
     already equals the text being saved (the same text from both sides is a success, not a refusal);
@@ -1633,7 +1633,8 @@
     `JobChangedError` (the list is read again, and the section does not count it as a failed write). So a save is
     refused only when the stored text changed from what this edit started from or this row wrote — whether or not
     this tab has re-read the job — and the row drops the draft and says so (`scheduledJobDraftDropped`). ★★ A refusal
-    starts a new generation (a counter in the draft hook): every save this row queued before it — the closing save
+    starts a new generation (a counter in the draft hook), bumped in `onRefused`, which the hook calls INSIDE the write
+    chain where the precondition refuses, before any later queued save is judged: every save this row queued before it — the closing save
     included — is refused when it runs, whatever the stored text has done since, and an edit made after the refusal
     starts from the text then shown. A refused older save moves the field to the stored text only while the field
     holds no edit made since the refusal. ★★ Inherent limit: the check runs
@@ -1645,11 +1646,19 @@
     from the stored text, both answer buttons read "Not saved" (`scheduledJobNotSaved`), are `aria-disabled` and ignore
     clicks, with `scheduledJobChangeNotSaved` in the row's status. Draft notices outrank an ignored press; the
     ignored-press notice clears when the job's version or the draft's status changes (not on typing). ★ Closing the
-    editor runs one last save on unmount; if that save fails or is refused, the text is lost and no notice can show,
-    because the row is gone.
+    editor runs one last save on unmount; if that save fails or is refused after the row is gone, the text is kept in
+    sessionStorage `LOST_DRAFT_KEY` (`scheduled-jobs/lost-draft.ts`, keyed by `jobSaveId`, every access guarded: a
+    storage that cannot be used just loses the text) and restored the next time the row mounts as an unsaved draft
+    with its notice (`scheduledJobDraftDropped` / `scheduledJobChangeNotSaved`). Restoring never saves or answers;
+    closing again without touching it keeps it for next time; deleting the job forgets it. ★ An edit of a job deleted
+    on another device (`updateJob` / `assignProject`) writes nothing and rejects with `JobGoneError` (`onWritten` runs
+    only when a job was written; the runner's own writes to a gone job stay quiet); the section, not counting it as a
+    failed write, shows `scheduledJobDeletedElsewhere` in its always-mounted status region — as does an Accept whose
+    re-read finds the job gone — because the row disappears with the refresh.
   - ★★★ **A press answers the version shown when it was pressed.** Pressing Accept / Stop or "Not on this device"
     does not take focus from the instruction field (`onMouseDown` prevents the default), so the press does not end
-    the edit: the button answers the version the row shows, and the edit saves on the next blur and then asks again.
+    the edit: the button answers the version the row shows (the saved instruction, not text still being typed), and
+    the edit saves on the next blur and then asks again.
     Backstop (`usePressGuard`): a press records the button's action, the job's fingerprint and whether it was saving —
     a pointer press on pointerdown, a key press on the first keydown of Space or Enter (Space clicks on keyup, so a
     held Space spans renders like a held pointer); the click is ignored when the job was saving at the press or is
@@ -1660,8 +1669,9 @@
     ignored silently. An ignored press says so in
     the row's status (`scheduledJobPressIgnored`, cleared by the next answer) unless the button visibly could not be
     used for the whole press ("Saving…" or "Not saved" at both press and click), where silence is correct.
-  - ★★★ **Answer buttons wait for this device's saves.** `useScheduledJobs` exposes `savingJobs` (`jobSaveId`: the key,
-    or the id of a keyless job), counted per job from the call until every save of it settled, success or failure.
+  - ★★★ **Answer buttons wait for this device's saves.** `useScheduledJobs({ trackSaving: true })` (the Settings list
+    only) exposes `savingJobs` (`jobSaveId`: the key, or the id of a keyless job), counted per job from the call until
+    every save of it settled, success or failure; without the option the set stays empty and a save adds no re-render.
     Meanwhile the row's Accept / Stop and "Not on this device" read "Saving…" (their names start with it, then the
     answer they will give), are `aria-disabled` and ignore clicks; a press that starts or ends while the job is saving
     is ignored, even if the save is over by the time of the click. When the save ends, a focused button keeps focus and
@@ -1673,8 +1683,8 @@
   - **Runner gate:** the runner filters before any claim and re-checks in `stillRunnable` (project, schedule,
     instruction and acceptance, against a fresh read). The "needs your OK" notice counts `none`, `changed` and
     `declined-changed`.
-  - Every `useScheduledJobs` instance re-reads the store when the tab becomes visible again or the window regains
-    focus. The row reads the device label with `peekDeviceLabel` (never writes during render); `ScheduledJob.createdBy`
+  - `useScheduledJobs({ refreshOnFocus: true })` (the Settings list only, never the always-mounted runner instance in
+    `use-ai-orchestration.ts`) re-reads the store when the tab becomes visible again or the window regains focus. The row reads the device label with `peekDeviceLabel` (never writes during render); `ScheduledJob.createdBy`
     is display-only, never a permission.
 - **AI weight suggestions:** "Suggest with AI" in the next-actions settings → ONE forced-tool call
   (`suggest_weights`, forced, NO loop) in `weight-suggestion-call.ts` (the fetch now routes through the shared
