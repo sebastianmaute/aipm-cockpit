@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceLabel } from "./device-label";
 import { acceptJob, forgetJob, jobFingerprint, markEditedHere } from "./scheduled-job-acceptance";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
-import { appendRun, JobChangedError, JobGoneError, JobNotEditableError, jobSaveId, normalizeJobFields } from "./scheduled-jobs/schedule";
+import { appendRun, JobChangedError, JobGoneError, JobNotEditableError, jobSaveId, mintJobKey, normalizeJobFields } from "./scheduled-jobs/schedule";
 import { forgetLostDraft } from "./scheduled-jobs/lost-draft";
 import type {
   JobCadence, ScheduledJob, ScheduledJobRun,
@@ -62,12 +62,14 @@ export interface UseScheduledJobsResult {
   ready: boolean;
   createJob: (input: CreateScheduledJobInput) => Promise<void>;
   /** projectId and key are set only by assignProject, so a patch can never save a project without them. */
+  /** `key`: the job's permanent key, `null` for "the job with this id that has no key" (never another job that now
+   *  holds the id), or left out for any job with this id. */
   updateJob: (
-    id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string, options?: UpdateJobOptions,
+    id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string | null, options?: UpdateJobOptions,
   ) => Promise<void>;
-  deleteJob: (id: number, key?: string) => Promise<void>;
+  deleteJob: (id: number, key?: string | null) => Promise<void>;
   /** Names the project (and zone) of a job; mints the permanent key in the same save when it has none. */
-  assignProject: (id: number, projectId: string, timeZone: string, key?: string) => Promise<void>;
+  assignProject: (id: number, projectId: string, timeZone: string, key?: string | null) => Promise<void>;
   /** §772 — the runner found the job's project hard-deleted: back to "Choose a project" (the key stays). */
   clearProject: (id: number, key?: string) => Promise<void>;
   /** §772 — switch a job off (its project was archived). */
@@ -104,8 +106,9 @@ const generationOf = (config: TursoConfig | null): number => savedGenerations.ge
 /** An edit reaches only a job this version can read: a foreign one is carried through untouched. */
 const editable = (j: ScheduledJob): boolean => j.foreign === undefined;
 
-/** The job a keyed write means: same id, and — when the caller knows it — the same permanent key. */
-function matches(j: ScheduledJob, id: number, key: string | undefined): boolean {
+/** The job a keyed write means: same id, and — when the caller knows it — the same permanent key (`null`: a job with
+ *  no key, so a write meant for a keyless job never reaches another job that now holds its id). */
+function matches(j: ScheduledJob, id: number, key: string | null | undefined): boolean {
   return j.id === id && (key === undefined || j.key === key);
 }
 
@@ -298,7 +301,7 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
    *  edited here (display only). An edit NEVER writes an acceptance answer: this device answers only by creating a job
    *  or by the user's Accept / Stop / "Not on this device". */
   const writeJob = useCallback(
-    (id: number, key: string | undefined, edit: (j: ScheduledJob) => ScheduledJob, how: WriteJobHow = {}): Promise<void> => {
+    (id: number, key: string | null | undefined, edit: (j: ScheduledJob) => ScheduledJob, how: WriteJobHow = {}): Promise<void> => {
       const displayed = jobsRef.current.find((j) => matches(j, id, key));
       let edited: ScheduledJob | null = null;
       let matched = false;
@@ -368,7 +371,7 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
   }, [mutate]);
 
   const updateJob = useCallback(
-    (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string, options?: UpdateJobOptions): Promise<void> => {
+    (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string | null, options?: UpdateJobOptions): Promise<void> => {
       const normalized = normalizePatch(patch);
       const edit = (j: ScheduledJob): ScheduledJob => {
         const stored = j.instruction ?? "";
@@ -387,7 +390,7 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
     [writeJob],
   );
 
-  const deleteJob = useCallback((id: number, key?: string): Promise<void> => {
+  const deleteJob = useCallback((id: number, key?: string | null): Promise<void> => {
     let removedKey: string | null | undefined;
     const displayed = jobsRef.current.find((j) => matches(j, id, key));
     const write = mutate((list) => {
@@ -401,9 +404,9 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
   }, [mutate, trackSave]);
 
   const assignProject = useCallback(
-    (id: number, projectId: string, timeZone: string, key?: string): Promise<void> =>
+    (id: number, projectId: string, timeZone: string, key?: string | null): Promise<void> =>
       writeJob(id, key, (j) => ({
-        ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: j.key ?? crypto.randomUUID(),
+        ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: j.key ?? mintJobKey(),
       }), { markEdit: true, rejectIfGone: true }),
     [writeJob],
   );

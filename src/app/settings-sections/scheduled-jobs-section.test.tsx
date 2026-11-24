@@ -187,7 +187,7 @@ describe("ScheduledJobsSection", () => {
     fireEvent.change(cadenceSelect, { target: { value: "weekly" } });
     expect(updateJob).toHaveBeenCalledWith(1, {
       cadence: { kind: "weekly", dayOfWeek: 0, timeOfDay: "09:00" },
-    }, undefined);
+    }, null); // a keyless job: null reaches only the job with no key
   });
 
   it("renders the weekday select for an existing weekly job", () => {
@@ -200,7 +200,7 @@ describe("ScheduledJobsSection", () => {
     mockJobs = [job({ id: 7, name: "Alpha" })];
     setup(withKey({ scheduledJobs: true }));
     fireEvent.click(screen.getByLabelText(`${t("en-US", "delete")} – Alpha`));
-    expect(deleteJob).toHaveBeenCalledWith(7, undefined);
+    expect(deleteJob).toHaveBeenCalledWith(7, null);
   });
 
   it("gives per-row controls job-name-qualified accessible names (WCAG 2.4.6)", () => {
@@ -377,7 +377,7 @@ describe("§772 — project, time zone and instruction", () => {
     await screen.findByRole("option", { name: "Apollo" });
     expect(screen.queryByRole("option", { name: "Old one" })).toBeNull();
     fireEvent.change(select, { target: { value: "p2" } });
-    expect(assignProject).toHaveBeenCalledWith(4, "p2", tz, undefined);
+    expect(assignProject).toHaveBeenCalledWith(4, "p2", tz, null);
   });
 
   it("keeps a job's own zone when assigning its project", async () => {
@@ -385,7 +385,7 @@ describe("§772 — project, time zone and instruction", () => {
     setup(withKey({ scheduledJobs: true }));
     await screen.findByRole("option", { name: "Apollo" });
     fireEvent.change(screen.getByRole("combobox", { name: nameOf("scheduledJobProject", "Alpha") }), { target: { value: "p1" } });
-    expect(assignProject).toHaveBeenCalledWith(4, "p1", "Asia/Tokyo", undefined);
+    expect(assignProject).toHaveBeenCalledWith(4, "p1", "Asia/Tokyo", null);
   });
 
   it("a legacy job shows 'Choose a project' where its next run would be", async () => {
@@ -431,7 +431,7 @@ describe("§772 — project, time zone and instruction", () => {
     fireEvent.change(box, { target: { value: "  focus on risks  " } });
     expect(updateJob).not.toHaveBeenCalled();
     fireEvent.blur(box);
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "focus on risks" }, undefined, expect.objectContaining({ expectInstruction: expect.any(Function) }));
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "focus on risks" }, null, expect.objectContaining({ expectInstruction: expect.any(Function) }));
   });
 
   it("saves the time zone through updateJob and lists the IANA zones", async () => {
@@ -521,7 +521,7 @@ describe("§772 — project, time zone and instruction", () => {
     setup({ ...withKey({ scheduledJobs: true }), timezone: "Asia/Kolkata" });
     await screen.findByRole("option", { name: "Apollo" });
     fireEvent.change(screen.getByRole("combobox", { name: nameOf("scheduledJobProject", "Alpha") }), { target: { value: "p1" } });
-    expect(assignProject).toHaveBeenCalledWith(4, "p1", "Asia/Kolkata", undefined);
+    expect(assignProject).toHaveBeenCalledWith(4, "p1", "Asia/Kolkata", null);
   });
 
   it("saves an emptied instruction as undefined", async () => {
@@ -530,7 +530,7 @@ describe("§772 — project, time zone and instruction", () => {
     const box = await screen.findByRole("textbox", { name: nameOf("scheduledJobInstruction", "Alpha") });
     fireEvent.change(box, { target: { value: "   " } });
     fireEvent.blur(box);
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: undefined }, undefined, expect.objectContaining({ expectInstruction: expect.any(Function) }));
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: undefined }, null, expect.objectContaining({ expectInstruction: expect.any(Function) }));
   });
 
   it("saves a typed instruction when the section unmounts before the field is blurred", async () => {
@@ -540,7 +540,7 @@ describe("§772 — project, time zone and instruction", () => {
     fireEvent.change(box, { target: { value: "  watch the budget " } });
     expect(updateJob).not.toHaveBeenCalled();
     unmount();
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "watch the budget" }, undefined, expect.objectContaining({ expectInstruction: expect.any(Function) }));
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "watch the budget" }, null, expect.objectContaining({ expectInstruction: expect.any(Function) }));
   });
 
   it("does not write on unmount when nothing was typed", async () => {
@@ -742,7 +742,7 @@ describe("§772 cr3: foreign jobs and failed writes", () => {
     expect(screen.getByText(t("en-US", "scheduledJobForeign"))).toBeInTheDocument();
     for (const role of ["textbox", "checkbox", "combobox"] as const) expect(screen.queryByRole(role, { name: /From the future/ })).toBeNull();
     fireEvent.click(screen.getByLabelText(`${t("en-US", "delete")} – From the future`));
-    expect(deleteJob).toHaveBeenCalledWith(8, undefined);
+    expect(deleteJob).toHaveBeenCalledWith(8, null);
   });
 
   it("does not show the upgrade note for a foreign job (it has no key and is not a legacy job)", async () => {

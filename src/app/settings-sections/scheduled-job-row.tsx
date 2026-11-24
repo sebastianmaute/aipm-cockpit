@@ -16,6 +16,7 @@ import { REPORT_ERROR_KEY, type ReportErrorToken } from "../scheduled-reports-st
 import { type JobUpdate, useInstructionDraft } from "./use-instruction-draft";
 import { type AcceptNotice, AcceptanceLine } from "./scheduled-job-acceptance-line";
 import { LostTextBox } from "./scheduled-job-lost-text";
+import { isKeyMintedHere } from "../scheduled-jobs/schedule";
 
 /** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
  *  token is the digit string the runner stores, so history recorded before this change reads the
@@ -122,13 +123,15 @@ type JobRowProps = {
   onNoticeClear?: () => void;
 };
 
-/** The row's remount key: it changes only when the job's permanent key changes to a DIFFERENT key (the id now names
- *  another job), so no state of the old job is shown for the new one. A keyless job given its key (assigning a project
- *  mints one) keeps its row, and with it the text the row shows. Render-phase reconcile, not an effect. */
+/** The row's remount key: it changes whenever the job's permanent key changes (to another key, to none, or from none
+ *  to a key), so no text, draft or notice of the job that held the id is shown for another one — with ONE exception:
+ *  a keyless job given a key THIS tab minted (`isKeyMintedHere`, assigning a project) is the same job, so it keeps its
+ *  row and the text the row shows. Render-phase reconcile, not an effect. */
 function useRowIdentity(job: ScheduledJob): number {
   const [identity, setIdentity] = useState({ key: job.key, n: 0 });
-  if (job.key !== null && job.key !== identity.key) {
-    const n = identity.key === null ? identity.n : identity.n + 1;
+  if (job.key !== identity.key) {
+    const minted = identity.key === null && job.key !== null && isKeyMintedHere(job.key);
+    const n = minted ? identity.n : identity.n + 1;
     setIdentity({ key: job.key, n });
     return n;
   }

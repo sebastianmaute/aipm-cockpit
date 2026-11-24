@@ -157,15 +157,16 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
       // After the saves in progress settle, so the job is compared with what the store holds once they land. (An answer
       // press never ends the edit: an instruction still being typed is not saved yet, and the row shows the stored job.)
       const fresh = (await readFresh()).find((j) => j.key !== null && j.key === job.key);
+      if (fresh?.foreign !== undefined) {
+        // A newer version rewrote the job: this version can neither run nor answer it. Nothing is answered — and this is
+        // said first, even when an answer changed during the read.
+        setEditedByNewer(true);
+        await refresh();
+        return;
+      }
       // The user answered again while the read was in flight (a decline, in this or another tab): that answer wins.
       if (storedAcceptanceEntry(job.key) !== entryAtClick) {
         if (fresh && jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();
-        return;
-      }
-      if (fresh?.foreign !== undefined) {
-        // A newer version rewrote the job: this version can neither run nor answer it. Nothing is answered.
-        setEditedByNewer(true);
-        await refresh();
         return;
       }
       if (fresh && acceptanceState(fresh) === "accepted") {
@@ -276,15 +277,16 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     projectsLoaded={projects.loaded}
                     zones={zones}
                     defaultZone={defaultZone}
-                    // The permanent key rides along, so a write can only reach THIS portfolio's job (ids collide across portfolios).
+                    // The permanent key rides along, so a write can only reach THIS portfolio's job (ids collide across portfolios);
+                    // a keyless job's `null` reaches only a keyless job with that id, never another job that now holds it.
                     onUpdate={(id, patch, options) => {
-                      const key = job.key ?? undefined;
+                      const key = job.key;
                       const write = options === undefined ? updateJob(id, patch, key) : updateJob(id, patch, key, options);
                       track(write);
                       return write; // the instruction draft waits for it: a failed save keeps the draft
                     }}
-                    onAssign={(id, projectId, timeZone) => track(assignProject(id, projectId, timeZone, job.key ?? undefined))}
-                    onDelete={(id) => track(deleteJob(id, job.key ?? undefined))}
+                    onAssign={(id, projectId, timeZone) => track(assignProject(id, projectId, timeZone, job.key))}
+                    onDelete={(id) => track(deleteJob(id, job.key))}
                     onAccept={(j) => { void acceptFresh(j); }}
                     acceptPending={job.key !== null && acceptPending.has(job.key)}
                     // A save of this job in flight: its answer buttons wait for it, so an answer never races an edit.

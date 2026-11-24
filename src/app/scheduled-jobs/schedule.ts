@@ -108,6 +108,22 @@ export class JobNotEditableError extends Error {
   }
 }
 
+/** The permanent keys this tab minted (assigning a project to a job without one). A key is a fresh UUID, so a key in
+ *  this set names exactly the job this tab gave it: a row seeing its keyless job come back with it is the same job. */
+const mintedHere = new Set<string>();
+
+/** A new permanent key for a job that has none, remembered as minted by this tab. */
+export function mintJobKey(): string {
+  const key = crypto.randomUUID();
+  mintedHere.add(key);
+  return key;
+}
+
+/** Whether this tab minted `key` (`mintJobKey`). */
+export function isKeyMintedHere(key: string): boolean {
+  return mintedHere.has(key);
+}
+
 /** The identity of a job for "a save is in flight": its permanent key, or its id while it has none. */
 export function jobSaveId(job: Pick<ScheduledJob, "id" | "key">): string {
   return job.key ?? `id:${job.id}`;

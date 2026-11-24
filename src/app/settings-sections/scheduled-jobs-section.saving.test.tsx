@@ -2,7 +2,7 @@
 // press on an answer button keeps focus in the field, so it answers the version shown and the edit saves on the next
 // blur; while a save is in flight the buttons wait. An edit never answers.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ScheduledJobsSection } from "./scheduled-jobs-section";
 import { JobRow } from "./scheduled-job-row";
@@ -1168,6 +1168,94 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     await user.click(dismiss());
     expect(lostText()).toBeNull();
     expect(lostEntries()).toEqual([{ text: "unseen", reason: "dropped" }]);
+  });
+
+  const OTHER_KEY = "other-job-key";
+  const otherField = () => screen.queryByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Other job` });
+  const otherBox = () => screen.queryByRole("textbox", { name: `${t("en-US", "scheduledJobLostText")} – Other job` });
+
+  it("a keyless job's offered text is not carried to another job that now has its id", async () => {
+    const user = userEvent.setup();
+    store.list = [job({ key: null, projectId: null, timeZone: null })];
+    show();
+    await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
+    await typeInstruction(user, "secretA");
+    store.list = [job({ key: null, projectId: null, timeZone: null, instruction: "y" })];
+    fireEvent.focusOut(field());
+    await sleep(200);
+    expect(lostText()).toHaveValue("secretA");
+    store.list = [job({ key: OTHER_KEY, name: "Other job", instruction: "w" })];
+    await refocus();
+    expect(otherField()).toHaveValue("w");
+    expect(otherBox()).toBeNull();
+    expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
+    expect(sessionStorage.getItem(LOST)).toBeNull();
+  });
+
+  it("a keyless job's unsaved draft is never written into another job that now has its id", async () => {
+    const user = userEvent.setup();
+    store.list = [job({ key: null, projectId: null, timeZone: null })];
+    show();
+    await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
+    await typeInstruction(user, "textForA"); // not saved yet
+    store.list = [job({ key: OTHER_KEY, name: "Other job", instruction: "b" })];
+    await refocus();
+    expect(otherField()).toHaveValue("b");
+    fireEvent.focusOut(otherField() as HTMLElement);
+    await sleep(200);
+    expect((store.list[0] as ScheduledJob).instruction).toBe("b");
+    expect((store.list[0] as ScheduledJob).key).toBe(OTHER_KEY);
+  });
+
+  it("a keyed job's offered text and notice are not carried to a keyless job that now has its id", async () => {
+    store.list = [job({ instruction: "x" })];
+    seedLost({ text: "secretA", reason: "dropped" });
+    show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    // Ids reassigned elsewhere: id 1 now names a keyless job, and the first job (still listed) has id 2.
+    store.list = [
+      job({ key: null, projectId: null, timeZone: null, name: "Other job", instruction: "w" }),
+      job({ id: 2, instruction: "x" }),
+    ];
+    await refocus();
+    expect(otherField()).toHaveValue("w");
+    expect(otherBox()).toBeNull();
+    const otherRow = within(otherField()?.closest("li") as HTMLElement);
+    expect(otherRow.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
+    expect(lostText()).toHaveValue("secretA"); // still offered for its own job
+  });
+
+  it("a keyed job replaced by another keyed job with its id shows none of the first job's text or notice", async () => {
+    store.list = [job({ instruction: "x" })];
+    seedLost({ text: "secretA", reason: "dropped" });
+    show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    store.list = [job({ key: OTHER_KEY, name: "Other job", instruction: "w" })];
+    await refocus();
+    expect(otherBox()).toBeNull();
+    expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
+  });
+
+  it("the dropped notice goes when another row's save removes the last offered text", async () => {
+    store.list = [job({ instruction: "x" })];
+    seedLost({ text: "cd", reason: "dropped" });
+    show();
+    await screen.findByText(t("en-US", "scheduledJobDraftDropped"));
+    const { removeLostTexts } = await import("../scheduled-jobs/lost-draft");
+    await act(async () => { removeLostTexts(KEY, ["cd"]); });
+    expect(lostText()).toBeNull();
+    expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
+  });
+
+  it("an Accept finding the job rewritten says so even when the answer changed during the read", async () => {
+    const user = userEvent.setup();
+    show();
+    await screen.findByText(t("en-US", "scheduledJobNeedsOk"));
+    store.list = [await decodedForeign()];
+    store.afterNextLoad = () => { localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ [KEY]: "declined:elsewhere" })); };
+    await user.click(screen.getByRole("button", { name: "Accept: Daily risks" }));
+    await screen.findByText(t("en-US", "scheduledJobEditedByNewerVersion"));
+    expect(storedEntry()).toBe("declined:elsewhere"); // nothing written by the Accept
   });
 
   it("a job without a key keeps no lost text (ids collide across portfolios)", async () => {
