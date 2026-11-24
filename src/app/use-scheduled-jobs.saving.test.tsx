@@ -153,6 +153,31 @@ describe("useScheduledJobs — a save that checks the stored instruction first",
     expect(error).toBeInstanceOf(JobChangedError);
   });
 
+  it("tells the caller about a refusal inside the write chain, before the next queued write is judged", async () => {
+    store.list = [job({ instruction: "x" })];
+    const { result } = await mounted();
+    const seen: string[] = [];
+    let first: Promise<void> = Promise.resolve();
+    let second: Promise<void> = Promise.resolve();
+    act(() => {
+      first = result.current.updateJob(1, { instruction: "c" }, "saving-key", {
+        expectInstruction: () => "b", onRefused: () => { seen.push("refused"); },
+      }).catch(() => {});
+      second = result.current.updateJob(1, { instruction: "cd" }, "saving-key", {
+        expectInstruction: () => { seen.push("judged"); return "x"; },
+      });
+    });
+    await act(async () => { await first; await second; });
+    expect(seen).toEqual(["refused", "judged"]);
+  });
+
+  it("does not call onRefused for a write that lands", async () => {
+    const { result } = await mounted();
+    const onRefused = vi.fn();
+    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "saving-key", { expectInstruction: () => "b", onRefused }); });
+    expect(onRefused).not.toHaveBeenCalled();
+  });
+
   it("a stored text that already equals the text being saved counts as success, not a refusal", async () => {
     store.list = [job({ instruction: "c" })]; // another device saved the same text
     const { result } = await mounted();

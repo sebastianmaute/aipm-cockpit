@@ -327,7 +327,11 @@ describe("JobRow acceptance", () => {
     });
 
     it("a dropped-draft notice outranks a press ignored after it", async () => {
-      const onUpdate = vi.fn(async () => { throw new JobChangedError("Remote"); });
+      // Refused the way the hook refuses: the precondition reports it inside the write chain, then the write rejects.
+      const onUpdate = vi.fn(async (_id: number, _patch: unknown, options?: { onRefused?: () => void }) => {
+        options?.onRefused?.();
+        throw new JobChangedError("Remote");
+      });
       const props = {
         lang: "en-US" as const, token: "Weekly review", busy: false, tz: "UTC", projects: [{ id: "p1", name: "Alpha" }],
         archivedProjects: [], projectsLoaded: true, zones: ["UTC"], defaultZone: "UTC", onUpdate, onAssign: vi.fn(),

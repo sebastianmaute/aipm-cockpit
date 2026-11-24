@@ -38,12 +38,14 @@ interface DraftRefs {
   setHasPending: (value: boolean) => void;
 }
 
-/** Saves the trimmed draft when it differs from what the store will hold (the text the draft started from, or the
- *  last text this row is still saving). The save is conditional and judged when it RUNS: it writes only while the
- *  stored instruction is the text this row last wrote or started from, or already equals the text being saved, so it
- *  never overwrites another device's change; a refused save drops the draft and says so. The draft counts as saved
- *  only once the write succeeds: a failed save keeps it ("not saved", while it still differs) and the next blur
- *  retries. */
+/** Saves the trimmed draft, unless it equals what the store will hold: the last text this row is still saving in the
+ *  current refusal generation, or else the text the field showed (`base`). The save is conditional and judged when it
+ *  RUNS: a save of the current generation writes only while the stored instruction is the text the field showed
+ *  before the generation's first edit or what this row wrote since, or already equals the text being saved; a save
+ *  from an older generation is refused outright. A refusal starts a new generation inside the write chain
+ *  (`onRefused`), so every save this row queued before it is refused too, and the row drops the draft and says so.
+ *  The draft counts as saved only once the write succeeds: a failed save keeps it ("not saved", while it still
+ *  differs) and the next blur retries. */
 function flushDraft(r: DraftRefs): void {
   const d = r.latest.current;
   const typed = d.draft.trim();
@@ -63,9 +65,18 @@ function flushDraft(r: DraftRefs): void {
     r.pending.current = r.pending.current.filter((p) => p !== entry);
     if (r.mounted.current) r.setHasPending(r.pending.current.length > 0);
   };
+  // Whether this save's refusal started the new generation (as opposed to a save refused as stale).
+  let startedGeneration = false;
   const options = {
     expectInstruction: () => (gen === r.generation.current ? r.expected.current : null),
     onWritten: () => { r.expected.current = typed; },
+    // Inside the write chain, before the next queued save is judged: a refusal of the current generation starts a new
+    // one, so no save this row queued before it can pass, however late the rejection below reaches this row.
+    onRefused: () => {
+      if (gen !== r.generation.current) return;
+      r.generation.current = gen + 1;
+      startedGeneration = true;
+    },
   };
   Promise.resolve(d.onUpdate(d.jobId, { instruction: typed === "" ? undefined : typed }, options)).then(
     () => {
@@ -78,10 +89,9 @@ function flushDraft(r: DraftRefs): void {
     (err: unknown) => {
       settle();
       if (err instanceof JobChangedError) {
-        if (gen === r.generation.current) {
-          // Another device changed the job since this row last wrote it: drop the draft, never write over that change,
-          // and refuse every save of this row started before now (a new generation).
-          r.generation.current = gen + 1;
+        if (startedGeneration) {
+          // Another device changed the job since this row last wrote it: drop the draft, never write over that change
+          // (the new generation refuses every save of this row started before).
           r.latest.current = { ...r.latest.current, draft: err.stored, base: err.stored };
           if (!r.mounted.current) return;
           r.setDraft(err.stored);

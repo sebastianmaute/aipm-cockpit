@@ -5,6 +5,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ScheduledJobsSection } from "./scheduled-jobs-section";
+import { JobRow } from "./scheduled-job-row";
+import { useScheduledJobs, type UpdateJobOptions } from "../use-scheduled-jobs";
+import type { JobPatch } from "./use-instruction-draft";
 import { newConsent } from "../ai-consent";
 import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
@@ -636,4 +639,46 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(acceptanceState(job())).toBe("accepted");
     expect(screen.queryByText(t("en-US", "scheduledJobChangedHere"))).toBeNull();
   });
+});
+
+/** The real hook and a real row, with extra async hops between `updateJob` settling and the row hearing about it — the
+ *  shape any wrapper (tracking, logging) gives the call. The row's own decisions must not depend on how many there are. */
+function HoppingRow({ hops }: { hops: number }) {
+  const { jobs, updateJob } = useScheduledJobs({ config: TURSO });
+  const shown = jobs[0];
+  if (!shown) return null;
+  const onUpdate = (id: number, patch: JobPatch, options?: UpdateJobOptions): Promise<void> => {
+    let write: Promise<void> = updateJob(id, patch, shown.key ?? undefined, options);
+    for (let i = 0; i < hops; i += 1) write = write.then((v) => v);
+    return write;
+  };
+  return (
+    <ul>
+      <JobRow lang="en-US" job={shown} token="Daily risks" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
+        archivedProjects={[]} projectsLoaded zones={["UTC"]} defaultZone="UTC" onUpdate={onUpdate} onAssign={vi.fn()}
+        onDelete={vi.fn()} onAccept={vi.fn()} />
+    </ul>
+  );
+}
+
+describe("the refusal generation does not depend on how fast the row hears about the refusal", () => {
+  for (const hops of [1, 3]) {
+    it(`a save queued before a refusal is refused, with ${hops} extra hop(s) before the row's handler`, async () => {
+      const user = userEvent.setup();
+      render(<HoppingRow hops={hops} />);
+      await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
+      const release = holdLoads();
+      await typeInstruction(user, "c");
+      fireEvent.focusOut(field());
+      await sleep(10);
+      await user.type(field(), "d");
+      fireEvent.focusOut(field());
+      await sleep(10);
+      store.list = [job({ instruction: "x" })];
+      store.afterNextLoad = () => { store.list = [job({ instruction: "b" })]; }; // c reads x; cd would read b
+      release();
+      await sleep(200);
+      expect(stored()).toBe("b"); // cd was refused, not written over the store
+    });
+  }
 });
