@@ -41,7 +41,7 @@ function parse(raw: string): Record<string, string> {
   }
 }
 
-export const DECLINED_PREFIX = "declined:";
+const DECLINED_PREFIX = "declined:";
 
 /** A job this device cannot run: a legacy one (no permanent key) or one a newer version made. Narrows `key`. */
 function keyOf(job: ScheduledJob): string | null {
@@ -49,16 +49,11 @@ function keyOf(job: ScheduledJob): string | null {
 }
 
 export function acceptanceState(job: ScheduledJob): AcceptanceState {
-  return acceptanceStateAt(job, jobFingerprint(job));
-}
-
-/** This device's answer for the job's key, read against the version `fingerprint` names (the job's own, or the one
- *  an edit still saving will write). */
-export function acceptanceStateAt(job: ScheduledJob, fingerprint: string): AcceptanceState {
   const key = keyOf(job);
   if (key === null) return "cannot-run";
   const stored = parse(readRaw());
   if (!Object.prototype.hasOwnProperty.call(stored, key)) return "none";
+  const fingerprint = jobFingerprint(job);
   if (stored[key] === fingerprint) return "accepted";
   if (stored[key] === DECLINED_PREFIX + fingerprint) return "declined";
   // A decline of another version never reads "since you accepted it": this device never accepted anything.
@@ -76,10 +71,28 @@ export function isAcceptedHere(job: ScheduledJob): boolean {
 }
 
 /** The entry value an accept (or, with `declined`, a decline) of this job writes. */
-export function acceptanceEntryValue(job: ScheduledJob, declined: boolean): string {
+function acceptanceEntryValue(job: ScheduledJob, declined: boolean): string {
   return declined ? DECLINED_PREFIX + jobFingerprint(job) : jobFingerprint(job);
 }
 
+/** Keys of jobs whose project or instruction THIS tab changed (a save that landed) and that this device has not
+ *  answered since. Display-only: it picks the wording of a "changed" row and never decides whether a job runs. */
+const editedHere = new Set<string>();
+
+export function markEditedHere(key: string): void {
+  editedHere.add(key);
+}
+
+export function isEditedHere(key: string): boolean {
+  return editedHere.has(key);
+}
+
+export function clearEditedHere(key: string): void {
+  editedHere.delete(key);
+}
+
+/** Writes an answer. Only a user's Accept / Stop / "Not on this device" and creating a job answer, so an answer ends
+ *  the "you changed this job" wording. */
 function record(job: ScheduledJob, value: string): boolean {
   const key = keyOf(job);
   if (key === null) return false;
@@ -89,6 +102,7 @@ function record(job: ScheduledJob, value: string): boolean {
   } catch {
     return false;
   }
+  editedHere.delete(key);
   notify();
   return true;
 }
@@ -102,26 +116,16 @@ export function declineJob(job: ScheduledJob): boolean {
   return record(job, acceptanceEntryValue(job, true));
 }
 
-/** Records a Stop of the version `fingerprint` names (the one an edit still saving will write), under the same
- *  fail-closed rules as `declineJob`. */
-export function declineJobVersion(job: ScheduledJob, fingerprint: string): boolean {
-  return record(job, DECLINED_PREFIX + fingerprint);
-}
-
-/** Puts a raw entry back (or removes the key for null): the undo of an edit's answer whose save failed. */
-export function restoreAcceptanceEntry(key: string, value: string | null): void {
+export function forgetJob(key: string): void {
+  editedHere.delete(key);
   try {
-    const { [key]: _current, ...rest } = parse(readRaw());
-    void _current;
-    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify(value === null ? rest : { ...rest, [key]: value }));
+    const { [key]: _removed, ...rest } = parse(readRaw());
+    void _removed;
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify(rest));
   } catch {
     return;
   }
   notify();
-}
-
-export function forgetJob(key: string): void {
-  restoreAcceptanceEntry(key, null);
 }
 
 function subscribe(onChange: () => void): () => void {

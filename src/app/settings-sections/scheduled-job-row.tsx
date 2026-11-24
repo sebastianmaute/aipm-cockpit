@@ -14,8 +14,7 @@ import { formatDisplayTimestamp } from "../tz-display";
 import { TEXTAREA_MAX } from "../sanitize-core";
 import type { UseScheduledJobsResult } from "../use-scheduled-jobs";
 import { REPORT_ERROR_KEY, type ReportErrorToken } from "../scheduled-reports-store";
-import { useAcceptanceSnapshot } from "../scheduled-job-acceptance";
-import { declineShownJob, shownAcceptanceState } from "../scheduled-job-own-edit";
+import { acceptanceState, declineJob, isEditedHere, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
 import { peekDeviceLabel } from "../device-label";
 
 /** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
@@ -117,9 +116,9 @@ function InstructionField({
   );
 }
 
-/** Why the last answer on a row did not land: the Accept's re-read failed, the job changed elsewhere, this device
- *  could not store the answer, or the own change the Accept meant was never saved. */
-export type AcceptNotice = "failed" | "changed" | "saveFailed" | "notSaved";
+/** Why the last answer on a row did not land: the Accept's re-read failed, the job changed elsewhere, or this device
+ *  could not store the answer. */
+export type AcceptNotice = "failed" | "changed" | "saveFailed";
 
 function noop(): void {}
 
@@ -127,7 +126,6 @@ const ACCEPT_NOTICE_KEY: Record<AcceptNotice, TranslationKey> = {
   failed: "scheduledJobAcceptFailed",
   changed: "scheduledJobAcceptChanged",
   saveFailed: "scheduledJobAnswerSaveFailed",
-  notSaved: "scheduledJobAcceptNotSaved",
 };
 
 const ACCEPTANCE_STATUS_KEY: Record<"accepted" | "declined" | "declined-changed" | "changed" | "none", TranslationKey> = {
@@ -146,6 +144,7 @@ function AcceptanceLine({
   onAccept,
   notice,
   pending,
+  saving,
   onNoticeClear,
 }: {
   lang: Lang;
@@ -154,19 +153,22 @@ function AcceptanceLine({
   onAccept: (job: ScheduledJob) => void;
   notice: AcceptNotice | null;
   pending: boolean;
+  /** A save of this job is in flight: the answer buttons cannot be used until it settles. */
+  saving: boolean;
   onNoticeClear: () => void;
 }) {
   useAcceptanceSnapshot(); // re-render when this device's acceptances change
   // A Stop that could not be recorded says so, until the next click.
   const [stopFailed, setStopFailed] = useState(false);
   const mainRef = useRef<HTMLButtonElement>(null);
-  // While this tab's own edit saves, the row keeps showing what it showed when the edit was called (the edit runs on
-  // the field's blur, BETWEEN a button's pointerdown and its click), while every answer means the version being saved.
-  const state = shownAcceptanceState(job);
-  const declineShown = (): boolean => declineShownJob(job);
-  // Backstop: what the main button said when it was pressed is what its click does, even if the label changed in
-  // between. A keyboard activation has no pointerdown and runs the live action.
-  const pressedAction = useRef<"stop" | "accept" | null>(null);
+  const state = acceptanceState(job);
+  // While a save of this job is in flight (typing in the instruction field saves it on blur, which a click on these
+  // buttons causes), no answer can be given. A press that began while saving stays ignored even if the save ends
+  // before the click; a keyboard activation has no pointerdown and is judged when it happens.
+  const mainPressedWhileSaving = useRef(false);
+  const declinePressedWhileSaving = useRef(false);
+  const unusable = pending || saving;
+  const savingLabel = t(lang, "scheduledJobSaving");
   // A job with no project reports nothing, so there is nothing to accept; a cannot-run job has no state to show.
   const decided = state === "cannot-run" || job.projectId === null ? null : state;
   // An Accept notice never sits beside "Accepted on this device".
@@ -180,6 +182,14 @@ function AcceptanceLine({
         ? t(lang, "scheduledJobCreatedHere")
         : t(lang, "scheduledJobCreatedOn", job.createdBy);
   const accepted = decided === "accepted";
+  // "Changed on another device" never describes a change this tab made (display only).
+  const statusKey: TranslationKey | null = decided === null
+    ? null
+    : (decided === "changed" || decided === "declined-changed") && job.key !== null && isEditedHere(job.key)
+      ? "scheduledJobChangedHere"
+      : ACCEPTANCE_STATUS_KEY[decided];
+  const mainName = t(lang, accepted ? "scheduledJobStopNamed" : "scheduledJobAcceptNamed", token);
+  const declineName = t(lang, "scheduledJobDeclineNamed", token);
   const hasLine = decided !== null || createdText !== null;
   // The status element sits at a fixed position, outside the line, so its identity never depends on the line.
   // ONE wrapper holds the line and the status element, so the always-mounted (empty) status adds no row gap of its own.
@@ -187,7 +197,7 @@ function AcceptanceLine({
     <div className={hasLine || shown !== null ? undefined : "-mt-2"}>
       {hasLine && (
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          {decided !== null && <span>{t(lang, ACCEPTANCE_STATUS_KEY[decided])}</span>}
+          {statusKey !== null && <span>{t(lang, statusKey)}</span>}
           {decided !== null && (
             <Button
               ref={mainRef}
@@ -195,42 +205,46 @@ function AcceptanceLine({
               variant={accepted || !job.enabled ? "secondary" : "primary"}
               size="xs"
               // aria-disabled, never `disabled`: a disabled button drops keyboard focus.
-              aria-disabled={pending ? true : undefined}
+              aria-disabled={unusable ? true : undefined}
               className="aria-disabled:cursor-wait aria-disabled:opacity-50"
-              onPointerDown={() => { pressedAction.current = accepted ? "stop" : "accept"; }}
-              onPointerCancel={() => { pressedAction.current = null; }}
-              onKeyDown={() => { pressedAction.current = null; }}
+              onPointerDown={() => { mainPressedWhileSaving.current = saving; }}
+              onKeyDown={() => { mainPressedWhileSaving.current = false; }}
               onClick={() => {
-                const action = pressedAction.current ?? (accepted ? "stop" : "accept");
-                pressedAction.current = null;
-                if (pending) return;
+                const pressedWhileSaving = mainPressedWhileSaving.current;
+                mainPressedWhileSaving.current = false;
+                if (pressedWhileSaving || unusable) return;
                 onNoticeClear();
                 setStopFailed(false);
-                if (action === "stop") setStopFailed(!declineShown());
+                if (accepted) setStopFailed(!declineJob(job));
                 else onAccept(job);
               }}
-              aria-label={t(lang, accepted ? "scheduledJobStopNamed" : "scheduledJobAcceptNamed", token)}
+              // The visible "Saving…" is part of the name (label in name), and the name stays unique in the row.
+              aria-label={saving ? `${savingLabel} ${mainName}` : mainName}
             >
-              {t(lang, accepted ? "scheduledJobStop" : "scheduledJobAccept")}
+              {saving ? savingLabel : t(lang, accepted ? "scheduledJobStop" : "scheduledJobAccept")}
             </Button>
           )}
           {(decided === "none" || decided === "changed" || decided === "declined-changed") && (
             <Button
               variant="secondary"
               size="xs"
-              aria-disabled={pending ? true : undefined}
+              aria-disabled={unusable ? true : undefined}
               className="aria-disabled:cursor-wait aria-disabled:opacity-50"
+              onPointerDown={() => { declinePressedWhileSaving.current = saving; }}
+              onKeyDown={() => { declinePressedWhileSaving.current = false; }}
               onClick={() => {
-                if (pending) return;
+                const pressedWhileSaving = declinePressedWhileSaving.current;
+                declinePressedWhileSaving.current = false;
+                if (pressedWhileSaving || unusable) return;
                 onNoticeClear();
-                const declined = declineShown();
+                const declined = declineJob(job);
                 setStopFailed(!declined);
                 // The button is about to unmount: the main one (same element, now reading Accept) takes focus.
                 if (declined) mainRef.current?.focus();
               }}
-              aria-label={t(lang, "scheduledJobDeclineNamed", token)}
+              aria-label={saving ? `${savingLabel} ${declineName}` : declineName}
             >
-              {t(lang, "scheduledJobDecline")}
+              {saving ? savingLabel : t(lang, "scheduledJobDecline")}
             </Button>
           )}
           {createdText !== null && <span>{createdText}</span>}
@@ -259,6 +273,7 @@ export function JobRow({
   onAccept,
   acceptNotice,
   acceptPending,
+  saving,
   onNoticeClear,
 }: {
   lang: Lang;
@@ -285,6 +300,8 @@ export function JobRow({
   acceptNotice?: AcceptNotice | null;
   /** True while this row's Accept is re-reading the job. */
   acceptPending?: boolean;
+  /** True while a save of this job is in flight: Accept, Stop and "Not on this device" cannot be used meanwhile. */
+  saving?: boolean;
   /** Called when Accept or Stop is pressed, so the owner can clear the notice. */
   onNoticeClear?: () => void;
 }) {
@@ -466,6 +483,7 @@ export function JobRow({
         onAccept={onAccept}
         notice={acceptNotice ?? null}
         pending={acceptPending ?? false}
+        saving={saving ?? false}
         onNoticeClear={onNoticeClear ?? noop}
       />
 

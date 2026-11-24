@@ -14,7 +14,7 @@ vi.mock("../workspace-context", async (orig) => ({
   useOptionalSettingsOverrides: () => state.overrides,
 }));
 vi.mock("../use-scheduled-jobs", () => ({
-  useScheduledJobs: () => ({ jobs: [], busy: false, ready: true, createJob: vi.fn(), updateJob: vi.fn(), deleteJob: vi.fn(), assignProject: vi.fn(), recordRun: vi.fn(), refresh: vi.fn() }),
+  useScheduledJobs: () => ({ jobs: [], busy: false, ready: true, createJob: vi.fn(), updateJob: vi.fn(), deleteJob: vi.fn(), assignProject: vi.fn(), recordRun: vi.fn(), refresh: vi.fn(), savingJobs: new Set<string>() }),
 }));
 vi.mock("../turso-portfolio", () => ({ listProjectRefs: async () => ({ active: [], archived: [] }) }));
 vi.mock("../portfolio-mode", () => ({ loadPortfolioMode: () => "turso", loadCurrentTursoProjectId: () => null }));

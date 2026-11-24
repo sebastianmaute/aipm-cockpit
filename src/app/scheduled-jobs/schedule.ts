@@ -80,6 +80,11 @@ export function normalizeJobFields(
   };
 }
 
+/** The identity of a job for "a save is in flight": its permanent key, or its id while it has none. */
+export function jobSaveId(job: Pick<ScheduledJob, "id" | "key">): string {
+  return job.key ?? `id:${job.id}`;
+}
+
 export function isRunnable(job: ScheduledJob): boolean {
   return job.foreign === undefined && job.enabled && job.projectId !== null && job.key !== null && job.timeZone !== null;
 }

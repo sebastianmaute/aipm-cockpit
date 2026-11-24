@@ -4,10 +4,7 @@ import {
   ACCEPTANCE_KEY,
   acceptJob,
   acceptanceState,
-  acceptanceStateAt,
   declineJob,
-  declineJobVersion,
-  restoreAcceptanceEntry,
   forgetJob,
   isAcceptedHere,
   storedAcceptanceEntry,
@@ -157,41 +154,5 @@ describe("scheduled job acceptance", () => {
       window.dispatchEvent(new StorageEvent("storage", { key: ACCEPTANCE_KEY }));
     });
     expect(result.current).not.toBe(second);
-  });
-});
-
-describe("answering a given version of a job", () => {
-  beforeEach(() => localStorage.clear());
-  afterEach(() => vi.restoreAllMocks());
-
-  it("acceptanceStateAt reads the entry against the given fingerprint, not the job's own", () => {
-    const next = jobFingerprint(job({ instruction: "next" }));
-    declineJobVersion(job(), next);
-    expect(acceptanceStateAt(job(), next)).toBe("declined");
-    expect(acceptanceState(job())).toBe("declined-changed");
-    expect(acceptanceStateAt(job({ key: null }), next)).toBe("cannot-run");
-  });
-
-  it("declineJobVersion keeps declineJob's fail-closed rules", () => {
-    const next = jobFingerprint(job({ instruction: "next" }));
-    expect(declineJobVersion(job({ key: null }), next)).toBe(false);
-    expect(declineJobVersion(job({ foreign: {} as never }), next)).toBe(false);
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new Error("quota");
-    });
-    expect(declineJobVersion(job(), next)).toBe(false);
-    expect(storedAcceptanceEntry("k1")).toBeNull();
-  });
-
-  it("restoreAcceptanceEntry writes the raw value or removes the key, and never throws", () => {
-    acceptJob(job());
-    restoreAcceptanceEntry("k1", "declined:x");
-    expect(storedAcceptanceEntry("k1")).toBe("declined:x");
-    restoreAcceptanceEntry("k1", null);
-    expect(storedAcceptanceEntry("k1")).toBeNull();
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new Error("quota");
-    });
-    expect(() => restoreAcceptanceEntry("k1", "y")).not.toThrow();
   });
 });

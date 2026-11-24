@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { JobRow } from "./scheduled-job-row";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
-import { ACCEPTANCE_KEY, acceptanceState, acceptJob, declineJob } from "../scheduled-job-acceptance";
-import { forgetOwnEdit, noteOwnEdit } from "../scheduled-job-own-edit";
+import { ACCEPTANCE_KEY, acceptanceState, acceptJob, clearEditedHere, declineJob, isEditedHere, markEditedHere } from "../scheduled-job-acceptance";
 
 const deviceLabel = vi.hoisted(() => ({ value: "aaaa1111" }));
 vi.mock("../device-label", () => ({
@@ -35,6 +34,7 @@ function renderRow(
   onAccept: (job: ScheduledJob) => void = acceptJob,
   acceptNotice: "failed" | "changed" | null = null,
   acceptPending = false,
+  saving = false,
 ) {
   return render(
     <ul>
@@ -55,6 +55,7 @@ function renderRow(
         onAccept={onAccept}
         acceptNotice={acceptNotice}
         acceptPending={acceptPending}
+        saving={saving}
       />
     </ul>,
   );
@@ -97,32 +98,6 @@ describe("JobRow acceptance", () => {
     expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "scheduledJobNeedsOk"))).toBeNull();
     expect(screen.getByRole("button", { name: "Accept: Weekly review" })).toBeInTheDocument();
-  });
-
-  it("a click runs the action the button showed when it was pressed, even if its label changed before release", () => {
-    acceptJob(job());
-    const onAccept = vi.fn();
-    renderRow(job(), onAccept);
-    const main = screen.getByRole("button", { name: "Stop on this device: Weekly review" });
-    fireEvent.pointerDown(main);
-    act(() => { localStorage.removeItem(ACCEPTANCE_KEY); window.dispatchEvent(new StorageEvent("storage", { key: ACCEPTANCE_KEY })); });
-    expect(main).toHaveAccessibleName("Accept: Weekly review"); // the label changed under the pointer
-    fireEvent.click(main);
-    expect(onAccept).not.toHaveBeenCalled();
-    expect(acceptanceState(job())).toBe("declined"); // the Stop it showed at pointerdown
-  });
-
-  it("keyboard activation (no pointerdown) runs the live action, and a stale press is dropped", () => {
-    acceptJob(job());
-    const onAccept = vi.fn();
-    renderRow(job(), onAccept);
-    const main = screen.getByRole("button", { name: "Stop on this device: Weekly review" });
-    fireEvent.pointerDown(main);
-    fireEvent.pointerCancel(main);
-    act(() => { localStorage.removeItem(ACCEPTANCE_KEY); window.dispatchEvent(new StorageEvent("storage", { key: ACCEPTANCE_KEY })); });
-    fireEvent.keyDown(main, { key: "Enter" });
-    fireEvent.click(main);
-    expect(onAccept).toHaveBeenCalledTimes(1);
   });
 
   it("keeps focus on the action button when Accept turns into Stop", async () => {
@@ -189,33 +164,88 @@ describe("JobRow acceptance", () => {
     expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
   });
 
-  describe("while this tab's own edit of the job saves", () => {
-    const edited = job({ instruction: "Look at costs" });
-    beforeEach(() => { noteOwnEdit("job-key-1", edited, null, "none"); });
-    afterEach(() => forgetOwnEdit("job-key-1"));
+  describe("while a save of the job is in flight", () => {
+    const saving = (j: ScheduledJob, onAccept: (job: ScheduledJob) => void) => renderRow(j, onAccept, null, false, true);
 
-    it("reads the answer for the version being saved, and Stop stops that version", () => {
-      acceptJob(edited); // what the edit recorded when it was called
+    it("both answer buttons read Saving…, are aria-disabled and ignore clicks", () => {
+      const onAccept = vi.fn();
+      saving(job(), onAccept);
+      const main = screen.getByRole("button", { name: "Saving… Accept: Weekly review" });
+      const decline = screen.getByRole("button", { name: "Saving… Not on this device: Weekly review" });
+      for (const b of [main, decline]) {
+        expect(b).toHaveTextContent(t("en-US", "scheduledJobSaving"));
+        expect(b).toHaveAttribute("aria-disabled", "true");
+        fireEvent.click(b);
+      }
+      expect(onAccept).not.toHaveBeenCalled();
+      expect(acceptanceState(job())).toBe("none");
+      expect(screen.getByText(t("en-US", "scheduledJobNeedsOk"))).toBeInTheDocument(); // the status text stays
+    });
+
+    it("an accepted job's Stop ignores clicks while saving", () => {
+      acceptJob(job());
+      saving(job(), vi.fn());
+      fireEvent.click(screen.getByRole("button", { name: "Saving… Stop on this device: Weekly review" }));
+      expect(acceptanceState(job())).toBe("accepted");
+    });
+
+    it("a press that began while saving does nothing, even when the save ends before the click", () => {
+      const onAccept = vi.fn();
+      const view = saving(job(), onAccept);
+      fireEvent.pointerDown(screen.getByRole("button", { name: "Saving… Accept: Weekly review" }));
+      fireEvent.pointerDown(screen.getByRole("button", { name: "Saving… Not on this device: Weekly review" }));
+      view.rerender(
+        <ul>
+          <JobRow lang="en-US" job={job()} token="Weekly review" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
+            archivedProjects={[]} projectsLoaded zones={["UTC"]} defaultZone="UTC" onUpdate={vi.fn()} onAssign={vi.fn()}
+            onDelete={vi.fn()} onAccept={onAccept} saving={false} />
+        </ul>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Accept: Weekly review" }));
+      fireEvent.click(screen.getByRole("button", { name: "Not on this device: Weekly review" }));
+      expect(onAccept).not.toHaveBeenCalled();
+      expect(acceptanceState(job())).toBe("none");
+      // The next press, made after the save, works.
+      fireEvent.pointerDown(screen.getByRole("button", { name: "Accept: Weekly review" }));
+      fireEvent.click(screen.getByRole("button", { name: "Accept: Weekly review" }));
+      expect(onAccept).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("a job this tab changed", () => {
+    afterEach(() => clearEditedHere("job-key-1"));
+
+    it("reads You changed this job instead of a change from elsewhere, accepted or stopped before", () => {
+      acceptJob(job({ instruction: "Before" }));
+      markEditedHere("job-key-1");
+      const first = renderRow(job());
+      expect(screen.getByText(t("en-US", "scheduledJobChangedHere"))).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "scheduledJobChanged"))).toBeNull();
+      first.unmount();
+      declineJob(job({ instruction: "Before" }));
+      markEditedHere("job-key-1");
+      renderRow(job());
+      expect(screen.getByText(t("en-US", "scheduledJobChangedHere"))).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "scheduledJobChangedElsewhere"))).toBeNull();
+    });
+
+    it("the mark only changes the wording of a changed job", () => {
+      acceptJob(job());
+      markEditedHere("job-key-1");
       renderRow(job());
       expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: "Stop on this device: Weekly review" }));
-      expect(acceptanceState(edited)).toBe("declined");
     });
 
-    it("Not on this device declines the version being saved", () => {
-      acceptJob(job({ instruction: "Older" }));
-      // An own edit whose answer the user has since replaced is no longer the target: the row reads its own version.
+    it("answering ends the mark", () => {
+      acceptJob(job({ instruction: "Before" }));
+      markEditedHere("job-key-1");
       renderRow(job());
-      expect(screen.getByText(t("en-US", "scheduledJobChanged"))).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Not on this device: Weekly review" }));
-      expect(acceptanceState(job())).toBe("declined");
-    });
-
-    it("a stopped edited version offers Accept and Not on this device is absent", () => {
-      declineJob(edited);
-      renderRow(job());
       expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Not on this device: Weekly review" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Accept: Weekly review" }));
+      expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Stop on this device: Weekly review" }));
+      expect(isEditedHere("job-key-1")).toBe(false);
     });
   });
 

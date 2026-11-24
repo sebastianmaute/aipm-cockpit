@@ -39,6 +39,7 @@ vi.mock("../use-scheduled-jobs", () => ({
     recordRun: vi.fn(),
     refresh: refreshMock,
     readFresh: () => loadJobsMock(null),
+    savingJobs: new Set<string>(),
   }),
 }));
 vi.mock("../scheduled-jobs-store", () => ({ loadScheduledJobs: loadJobsMock }));

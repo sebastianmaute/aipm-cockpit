@@ -28,9 +28,8 @@ import { listProjectRefs } from "../turso-portfolio";
 import { resolveTimezone, tzZones } from "../timezone";
 import { type AcceptNotice, DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
 import { Banner } from "../banner";
-import { isRunnable } from "../scheduled-jobs/schedule";
+import { isRunnable, jobSaveId } from "../scheduled-jobs/schedule";
 import { acceptanceState, acceptJob, jobFingerprint, storedAcceptanceEntry, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
-import { ownEditTarget, shownAcceptanceState } from "../scheduled-job-own-edit";
 
 export interface ScheduledJobsSectionProps {
   lang: Lang;
@@ -80,7 +79,7 @@ function useProjectLists(config: TursoConfig | null, available: boolean): Projec
 }
 
 export function ScheduledJobsSection({ lang, settings, onChange, config }: ScheduledJobsSectionProps) {
-  const { jobs, busy, createJob, updateJob, deleteJob, assignProject, refresh, readFresh } = useScheduledJobs({ config });
+  const { jobs, busy, createJob, updateJob, deleteJob, assignProject, refresh, readFresh, savingJobs } = useScheduledJobs({ config });
   // §316 — every new job starts with the same default name.
   const jobTokens = useRowTokens(jobs, nameOfJob);
   const tz = useDisplayTzOrBrowser();
@@ -101,7 +100,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   useAcceptanceSnapshot(); // the notice follows Accept / Stop on this device
   const awaitingOk = jobs.filter((j) => {
     if (!isRunnable(j)) return false;
-    const state = shownAcceptanceState(j); // exactly what the row shows, also while an own edit saves
+    const state = acceptanceState(j);
     return state === "none" || state === "changed" || state === "declined-changed";
   }).length;
   const hasLegacyJob = jobs.some((j) => j.foreign === undefined && j.key === null);
@@ -138,23 +137,13 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
     if (job.key === null || acceptPending.has(job.key)) return;
     setAcceptNotice(job.key, null);
     setPending(job.key, true);
-    // Taken at click time, which is AFTER an own edit's answer (recorded when the edit was called): the edit is not
-    // mistaken for a newer answer. While this tab's own edit saves, the click means the version being saved (`target`),
-    // not the one the row still shows.
     const entryAtClick = storedAcceptanceEntry(job.key);
-    const target = ownEditTarget(job);
-    const meantEdit = target !== jobFingerprint(job);
     try {
       // After the saves in progress settle, so a just-typed instruction is what is compared.
       const fresh = (await readFresh()).find((j) => j.key !== null && j.key === job.key);
-      const isTarget = fresh !== undefined && jobFingerprint(fresh) === target;
-      // The click meant this tab's own change, and the store still holds what the row showed: the change was not saved.
-      const missed: AcceptNotice = fresh !== undefined && jobFingerprint(fresh) === jobFingerprint(job) ? "notSaved" : "changed";
-      // The entry changed while the read was in flight: the user answered again (a decline, in this or another tab),
-      // and that answer wins — or the edit the click meant failed to save and took its answer back: say so.
+      // The user answered again while the read was in flight (a decline, in this or another tab): that answer wins.
       if (storedAcceptanceEntry(job.key) !== entryAtClick) {
         if (fresh && jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();
-        if (meantEdit && !isTarget) setAcceptNotice(job.key, missed);
         return;
       }
       if (fresh && acceptanceState(fresh) === "accepted") {
@@ -162,11 +151,11 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
         if (jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();
         return;
       }
-      if (fresh && isTarget) {
+      if (fresh && jobFingerprint(fresh) === jobFingerprint(job)) {
         if (!acceptJob(fresh)) setAcceptNotice(job.key, "saveFailed");
         return;
       }
-      setAcceptNotice(job.key, meantEdit ? missed : "changed");
+      setAcceptNotice(job.key, "changed");
       await refresh();
     } catch {
       setAcceptNotice(job.key, "failed");
@@ -264,6 +253,8 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     onDelete={(id) => track(deleteJob(id, job.key ?? undefined))}
                     onAccept={(j) => { void acceptFresh(j); }}
                     acceptPending={job.key !== null && acceptPending.has(job.key)}
+                    // A save of this job in flight: its answer buttons wait for it, so an answer never races an edit.
+                    saving={savingJobs.has(jobSaveId(job))}
                     acceptNotice={job.key !== null ? (acceptNotices.get(job.key) ?? null) : null}
                     onNoticeClear={() => setAcceptNotice(job.key, null)}
                   />
