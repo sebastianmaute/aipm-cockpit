@@ -1610,7 +1610,10 @@
     keyed by the job's permanent key: a fingerprint of project + instruction (a time change keeps it), or `"declined:"` +
     the fingerprint. States: `accepted` · `declined` · `changed` (accepted another version) · `declined-changed`
     (stopped another version, "Changed on another device", never "since you accepted it") · `none` · `cannot-run`
-    (legacy or foreign job).
+    (legacy or foreign job). ★★ A foreign job (one a newer version rewrote) KEEPS its permanent key in memory
+    (`foreignJob` in `scheduled-jobs-store.ts`), so an edit of it made here reports "not editable", not "deleted";
+    it still never runs (`isRunnable` excludes every foreign job) and never takes or shows an answer (the acceptance
+    store's `keyOf` reads every foreign job as keyless, `isEditedHere` included).
   - **When it is written:** creating a job accepts it on that device (after its save resolves); otherwise ONLY the user's
     Accept, Stop or "Not on this device" in the Settings row writes it (`acceptJob` / `declineJob` on the displayed job).
   - ★★★ **An edit never answers.** `updateJob` and `assignProject` write no entry, ever: editing the project or
@@ -1660,25 +1663,33 @@
     ONE AT A TIME through `lost-draft.ts` (`addLostText`, `removeLostTexts`, `forgetLostDraft`) — never a whole
     list written over the stored one, which once let one row erase a text a closed editor had just kept — and every
     change is told to `subscribeLostTexts` listeners, so an open row also shows a text a closed editor lost after it
-    mounted. They are kept per tab in sessionStorage `LOST_DRAFT_KEY` (newest first, `{ text, reason }` per
+    mounted. A row subscribes with a replay of what is kept at that moment, so a text kept between its first render
+    and the subscription is not missed; a change that alters nothing returns the same list (no extra render).
+    They are kept per tab in sessionStorage `LOST_DRAFT_KEY` (newest first, `{ text, reason }` per
     `jobSaveId`; every access guarded, a storage that cannot be used keeps nothing but the open row still shows the
     text; older single-entry shapes are ignored) and offered again when the row next mounts, with
     `scheduledJobDraftDropped` or `scheduledJobLostNotSaved` by the newest one's reason. Storage keeps at most
     `MAX_LOST_DRAFTS` (5) per job, dropping the oldest; an open row keeps showing every text it has offered. One box
     holds them all, separated by a blank line. A text the job holds is removed (at mount too). A successful save of
     this row (the closing one included) removes only the texts equal (trimmed) to what it saved; an answer removes
-    none; Dismiss removes all, as does deleting the job (`deleteJob`, or a re-read of the same backend no longer
-    listing it). Nothing is kept for a job without a key (ids collide across portfolios) or for a job turned foreign.
-    The section keys each row by `jobSaveId`, so an id reused for another job never carries the old row's state.
+    none; Dismiss removes the texts shown (a text kept since and not yet shown stays); deleting the job removes all
+    (`deleteJob`, or a re-read of the same backend no longer listing it). A job without a key keeps its texts in the
+    row's memory only — its `id:N` save id is not unique across portfolios, so nothing is stored or reported to
+    other rows — until it is given a key (assigning a project mints one), when the shown texts are kept under that key.
+    Nothing is kept for later for a job turned foreign. Rows are keyed by job id, and `useRowIdentity` remounts a
+    row only when its permanent key changes to a DIFFERENT key (the id now names another job): a keyless job given
+    its key keeps its row and the text it shows, and an id reused for another job never carries the old row's state.
     ★ A user's edit (`updateJob` / `assignProject`) that reaches no job never resolves as written:
-    a job deleted on another device rejects with `JobGoneError`, one that is no longer editable here (it turned
-    foreign) with `JobNotEditableError`, and `writeJob` reads the list again on either (and on a `JobChangedError`)
+    a job deleted on another device rejects with `JobGoneError`, one that is still listed but no longer editable here
+    (a newer version rewrote it; it keeps its key, so the edit still finds it) with `JobNotEditableError`, and
+    `writeJob` reads the list again on either (and on a `JobChangedError`)
     whichever path the edit came from. `onWritten` runs only when a job was written; the runner's own writes to a
     gone job stay quiet. The section does not count `JobGoneError` as a failed write and shows
     `scheduledJobDeletedElsewhere` in its always-mounted status region — as does an Accept whose re-read finds the
     job gone — because the row disappears with the refresh. `JobNotEditableError` is not a connection failure either:
-    the section shows `scheduledJobEditedByNewerVersion` in the same status region, and the typed text is offered in
-    the (now read-only) row's `LostTextBox` while it is shown — never kept for later.
+    the section shows `scheduledJobEditedByNewerVersion` in the same status region — as does an Accept whose re-read
+    finds the job rewritten, which answers nothing — and the typed text is offered in the (now read-only) row's
+    `LostTextBox` while it is shown, never kept for later; texts kept earlier for the job stay.
   - ★★★ **A press answers the version shown when it was pressed.** Pressing Accept / Stop or "Not on this device"
     does not take focus from the instruction field (`onMouseDown` prevents the default), so the press does not end
     the edit: the button answers the saved instruction, even while the field shows text not yet saved, and the edit

@@ -35,9 +35,10 @@ longer carries its own changelog comment.
   over that change: the job keeps the other device's change, says so, and shows your text below the instruction for
   you to copy. Text that could not be saved before you closed the settings is shown the same way the next time you
   open them in the same browser tab; it is never put back into the job by itself. Saving removes only the shown text
-  you saved; Dismiss removes all of it. Only a change made at almost exactly the moment your change is being saved
-  can still be overwritten. If another device deletes the job while you edit it, Settings says so; if a newer version
-  of the app changed the job, Settings says your change was not saved. Jobs that existed before this update wait for
+  you saved; Dismiss removes the text shown. Only a change made at almost exactly the moment your change is being
+  saved can still be overwritten. If another device deletes the job while you edit it, Settings says so. If a newer
+  version of the app changed the job, Settings says your change was not saved and shows your text for copying; this
+  version never runs or answers such a job. Jobs that existed before this update wait for
   your OK, and a job waiting can be declined with "Not on this device" without ever running. Devices that have not
   updated yet still run shared jobs without asking, so update every device that uses the portfolio.
 - **The forecast import sends Claude only the top of the sheet, without e-mail addresses.** Claude only names which
