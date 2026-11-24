@@ -231,6 +231,29 @@ describe("JobRow acceptance", () => {
     expect(onAccept).not.toHaveBeenCalled();
   });
 
+  it("while an Accept is pending the decline button is aria-disabled too and ignores clicks", () => {
+    renderRow(job(), acceptJob, null, true);
+    const decline = screen.getByRole("button", { name: "Not on this device: Weekly review" });
+    expect(decline).toHaveAttribute("aria-disabled", "true");
+    expect(decline.className).toContain("aria-disabled:opacity-50");
+    fireEvent.click(decline);
+    expect(screen.getByText(t("en-US", "scheduledJobNeedsOk"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "scheduledJobStoppedHere"))).toBeNull();
+  });
+
+  it("an accepted job shows no stale Accept notice but keeps its status element, empty", () => {
+    acceptJob(job());
+    renderRow(job(), acceptJob, "changed");
+    const region = screen.getByRole("status");
+    expect(region).toBeEmptyDOMElement();
+    expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
+  });
+
+  it("an unassigned job with no creator still has its status element and shows a notice", () => {
+    renderRow(job({ projectId: null }), acceptJob, "changed");
+    expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobAcceptChanged"));
+  });
+
   it("without a pending Accept there is no aria-disabled", () => {
     renderRow(job());
     expect(screen.getByRole("button", { name: "Accept: Weekly review" })).not.toHaveAttribute("aria-disabled");

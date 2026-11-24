@@ -60,6 +60,12 @@ export function acceptanceState(job: ScheduledJob): AcceptanceState {
   return stored[key].startsWith(DECLINED_PREFIX) ? "declined-changed" : "changed";
 }
 
+/** The raw stored entry for a job key (an accepted fingerprint or a decline), or null when absent or unreadable. */
+export function storedAcceptanceEntry(key: string): string | null {
+  const stored = parse(readRaw());
+  return Object.prototype.hasOwnProperty.call(stored, key) ? stored[key] : null;
+}
+
 export function isAcceptedHere(job: ScheduledJob): boolean {
   return acceptanceState(job) === "accepted";
 }

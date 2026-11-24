@@ -29,7 +29,7 @@ import { resolveTimezone, tzZones } from "../timezone";
 import { type AcceptNotice, DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
 import { Banner } from "../banner";
 import { isRunnable } from "../scheduled-jobs/schedule";
-import { acceptanceState, acceptJob, jobFingerprint, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
+import { acceptanceState, acceptJob, jobFingerprint, storedAcceptanceEntry, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
 
 export interface ScheduledJobsSectionProps {
   lang: Lang;
@@ -137,9 +137,12 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
     if (job.key === null || acceptPending.has(job.key)) return;
     setAcceptNotice(job.key, null);
     setPending(job.key, true);
+    const entryAtClick = storedAcceptanceEntry(job.key);
     try {
       // After the saves in progress settle, so a just-typed instruction is what is compared.
       const fresh = (await readFresh()).find((j) => j.key !== null && j.key === job.key);
+      // The user answered again while the read was in flight (a decline, in this or another tab): that answer wins.
+      if (storedAcceptanceEntry(job.key) !== entryAtClick) return;
       if (fresh && acceptanceState(fresh) === "accepted") {
         // This device already accepted the current version; a row still showing an older one is brought up to date.
         if (jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();

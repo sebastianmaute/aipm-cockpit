@@ -7,6 +7,7 @@ import {
   declineJob,
   forgetJob,
   isAcceptedHere,
+  storedAcceptanceEntry,
   jobFingerprint,
   useAcceptanceSnapshot,
 } from "./scheduled-job-acceptance";
@@ -100,6 +101,18 @@ describe("scheduled job acceptance", () => {
     declineJob(job());
     acceptJob(job());
     expect(acceptanceState(job())).toBe("accepted");
+  });
+
+  it("storedAcceptanceEntry returns the raw stored value, null when absent, null when storage throws", () => {
+    expect(storedAcceptanceEntry("k1")).toBeNull();
+    acceptJob(job());
+    expect(storedAcceptanceEntry("k1")).toBe(jobFingerprint(job()));
+    declineJob(job());
+    expect(storedAcceptanceEntry("k1")).toBe("declined:" + jobFingerprint(job()));
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    expect(storedAcceptanceEntry("k1")).toBeNull();
   });
 
   it("forgetJob removes the entry", () => {

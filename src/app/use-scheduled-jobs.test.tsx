@@ -3,7 +3,7 @@ import { StrictMode } from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useScheduledJobs } from "./use-scheduled-jobs";
-import { ACCEPTANCE_KEY, acceptanceState, jobFingerprint } from "./scheduled-job-acceptance";
+import { ACCEPTANCE_KEY, acceptanceState, isAcceptedHere, jobFingerprint } from "./scheduled-job-acceptance";
 import { getDeviceLabel } from "./device-label";
 import { JOB_HISTORY_CAP, type JobCadence, type ScheduledJobRun } from "./scheduled-jobs/types";
 
@@ -533,6 +533,43 @@ describe("useScheduledJobs acceptance on this device", () => {
     await act(async () => { await result.current.assignProject(1, "p2", "UTC", "key-1"); });
     expect(result.current.jobs[0].projectId).toBe("p2");
     expect(acceptanceState(result.current.jobs[0])).not.toBe("accepted");
+  });
+
+  it("an instruction edit on a job this device stopped keeps it stopped", async () => {
+    seed();
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ "key-1": "declined:" + jobFingerprint({ projectId: "p1", instruction: "b" }) }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "key-1"); });
+    expect(acceptanceState(result.current.jobs[0])).toBe("declined");
+    expect(isAcceptedHere(result.current.jobs[0])).toBe(false);
+  });
+
+  it("an edit on a job whose decline is for an older version keeps it stopped", async () => {
+    seed();
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ "key-1": "declined:" + jobFingerprint({ projectId: "p1", instruction: "a" }) }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "key-1"); });
+    expect(acceptanceState(result.current.jobs[0])).toBe("declined");
+  });
+
+  it("assigning a project on a job this device stopped keeps it stopped", async () => {
+    seed();
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ "key-1": "declined:" + jobFingerprint({ projectId: "p1", instruction: "b" }) }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    await act(async () => { await result.current.assignProject(1, "p2", "UTC", "key-1"); });
+    expect(result.current.jobs[0].projectId).toBe("p2");
+    expect(acceptanceState(result.current.jobs[0])).toBe("declined");
+  });
+
+  it("an edit on a job with no entry still accepts it", async () => {
+    seed();
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "key-1"); });
+    expect(acceptanceState(result.current.jobs[0])).toBe("accepted");
   });
 
   it("resetting the instruction to the default accepts the default fingerprint", async () => {

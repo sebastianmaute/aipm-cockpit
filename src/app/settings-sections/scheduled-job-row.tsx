@@ -156,10 +156,12 @@ function AcceptanceLine({
   // A Stop that could not be recorded is reported like a failed Accept, until the next click.
   const [stopFailed, setStopFailed] = useState(false);
   const mainRef = useRef<HTMLButtonElement>(null);
-  const shown: AcceptNotice | null = stopFailed ? "failed" : notice;
   const state = acceptanceState(job);
   // A job with no project reports nothing, so there is nothing to accept; a cannot-run job has no state to show.
   const decided = state === "cannot-run" || job.projectId === null ? null : state;
+  // An Accept notice never sits beside "Accepted on this device".
+  // A failed Stop is shown even then: the job is still accepted precisely because the Stop did not land.
+  const shown: AcceptNotice | null = stopFailed ? "failed" : decided === "accepted" ? null : notice;
   // A device with no stored label cannot have created the job; peeking never writes during render.
   const createdText =
     job.createdBy === undefined
@@ -167,7 +169,9 @@ function AcceptanceLine({
       : job.createdBy === peekDeviceLabel()
         ? t(lang, "scheduledJobCreatedHere")
         : t(lang, "scheduledJobCreatedOn", job.createdBy);
-  if (decided === null && createdText === null) return null;
+  if (decided === null && createdText === null) {
+    return <span role="status" className="text-xs text-muted-foreground">{shown !== null ? t(lang, ACCEPT_NOTICE_KEY[shown]) : null}</span>;
+  }
   const accepted = decided === "accepted";
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -197,7 +201,10 @@ function AcceptanceLine({
         <Button
           variant="secondary"
           size="xs"
+          aria-disabled={pending ? true : undefined}
+          className="aria-disabled:cursor-wait aria-disabled:opacity-50"
           onClick={() => {
+            if (pending) return;
             onNoticeClear();
             const declined = declineJob(job);
             setStopFailed(!declined);

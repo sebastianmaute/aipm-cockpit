@@ -919,6 +919,20 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     expect(acceptanceState(runnable(1, { instruction: "same" }))).toBe("accepted");
   });
 
+  it("a decline recorded while Accept is pending is not overridden", async () => {
+    const { declineJob, acceptanceState } = await import("../scheduled-job-acceptance");
+    let release: (v: ScheduledJob[]) => void = () => {};
+    loadJobsMock.mockReturnValue(new Promise<ScheduledJob[]>((r) => { release = r; }));
+    mockJobs = [runnable(1)];
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
+    act(() => { declineJob(runnable(1)); }); // the user's newer answer, e.g. in another tab
+    release([runnable(1)]);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Accept: Job 1" })).not.toHaveAttribute("aria-disabled"));
+    expect(acceptanceState(runnable(1))).toBe("declined");
+    expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
+  });
+
   it("a runnable job this device stopped is not counted in the notice", async () => {
     const { declineJob } = await import("../scheduled-job-acceptance");
     mockJobs = [runnable(1), runnable(2)];
