@@ -25,7 +25,7 @@ function job(over: Partial<ScheduledJob> = {}): ScheduledJob {
   };
 }
 
-function renderRow(j: ScheduledJob) {
+function renderRow(j: ScheduledJob, onAccept: (job: ScheduledJob) => void = acceptJob) {
   return render(
     <ul>
       <JobRow
@@ -42,6 +42,7 @@ function renderRow(j: ScheduledJob) {
         onUpdate={vi.fn()}
         onAssign={vi.fn()}
         onDelete={vi.fn()}
+        onAccept={onAccept}
       />
     </ul>,
   );
@@ -58,6 +59,14 @@ describe("JobRow acceptance", () => {
     expect(screen.getByText(t("en-US", "scheduledJobNeedsOk"))).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Accept Weekly review" }));
     expect(screen.getByText(t("en-US", "scheduledJobRunsHere"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stop on this device: Weekly review" })).toBeInTheDocument();
+  });
+
+  it("an accepted job that cannot run now does not claim to run here", () => {
+    acceptJob(job());
+    renderRow(job({ enabled: false }));
+    expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "scheduledJobRunsHere"))).toBeNull();
     expect(screen.getByRole("button", { name: "Stop on this device: Weekly review" })).toBeInTheDocument();
   });
 

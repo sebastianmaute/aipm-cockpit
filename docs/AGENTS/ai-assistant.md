@@ -1609,7 +1609,7 @@
   `aipm-cockpit:scheduled-job-acceptance` (`scheduled-job-acceptance.ts`), keyed by the job's permanent key, holding a
   fingerprint of project + instruction (a time change keeps it). Creating, assigning or editing the instruction in
   `use-scheduled-jobs.ts` accepts it on that device; elsewhere the Settings row offers Accept / Stop. The runner filters
-  before any claim and re-checks in `stillRunnable`. `ScheduledJob.createdBy` is display-only, never a permission.
+  before any claim and re-checks in `stillRunnable` (project, schedule, instruction and acceptance, against a fresh read). An edit accepts only when the half it did not touch is what that tab displayed, and the row's Accept re-reads the store and refreshes instead when the job changed. `ScheduledJob.createdBy` is display-only, never a permission.
 - **AI weight suggestions:** "Suggest with AI" in the next-actions settings → ONE forced-tool call
   (`suggest_weights`, forced, NO loop) in `weight-suggestion-call.ts` (the fetch now routes through the shared
   `runForcedToolCallWithRetry` (`ai-forced-call.ts`) — the single never-log envelope; a 4096-token reply cut at

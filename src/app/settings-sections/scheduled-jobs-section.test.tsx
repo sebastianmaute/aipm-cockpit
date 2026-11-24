@@ -20,6 +20,8 @@ const createJob = vi.fn(async () => {});
 const updateJob = vi.fn(async () => {});
 const deleteJob = vi.fn(async () => {});
 const assignProject = vi.fn(async () => {});
+const refreshMock = vi.hoisted(() => vi.fn(async () => {}));
+const loadJobsMock = vi.hoisted(() => vi.fn());
 const listProjectsMock = vi.hoisted(() => vi.fn());
 const listArchivedMock = vi.hoisted(() => vi.fn());
 const portfolioMode = vi.hoisted(() => ({ value: "turso" as "turso" | "file", openProject: null as string | null }));
@@ -35,9 +37,10 @@ vi.mock("../use-scheduled-jobs", () => ({
     deleteJob,
     assignProject,
     recordRun: vi.fn(),
-    refresh: vi.fn(),
+    refresh: refreshMock,
   }),
 }));
+vi.mock("../scheduled-jobs-store", () => ({ loadScheduledJobs: loadJobsMock }));
 
 // The section reads both lists through ONE call (`listProjectRefs`); the two mocks keep feeding it entries.
 vi.mock("../turso-portfolio", () => ({
@@ -60,6 +63,8 @@ beforeEach(() => {
   listArchivedMock.mockReset();
   listProjectsMock.mockResolvedValue([]);
   listArchivedMock.mockResolvedValue([]);
+  refreshMock.mockClear();
+  loadJobsMock.mockReset();
   createJob.mockClear();
   updateJob.mockClear();
   deleteJob.mockClear();
@@ -773,6 +778,44 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     setup(withKey({ scheduledJobs: true }));
     const notice = screen.getByRole("status");
     expect(notice).toHaveTextContent("2 shared jobs need your OK to run on this device.");
+  });
+
+  it("a runnable job accepted with another instruction is counted in the notice", async () => {
+    const { acceptJob } = await import("../scheduled-job-acceptance");
+    mockJobs = [runnable(1, { instruction: "now" })];
+    act(() => { acceptJob(runnable(1, { instruction: "before" })); });
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.getByRole("status")).toHaveTextContent("1 shared job needs your OK to run on this device.");
+  });
+
+  it("Accept on an unchanged job accepts it", async () => {
+    const { acceptanceState } = await import("../scheduled-job-acceptance");
+    mockJobs = [runnable(1, { instruction: "x" })];
+    loadJobsMock.mockResolvedValue([runnable(1, { instruction: "x" })]);
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept Job 1" }));
+    await waitFor(() => expect(acceptanceState(mockJobs[0])).toBe("accepted"));
+    expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it("Accept on a job changed elsewhere refreshes instead of accepting", async () => {
+    const { acceptanceState } = await import("../scheduled-job-acceptance");
+    mockJobs = [runnable(1, { instruction: "x" })];
+    loadJobsMock.mockResolvedValue([runnable(1, { instruction: "changed elsewhere" })]);
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept Job 1" }));
+    await waitFor(() => expect(refreshMock).toHaveBeenCalledTimes(1));
+    expect(acceptanceState(mockJobs[0])).toBe("none");
+  });
+
+  it("a failed re-read accepts nothing", async () => {
+    const { acceptanceState } = await import("../scheduled-job-acceptance");
+    mockJobs = [runnable(1)];
+    loadJobsMock.mockRejectedValue(new Error("offline"));
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept Job 1" }));
+    await waitFor(() => expect(loadJobsMock).toHaveBeenCalled());
+    expect(acceptanceState(mockJobs[0])).toBe("none");
   });
 
   it("no notice when the switch is off or all are accepted", async () => {

@@ -1583,6 +1583,7 @@ export const de: Record<TranslationKey, string> = {
   scheduledJobActionsN: "{0} Vorschläge",
   scheduledJobActionsNOne: "1 Vorschlag",
   scheduledJobRunsHere: "Läuft auf diesem Gerät",
+  scheduledJobAcceptedHere: "Auf diesem Gerät zugestimmt",
   scheduledJobNeedsOk: "Braucht Ihre Zustimmung, um auf diesem Gerät zu laufen",
   scheduledJobChanged: "Seit Ihrer Zustimmung geändert: braucht Ihre Zustimmung erneut",
   scheduledJobAccept: "Zustimmen",

@@ -340,6 +340,18 @@ describe("useScheduledJobRunner", () => {
     expect(args.recordRun).not.toHaveBeenCalled();
   });
 
+  // KILLED BY: dropping the instruction comparison from `stillRunnable` (an accepted-everything predicate would send it).
+  it("an instruction changed elsewhere is not sent, even when this device accepts it", async () => {
+    const args = baseArgs({
+      jobs: [dailyJob({ instruction: "a" })],
+      isAcceptedHere: () => true,
+    });
+    backendState.onLoad = () => { storeState.jobs = [dailyJob({ instruction: "b" })]; };
+    await act(async () => { renderHook(() => useScheduledJobRunner(args)); });
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(args.recordRun).not.toHaveBeenCalled();
+  });
+
   it("does nothing for a not-due job", async () => {
     const recordRun = vi.fn();
     await act(async () => {

@@ -118,7 +118,7 @@ function buildRunDeps(argsRef: { readonly current: ScheduledJobRunnerArgs }, con
       if (!samePortfolio()) return false;
       const live = list.find((j) => j.key !== null && j.key === job.key);
       return live !== undefined && isRunnable(live) && live.projectId === job.projectId && sameSchedule(live, job)
-        && argsRef.current.isAcceptedHere(live);
+        && (live.instruction ?? null) === (job.instruction ?? null) && argsRef.current.isAcceptedHere(live);
     },
     // The people lock it reports is applied by the send itself (`postAiMessages` asks again).
     confirmDeployment: async () => {

@@ -29,7 +29,8 @@ import { resolveTimezone, tzZones } from "../timezone";
 import { DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
 import { Banner } from "../banner";
 import { isRunnable } from "../scheduled-jobs/schedule";
-import { acceptanceState, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
+import { acceptanceState, acceptJob, jobFingerprint, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
+import { loadScheduledJobs } from "../scheduled-jobs-store";
 
 export interface ScheduledJobsSectionProps {
   lang: Lang;
@@ -79,7 +80,7 @@ function useProjectLists(config: TursoConfig | null, available: boolean): Projec
 }
 
 export function ScheduledJobsSection({ lang, settings, onChange, config }: ScheduledJobsSectionProps) {
-  const { jobs, busy, createJob, updateJob, deleteJob, assignProject } = useScheduledJobs({ config });
+  const { jobs, busy, createJob, updateJob, deleteJob, assignProject, refresh } = useScheduledJobs({ config });
   // §316 — every new job starts with the same default name.
   const jobTokens = useRowTokens(jobs, nameOfJob);
   const tz = useDisplayTzOrBrowser();
@@ -109,6 +110,18 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   const track = (write: Promise<void>): void => {
     void Promise.resolve(write).then(() => setWriteFailed(false), () => setWriteFailed(true));
   };
+
+  // The row may show a stale job: re-read, and accept only what the store still holds unchanged. Otherwise show the
+  // current job and let the user decide again; a failed read accepts nothing.
+  async function acceptFresh(job: ScheduledJob): Promise<void> {
+    try {
+      const fresh = (await loadScheduledJobs(config)).find((j) => j.key !== null && j.key === job.key);
+      if (fresh && jobFingerprint(fresh) === jobFingerprint(job)) acceptJob(fresh);
+      else await refresh();
+    } catch {
+      // nothing accepted
+    }
+  }
 
   function toggleEnabled() {
     onChange({ ...settings, ai: { ...settings.ai, scheduledJobs: !enabled } });
@@ -194,6 +207,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     onUpdate={(id, patch) => track(updateJob(id, patch, job.key ?? undefined))}
                     onAssign={(id, projectId, timeZone) => track(assignProject(id, projectId, timeZone, job.key ?? undefined))}
                     onDelete={(id) => track(deleteJob(id, job.key ?? undefined))}
+                    onAccept={(j) => { void acceptFresh(j); }}
                   />
                 ))}
               </ul>

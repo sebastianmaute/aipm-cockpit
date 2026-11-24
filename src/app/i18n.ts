@@ -1688,6 +1688,7 @@ const enUS = {
   scheduledJobActionsN: "{0} suggestions",
   scheduledJobActionsNOne: "1 suggestion",
   scheduledJobRunsHere: "Runs on this device",
+  scheduledJobAcceptedHere: "Accepted on this device",
   scheduledJobNeedsOk: "Needs your OK to run on this device",
   scheduledJobChanged: "Changed since you accepted it: needs your OK again",
   scheduledJobAccept: "Accept",
