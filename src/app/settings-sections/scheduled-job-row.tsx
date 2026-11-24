@@ -307,6 +307,20 @@ export function JobRow({
       </div>
 
       <InstructionField lang={lang} token={token} value={instruction.draft} onChange={instruction.onChange} onBlur={instruction.onBlur} />
+      {instruction.lostText !== null && (
+        // Text a closed editor could not save over another device's change: offered read-only, to copy from. Nothing
+        // is saved or answered from it.
+        <label className="flex flex-col gap-1 text-xs text-foreground">
+          <span>{t(lang, "scheduledJobLostText")}</span>
+          <Textarea
+            size="xs"
+            rows={2}
+            readOnly
+            value={instruction.lostText}
+            aria-label={`${t(lang, "scheduledJobLostText")} – ${token}`}
+          />
+        </label>
+      )}
 
       <AcceptanceLine
         lang={lang}

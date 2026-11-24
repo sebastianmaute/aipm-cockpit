@@ -237,6 +237,15 @@ describe("useScheduledJobs — instances that do not track saves, and jobs delet
     expect(store.list).toEqual([]);
   });
 
+  it("assigning a project to a job deleted elsewhere rejects as gone and reads the list again", async () => {
+    const { result } = await mounted();
+    store.list = [];
+    let error: unknown = null;
+    await act(async () => { await result.current.assignProject(1, "p2", "UTC", "saving-key").catch((e: unknown) => { error = e; }); });
+    expect(error).toBeInstanceOf(JobGoneError);
+    await waitFor(() => expect(result.current.jobs).toEqual([])); // the row goes away
+  });
+
   it("the runner's writes to a deleted job still resolve quietly", async () => {
     const { result } = await mounted();
     store.list = [];

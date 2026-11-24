@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useScheduledJobs } from "./use-scheduled-jobs";
+import { JobNotEditableError } from "./scheduled-jobs/schedule";
 import {
   __resetEditedHereForTests, ACCEPTANCE_KEY, acceptanceState, acceptJob, declineJob, isAcceptedHere, isEditedHere, storedAcceptanceEntry,
 } from "./scheduled-job-acceptance";
@@ -405,8 +406,9 @@ describe("useScheduledJobs: a newer version's jobs and fields survive (§772 cr3
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.jobs).toHaveLength(2));
     await act(async () => {
-      await result.current.updateJob(2, { name: "x", enabled: false });
-      await result.current.assignProject(2, "p9", "UTC");
+      // A user's edit of a foreign job rejects (it cannot be edited); the runner's writes stay quiet.
+      await expect(result.current.updateJob(2, { name: "x", enabled: false })).rejects.toBeInstanceOf(JobNotEditableError);
+      await expect(result.current.assignProject(2, "p9", "UTC")).rejects.toBeInstanceOf(JobNotEditableError);
       await result.current.clearProject(2);
       await result.current.disableJob(2);
       await result.current.recordRun(2, run("2026-10-23T09:00:00.000Z"));

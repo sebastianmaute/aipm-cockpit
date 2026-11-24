@@ -12,12 +12,14 @@ export type LostDraftReason = "dropped" | "notSaved";
 export interface LostDraft {
   text: string;
   reason: LostDraftReason;
+  /** The stored text the lost save was judged against. */
+  base: string;
 }
 
 function isLostDraft(value: unknown): value is LostDraft {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
-  return typeof v.text === "string" && (v.reason === "dropped" || v.reason === "notSaved");
+  return typeof v.text === "string" && typeof v.base === "string" && (v.reason === "dropped" || v.reason === "notSaved");
 }
 
 function readAll(): Record<string, LostDraft> {
@@ -27,7 +29,7 @@ function readAll(): Record<string, LostDraft> {
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
     const out: Record<string, LostDraft> = {};
-    for (const [k, v] of Object.entries(parsed)) if (isLostDraft(v)) out[k] = { text: v.text, reason: v.reason };
+    for (const [k, v] of Object.entries(parsed)) if (isLostDraft(v)) out[k] = { text: v.text, reason: v.reason, base: v.base };
     return out;
   } catch {
     return {};

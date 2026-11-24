@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceLabel } from "./device-label";
 import { acceptJob, forgetJob, jobFingerprint, markEditedHere } from "./scheduled-job-acceptance";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
-import { appendRun, JobChangedError, JobGoneError, jobSaveId, normalizeJobFields } from "./scheduled-jobs/schedule";
+import { appendRun, JobChangedError, JobGoneError, JobNotEditableError, jobSaveId, normalizeJobFields } from "./scheduled-jobs/schedule";
 import { forgetLostDraft } from "./scheduled-jobs/lost-draft";
 import type {
   JobCadence, ScheduledJob, ScheduledJobRun,
@@ -128,8 +128,9 @@ function normalizePatch<P extends { instruction?: string; timeZone?: string | nu
 }
 
 /** How `writeJob` treats one write: mark a saved change of project or instruction as this device's (`markEdit`), run
- *  `afterSave` inside the chain once it landed, and reject with `JobGoneError` when the job is gone (`rejectIfGone`,
- *  for a user's edits). */
+ *  `afterSave` inside the chain once it landed, and — for a user's edits (`rejectIfGone`) — reject with `JobGoneError`
+ *  when the job is gone or `JobNotEditableError` when it is no longer editable here, then read the list again (also
+ *  after a `JobChangedError`). */
 interface WriteJobHow {
   markEdit?: boolean;
   afterSave?: () => void;
@@ -303,7 +304,9 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
           return written;
         });
         // A user's edit of a job deleted elsewhere writes nothing and says so; the runner's writes stay quiet.
-        if (how.rejectIfGone && !list.some((j) => matches(j, id, key))) throw new JobGoneError(); // a foreign job is not gone
+        // A user's edit that reached no job never resolves as written: gone (deleted elsewhere), or no longer editable
+        // here (it turned foreign).
+        if (!matched && how.rejectIfGone) throw list.some((j) => matches(j, id, key)) ? new JobNotEditableError() : new JobGoneError();
         return next;
       };
       const onSaved = () => {
@@ -312,9 +315,16 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
         if (saved !== null && saved.key !== null) markEditedHere(saved.key, jobFingerprint(saved));
         how.afterSave?.();
       };
-      return trackSave(jobSaveId(displayed ?? { id, key: key ?? null }), mutate(transform, onSaved));
+      const write = mutate(transform, onSaved).catch((err: unknown) => {
+        // A user's edit refused, or whose job is gone or no longer editable: read the list again, so the row shows what
+        // the store holds now (or goes away) whichever write path it came from.
+        const stale = err instanceof JobChangedError || err instanceof JobGoneError || err instanceof JobNotEditableError;
+        if (how.rejectIfGone && stale) void refresh();
+        throw err;
+      });
+      return trackSave(jobSaveId(displayed ?? { id, key: key ?? null }), write);
     },
-    [mutate, trackSave],
+    [mutate, trackSave, refresh],
   );
 
   const readFresh = useCallback(
@@ -365,12 +375,9 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
         }
         return { ...j, ...normalized, id: j.id };
       };
-      return writeJob(id, key, edit, { markEdit: true, afterSave: options?.onWritten, rejectIfGone: true }).catch((err: unknown) => {
-        if (err instanceof JobChangedError || err instanceof JobGoneError) void refresh(); // show what the store holds now
-        throw err;
-      });
+      return writeJob(id, key, edit, { markEdit: true, afterSave: options?.onWritten, rejectIfGone: true });
     },
-    [writeJob, refresh],
+    [writeJob],
   );
 
   const deleteJob = useCallback((id: number, key?: string): Promise<void> => {

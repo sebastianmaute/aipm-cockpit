@@ -99,6 +99,15 @@ export class JobGoneError extends Error {
   }
 }
 
+/** A user's edit found its job in the store but no longer editable here (a newer version rewrote it): nothing was
+ *  written. */
+export class JobNotEditableError extends Error {
+  constructor() {
+    super("The job can no longer be edited by this version.");
+    this.name = "JobNotEditableError";
+  }
+}
+
 /** The identity of a job for "a save is in flight": its permanent key, or its id while it has none. */
 export function jobSaveId(job: Pick<ScheduledJob, "id" | "key">): string {
   return job.key ?? `id:${job.id}`;
