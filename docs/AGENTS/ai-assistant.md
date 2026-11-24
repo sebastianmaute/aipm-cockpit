@@ -1624,13 +1624,17 @@
   - ★★★ **A press answers the version shown when it was pressed.** Pressing Accept / Stop or "Not on this device"
     does not take focus from the instruction field (`onMouseDown` prevents the default), so the press does not end
     the edit: the button answers the version the row shows, and the edit saves on the next blur and then asks again.
-    Backstop: a pointer press records the button's action, the job's fingerprint and whether it was saving; the click
-    is ignored when the job was saving at the press or is saving now, or when the action or fingerprint changed
-    between press and release (`pressStillValid`). A keyboard activation (no pointerdown) acts on the current render.
+    Backstop (`usePressGuard`): a press records the button's action, the job's fingerprint and whether it was saving —
+    a pointer press on pointerdown, a key press on the first keydown of Space or Enter (Space clicks on keyup, so a
+    held Space spans renders like a held pointer); the click is ignored when the job was saving at the press or is
+    saving now, or when the action or fingerprint changed between press and release (`pressStillValid`). A press
+    that is cancelled, leaves the button before release, or a button that loses focus leaves nothing behind. An
+    activation with no press at all (a screen reader's click) acts on the current render.
   - ★★★ **Answer buttons wait for this device's saves.** `useScheduledJobs` exposes `savingJobs` (`jobSaveId`: the key,
     or the id of a keyless job), counted per job from the call until every save of it settled, success or failure.
     Meanwhile the row's Accept / Stop and "Not on this device" read "Saving…" (their names start with it, then the
-    answer they will give), are `aria-disabled` and ignore clicks. When the save ends, a focused button keeps focus and
+    answer they will give), are `aria-disabled` and ignore clicks; a press that starts or ends while the job is saving
+    is ignored, even if the save is over by the time of the click. When the save ends, a focused button keeps focus and
     its name becomes the answer again; the row's status region is unchanged, so nothing extra is announced.
   - **Accept** re-reads the store through `readFresh` (after the saves in progress settle; pending meanwhile) and accepts
     only the version the row showed; a job changed elsewhere is refreshed with `scheduledJobAcceptChanged`, and an answer
