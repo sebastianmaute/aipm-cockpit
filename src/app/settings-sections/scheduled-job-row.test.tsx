@@ -225,6 +225,8 @@ describe("JobRow acceptance", () => {
     const main = screen.getByRole("button", { name: "Accept: Weekly review" });
     expect(main).toHaveAttribute("aria-disabled", "true");
     expect(main).not.toBeDisabled();
+    expect(main.className).toContain("aria-disabled:opacity-50");
+    expect(main.className).toContain("aria-disabled:cursor-wait");
     fireEvent.click(main);
     expect(onAccept).not.toHaveBeenCalled();
   });

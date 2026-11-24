@@ -901,6 +901,22 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     await waitFor(() => expect(screen.getByRole("button", { name: "Accept: Job 1" })).not.toHaveAttribute("aria-disabled"));
     expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
     expect(acceptanceState(runnable(1, { instruction: "new" }))).toBe("accepted");
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("Accept that finds the same job already accepted does not refresh", async () => {
+    const { acceptJob, acceptanceState } = await import("../scheduled-job-acceptance");
+    let release: (v: ScheduledJob[]) => void = () => {};
+    loadJobsMock.mockReturnValue(new Promise<ScheduledJob[]>((r) => { release = r; }));
+    mockJobs = [runnable(1, { instruction: "same" })];
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
+    act(() => { acceptJob(runnable(1, { instruction: "same" })); }); // accepted elsewhere while the read is in flight
+    release([runnable(1, { instruction: "same" })]);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Stop on this device: Job 1" })).not.toHaveAttribute("aria-disabled"));
+    expect(refreshMock).not.toHaveBeenCalled();
+    expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
+    expect(acceptanceState(runnable(1, { instruction: "same" }))).toBe("accepted");
   });
 
   it("a runnable job this device stopped is not counted in the notice", async () => {

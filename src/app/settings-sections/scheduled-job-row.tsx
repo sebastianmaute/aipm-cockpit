@@ -180,6 +180,7 @@ function AcceptanceLine({
           size="xs"
           // aria-disabled, never `disabled`: a disabled button drops keyboard focus.
           aria-disabled={pending ? true : undefined}
+          className="aria-disabled:cursor-wait aria-disabled:opacity-50"
           onClick={() => {
             if (pending) return;
             onNoticeClear();
