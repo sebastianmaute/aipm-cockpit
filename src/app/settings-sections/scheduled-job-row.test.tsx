@@ -33,6 +33,7 @@ function renderRow(
   j: ScheduledJob,
   onAccept: (job: ScheduledJob) => void = acceptJob,
   acceptNotice: "failed" | "changed" | null = null,
+  acceptPending = false,
 ) {
   return render(
     <ul>
@@ -52,6 +53,7 @@ function renderRow(
         onDelete={vi.fn()}
         onAccept={onAccept}
         acceptNotice={acceptNotice}
+        acceptPending={acceptPending}
       />
     </ul>,
   );
@@ -68,7 +70,7 @@ describe("JobRow acceptance", () => {
   it("an unaccepted job offers Accept, which accepts it", () => {
     renderRow(job());
     expect(screen.getByText(t("en-US", "scheduledJobNeedsOk"))).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Accept Weekly review" }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept: Weekly review" }));
     expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Stop on this device: Weekly review" })).toBeInTheDocument();
   });
@@ -84,7 +86,7 @@ describe("JobRow acceptance", () => {
     acceptJob(job({ instruction: "Something else" }));
     renderRow(job());
     expect(screen.getByText(t("en-US", "scheduledJobChanged"))).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Accept Weekly review" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Accept: Weekly review" })).toBeInTheDocument();
   });
 
   it("Stop records a decline: the row says stopped and offers Accept", () => {
@@ -93,14 +95,14 @@ describe("JobRow acceptance", () => {
     fireEvent.click(screen.getByRole("button", { name: "Stop on this device: Weekly review" }));
     expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "scheduledJobNeedsOk"))).toBeNull();
-    expect(screen.getByRole("button", { name: "Accept Weekly review" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Accept: Weekly review" })).toBeInTheDocument();
   });
 
   it("keeps focus on the action button when Accept turns into Stop", async () => {
     const user = userEvent.setup();
     renderRow(job());
     await user.tab();
-    const accept = screen.getByRole("button", { name: "Accept Weekly review" });
+    const accept = screen.getByRole("button", { name: "Accept: Weekly review" });
     accept.focus();
     expect(document.activeElement).toBe(accept);
     await user.click(accept);
@@ -169,7 +171,7 @@ describe("JobRow acceptance", () => {
       await user.click(screen.getByRole("button", decline));
       expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument();
       expect(screen.queryByRole("button", decline)).toBeNull();
-      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Accept Weekly review" }));
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Accept: Weekly review" }));
     });
 
     it("from changed: the same", async () => {
@@ -179,7 +181,7 @@ describe("JobRow acceptance", () => {
       await user.click(screen.getByRole("button", decline));
       expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument();
       expect(screen.queryByRole("button", decline)).toBeNull();
-      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Accept Weekly review" }));
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Accept: Weekly review" }));
     });
 
     it("a decline that cannot be recorded says so and changes nothing", () => {
@@ -206,6 +208,38 @@ describe("JobRow acceptance", () => {
       renderRow(job({ projectId: null }));
       expect(screen.queryByRole("button", decline)).toBeNull();
     });
+  });
+
+  it("a declined job that changed reads changed elsewhere and offers both buttons", () => {
+    declineJob(job({ instruction: "Something else" }));
+    renderRow(job());
+    expect(screen.getByText(t("en-US", "scheduledJobChangedElsewhere"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "scheduledJobChanged"))).toBeNull();
+    expect(screen.getByRole("button", { name: "Accept: Weekly review" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Not on this device: Weekly review" })).toBeInTheDocument();
+  });
+
+  it("while an Accept is pending the main button is aria-disabled and ignores clicks", () => {
+    const onAccept = vi.fn();
+    renderRow(job(), onAccept, null, true);
+    const main = screen.getByRole("button", { name: "Accept: Weekly review" });
+    expect(main).toHaveAttribute("aria-disabled", "true");
+    expect(main).not.toBeDisabled();
+    fireEvent.click(main);
+    expect(onAccept).not.toHaveBeenCalled();
+  });
+
+  it("without a pending Accept there is no aria-disabled", () => {
+    renderRow(job());
+    expect(screen.getByRole("button", { name: "Accept: Weekly review" })).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("Accept on a switched-off job is secondary, on a running one primary", () => {
+    const off = renderRow(job({ enabled: false }));
+    expect(screen.getByRole("button", { name: "Accept: Weekly review" }).className).toContain("bg-surface");
+    off.unmount();
+    renderRow(job());
+    expect(screen.getByRole("button", { name: "Accept: Weekly review" }).className).toContain("bg-ui-dark-blue");
   });
 
   it("shows the changed-elsewhere notice", () => {

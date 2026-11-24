@@ -4,7 +4,7 @@ import type { ScheduledJob } from "./scheduled-jobs/types";
 /** Per-device record of the scheduled jobs this device accepted, keyed by the job's permanent `key`. */
 export const ACCEPTANCE_KEY = "aipm-cockpit:scheduled-job-acceptance";
 
-export type AcceptanceState = "accepted" | "declined" | "changed" | "none" | "cannot-run";
+export type AcceptanceState = "accepted" | "declined" | "declined-changed" | "changed" | "none" | "cannot-run";
 
 const listeners = new Set<() => void>();
 
@@ -55,7 +55,9 @@ export function acceptanceState(job: ScheduledJob): AcceptanceState {
   if (!Object.prototype.hasOwnProperty.call(stored, key)) return "none";
   const fingerprint = jobFingerprint(job);
   if (stored[key] === fingerprint) return "accepted";
-  return stored[key] === DECLINED_PREFIX + fingerprint ? "declined" : "changed";
+  if (stored[key] === DECLINED_PREFIX + fingerprint) return "declined";
+  // A decline of another version never reads "since you accepted it": this device never accepted anything.
+  return stored[key].startsWith(DECLINED_PREFIX) ? "declined-changed" : "changed";
 }
 
 export function isAcceptedHere(job: ScheduledJob): boolean {

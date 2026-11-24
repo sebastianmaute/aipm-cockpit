@@ -30,7 +30,6 @@ import { type AcceptNotice, DEFAULT_TIME, JobRow, type ProjectOption } from "./s
 import { Banner } from "../banner";
 import { isRunnable } from "../scheduled-jobs/schedule";
 import { acceptanceState, acceptJob, jobFingerprint, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
-import { loadScheduledJobs } from "../scheduled-jobs-store";
 
 export interface ScheduledJobsSectionProps {
   lang: Lang;
@@ -80,7 +79,7 @@ function useProjectLists(config: TursoConfig | null, available: boolean): Projec
 }
 
 export function ScheduledJobsSection({ lang, settings, onChange, config }: ScheduledJobsSectionProps) {
-  const { jobs, busy, createJob, updateJob, deleteJob, assignProject, refresh } = useScheduledJobs({ config });
+  const { jobs, busy, createJob, updateJob, deleteJob, assignProject, refresh, readFresh } = useScheduledJobs({ config });
   // §316 — every new job starts with the same default name.
   const jobTokens = useRowTokens(jobs, nameOfJob);
   const tz = useDisplayTzOrBrowser();
@@ -102,7 +101,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   const awaitingOk = jobs.filter((j) => {
     if (!isRunnable(j)) return false;
     const state = acceptanceState(j);
-    return state === "none" || state === "changed";
+    return state === "none" || state === "changed" || state === "declined-changed";
   }).length;
   const hasLegacyJob = jobs.some((j) => j.foreign === undefined && j.key === null);
   // A write that fails (the database unreachable) must not look as if it worked until the next reload.
@@ -113,6 +112,15 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
 
   // What the last Accept on each row found out when it accepted nothing, keyed by the job's permanent key.
   const [acceptNotices, setAcceptNotices] = useState<ReadonlyMap<string, AcceptNotice>>(new Map());
+  const [acceptPending, setAcceptPending] = useState<ReadonlySet<string>>(new Set());
+  function setPending(key: string, on: boolean): void {
+    setAcceptPending((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }
   function setAcceptNotice(key: string | null, notice: AcceptNotice | null): void {
     if (key === null) return;
     setAcceptNotices((prev) => {
@@ -126,9 +134,13 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   // The row may show a stale job: re-read, and accept only what the store still holds unchanged. Otherwise show the
   // current job and say so; a failed read accepts nothing and says that.
   async function acceptFresh(job: ScheduledJob): Promise<void> {
+    if (job.key === null || acceptPending.has(job.key)) return;
     setAcceptNotice(job.key, null);
+    setPending(job.key, true);
     try {
-      const fresh = (await loadScheduledJobs(config)).find((j) => j.key !== null && j.key === job.key);
+      // After the saves in progress settle, so a just-typed instruction is what is compared.
+      const fresh = (await readFresh()).find((j) => j.key !== null && j.key === job.key);
+      if (fresh && acceptanceState(fresh) === "accepted") return; // this device already accepted the current version
       if (fresh && jobFingerprint(fresh) === jobFingerprint(job)) {
         if (!acceptJob(fresh)) setAcceptNotice(job.key, "failed");
         return;
@@ -137,6 +149,8 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
       await refresh();
     } catch {
       setAcceptNotice(job.key, "failed");
+    } finally {
+      setPending(job.key, false);
     }
   }
 
@@ -198,11 +212,14 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
 
           {enabled && (
             <>
-              {awaitingOk > 0 && (
-                <Banner severity="info" role="status">
-                  {tPlural(lang, "scheduledJobsAwaitingOk", awaitingOk, String(awaitingOk))}
-                </Banner>
-              )}
+              {/* Always mounted: a live region must exist before its text changes. */}
+              <div role="status">
+                {awaitingOk > 0 && (
+                  <Banner severity="info" role="none">
+                    {tPlural(lang, "scheduledJobsAwaitingOk", awaitingOk, String(awaitingOk))}
+                  </Banner>
+                )}
+              </div>
               {projects.failed && <FieldHint>{t(lang, "tursoPickerError")}</FieldHint>}
               {writeFailed && <p role="alert" className="text-xs text-foreground">{t(lang, "scheduledJobsWriteFailed")}</p>}
 
@@ -225,6 +242,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     onAssign={(id, projectId, timeZone) => track(assignProject(id, projectId, timeZone, job.key ?? undefined))}
                     onDelete={(id) => track(deleteJob(id, job.key ?? undefined))}
                     onAccept={(j) => { void acceptFresh(j); }}
+                    acceptPending={job.key !== null && acceptPending.has(job.key)}
                     acceptNotice={job.key !== null ? (acceptNotices.get(job.key) ?? null) : null}
                     onNoticeClear={() => setAcceptNotice(job.key, null)}
                   />

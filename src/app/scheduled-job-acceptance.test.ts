@@ -76,11 +76,6 @@ describe("scheduled job acceptance", () => {
     expect(isAcceptedHere(job({ instruction: "a" }))).toBe(false);
   });
 
-  it("a declined job whose instruction changed is asked again", () => {
-    declineJob(job({ instruction: "a" }));
-    expect(acceptanceState(job({ instruction: "b" }))).toBe("changed");
-  });
-
   it("declining a job that cannot run does nothing", () => {
     expect(declineJob(job({ key: null }))).toBe(false);
     expect(declineJob(job({ foreign: { raw: {} } }))).toBe(false);
@@ -93,6 +88,12 @@ describe("scheduled job acceptance", () => {
     });
     expect(declineJob(job())).toBe(false);
     expect(acceptanceState(job())).toBe("none");
+  });
+
+  it("a declined job whose instruction changed reads declined-changed, not changed", () => {
+    declineJob(job({ instruction: "a" }));
+    expect(acceptanceState(job({ instruction: "b" }))).toBe("declined-changed");
+    expect(isAcceptedHere(job({ instruction: "b" }))).toBe(false);
   });
 
   it("accepting after a decline accepts", () => {

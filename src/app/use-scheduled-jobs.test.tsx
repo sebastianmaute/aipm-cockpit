@@ -248,6 +248,18 @@ describe("useScheduledJobs (localStorage backend)", () => {
     await waitFor(() => expect(second.result.current.jobs.length).toBe(1));
     expect(second.result.current.jobs[0].name).toBe("Persisted");
   });
+  it("readFresh started while a save is in flight resolves with the saved list", async () => {
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    let fresh: Awaited<ReturnType<typeof result.current.readFresh>> = [];
+    await act(async () => {
+      const saving = result.current.createJob({ name: "Late", cadence: dailyCadence, enabled: true });
+      fresh = await result.current.readFresh();
+      await saving;
+    });
+    expect(fresh.map((j) => j.name)).toEqual(["Late"]);
+  });
+
 });
 
 describe("useScheduledJobs — StrictMode mount re-set (§76)", () => {

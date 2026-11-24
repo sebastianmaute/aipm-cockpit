@@ -126,10 +126,11 @@ const ACCEPT_NOTICE_KEY: Record<AcceptNotice, TranslationKey> = {
   changed: "scheduledJobAcceptChanged",
 };
 
-const ACCEPTANCE_STATUS_KEY: Record<"accepted" | "declined" | "changed" | "none", TranslationKey> = {
+const ACCEPTANCE_STATUS_KEY: Record<"accepted" | "declined" | "declined-changed" | "changed" | "none", TranslationKey> = {
   accepted: "scheduledJobAcceptedHere",
   declined: "scheduledJobStoppedHere",
   changed: "scheduledJobChanged",
+  "declined-changed": "scheduledJobChangedElsewhere",
   none: "scheduledJobNeedsOk",
 };
 
@@ -140,6 +141,7 @@ function AcceptanceLine({
   token,
   onAccept,
   notice,
+  pending,
   onNoticeClear,
 }: {
   lang: Lang;
@@ -147,6 +149,7 @@ function AcceptanceLine({
   token: string;
   onAccept: (job: ScheduledJob) => void;
   notice: AcceptNotice | null;
+  pending: boolean;
   onNoticeClear: () => void;
 }) {
   useAcceptanceSnapshot(); // re-render when this device's acceptances change
@@ -172,9 +175,13 @@ function AcceptanceLine({
       {decided !== null && (
         <Button
           ref={mainRef}
-          variant={accepted ? "secondary" : "primary"}
+          // A switched-off job is not about to run, so its Accept is not the page's call to action.
+          variant={accepted || !job.enabled ? "secondary" : "primary"}
           size="xs"
+          // aria-disabled, never `disabled`: a disabled button drops keyboard focus.
+          aria-disabled={pending ? true : undefined}
           onClick={() => {
+            if (pending) return;
             onNoticeClear();
             setStopFailed(false);
             if (accepted) setStopFailed(!declineJob(job));
@@ -185,7 +192,7 @@ function AcceptanceLine({
           {t(lang, accepted ? "scheduledJobStop" : "scheduledJobAccept")}
         </Button>
       )}
-      {(decided === "none" || decided === "changed") && (
+      {(decided === "none" || decided === "changed" || decided === "declined-changed") && (
         <Button
           variant="secondary"
           size="xs"
@@ -224,6 +231,7 @@ export function JobRow({
   onDelete,
   onAccept,
   acceptNotice,
+  acceptPending,
   onNoticeClear,
 }: {
   lang: Lang;
@@ -248,6 +256,8 @@ export function JobRow({
   onAccept: (job: ScheduledJob) => void;
   /** Why the last Accept on this row accepted nothing, until the next Accept or Stop. */
   acceptNotice?: AcceptNotice | null;
+  /** True while this row's Accept is re-reading the job. */
+  acceptPending?: boolean;
   /** Called when Accept or Stop is pressed, so the owner can clear the notice. */
   onNoticeClear?: () => void;
 }) {
@@ -428,6 +438,7 @@ export function JobRow({
         token={token}
         onAccept={onAccept}
         notice={acceptNotice ?? null}
+        pending={acceptPending ?? false}
         onNoticeClear={onNoticeClear ?? noop}
       />
 

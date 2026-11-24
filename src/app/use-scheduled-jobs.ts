@@ -54,6 +54,8 @@ export interface UseScheduledJobsResult {
   /** With `key`, only the job carrying that permanent key is written: ids collide across portfolios. */
   recordRun: (jobId: number, run: ScheduledJobRun, key?: string) => Promise<void>;
   refresh: () => Promise<void>;
+  /** The current backend's list, read AFTER the writes in progress settle (a rejected link does not reject the read). */
+  readFresh: () => Promise<ScheduledJob[]>;
 }
 
 function nextJobId(jobs: readonly ScheduledJob[]): number {
@@ -218,6 +220,15 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     [],
   );
 
+  const readFresh = useCallback(
+    (): Promise<ScheduledJob[]> =>
+      writeChain.then(
+        () => loadScheduledJobs(cfgRef.current),
+        () => loadScheduledJobs(cfgRef.current),
+      ),
+    [],
+  );
+
   const createJob = useCallback((input: CreateScheduledJobInput): Promise<void> => {
     let written: ScheduledJob | undefined;
     return mutate((list) => {
@@ -300,5 +311,5 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     );
   }, [mutate]);
 
-  return { jobs, jobsSource, busy, ready, createJob, updateJob, deleteJob, assignProject, clearProject, disableJob, recordRun, refresh };
+  return { jobs, jobsSource, busy, ready, createJob, updateJob, deleteJob, assignProject, clearProject, disableJob, recordRun, refresh, readFresh };
 }
