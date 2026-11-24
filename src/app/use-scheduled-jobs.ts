@@ -116,6 +116,9 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   const retriesRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshRef = useRef<() => Promise<void>>(async () => {});
+  // What this tab displays: an edit accepts only what the user saw (a change made elsewhere meanwhile is not accepted).
+  const jobsRef = useRef<ScheduledJob[]>([]);
+  useEffect(() => { jobsRef.current = jobs; }, [jobs]);
   useEffect(() => { cfgRef.current = config; }, [config]);
   // ★★ Re-set on mount, not merely cleared on unmount. React StrictMode mounts,
   //    unmounts and remounts in development (Next 16 defaults reactStrictMode to
@@ -242,13 +245,17 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   const updateJob = useCallback(
     (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string): Promise<void> => {
       let written: ScheduledJob | undefined;
+      const displayed = jobsRef.current.find((j) => matches(j, id, key));
       return mutate((list) =>
         list.map((j) => {
           if (!(editable(j) && matches(j, id, key))) return j;
           written = { ...j, ...normalizePatch(patch), id: j.id };
           return written;
         }),
-      ).then(() => { if (written && "instruction" in patch) acceptJob(written); });
+      ).then(() => {
+        // Accept only when the half this edit did not touch (the project) is what this tab displayed.
+        if (written && displayed && "instruction" in patch && written.projectId === displayed.projectId) acceptJob(written);
+      });
     },
     [mutate],
   );
@@ -264,13 +271,17 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   const assignProject = useCallback(
     (id: number, projectId: string, timeZone: string, key?: string): Promise<void> => {
       let written: ScheduledJob | undefined;
+      const displayed = jobsRef.current.find((j) => matches(j, id, key));
       return mutate((list) =>
         list.map((j) => {
           if (!(editable(j) && matches(j, id, key))) return j;
           written = { ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: j.key ?? crypto.randomUUID() };
           return written;
         }),
-      ).then(() => { if (written) acceptJob(written); });
+      ).then(() => {
+        // Accept only when the half this assignment did not touch (the instruction) is what this tab displayed.
+        if (written && displayed && (written.instruction ?? null) === (displayed.instruction ?? null)) acceptJob(written);
+      });
     },
     [mutate],
   );

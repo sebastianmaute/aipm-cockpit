@@ -500,4 +500,35 @@ describe("useScheduledJobs acceptance on this device", () => {
     await act(async () => { await result.current.clearProject(1, "key-1"); });
     expect(acceptanceState(result.current.jobs[0])).toBe("none");
   });
+
+  it("an instruction edit does not accept a project changed elsewhere", async () => {
+    seed();
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ "key-1": jobFingerprint({ projectId: "p1", instruction: "a" }) }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    seed({ projectId: "p9" }); // another device changed the project behind the hook's back
+    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "key-1"); });
+    expect(result.current.jobs[0].projectId).toBe("p9");
+    expect(acceptanceState(result.current.jobs[0])).not.toBe("accepted");
+  });
+
+  it("assigning a project does not accept an instruction changed elsewhere", async () => {
+    seed();
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ "key-1": jobFingerprint({ projectId: "p1", instruction: "b" }) }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    seed({ instruction: "changed elsewhere" });
+    await act(async () => { await result.current.assignProject(1, "p2", "UTC", "key-1"); });
+    expect(result.current.jobs[0].projectId).toBe("p2");
+    expect(acceptanceState(result.current.jobs[0])).not.toBe("accepted");
+  });
+
+  it("resetting the instruction to the default accepts the default fingerprint", async () => {
+    seed();
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    await act(async () => { await result.current.updateJob(1, { instruction: undefined }, "key-1"); });
+    expect(acceptanceState(result.current.jobs[0])).toBe("accepted");
+    expect(accepted()["key-1"]).toBe(jobFingerprint({ projectId: "p1", instruction: undefined }));
+  });
 });
