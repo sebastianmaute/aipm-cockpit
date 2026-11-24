@@ -28,8 +28,10 @@ longer carries its own changelog comment.
 - **A shared scheduled job now runs on a device only after you accept it there.** Each job in Settings → Scheduled jobs
   shows whether you accepted it on this device, with Accept and Stop. Changing a job's project or instruction asks the
   other devices again; on the device where you change it, the job keeps the answer you gave there (accepted or
-  stopped), and a job you had not accepted yet still waits for your OK. A job you create is accepted on the device
-  where you create it. Jobs that existed before this update wait for your OK, and a job waiting
+  stopped), and a job you had not accepted yet still waits for your OK. Changing a job back to the version you had
+  accepted on this device makes it run there again without asking. A job you create is accepted on the device where
+  you create it. Accept and Stop do what the button said when you pressed it, even if you were still typing in the
+  instruction. Jobs that existed before this update wait for your OK, and a job waiting
   can be declined with "Not on this device" without ever running. Devices that have not updated yet still run shared
   jobs without asking, so update every device that uses the portfolio.
 - **The forecast import sends Claude only the top of the sheet, without e-mail addresses.** Claude only names which
