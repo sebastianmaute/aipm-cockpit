@@ -284,6 +284,15 @@ describe("JobRow acceptance", () => {
     expect(region).toHaveTextContent(t("en-US", "scheduledJobAcceptChanged"));
   });
 
+  it("the status element is not a direct child of the row and shares the line's wrapper", () => {
+    const { container } = renderRow(job());
+    const region = screen.getByRole("status");
+    const li = container.querySelector("li") as HTMLElement;
+    expect(region.parentElement).not.toBe(li);
+    expect(region.parentElement?.parentElement).toBe(li);
+    expect(screen.getByText(t("en-US", "scheduledJobNeedsOk")).parentElement?.parentElement).toBe(region.parentElement);
+  });
+
   it("without a pending Accept there is no aria-disabled", () => {
     renderRow(job());
     expect(screen.getByRole("button", { name: "Accept: Weekly review" })).not.toHaveAttribute("aria-disabled");

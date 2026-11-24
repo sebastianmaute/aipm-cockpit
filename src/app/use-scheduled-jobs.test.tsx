@@ -602,6 +602,37 @@ describe("useScheduledJobs acceptance on this device", () => {
     expect(isAcceptedHere(result.current.jobs[0])).toBe(false);
   });
 
+  it("two of this device's own overlapping edits both end accepted", async () => {
+    seed();
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ "key-1": jobFingerprint({ projectId: "p1", instruction: "b" }) }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    await act(async () => {
+      const first = result.current.updateJob(1, { instruction: "c" }, "key-1");
+      const second = result.current.updateJob(1, { instruction: "d" }, "key-1");
+      await Promise.all([first, second]);
+    });
+    expect(result.current.jobs[0].instruction).toBe("d");
+    expect(acceptanceState(result.current.jobs[0])).toBe("accepted");
+  });
+
+  it("a decline between two overlapping own edits still wins", async () => {
+    seed();
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ "key-1": jobFingerprint({ projectId: "p1", instruction: "b" }) }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    const old = result.current.jobs[0];
+    await act(async () => {
+      const first = result.current.updateJob(1, { instruction: "c" }, "key-1");
+      const second = result.current.updateJob(1, { instruction: "d" }, "key-1");
+      await first;
+      declineJob(old); // the user stops the job after the first edit recorded, before the second save lands
+      await second;
+    });
+    expect(result.current.jobs[0].instruction).toBe("d");
+    expect(isAcceptedHere(result.current.jobs[0])).toBe(false);
+  });
+
   it("resetting the instruction to the default accepts the default fingerprint", async () => {
     seed();
     const { result } = renderHook(() => useScheduledJobs({ config: null }));

@@ -173,7 +173,8 @@ function AcceptanceLine({
   const hasLine = decided !== null || createdText !== null;
   // The status element sits at a fixed position, outside the line, so its identity never depends on the line.
   return (
-      <>
+      // ONE wrapper holds the line and the status element, so the always-mounted (empty) status adds no row gap of its own.
+    <div className={hasLine || shown !== null ? undefined : "-mt-2"}>
       {hasLine && (
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         {decided !== null && <span>{t(lang, ACCEPTANCE_STATUS_KEY[decided])}</span>}
@@ -222,7 +223,7 @@ function AcceptanceLine({
       )}
       {/* Always mounted: a live region must exist before its text changes. */}
       <span role="status" className="text-xs text-muted-foreground">{shown !== null ? t(lang, ACCEPT_NOTICE_KEY[shown]) : null}</span>
-      </>
+    </div>
   );
 }
 

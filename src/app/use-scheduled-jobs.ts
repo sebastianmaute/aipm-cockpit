@@ -58,6 +58,9 @@ export interface UseScheduledJobsResult {
   readFresh: () => Promise<ScheduledJob[]>;
 }
 
+/** The acceptance entry per job key that this device's own last edit wrote (UI Accept / Stop never update it). */
+const ownEditEntries = new Map<string, string>();
+
 /** Whether this device had stopped the job (as displayed) before an edit. */
 function wasStoppedHere(displayed: ScheduledJob | undefined): boolean {
   if (displayed === undefined) return false;
@@ -67,10 +70,16 @@ function wasStoppedHere(displayed: ScheduledJob | undefined): boolean {
 
 /** An edit accepts the job it wrote on this device, unless this device had stopped it: then it stays stopped. */
 function recordEdit(written: ScheduledJob, stopped: boolean, entryAtCall: string | null): void {
-  // An answer given while the save was in the write chain is newer than this edit: it wins.
-  if (written.key === null || storedAcceptanceEntry(written.key) !== entryAtCall) return;
+  const key = written.key;
+  if (key === null) return;
+  // An answer given while the save was in the write chain is newer than this edit: it wins. The entry THIS device's
+  // own earlier edit wrote is not such an answer, or two overlapping edits would leave the second asking for an OK.
+  const current = storedAcceptanceEntry(key);
+  if (current !== entryAtCall && current !== ownEditEntries.get(key)) return;
   if (stopped) declineJob(written);
   else acceptJob(written);
+  const recorded = storedAcceptanceEntry(key);
+  if (recorded !== null) ownEditEntries.set(key, recorded);
 }
 
 function nextJobId(jobs: readonly ScheduledJob[]): number {
@@ -293,7 +302,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     return mutate((list) => {
       removedKey = list.find((j) => matches(j, id, key))?.key;
       return list.filter((j) => !matches(j, id, key));
-    }).then(() => { if (typeof removedKey === "string") forgetJob(removedKey); });
+    }).then(() => { if (typeof removedKey === "string") { forgetJob(removedKey); ownEditEntries.delete(removedKey); } });
   }, [mutate]);
 
   const assignProject = useCallback(
