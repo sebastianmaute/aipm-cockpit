@@ -127,7 +127,7 @@ function sanitizeRun(raw: unknown): ScheduledJobRun | null {
 
 /** The keys this version reads. Anything else on a stored job came from a newer version and is carried through. */
 const KNOWN_JOB_KEYS: ReadonlySet<string> = new Set([
-  "id", "name", "type", "cadence", "enabled", "projectId", "instruction", "timeZone", "key", "lastRunAt", "history",
+  "id", "name", "type", "cadence", "enabled", "projectId", "instruction", "timeZone", "key", "createdBy", "lastRunAt", "history",
 ]);
 
 /** A job this version cannot read (an unknown type or cadence): a placeholder that carries the stored JSON verbatim. */
@@ -190,6 +190,7 @@ function sanitizeJob(raw: unknown, rowId?: string): ScheduledJob | null {
     ...(instruction !== undefined ? { instruction } : {}),
     timeZone,
     key: typeof raw.key === "string" && raw.key !== "" ? raw.key : null,
+    ...(typeof raw.createdBy === "string" && raw.createdBy !== "" ? { createdBy: raw.createdBy } : {}),
     lastRunAt,
     history,
     ...(Object.keys(extra).length > 0 ? { extra } : {}),

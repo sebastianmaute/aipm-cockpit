@@ -11,6 +11,7 @@
 // in Settings reaches the runner, and a run the runner records shows in Settings.
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getDeviceLabel } from "./device-label";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
 import { appendRun, normalizeJobFields } from "./scheduled-jobs/schedule";
 import type {
@@ -216,6 +217,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   const createJob = useCallback((input: CreateScheduledJobInput): Promise<void> => {
     return mutate((list) => {
       const { instruction, timeZone } = normalizeJobFields(input.instruction, input.timeZone);
+      const label = getDeviceLabel();
       const job: ScheduledJob = {
         id: nextJobId(list),
         name: input.name,
@@ -226,6 +228,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
         ...(instruction !== undefined ? { instruction } : {}),
         timeZone,
         key: crypto.randomUUID(),
+        ...(label !== "unknown" ? { createdBy: label } : {}),
         lastRunAt: null,
         history: [],
       };

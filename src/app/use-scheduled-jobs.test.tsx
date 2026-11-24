@@ -3,7 +3,10 @@ import { StrictMode } from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useScheduledJobs } from "./use-scheduled-jobs";
+import { getDeviceLabel } from "./device-label";
 import { JOB_HISTORY_CAP, type JobCadence, type ScheduledJobRun } from "./scheduled-jobs/types";
+
+vi.mock("./device-label", () => ({ getDeviceLabel: vi.fn(() => "unknown") }));
 
 const dailyCadence: JobCadence = { kind: "daily", timeOfDay: "09:00" };
 
@@ -12,7 +15,29 @@ function run(ranAt: string): ScheduledJobRun {
 }
 
 describe("useScheduledJobs (localStorage backend)", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(getDeviceLabel).mockReturnValue("unknown");
+  });
+
+  it("a new job records this device's label", async () => {
+    vi.mocked(getDeviceLabel).mockReturnValue("abcd1234");
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => {
+      await result.current.createJob({ name: "A", cadence: dailyCadence, enabled: true });
+    });
+    expect(result.current.jobs[0].createdBy).toBe("abcd1234");
+  });
+
+  it("an unknown label is not recorded", async () => {
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => {
+      await result.current.createJob({ name: "A", cadence: dailyCadence, enabled: true });
+    });
+    expect("createdBy" in result.current.jobs[0]).toBe(false);
+  });
 
   it("starts empty and reports ready", async () => {
     const { result } = renderHook(() => useScheduledJobs({ config: null }));

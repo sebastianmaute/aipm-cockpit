@@ -44,6 +44,19 @@ describe("scheduled-jobs-store (localStorage path, config=null)", () => {
     expect(out[0].cadence).toEqual({ kind: "daily", timeOfDay: "08:00" });
   });
 
+  it("createdBy survives a save and load", async () => {
+    await saveScheduledJobs(null, [{ ...job, createdBy: "3f9a2c1d" }]);
+    const [out] = await loadScheduledJobs(null);
+    expect(out.createdBy).toBe("3f9a2c1d");
+    expect(out.extra).toBeUndefined();
+  });
+
+  it("a non-string createdBy is dropped", async () => {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([{ ...job, createdBy: 5 }]));
+    const [out] = await loadScheduledJobs(null);
+    expect(out.createdBy).toBeUndefined();
+  });
+
   it("uses the namespaced localStorage key", async () => {
     await saveScheduledJobs(null, [job]);
     expect(localStorage.getItem(LOCAL_KEY)).not.toBeNull();
