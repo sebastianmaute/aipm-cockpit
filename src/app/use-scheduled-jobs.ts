@@ -12,6 +12,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceLabel } from "./device-label";
+import { acceptJob, forgetJob } from "./scheduled-job-acceptance";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
 import { appendRun, normalizeJobFields } from "./scheduled-jobs/schedule";
 import type {
@@ -215,6 +216,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   );
 
   const createJob = useCallback((input: CreateScheduledJobInput): Promise<void> => {
+    let written: ScheduledJob | undefined;
     return mutate((list) => {
       const { instruction, timeZone } = normalizeJobFields(input.instruction, input.timeZone);
       const label = getDeviceLabel();
@@ -232,30 +234,43 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
         lastRunAt: null,
         history: [],
       };
+      written = job;
       return [...list, job];
-    });
+    }).then(() => { if (written) acceptJob(written); });
   }, [mutate]);
 
   const updateJob = useCallback(
     (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string): Promise<void> => {
+      let written: ScheduledJob | undefined;
       return mutate((list) =>
-        list.map((j) => (editable(j) && matches(j, id, key) ? { ...j, ...normalizePatch(patch), id: j.id } : j)),
-      );
+        list.map((j) => {
+          if (!(editable(j) && matches(j, id, key))) return j;
+          written = { ...j, ...normalizePatch(patch), id: j.id };
+          return written;
+        }),
+      ).then(() => { if (written && "instruction" in patch) acceptJob(written); });
     },
     [mutate],
   );
 
   const deleteJob = useCallback((id: number, key?: string): Promise<void> => {
-    return mutate((list) => list.filter((j) => !matches(j, id, key)));
+    let removedKey: string | null | undefined;
+    return mutate((list) => {
+      removedKey = list.find((j) => matches(j, id, key))?.key;
+      return list.filter((j) => !matches(j, id, key));
+    }).then(() => { if (typeof removedKey === "string") forgetJob(removedKey); });
   }, [mutate]);
 
   const assignProject = useCallback(
     (id: number, projectId: string, timeZone: string, key?: string): Promise<void> => {
+      let written: ScheduledJob | undefined;
       return mutate((list) =>
-        list.map((j) => (editable(j) && matches(j, id, key)
-          ? { ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: j.key ?? crypto.randomUUID() }
-          : j)),
-      );
+        list.map((j) => {
+          if (!(editable(j) && matches(j, id, key))) return j;
+          written = { ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: j.key ?? crypto.randomUUID() };
+          return written;
+        }),
+      ).then(() => { if (written) acceptJob(written); });
     },
     [mutate],
   );

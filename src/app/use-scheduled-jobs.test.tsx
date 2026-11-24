@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useScheduledJobs } from "./use-scheduled-jobs";
+import { ACCEPTANCE_KEY, acceptanceState, jobFingerprint } from "./scheduled-job-acceptance";
 import { getDeviceLabel } from "./device-label";
 import { JOB_HISTORY_CAP, type JobCadence, type ScheduledJobRun } from "./scheduled-jobs/types";
 
@@ -409,5 +410,94 @@ describe("useScheduledJobs: a newer version's jobs and fields survive (§772 cr3
     await waitFor(() => expect(result.current.jobs).toHaveLength(2));
     await act(async () => { await result.current.deleteJob(2); });
     expect(stored().map((j) => j.id)).toEqual([1]);
+  });
+});
+
+describe("useScheduledJobs acceptance on this device", () => {
+  const JOBS_KEY = "aipm-cockpit:scheduled-jobs";
+  const seed = (extra: Record<string, unknown> = {}) => localStorage.setItem(JOBS_KEY, JSON.stringify([{
+    id: 1, name: "J", type: "portfolioAnalysis", cadence: dailyCadence, enabled: true,
+    projectId: "p1", timeZone: "UTC", key: "key-1", instruction: "b", lastRunAt: null, history: [], ...extra,
+  }]));
+  const accepted = (): Record<string, string> => JSON.parse(localStorage.getItem(ACCEPTANCE_KEY) ?? "{}");
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(getDeviceLabel).mockReturnValue("unknown");
+  });
+
+  it("creating a job accepts it on this device", async () => {
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => {
+      await result.current.createJob({ name: "A", cadence: dailyCadence, enabled: true, projectId: "p1", instruction: "x" });
+    });
+    expect(acceptanceState(result.current.jobs[0])).toBe("accepted");
+  });
+
+  it("assigning a project accepts the job", async () => {
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => { await result.current.createJob({ name: "A", cadence: dailyCadence, enabled: true }); });
+    const { id, key } = result.current.jobs[0];
+    await act(async () => { await result.current.assignProject(id, "p2", "UTC", key ?? undefined); });
+    expect(result.current.jobs[0].projectId).toBe("p2");
+    expect(acceptanceState(result.current.jobs[0])).toBe("accepted");
+  });
+
+  it("editing the instruction re-accepts", async () => {
+    seed();
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ "key-1": jobFingerprint({ projectId: "p1", instruction: "a" }) }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    expect(acceptanceState(result.current.jobs[0])).toBe("changed");
+    await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "key-1"); });
+    expect(acceptanceState(result.current.jobs[0])).toBe("accepted");
+    expect(accepted()["key-1"]).toBe(jobFingerprint({ projectId: "p1", instruction: "c" }));
+  });
+
+  it("renaming does not accept", async () => {
+    seed();
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    await act(async () => { await result.current.updateJob(1, { name: "n" }, "key-1"); });
+    expect(result.current.jobs[0].name).toBe("n");
+    expect(acceptanceState(result.current.jobs[0])).toBe("none");
+  });
+
+  it("a failed save accepts nothing", async () => {
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota"); });
+    let rejected = false;
+    await act(async () => {
+      await result.current.createJob({ name: "A", cadence: dailyCadence, enabled: true, projectId: "p1" }).catch(() => { rejected = true; });
+    });
+    spy.mockRestore();
+    expect(rejected).toBe(true);
+    expect(localStorage.getItem(ACCEPTANCE_KEY)).toBeNull();
+  });
+
+  it("deleting forgets; a re-created job is not accepted by the old entry", async () => {
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    const input = { name: "A", cadence: dailyCadence, enabled: true, projectId: "p1", instruction: "x" };
+    await act(async () => { await result.current.createJob(input); });
+    const oldKey = result.current.jobs[0].key as string;
+    expect(accepted()).toHaveProperty(oldKey);
+    await act(async () => { await result.current.deleteJob(result.current.jobs[0].id, oldKey); });
+    expect(accepted()).not.toHaveProperty(oldKey);
+    await act(async () => { await result.current.createJob(input); });
+    const fresh = result.current.jobs[0];
+    expect(fresh.key).not.toBe(oldKey);
+    expect(Object.keys(accepted())).toEqual([fresh.key]);
+  });
+
+  it("clearProject does not accept", async () => {
+    seed();
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    await act(async () => { await result.current.clearProject(1, "key-1"); });
+    expect(acceptanceState(result.current.jobs[0])).toBe("none");
   });
 });
