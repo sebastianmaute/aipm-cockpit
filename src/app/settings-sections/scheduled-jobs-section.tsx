@@ -29,8 +29,8 @@ import { resolveTimezone, tzZones } from "../timezone";
 import { type AcceptNotice, DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
 import { Banner } from "../banner";
 import { isRunnable } from "../scheduled-jobs/schedule";
-import { acceptanceState, acceptanceStateAt, acceptJob, jobFingerprint, storedAcceptanceEntry, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
-import { ownEditTarget } from "../scheduled-job-own-edit";
+import { acceptanceState, acceptJob, jobFingerprint, storedAcceptanceEntry, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
+import { ownEditTarget, shownAcceptanceState } from "../scheduled-job-own-edit";
 
 export interface ScheduledJobsSectionProps {
   lang: Lang;
@@ -101,7 +101,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   useAcceptanceSnapshot(); // the notice follows Accept / Stop on this device
   const awaitingOk = jobs.filter((j) => {
     if (!isRunnable(j)) return false;
-    const state = acceptanceStateAt(j, ownEditTarget(j)); // the version an own edit is saving, as the row reads it
+    const state = shownAcceptanceState(j); // exactly what the row shows, also while an own edit saves
     return state === "none" || state === "changed" || state === "declined-changed";
   }).length;
   const hasLegacyJob = jobs.some((j) => j.foreign === undefined && j.key === null);
@@ -148,11 +148,13 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
       // After the saves in progress settle, so a just-typed instruction is what is compared.
       const fresh = (await readFresh()).find((j) => j.key !== null && j.key === job.key);
       const isTarget = fresh !== undefined && jobFingerprint(fresh) === target;
+      // The click meant this tab's own change, and the store still holds what the row showed: the change was not saved.
+      const missed: AcceptNotice = fresh !== undefined && jobFingerprint(fresh) === jobFingerprint(job) ? "notSaved" : "changed";
       // The entry changed while the read was in flight: the user answered again (a decline, in this or another tab),
       // and that answer wins — or the edit the click meant failed to save and took its answer back: say so.
       if (storedAcceptanceEntry(job.key) !== entryAtClick) {
         if (fresh && jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();
-        if (meantEdit && !isTarget) setAcceptNotice(job.key, "changed");
+        if (meantEdit && !isTarget) setAcceptNotice(job.key, missed);
         return;
       }
       if (fresh && acceptanceState(fresh) === "accepted") {
@@ -164,7 +166,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
         if (!acceptJob(fresh)) setAcceptNotice(job.key, "saveFailed");
         return;
       }
-      setAcceptNotice(job.key, "changed");
+      setAcceptNotice(job.key, meantEdit ? missed : "changed");
       await refresh();
     } catch {
       setAcceptNotice(job.key, "failed");

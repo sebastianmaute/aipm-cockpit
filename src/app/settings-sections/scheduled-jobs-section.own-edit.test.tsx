@@ -1,6 +1,6 @@
 // An answer given right after an instruction edit, through the REAL hook and the real Accept / Stop paths: the edit
 // records this device's answer when it is called, so the click that blurs the field means the version being saved.
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ScheduledJobsSection } from "./scheduled-jobs-section";
@@ -10,6 +10,7 @@ import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import type { TursoConfig } from "../turso-config";
 import { ACCEPTANCE_KEY, acceptanceState, acceptJob, declineJob } from "../scheduled-job-acceptance";
+import { forgetOwnEdit } from "../scheduled-job-own-edit";
 
 const store = vi.hoisted(() => ({
   list: [] as unknown[],
@@ -44,13 +45,23 @@ function job(over: Partial<ScheduledJob> = {}): ScheduledJob {
 function holdSaves(): () => void {
   let release: () => void = () => {};
   store.gate = new Promise<void>((r) => { release = r; });
-  return () => { store.gate = null; release(); };
+  const releaseSaves = () => { store.gate = null; release(); };
+  heldRelease = releaseSaves;
+  return releaseSaves;
 }
+
+/** A test that fails while saves are held must not leave the shared write chain blocked for the next one. */
+let heldRelease: () => void = () => {};
+afterEach(() => {
+  heldRelease();
+  heldRelease = () => {};
+});
 
 const field = () => screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
 const awaitingNotice = () => screen.queryByText(/shared jobs? needs? your OK/);
 
 beforeEach(() => {
+  forgetOwnEdit("own-edit-key");
   localStorage.removeItem(ACCEPTANCE_KEY);
   store.list = [job()];
   store.gate = null;
@@ -153,7 +164,7 @@ describe("ScheduledJobsSection — an answer right after an instruction edit", (
     expect(acceptanceState(job())).toBe("declined");
   });
 
-  it("Accept right after editing a stopped job whose save then fails says the job changed and accepts nothing", async () => {
+  it("Accept right after editing a stopped job whose save then fails says the change was not saved and accepts nothing", async () => {
     declineJob(job());
     const user = userEvent.setup();
     render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
@@ -164,7 +175,7 @@ describe("ScheduledJobsSection — an answer right after an instruction edit", (
     store.fail = true;
     await user.click(screen.getByRole("button", { name: "Accept: Daily risks" }));
     release();
-    expect(await screen.findByText(t("en-US", "scheduledJobAcceptChanged"))).toBeInTheDocument();
+    expect(await screen.findByText(t("en-US", "scheduledJobAcceptNotSaved"))).toBeInTheDocument();
     expect(acceptanceState(job())).toBe("declined");
     expect(acceptanceState(job({ instruction: "c" }))).not.toBe("accepted");
   });
@@ -179,7 +190,76 @@ describe("ScheduledJobsSection — an answer right after an instruction edit", (
     store.fail = true;
     await user.click(screen.getByRole("button", { name: "Accept: Daily risks" }));
     release();
-    expect(await screen.findByText(t("en-US", "scheduledJobAcceptChanged"))).toBeInTheDocument();
+    expect(await screen.findByText(t("en-US", "scheduledJobAcceptNotSaved"))).toBeInTheDocument();
     expect(acceptanceState(job())).toBe("none");
+  });
+
+  /** Every acceptance value this device wrote for the job while `run` ran. */
+  async function answersDuring(run: () => Promise<void>): Promise<string[]> {
+    const writes = vi.spyOn(Storage.prototype, "setItem");
+    let calls: unknown[][] = [];
+    try {
+      await run();
+    } finally {
+      calls = [...writes.mock.calls]; // read before mockRestore, which clears them
+      writes.mockRestore();
+    }
+    return calls.filter(([k]) => k === ACCEPTANCE_KEY).map(([, v]) => JSON.parse(v as string)["own-edit-key"] as string);
+  }
+
+  it("a job changed elsewhere, typed back to the version this device accepted, then Accept: ends accepted, never stopped", async () => {
+    store.list = [job({ instruction: "b" })];
+    acceptJob(job({ instruction: "a" }));
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobChanged"));
+    await user.clear(field());
+    await user.type(field(), "a");
+    const answers = await answersDuring(async () => {
+      const release = holdSaves();
+      await user.click(screen.getByRole("button", { name: "Accept: Daily risks" }));
+      expect(screen.getByText(t("en-US", "scheduledJobChanged"))).toBeInTheDocument(); // nothing changed under the cursor
+      release();
+      await waitFor(() => expect(field()).toHaveValue("a"));
+      await waitFor(() => expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument());
+    });
+    expect(acceptanceState(job({ instruction: "a" }))).toBe("accepted"); // the stored answer for a stood, untouched
+    expect(answers.some((v) => v.startsWith("declined:"))).toBe(false);
+  });
+
+  it("a job changed elsewhere, typed back to the version this device accepted, then Not on this device: ends stopped, never accepted", async () => {
+    store.list = [job({ instruction: "b" })];
+    acceptJob(job({ instruction: "a" }));
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobChanged"));
+    await user.clear(field());
+    await user.type(field(), "a");
+    const answers = await answersDuring(async () => {
+      const release = holdSaves();
+      await user.click(screen.getByRole("button", { name: "Not on this device: Daily risks" }));
+      release();
+      await waitFor(() => expect(field()).toHaveValue("a"));
+      await waitFor(() => expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument());
+    });
+    expect(acceptanceState(job({ instruction: "a" }))).toBe("declined");
+    expect(answers.length).toBeGreaterThan(0);
+    expect(answers.every((v) => v.startsWith("declined:"))).toBe(true);
+  });
+
+  it("a stopped job changed elsewhere, edited, then Not on this device with a failing save: ends stopped (the click is not lost)", async () => {
+    declineJob(job({ instruction: "a" }));
+    const user = userEvent.setup();
+    render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByText(t("en-US", "scheduledJobChangedElsewhere"));
+    await user.clear(field());
+    await user.type(field(), "c");
+    const release = holdSaves();
+    store.fail = true;
+    await user.click(screen.getByRole("button", { name: "Not on this device: Daily risks" }));
+    release();
+    await screen.findByText(t("en-US", "scheduledJobsWriteFailed"));
+    await waitFor(() => expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument());
+    expect(acceptanceState(job())).toBe("declined");
   });
 });

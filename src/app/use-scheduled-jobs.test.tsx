@@ -531,6 +531,34 @@ describe("useScheduledJobs acceptance on this device", () => {
     expect(acceptanceState(result.current.jobs[0])).toBe("declined");
   });
 
+  for (const [label, answer, expected] of [
+    ["accepted", acceptJob, "accepted"],
+    ["stopped", declineJob, "declined"],
+  ] as const) {
+    it(`two overlapping own edits of a ${label} job that both fail leave the original answer`, async () => {
+      seed();
+      act(() => { answer(version({})); });
+      const { result } = renderHook(() => useScheduledJobs({ config: null }));
+      await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+      const realSetItem = Storage.prototype.setItem;
+      const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, k: string, v: string) {
+        if (k === JOBS_KEY) throw new Error("quota");
+        realSetItem.call(this, k, v);
+      });
+      try {
+        await act(async () => {
+          const first = result.current.updateJob(1, { instruction: "c" }, "key-1").catch(() => {});
+          const second = result.current.updateJob(1, { instruction: "d" }, "key-1").catch(() => {});
+          await Promise.all([first, second]);
+        });
+      } finally {
+        spy.mockRestore();
+      }
+      expect(result.current.jobs[0].instruction).toBe("b");
+      expect(acceptanceState(result.current.jobs[0])).toBe(expected);
+    });
+  }
+
   it("a Stop of the new version clicked while the edit saves stays stopped", async () => {
     seed();
     act(() => { acceptJob(version({})); });

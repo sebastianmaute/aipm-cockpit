@@ -1587,6 +1587,7 @@ export const de: Record<TranslationKey, string> = {
   scheduledJobAcceptFailed: "Dieser Job konnte nicht geprüft werden. Bitte erneut versuchen.",
   scheduledJobAnswerSaveFailed: "Ihre Antwort konnte auf diesem Gerät nicht gespeichert werden. Bitte erneut versuchen.",
   scheduledJobAcceptChanged: "Dieser Job wurde auf einem anderen Gerät geändert. Prüfen Sie ihn und stimmen Sie erneut zu.",
+  scheduledJobAcceptNotSaved: "Ihre Änderung wurde nicht gespeichert, daher wurde nichts angenommen.",
   scheduledJobNeedsOk: "Braucht Ihre Zustimmung, um auf diesem Gerät zu laufen",
   scheduledJobChanged: "Seit Ihrer Zustimmung geändert: braucht Ihre Zustimmung erneut",
   scheduledJobChangedElsewhere: "Auf einem anderen Gerät geändert: braucht Ihre Zustimmung",

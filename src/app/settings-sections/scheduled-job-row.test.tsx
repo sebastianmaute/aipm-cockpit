@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { JobRow } from "./scheduled-job-row";
 import { t } from "../i18n";
@@ -99,6 +99,32 @@ describe("JobRow acceptance", () => {
     expect(screen.getByRole("button", { name: "Accept: Weekly review" })).toBeInTheDocument();
   });
 
+  it("a click runs the action the button showed when it was pressed, even if its label changed before release", () => {
+    acceptJob(job());
+    const onAccept = vi.fn();
+    renderRow(job(), onAccept);
+    const main = screen.getByRole("button", { name: "Stop on this device: Weekly review" });
+    fireEvent.pointerDown(main);
+    act(() => { localStorage.removeItem(ACCEPTANCE_KEY); window.dispatchEvent(new StorageEvent("storage", { key: ACCEPTANCE_KEY })); });
+    expect(main).toHaveAccessibleName("Accept: Weekly review"); // the label changed under the pointer
+    fireEvent.click(main);
+    expect(onAccept).not.toHaveBeenCalled();
+    expect(acceptanceState(job())).toBe("declined"); // the Stop it showed at pointerdown
+  });
+
+  it("keyboard activation (no pointerdown) runs the live action, and a stale press is dropped", () => {
+    acceptJob(job());
+    const onAccept = vi.fn();
+    renderRow(job(), onAccept);
+    const main = screen.getByRole("button", { name: "Stop on this device: Weekly review" });
+    fireEvent.pointerDown(main);
+    fireEvent.pointerCancel(main);
+    act(() => { localStorage.removeItem(ACCEPTANCE_KEY); window.dispatchEvent(new StorageEvent("storage", { key: ACCEPTANCE_KEY })); });
+    fireEvent.keyDown(main, { key: "Enter" });
+    fireEvent.click(main);
+    expect(onAccept).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps focus on the action button when Accept turns into Stop", async () => {
     const user = userEvent.setup();
     renderRow(job());
@@ -165,7 +191,7 @@ describe("JobRow acceptance", () => {
 
   describe("while this tab's own edit of the job saves", () => {
     const edited = job({ instruction: "Look at costs" });
-    beforeEach(() => { noteOwnEdit("job-key-1", edited, null); });
+    beforeEach(() => { noteOwnEdit("job-key-1", edited, null, "none"); });
     afterEach(() => forgetOwnEdit("job-key-1"));
 
     it("reads the answer for the version being saved, and Stop stops that version", () => {

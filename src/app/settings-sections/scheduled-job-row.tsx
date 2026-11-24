@@ -14,8 +14,8 @@ import { formatDisplayTimestamp } from "../tz-display";
 import { TEXTAREA_MAX } from "../sanitize-core";
 import type { UseScheduledJobsResult } from "../use-scheduled-jobs";
 import { REPORT_ERROR_KEY, type ReportErrorToken } from "../scheduled-reports-store";
-import { acceptanceStateAt, declineJobVersion, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
-import { ownEditTarget } from "../scheduled-job-own-edit";
+import { useAcceptanceSnapshot } from "../scheduled-job-acceptance";
+import { declineShownJob, shownAcceptanceState } from "../scheduled-job-own-edit";
 import { peekDeviceLabel } from "../device-label";
 
 /** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
@@ -117,9 +117,9 @@ function InstructionField({
   );
 }
 
-/** Why the last answer on a row did not land: the Accept's re-read failed, the job changed elsewhere, or this device
- *  could not store the answer. */
-export type AcceptNotice = "failed" | "changed" | "saveFailed";
+/** Why the last answer on a row did not land: the Accept's re-read failed, the job changed elsewhere, this device
+ *  could not store the answer, or the own change the Accept meant was never saved. */
+export type AcceptNotice = "failed" | "changed" | "saveFailed" | "notSaved";
 
 function noop(): void {}
 
@@ -127,6 +127,7 @@ const ACCEPT_NOTICE_KEY: Record<AcceptNotice, TranslationKey> = {
   failed: "scheduledJobAcceptFailed",
   changed: "scheduledJobAcceptChanged",
   saveFailed: "scheduledJobAnswerSaveFailed",
+  notSaved: "scheduledJobAcceptNotSaved",
 };
 
 const ACCEPTANCE_STATUS_KEY: Record<"accepted" | "declined" | "declined-changed" | "changed" | "none", TranslationKey> = {
@@ -159,10 +160,13 @@ function AcceptanceLine({
   // A Stop that could not be recorded says so, until the next click.
   const [stopFailed, setStopFailed] = useState(false);
   const mainRef = useRef<HTMLButtonElement>(null);
-  // While this tab's own edit saves, the row still shows the old version but the answer is already the new one's:
-  // read and answer the version being saved, so a Stop clicked right after typing stops what was typed.
-  const state = acceptanceStateAt(job, ownEditTarget(job));
-  const declineShown = (): boolean => declineJobVersion(job, ownEditTarget(job));
+  // While this tab's own edit saves, the row keeps showing what it showed when the edit was called (the edit runs on
+  // the field's blur, BETWEEN a button's pointerdown and its click), while every answer means the version being saved.
+  const state = shownAcceptanceState(job);
+  const declineShown = (): boolean => declineShownJob(job);
+  // Backstop: what the main button said when it was pressed is what its click does, even if the label changed in
+  // between. A keyboard activation has no pointerdown and runs the live action.
+  const pressedAction = useRef<"stop" | "accept" | null>(null);
   // A job with no project reports nothing, so there is nothing to accept; a cannot-run job has no state to show.
   const decided = state === "cannot-run" || job.projectId === null ? null : state;
   // An Accept notice never sits beside "Accepted on this device".
@@ -193,11 +197,16 @@ function AcceptanceLine({
               // aria-disabled, never `disabled`: a disabled button drops keyboard focus.
               aria-disabled={pending ? true : undefined}
               className="aria-disabled:cursor-wait aria-disabled:opacity-50"
+              onPointerDown={() => { pressedAction.current = accepted ? "stop" : "accept"; }}
+              onPointerCancel={() => { pressedAction.current = null; }}
+              onKeyDown={() => { pressedAction.current = null; }}
               onClick={() => {
+                const action = pressedAction.current ?? (accepted ? "stop" : "accept");
+                pressedAction.current = null;
                 if (pending) return;
                 onNoticeClear();
                 setStopFailed(false);
-                if (accepted) setStopFailed(!declineShown());
+                if (action === "stop") setStopFailed(!declineShown());
                 else onAccept(job);
               }}
               aria-label={t(lang, accepted ? "scheduledJobStopNamed" : "scheduledJobAcceptNamed", token)}
