@@ -15,6 +15,8 @@ const store = vi.hoisted(() => ({
   lists: new Map<string, unknown[]>(),
   loadGate: null as Promise<void> | null,
   writes: [] as string[],
+  /** How many of the next saves fail (the database unreachable). */
+  failNext: 0,
 }));
 vi.mock("../scheduled-jobs-store", () => ({
   loadScheduledJobs: async (config: { httpUrl: string } | null) => {
@@ -22,6 +24,10 @@ vi.mock("../scheduled-jobs-store", () => ({
     return structuredClone(store.lists.get(config?.httpUrl ?? "local") ?? []);
   },
   saveScheduledJobs: async (config: { httpUrl: string } | null, next: unknown[]) => {
+    if (store.failNext > 0) {
+      store.failNext -= 1;
+      throw new Error("offline");
+    }
     const k = config?.httpUrl ?? "local";
     store.writes.push(k);
     store.lists.set(k, structuredClone(next));
@@ -64,6 +70,7 @@ beforeEach(() => {
   store.lists = new Map();
   store.loadGate = null;
   store.writes = [];
+  store.failNext = 0;
 });
 
 describe("ScheduledJobsSection — assigning a project to a legacy job", () => {
@@ -93,6 +100,44 @@ describe("ScheduledJobsSection — assigning a project to a legacy job", () => {
     expect(listOf(A)[0].key).not.toBeNull();
     expect(listOf(A)[0].enabled).toBe(false);
     expect(deletedShown()).toBe(false);
+  });
+});
+
+describe("ScheduledJobsSection — an assign whose save failed leaves the legacy job as it was", () => {
+  /** Assigns p1 to the legacy job with the save failing: the job keeps no key. */
+  async function failAssign(): Promise<void> {
+    store.lists.set(A.httpUrl, [job({ key: null, projectId: null, timeZone: null })]);
+    render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    await sleep(50);
+    store.failNext = 1;
+    fireEvent.change(projectSelect(), { target: { value: "p1" } });
+    await sleep(250);
+    expect(listOf(A)[0].key).toBeNull();
+  }
+
+  it("a retried assign lands and gives the job its key, with no 'deleted' notice", async () => {
+    await failAssign();
+    fireEvent.change(projectSelect(), { target: { value: "p2" } });
+    await sleep(300);
+    expect(listOf(A)[0].key).not.toBeNull();
+    expect(listOf(A)[0].projectId).toBe("p2");
+    expect(deletedShown()).toBe(false);
+  });
+
+  it("a name edit after it reaches the job, with no 'deleted' notice", async () => {
+    await failAssign();
+    fireEvent.change(screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobName")} – Daily risks` }), { target: { value: "Renamed" } });
+    await sleep(300);
+    expect(listOf(A)[0].name).toBe("Renamed");
+    expect(deletedShown()).toBe(false);
+  });
+
+  it("a delete after it deletes the job", async () => {
+    await failAssign();
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "delete")} – Daily risks` }));
+    await sleep(300);
+    expect(listOf(A)).toEqual([]);
   });
 });
 

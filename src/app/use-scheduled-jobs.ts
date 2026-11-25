@@ -427,14 +427,22 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
   const assignProject = useCallback(
     (id: number, projectId: string, timeZone: string, key?: string | null): Promise<void> => {
       const source = jobsSourceRef.current;
+      // The key minted by this write, recorded only once its save landed (a failed or refused save leaves the job
+      // keyless, so a later `null`-key write must keep meaning "the job with no key").
+      let minted: string | null = null;
       return writeJob(id, key, (j) => {
         let jobKey = j.key;
         if (jobKey === null) {
           jobKey = crypto.randomUUID();
-          mintedRef.current.set(`${source ?? ""}:${j.id}`, jobKey);
+          minted = jobKey;
         }
         return { ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: jobKey };
-      }, { markEdit: true, rejectIfGone: true });
+      }, {
+        markEdit: true,
+        rejectIfGone: true,
+        // Inside the write chain, before the next queued write's transform runs.
+        afterSave: () => { if (minted !== null) mintedRef.current.set(`${source ?? ""}:${id}`, minted); },
+      });
     },
     [writeJob],
   );
