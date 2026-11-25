@@ -12,7 +12,7 @@ longer carries its own changelog comment.
 
 ### Added
 
-- **A setting to send the view's guides with each chat message.** Settings → AI → "Send the view's guides with
+- **A setting to send the view's guides with each chat message.** Settings → AI Assistant → "Send the view's guides with
   each message" moves the current view's operating guides out of the cached part of the chat prompt and into each
   message, so switching views mid-conversation no longer writes the whole conversation to the cache again; every
   request then carries the guides uncached. It is off by default and needs operating guides on; the usage panel
@@ -86,7 +86,8 @@ longer carries its own changelog comment.
 - **AI action buttons stay visible while AI is not ready.** With AI switched off or no API key set, Deduplicate &
   unify, Suggest RACI and Plan with AI now show disabled with a hint on how to turn AI on, as Optimize with AI
   already did, instead of disappearing. When AI is on and a key is set but the AI data disclosure is not, or no
-  longer, accepted, all four say to accept it.
+  longer, accepted, all four say to accept it; when your organisation has switched AI off for the app, they say
+  that instead. The hint is written beside the button, so it can be read without a mouse.
 - **With AI switched off, the chat says so instead of asking for a key.** An empty chat told you to add your
   Anthropic API key even when one was saved and only the AI switch in Settings was off, and a chat with a conversation
   on screen gave no reason at all for its disabled message box. Both now say the AI assistant is switched off, where
