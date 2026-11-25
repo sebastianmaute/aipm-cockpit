@@ -229,7 +229,9 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
       nameQualifier={triggerQualifier}
       description={t(lang, "taskDedupTitle")}
       unavailableReason={unavailableReason}
-      disabled={!aiReady || phase === "applying"}
+      // AI not ready only disables the IDLE trigger: while thinking it is Stop, and cancelling must always work
+      // (consent withdrawn, key removed or AI switched off in another tab while the request runs).
+      disabled={(!aiReady && phase !== "thinking") || phase === "applying"}
     />
   ) : null;
 

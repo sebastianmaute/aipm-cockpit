@@ -728,3 +728,31 @@ describe("useRaciSuggest — the trigger while the deployment blocks AI", () => 
     expect(screen.queryByText(t("en-US", "aiActionNeedsAi"))).toBeNull();
   });
 });
+
+
+// A request is running and AI stops being ready meanwhile (consent withdrawn, key removed or AI switched off in
+// another tab): the trigger is a Stop button then, and cancelling must always work — it stays ENABLED.
+describe("useRaciSuggest — Stop while AI stops being ready", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("keeps Stop enabled and cancels the request", async () => {
+    const signals: AbortSignal[] = [];
+    vi.mocked(call.runRaciSuggestion).mockImplementation((...args: unknown[]) => {
+      for (const a of args) if (a instanceof AbortSignal) signals.push(a);
+      return new Promise(() => {});
+    });
+    const { rerender } = renderHarness();
+    openAndRun();
+    await waitFor(() => expect(signals).toHaveLength(1));
+    rerender(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <Harness settings={defaultSettings} />
+      </ToastProvider>,
+    );
+    const stop = screen.getByRole("button", { name: t("en-US", "aiStop") });
+    expect(stop).toBeEnabled();
+    fireEvent.click(stop);
+    expect(signals[0].aborted).toBe(true);
+    expect(screen.queryByRole("button", { name: t("en-US", "aiStop") })).toBeNull();
+    expect(screen.getByRole("button", { name: /suggest raci/i })).toBeDisabled();
+  });
+});

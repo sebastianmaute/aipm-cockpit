@@ -520,7 +520,9 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
         description={t(lang, "wbsPlanButtonTitle")}
         unavailableReason={unavailableReason}
-        disabled={!aiReady || (phase !== "idle" && phase !== "thinking")}
+        // AI not ready only disables the IDLE trigger: while thinking it is Stop, and cancelling must always work
+        // (consent withdrawn, key removed or AI switched off in another tab while the request runs).
+        disabled={(!aiReady && phase !== "thinking") || (phase !== "idle" && phase !== "thinking")}
       />
     </span>
   );
