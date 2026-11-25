@@ -423,7 +423,7 @@ describe("§772 — project, time zone and instruction", () => {
   });
 
   it("saves the trimmed instruction on blur, and nothing when it is unchanged", async () => {
-    mockJobs = [job({ id: 3, name: "Alpha", instruction: "keep" })];
+    mockJobs = [job({ id: 3, name: "Alpha", instruction: "keep", key: "k3" })];
     setup(withKey({ scheduledJobs: true }));
     const box = await screen.findByRole("textbox", { name: nameOf("scheduledJobInstruction", "Alpha") });
     fireEvent.blur(box);
@@ -431,7 +431,7 @@ describe("§772 — project, time zone and instruction", () => {
     fireEvent.change(box, { target: { value: "  focus on risks  " } });
     expect(updateJob).not.toHaveBeenCalled();
     fireEvent.blur(box);
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "focus on risks" }, null, expect.objectContaining({ expectInstruction: expect.any(Function) }));
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "focus on risks" }, "k3", expect.objectContaining({ expectInstruction: expect.any(Function) }));
   });
 
   it("saves the time zone through updateJob and lists the IANA zones", async () => {
@@ -525,22 +525,22 @@ describe("§772 — project, time zone and instruction", () => {
   });
 
   it("saves an emptied instruction as undefined", async () => {
-    mockJobs = [job({ id: 3, name: "Alpha", instruction: "keep" })];
+    mockJobs = [job({ id: 3, name: "Alpha", instruction: "keep", key: "k3" })];
     setup(withKey({ scheduledJobs: true }));
     const box = await screen.findByRole("textbox", { name: nameOf("scheduledJobInstruction", "Alpha") });
     fireEvent.change(box, { target: { value: "   " } });
     fireEvent.blur(box);
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: undefined }, null, expect.objectContaining({ expectInstruction: expect.any(Function) }));
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: undefined }, "k3", expect.objectContaining({ expectInstruction: expect.any(Function) }));
   });
 
   it("saves a typed instruction when the section unmounts before the field is blurred", async () => {
-    mockJobs = [job({ id: 3, name: "Alpha" })];
+    mockJobs = [job({ id: 3, name: "Alpha", key: "k3" })];
     const { unmount } = render(<ScheduledJobsSection lang="en-US" settings={withKey({ scheduledJobs: true })} onChange={vi.fn()} config={TURSO} />);
     const box = await screen.findByRole("textbox", { name: nameOf("scheduledJobInstruction", "Alpha") });
     fireEvent.change(box, { target: { value: "  watch the budget " } });
     expect(updateJob).not.toHaveBeenCalled();
     unmount();
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "watch the budget" }, null, expect.objectContaining({ expectInstruction: expect.any(Function) }));
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "watch the budget" }, "k3", expect.objectContaining({ expectInstruction: expect.any(Function) }));
   });
 
   it("does not write on unmount when nothing was typed", async () => {

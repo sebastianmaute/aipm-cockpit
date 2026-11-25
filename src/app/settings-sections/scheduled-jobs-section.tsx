@@ -79,7 +79,8 @@ function useProjectLists(config: TursoConfig | null, available: boolean): Projec
 }
 
 export function ScheduledJobsSection({ lang, settings, onChange, config }: ScheduledJobsSectionProps) {
-  const { jobs, busy, createJob, updateJob, deleteJob, assignProject, refresh, readFresh, savingJobs } = useScheduledJobs({ config, refreshOnFocus: true, trackSaving: true });
+  const { jobs, jobsSource, busy, createJob, updateJob, deleteJob, assignProject, refresh, readFresh, savingJobs } =
+    useScheduledJobs({ config, refreshOnFocus: true, trackSaving: true });
   // §316 — every new job starts with the same default name.
   const jobTokens = useRowTokens(jobs, nameOfJob);
   const tz = useDisplayTzOrBrowser();
@@ -266,7 +267,10 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
               <ul className="flex flex-col gap-2">
                 {jobs.map((job) => (
                   <JobRow
-                    key={job.id}
+                    // Per portfolio (the backend the list was read from), id and permanent key: a portfolio switch, an id
+                    // reused for another job, or a key given to a legacy job starts a fresh row, so no text, draft or
+                    // notice is ever carried to another job.
+                    key={`${jobsSource ?? ""}:${job.id}:${job.key ?? ""}`}
                     lang={lang}
                     job={job}
                     token={jobTokens.get(job.id) ?? job.name}

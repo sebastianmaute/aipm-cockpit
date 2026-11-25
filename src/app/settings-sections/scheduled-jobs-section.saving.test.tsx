@@ -51,6 +51,7 @@ vi.mock("../turso-portfolio", () => ({ listProjectRefs: async () => ({ active: [
 vi.mock("../portfolio-mode", () => ({ loadPortfolioMode: () => "turso", loadCurrentTursoProjectId: () => null }));
 
 const TURSO = { httpUrl: "https://saving.example", authToken: "t" } as unknown as TursoConfig;
+const TURSO_B = { httpUrl: "https://saving-other.example", authToken: "t" } as unknown as TursoConfig;
 const settings: Settings = {
   ...defaultSettings,
   ai: { ...defaultSettings.ai, apiKey: "sk-test", enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)), scheduledJobs: true },
@@ -1103,43 +1104,6 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(screen.queryByText(t("en-US", "scheduledJobDeletedElsewhere"))).toBeNull();
   });
 
-  it("a keyless row keeps its offered text when assigning a project gives the job its key, and keeps it under that key", async () => {
-    const user = userEvent.setup();
-    store.list = [job({ key: null, projectId: null, timeZone: null })];
-    show();
-    await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
-    await typeInstruction(user, "c");
-    store.list = [job({ key: null, projectId: null, timeZone: null, instruction: "y" })];
-    fireEvent.focusOut(field());
-    await sleep(200);
-    expect(lostText()).toHaveValue("c");
-    await user.selectOptions(screen.getByRole("combobox", { name: `${t("en-US", "scheduledJobProject")} – Daily risks` }), "p1");
-    await sleep(250);
-    const minted = (store.list[0] as ScheduledJob).key;
-    expect(minted).not.toBeNull();
-    expect(lostText()).toHaveValue("c");
-    const raw = JSON.parse(sessionStorage.getItem(LOST) ?? "{}") as Record<string, unknown>;
-    expect(raw[minted as string]).toEqual([{ text: "c", reason: "dropped" }]);
-  });
-
-  it("a keyless job's late loss is not shown in another portfolio's keyless job with the same id", async () => {
-    const user = userEvent.setup();
-    store.list = [job({ key: null, projectId: null, timeZone: null })];
-    const first = show();
-    await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
-    await typeInstruction(user, "secretA");
-    const release = holdSaves();
-    first.unmount();
-    await sleep(50);
-    store.list = [job({ key: null, projectId: null, timeZone: null, name: "Other job", instruction: "o" })];
-    show();
-    await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Other job` });
-    store.fail = true;
-    release();
-    await sleep(200);
-    expect(screen.queryByRole("textbox", { name: `${t("en-US", "scheduledJobLostText")} – Other job` })).toBeNull();
-  });
-
   it("a text kept between the row's first read and its subscription is shown; Dismiss leaves a text it never showed", async () => {
     const user = userEvent.setup();
     store.list = [job({ instruction: "x" })];
@@ -1174,37 +1138,18 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
   const otherField = () => screen.queryByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Other job` });
   const otherBox = () => screen.queryByRole("textbox", { name: `${t("en-US", "scheduledJobLostText")} – Other job` });
 
-  it("a keyless job's offered text is not carried to another job that now has its id", async () => {
-    const user = userEvent.setup();
+  it("a keyless job replaced at its id by another device's keyed job: that job is shown, editable, and nothing is written", async () => {
     store.list = [job({ key: null, projectId: null, timeZone: null })];
     show();
-    await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
-    await typeInstruction(user, "secretA");
-    store.list = [job({ key: null, projectId: null, timeZone: null, instruction: "y" })];
-    fireEvent.focusOut(field());
-    await sleep(200);
-    expect(lostText()).toHaveValue("secretA");
-    store.list = [job({ key: OTHER_KEY, name: "Other job", instruction: "w" })];
-    await refocus();
-    expect(otherField()).toHaveValue("w");
-    expect(otherBox()).toBeNull();
-    expect(screen.queryByText(t("en-US", "scheduledJobDraftDropped"))).toBeNull();
-    expect(sessionStorage.getItem(LOST)).toBeNull();
-  });
-
-  it("a keyless job's unsaved draft is never written into another job that now has its id", async () => {
-    const user = userEvent.setup();
-    store.list = [job({ key: null, projectId: null, timeZone: null })];
-    show();
-    await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
-    await typeInstruction(user, "textForA"); // not saved yet
-    store.list = [job({ key: OTHER_KEY, name: "Other job", instruction: "b" })];
+    expect(await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` })).toHaveAttribute("readonly");
+    const replaced = job({ key: OTHER_KEY, name: "Other job", instruction: "b" });
+    store.list = [replaced];
     await refocus();
     expect(otherField()).toHaveValue("b");
-    fireEvent.focusOut(otherField() as HTMLElement);
-    await sleep(200);
-    expect((store.list[0] as ScheduledJob).instruction).toBe("b");
-    expect((store.list[0] as ScheduledJob).key).toBe(OTHER_KEY);
+    expect(otherField()).not.toHaveAttribute("readonly");
+    await sleep(100);
+    expect(store.list).toEqual([replaced]);
+    expect(screen.queryByText(t("en-US", "scheduledJobDeletedElsewhere"))).toBeNull();
   });
 
   it("a keyed job's offered text and notice are not carried to a keyless job that now has its id", async () => {
@@ -1258,16 +1203,69 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(storedEntry()).toBe("declined:elsewhere"); // nothing written by the Accept
   });
 
-  it("a job without a key keeps no lost text (ids collide across portfolios)", async () => {
-    store.list = [job({ key: null })];
+  it("a job without a key cannot be typed into: nothing is written on blur or close, and nothing is kept", async () => {
+    store.list = [job({ key: null, projectId: null, timeZone: null })];
+    const before = structuredClone(store.list);
     const user = userEvent.setup();
     const first = show();
-    await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
-    await typeInstruction(user, "c");
-    store.fail = true;
+    const box = await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
+    expect(box).toHaveAttribute("readonly");
+    expect(box).toHaveAccessibleDescription(t("en-US", "scheduledJobAssignProjectToEdit"));
+    await user.click(box);
+    await user.keyboard("typed");
+    expect(box).toHaveValue("b");
+    await user.click(document.body);
+    await sleep(100);
     first.unmount();
     await sleep(100);
+    expect(store.list).toEqual(before);
     expect(sessionStorage.getItem(LOST)).toBeNull();
+  });
+
+  it("a keyless job another device gives a key is shown as that keyed job, editable, with nothing lost", async () => {
+    store.list = [job({ key: null, projectId: null, timeZone: null })];
+    show();
+    expect(await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` })).toHaveAttribute("readonly");
+    store.list = [job({ key: "remote-key" })];
+    await refocus();
+    expect(field()).toHaveValue("b");
+    expect(field()).not.toHaveAttribute("readonly");
+    expect(screen.queryByText(t("en-US", "scheduledJobDeletedElsewhere"))).toBeNull();
+    expect(sessionStorage.getItem(LOST)).toBeNull();
+  });
+
+  it("assigning a project here makes the field editable, and an edit then saves", async () => {
+    const user = userEvent.setup();
+    store.list = [job({ key: null, projectId: null, timeZone: null })];
+    show();
+    expect(await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` })).toHaveAttribute("readonly");
+    await user.selectOptions(screen.getByRole("combobox", { name: `${t("en-US", "scheduledJobProject")} – Daily risks` }), "p1");
+    await sleep(250);
+    expect((store.list[0] as ScheduledJob).key).not.toBeNull();
+    expect(field()).not.toHaveAttribute("readonly");
+    await typeInstruction(user, "z");
+    fireEvent.focusOut(field());
+    await sleep(200);
+    expect(stored()).toBe("z");
+  });
+
+  it("a portfolio switch to a job with the same id starts a fresh row", async () => {
+    const user = userEvent.setup();
+    const runs = [
+      { ranAt: "2026-11-02T09:00:00.000Z", summary: "s2", actionCount: 0, ok: true },
+      { ranAt: "2026-11-01T09:00:00.000Z", summary: "s1", actionCount: 0, ok: true },
+    ];
+    store.list = [job({ key: null, projectId: null, timeZone: null, history: runs })];
+    const view = show();
+    await screen.findByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Daily risks` });
+    await user.click(screen.getByRole("button", { name: `${t("en-US", "showMore")} – Daily risks` }));
+    expect(screen.getByRole("button", { name: `${t("en-US", "showLess")} – Daily risks` })).toBeInTheDocument();
+    store.list = [job({ key: null, projectId: null, timeZone: null, instruction: "b2", history: runs })];
+    view.rerender(<ScheduledJobsSection lang="en-US" settings={settings} onChange={vi.fn()} config={TURSO_B} />);
+    await sleep(300);
+    expect(field()).toHaveValue("b2");
+    expect(screen.getByRole("button", { name: `${t("en-US", "showMore")} – Daily risks` })).toBeInTheDocument(); // not carried over
+    expect(lostText()).toBeNull();
   });
 
   it("a lost-draft store that cannot be used changes nothing else", async () => {

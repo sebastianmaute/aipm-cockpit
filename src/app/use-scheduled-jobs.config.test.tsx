@@ -42,6 +42,7 @@ vi.mock("./scheduled-jobs-store", () => ({
 }));
 
 import { useScheduledJobs } from "./use-scheduled-jobs";
+import { JobGoneError } from "./scheduled-jobs/schedule";
 
 const TURSO: TursoConfig = { httpUrl: "https://fictional.example", authToken: "tok" };
 const job = (id: number, name: string): ScheduledJob =>
@@ -143,8 +144,9 @@ describe("useScheduledJobs — jobsSource and keyed writes (§772 final review)"
     store.lists.set(TURSO.httpUrl, [{ ...job(1, "turso"), key: "key-1" }]);
     const h = mount(TURSO);
     await waitFor(() => expect(h.result.current.jobs).toHaveLength(1));
-    await act(async () => { await h.result.current.updateJob(1, { name: "wrong" }, "other-key"); });
-    await act(async () => { await h.result.current.assignProject(1, "p9", "UTC", "other-key"); });
+    // A user's edit that reaches no job rejects as gone (it never resolves as written); a delete stays quiet.
+    await act(async () => { await expect(h.result.current.updateJob(1, { name: "wrong" }, "other-key")).rejects.toBeInstanceOf(JobGoneError); });
+    await act(async () => { await expect(h.result.current.assignProject(1, "p9", "UTC", "other-key")).rejects.toBeInstanceOf(JobGoneError); });
     await act(async () => { await h.result.current.deleteJob(1, "other-key"); });
     expect(h.result.current.jobs.map((j) => [j.name, j.projectId])).toEqual([["turso", null]]);
     await act(async () => { await h.result.current.updateJob(1, { name: "right" }, "key-1"); });

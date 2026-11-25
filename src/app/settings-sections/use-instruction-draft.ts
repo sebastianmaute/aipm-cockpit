@@ -27,7 +27,7 @@ export type DraftStatus = "ok" | "notSaved" | "dropped" | "lostNotSaved";
 /** What a draft save needs, kept current by the handlers and an effect (never written during render). */
 interface DraftRefs {
   latest: {
-    current: { jobId: number; saveId: string; keyless: boolean; foreign: boolean; draft: string; base: string; onUpdate: JobUpdate };
+    current: { jobId: number; saveId: string; foreign: boolean; draft: string; base: string; onUpdate: JobUpdate };
   };
   /** Saves this row has sent and not yet seen settle, oldest first, each with the refusal generation it started in. */
   pending: { current: readonly { text: string; gen: number }[] };
@@ -164,7 +164,6 @@ const restoreStatus = (lost: readonly LostText[]): DraftStatus =>
   lost.length === 0 ? "ok" : lost[0].reason === "dropped" ? "dropped" : "lostNotSaved";
 
 type LostUpdate = (prev: readonly LostText[]) => readonly LostText[];
-type SetLost = (update: LostUpdate) => void;
 
 /** The offered texts and the draft's status, in ONE state, so a removal that empties the offer can end its notice in
  *  the same update (a notice never outlives its texts). */
@@ -187,28 +186,13 @@ function lostAndStatus(state: LostAndStatus, action: LostAndStatusAction): LostA
   return { lost, status: ends ? "ok" : state.status };
 }
 
-/** The two lost-text writes a save makes. A keyed job's go through `lost-draft.ts` (one text at a time; every open row
- *  of that job is told). A keyless job's stay in this row's memory: its `id:N` save id is not unique across
- *  portfolios, so it is neither kept nor reported to other rows. */
-function lostActions(latest: DraftRefs["latest"], mounted: DraftRefs["mounted"], setLost: SetLost): Pick<DraftRefs, "offerLost" | "savedLost"> {
+/** The two lost-text writes a save makes, through `lost-draft.ts` (one text at a time; every open row of that job is
+ *  told). Only a keyed job's row ever saves: a legacy job's field is read-only (`scheduled-job-row.tsx`). */
+function lostActions(latest: DraftRefs["latest"]): Pick<DraftRefs, "offerLost" | "savedLost"> {
   return {
-    offerLost: (text) => {
-      const now = latest.current;
-      if (!now.keyless) {
-        // Kept for later only for a job this version can edit.
-        addLostText(now.saveId, text, { keep: !now.foreign });
-        return;
-      }
-      if (mounted.current) setLost((prev) => withLostDraft(prev, text));
-    },
-    savedLost: (text) => {
-      const now = latest.current;
-      if (!now.keyless) {
-        removeLostTexts(now.saveId, [text]);
-        return;
-      }
-      if (mounted.current) setLost((prev) => withoutTexts(prev, [text]));
-    },
+    // Kept for later only for a job this version can edit.
+    offerLost: (text) => addLostText(latest.current.saveId, text, { keep: !latest.current.foreign }),
+    savedLost: (text) => removeLostTexts(latest.current.saveId, [text]),
   };
 }
 
@@ -240,16 +224,14 @@ function withMissing(list: readonly LostText[], kept: readonly LostText[]): read
  *  a time through `lost-draft.ts` (kept per tab, so they are offered again after the editor closes), and the row
  *  follows every change it is told of — including a text a closed editor lost after this row mounted. A text the job
  *  holds is removed; a successful save removes only the texts equal to what it saved; Dismiss removes the texts shown.
- *  A job without a key keeps its texts in this row's memory only (until it is given a key); a job turned foreign keeps
- *  none for later. */
+ *  A job turned foreign keeps none for later. A job without a key never has a draft here: its field is read-only. */
 export function useInstructionDraft(job: ScheduledJob, onUpdate: JobUpdate) {
   const stored = job.instruction ?? "";
   const saveId = jobSaveId(job);
-  const keyless = job.key === null;
   const foreign = job.foreign !== undefined;
   // A state updater (not useReducer): an update that changes nothing bails out before rendering at all.
   const [{ lost, status }, setLostAndStatus] = useState((): LostAndStatus => {
-    const initial = keyless ? [] : peekLostDrafts(saveId).filter((d) => d.text.trim() !== stored);
+    const initial = peekLostDrafts(saveId).filter((d) => d.text.trim() !== stored);
     return { lost: initial, status: restoreStatus(initial) };
   });
   const dispatch = useCallback((action: LostAndStatusAction) => setLostAndStatus((prev) => lostAndStatus(prev, action)), []);
@@ -278,25 +260,24 @@ export function useInstructionDraft(job: ScheduledJob, onUpdate: JobUpdate) {
       if (left.length === 0) setStatus((st) => (st === "dropped" || st === "lostNotSaved" ? "ok" : st));
     }
   }
-  const latest = useRef({ jobId: job.id, saveId, keyless, foreign, draft, base, onUpdate });
+  const latest = useRef({ jobId: job.id, saveId, foreign, draft, base, onUpdate });
   const pending = useRef<readonly { text: string; gen: number }[]>([]);
   const expected = useRef(stored);
   const generation = useRef(0);
   const mounted = useRef(true);
   useEffect(() => {
-    latest.current = { jobId: job.id, saveId, keyless, foreign, draft, base, onUpdate };
+    latest.current = { jobId: job.id, saveId, foreign, draft, base, onUpdate };
   });
   const lostRef = useRef(lost);
   useEffect(() => { lostRef.current = lost; }, [lost]);
   // A text the job holds is not lost (at mount too): remove it from what is kept. Before the subscription below, so its
   // replay never shows (and then removes) such a text: no render cascade at mount.
   useEffect(() => {
-    if (!keyless) removeLostTexts(saveId, [stored]);
-  }, [saveId, stored, keyless]);
+    removeLostTexts(saveId, [stored]);
+  }, [saveId, stored]);
   // Follow every change to a keyed job's lost texts, one text at a time (never a whole list written over another).
   // Subscribing also reads what is kept now, so a text kept between the first render's read and this effect is shown.
   useEffect(() => {
-    if (keyless) return undefined;
     const stop = subscribeLostTexts((id, change) => {
       if (id !== saveId) return;
       if ("added" in change) {
@@ -313,31 +294,21 @@ export function useInstructionDraft(job: ScheduledJob, onUpdate: JobUpdate) {
       removeLost((prev) => (removed === "all" ? (prev.length === 0 ? prev : []) : withoutTexts(prev, removed)));
     }, saveId);
     return stop;
-  }, [saveId, keyless, setLost, removeLost]);
-  // A keyless job given its key (assigning a project mints one): the texts this row shows are kept under it from now on.
-  const wasKeyless = useRef(keyless);
-  useEffect(() => {
-    const was = wasKeyless.current;
-    wasKeyless.current = keyless;
-    if (!was || keyless) return;
-    for (const text of [...lostRef.current].reverse()) addLostText(saveId, text, { keep: !foreign });
-  }, [saveId, keyless, foreign]);
+  }, [saveId, setLost, removeLost]);
   const refs = (): DraftRefs => ({
-    latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending,
-    ...lostActions(latest, mounted, setLost),
+    latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending, ...lostActions(latest),
   });
   // Mount and unmount only: the setters are stable (`useCallback` over a state setter).
   useEffect(() => {
     mounted.current = true;
     const unmountRefs: DraftRefs = {
-      latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending,
-      ...lostActions(latest, mounted, setLost),
+      latest, pending, expected, generation, mounted, setStatus, setDraft, setBase, setHasPending, ...lostActions(latest),
     };
     return () => {
       mounted.current = false;
       flushDraft(unmountRefs);
     };
-  }, [setLost, setStatus]);
+  }, [setStatus]);
   const endNotice = () => setStatus((st) => (st === "dropped" || st === "lostNotSaved" ? "ok" : st));
   return {
     draft,
@@ -356,7 +327,7 @@ export function useInstructionDraft(job: ScheduledJob, onUpdate: JobUpdate) {
     /** Removes the texts shown (a text kept since, and not shown yet, stays). */
     dismissLost: () => {
       const shown = lost.map((d) => d.text);
-      if (!keyless) removeLostTexts(saveId, shown);
+      removeLostTexts(saveId, shown);
       setLost((prev) => withoutTexts(prev, shown));
       endNotice();
     },

@@ -4,7 +4,7 @@
 // project, cadence, time zone, standing instruction and run history (§772). Presentational: the job and the
 // project lists arrive as props, every write leaves through a callback.
 
-import { useId, useState } from "react";
+import { type ChangeEvent, useId, useState } from "react";
 import { type Lang, t, tPlural, type TranslationKey } from "../i18n";
 import { aiKeyMessageKeyForStatusToken } from "../ai-key-status";
 import type { JobCadence, ScheduledJob, ScheduledJobRun } from "../scheduled-jobs/types";
@@ -16,7 +16,6 @@ import { REPORT_ERROR_KEY, type ReportErrorToken } from "../scheduled-reports-st
 import { type JobUpdate, useInstructionDraft } from "./use-instruction-draft";
 import { type AcceptNotice, AcceptanceLine } from "./scheduled-job-acceptance-line";
 import { LostTextBox } from "./scheduled-job-lost-text";
-import { isKeyMintedHere } from "../scheduled-jobs/schedule";
 
 /** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
  *  token is the digit string the runner stores, so history recorded before this change reads the
@@ -56,12 +55,15 @@ const WEEKDAY_KEYS: TranslationKey[] = [
 
 export const DEFAULT_TIME = "09:00";
 
-/** The standing instruction field: presentational, the draft lives in `useInstructionDraft`. */
+/** The standing instruction field: presentational, the draft lives in `useInstructionDraft`. A job with no permanent
+ *  key (a legacy job) shows it read-only — still focusable and selectable — with a hint to assign a project, which
+ *  gives the job its key; until then no draft exists, so nothing is saved, kept or lost. */
 function InstructionField({
   id,
   lang,
   token,
   value,
+  readOnly,
   onChange,
   onBlur,
 }: {
@@ -69,9 +71,11 @@ function InstructionField({
   lang: Lang;
   token: string;
   value: string;
+  readOnly: boolean;
   onChange: (value: string) => void;
   onBlur: () => void;
 }) {
+  const hintId = `${id}-hint`;
   return (
     <label className="flex flex-col gap-1 text-xs text-foreground">
       <span>{t(lang, "scheduledJobInstruction")}</span>
@@ -83,9 +87,11 @@ function InstructionField({
         value={value}
         placeholder={t(lang, "scheduledJobInstructionPlaceholder")}
         aria-label={`${t(lang, "scheduledJobInstruction")} – ${token}`}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={onBlur}
+        {...(readOnly
+          ? { readOnly: true, "aria-describedby": hintId }
+          : { onChange: (e: ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value), onBlur })}
       />
+      {readOnly && <span id={hintId} className="text-muted-foreground">{t(lang, "scheduledJobAssignProjectToEdit")}</span>}
     </label>
   );
 }
@@ -123,28 +129,8 @@ type JobRowProps = {
   onNoticeClear?: () => void;
 };
 
-/** The row's remount key: it changes whenever the job's permanent key changes (to another key, to none, or from none
- *  to a key), so no text, draft or notice of the job that held the id is shown for another one — with ONE exception:
- *  a keyless job given a key THIS tab minted (`isKeyMintedHere`, assigning a project) is the same job, so it keeps its
- *  row and the text the row shows. Render-phase reconcile, not an effect. */
-function useRowIdentity(job: ScheduledJob): number {
-  const [identity, setIdentity] = useState({ key: job.key, n: 0 });
-  if (job.key !== identity.key) {
-    const minted = identity.key === null && job.key !== null && isKeyMintedHere(job.key);
-    const n = minted ? identity.n : identity.n + 1;
-    setIdentity({ key: job.key, n });
-    return n;
-  }
-  return identity.n;
-}
-
-/** One scheduled job: keyed by the section on its id, and remounted when that id comes to name another job. */
-export function JobRow(props: JobRowProps) {
-  const identity = useRowIdentity(props.job);
-  return <JobRowBody key={identity} {...props} />;
-}
-
-function JobRowBody({
+/** One scheduled job. The section keys it by portfolio, id and permanent key, so it starts fresh for another job. */
+export function JobRow({
   lang,
   job,
   token,
@@ -341,7 +327,7 @@ function JobRowBody({
         </label>
       </div>
 
-      <InstructionField id={fieldId} lang={lang} token={token} value={instruction.draft} onChange={instruction.onChange} onBlur={instruction.onBlur} />
+      <InstructionField id={fieldId} lang={lang} token={token} value={instruction.draft} readOnly={job.key === null} onChange={instruction.onChange} onBlur={instruction.onBlur} />
       <LostTextBox lang={lang} token={token} text={instruction.lostText} onDismiss={dismissLost} />
 
       <AcceptanceLine

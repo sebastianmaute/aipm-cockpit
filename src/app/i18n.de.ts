@@ -1590,6 +1590,7 @@ export const de: Record<TranslationKey, string> = {
   scheduledJobNotSaved: "Nicht gespeichert",
   scheduledJobChangeNotSaved: "Ihre Änderung konnte nicht gespeichert werden. Verlassen Sie das Feld, um es erneut zu versuchen.",
   scheduledJobDraftDropped: "Dieser Job wurde auf einem anderen Gerät geändert, daher wurde Ihre nicht gespeicherte Änderung nicht gespeichert.",
+  scheduledJobAssignProjectToEdit: "Weisen Sie ein Projekt zu, um diesen Job zu bearbeiten.",
   scheduledJobLostText: "Ihr nicht gespeicherter Text",
   scheduledJobLostTextHint: "Nicht gespeichert. Kopieren Sie ihn in die Anweisung, um ihn zu verwenden.",
   scheduledJobLostTextDismiss: "Ausblenden",

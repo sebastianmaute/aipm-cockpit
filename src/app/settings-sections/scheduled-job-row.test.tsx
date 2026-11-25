@@ -687,6 +687,35 @@ describe("JobRow acceptance", () => {
     expect(screen.getByText("Created on device bbbb2222")).toBeInTheDocument();
   });
 
+  it("a legacy job's instruction is read-only, with a hint linked to it; typing and leaving it write nothing", async () => {
+    const onUpdate = vi.fn();
+    const user = userEvent.setup();
+    const view = render(
+      <ul>
+        <JobRow lang="en-US" job={job({ key: null })} token="Weekly review" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
+          archivedProjects={[]} projectsLoaded zones={["UTC"]} defaultZone="UTC" onUpdate={onUpdate} onAssign={vi.fn()}
+          onDelete={vi.fn()} onAccept={vi.fn()} />
+      </ul>,
+    );
+    const field = screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Weekly review` });
+    expect(field).toHaveAttribute("readonly");
+    expect(field).toHaveAccessibleDescription(t("en-US", "scheduledJobAssignProjectToEdit"));
+    expect(screen.getByText(t("en-US", "scheduledJobAssignProjectToEdit"))).toBeVisible();
+    await user.click(field);
+    await user.keyboard("more");
+    expect(field).toHaveValue("Look at risks");
+    await user.tab();
+    view.unmount();
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it("a keyed job's instruction is editable and has no such hint", () => {
+    renderRow(job());
+    const field = screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Weekly review` });
+    expect(field).not.toHaveAttribute("readonly");
+    expect(screen.queryByText(t("en-US", "scheduledJobAssignProjectToEdit"))).toBeNull();
+  });
+
   it("a legacy job has no Accept or Stop", () => {
     renderRow(job({ key: null }));
     expect(screen.queryByRole("button", { name: /^Accept/ })).toBeNull();

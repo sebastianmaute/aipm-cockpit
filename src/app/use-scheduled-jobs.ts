@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceLabel } from "./device-label";
 import { acceptJob, forgetJob, jobFingerprint, markEditedHere } from "./scheduled-job-acceptance";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
-import { appendRun, JobChangedError, JobGoneError, JobNotEditableError, jobSaveId, mintJobKey, normalizeJobFields } from "./scheduled-jobs/schedule";
+import { appendRun, JobChangedError, JobGoneError, JobNotEditableError, jobSaveId, normalizeJobFields } from "./scheduled-jobs/schedule";
 import { forgetLostDraft } from "./scheduled-jobs/lost-draft";
 import type {
   JobCadence, ScheduledJob, ScheduledJobRun,
@@ -406,7 +406,7 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
   const assignProject = useCallback(
     (id: number, projectId: string, timeZone: string, key?: string | null): Promise<void> =>
       writeJob(id, key, (j) => ({
-        ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: j.key ?? mintJobKey(),
+        ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: j.key ?? crypto.randomUUID(),
       }), { markEdit: true, rejectIfGone: true }),
     [writeJob],
   );

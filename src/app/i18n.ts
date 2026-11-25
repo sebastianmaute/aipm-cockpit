@@ -1695,6 +1695,7 @@ const enUS = {
   scheduledJobNotSaved: "Not saved",
   scheduledJobChangeNotSaved: "Couldn't save your change. Leave the field to try again.",
   scheduledJobDraftDropped: "This job changed on another device, so your unsaved change was not saved.",
+  scheduledJobAssignProjectToEdit: "Assign a project to edit this job.",
   scheduledJobLostText: "Your unsaved text",
   scheduledJobLostTextHint: "Not saved. Copy it into the instruction to use it.",
   scheduledJobLostTextDismiss: "Dismiss",
