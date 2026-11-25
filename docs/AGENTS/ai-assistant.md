@@ -1612,8 +1612,13 @@
     it), or `"declined:"` + the fingerprint. ★★ A cloned database holds the same job keys, so an answer given in one
     portfolio never counts in another: an entry of another portfolio, or an older entry keyed by the job key alone,
     reads `none` (it fails closed). The "edited here" marks are keyed the same way. Every reader and writer passes
-    the scope: the runner's `isAcceptedHere` (wired in `use-ai-orchestration.ts` with the runner's config), the
-    section, row and acceptance line (the active config), and the hook's writes (the backend the write went to).
+    the scope: the runner's `isAcceptedHere` (wired in `use-ai-orchestration.ts` with the runner's config, pinned by
+    `use-ai-orchestration.acceptance.test.ts`), the hook's writes (the backend the write went to), and the section, row
+    and acceptance line — with the portfolio of the list ON SCREEN (`jobsSource`), not the active config. ★★ While
+    that list is still the previous portfolio's (a switch whose new list has not arrived), the answer buttons are
+    unusable (`aria-disabled`, as while a re-read is pending), and an Accept re-reads only from that portfolio
+    (`readFresh(source)` rejects with `JobSourceChangedError` otherwise) and records only while it is still the
+    active one, so a press never answers in another portfolio; such an Accept answers nothing and says nothing.
     States: `accepted` · `declined` · `changed` (accepted another version) · `declined-changed`
     (stopped another version, "Changed on another device", never "since you accepted it") · `none` · `cannot-run`
     (legacy or foreign job). ★★ A foreign job (one a newer version rewrote) KEEPS its permanent key in memory
