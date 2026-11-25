@@ -10,7 +10,7 @@ import type { GroundingIndex } from "./action-ai";
 import { AiBackgroundPausedError, AiWeeklyCapReachedError, newConsent, publishAiConsentState, publishBackgroundProjectOff } from "./ai-consent";
 import { addDisabledIntegration, setDisabledIntegrations } from "./integration-switches";
 import { defaultAiConfig } from "./settings-types";
-import { AiKeyCheckUnavailableError, AiKeyRefusedError } from "./ai-errors";
+import { AiHttpError, AiKeyCheckUnavailableError, AiKeyRefusedError } from "./ai-errors";
 
 vi.mock("./insights/recommend-call", () => ({ runInsightRecommendation: vi.fn() }));
 // The deployment status is asked of the server before every send; here it answers "on".
@@ -151,6 +151,26 @@ describe("useInsightRecommendRunner", () => {
     await act(async () => { await flushMicrotasks(); });
     expect(mockRun).toHaveBeenCalledTimes(1);
     expect(applyRecommendation).not.toHaveBeenCalled();
+  });
+
+  // A selected model Anthropic does not know (retired or unknown) fails the same way for every remaining candidate.
+  test("an unavailable model (404 not_found_error) ends the tick", async () => {
+    mockRun.mockRejectedValueOnce(new AiHttpError(404, "not_found_error"));
+    mockRun.mockResolvedValue(fakeRec);
+    const { applyRecommendation } = renderRunner({ insights: [makeInsight(1), makeInsight(2), makeInsight(3)] });
+    await act(async () => { await flushMicrotasks(); });
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(applyRecommendation).not.toHaveBeenCalled();
+  });
+
+  // Any other 404 is one-off: the next candidate still gets a try.
+  test("a 404 without not_found_error does not end the tick", async () => {
+    mockRun.mockRejectedValueOnce(new AiHttpError(404));
+    mockRun.mockResolvedValue(fakeRec);
+    const { applyRecommendation } = renderRunner({ insights: [makeInsight(1), makeInsight(2)] });
+    await act(async () => { await flushMicrotasks(); });
+    expect(mockRun).toHaveBeenCalledTimes(2);
+    expect(applyRecommendation).toHaveBeenCalledTimes(1);
   });
 
   // AI organisation key: a refused key is refused for every remaining candidate too.

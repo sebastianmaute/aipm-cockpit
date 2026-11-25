@@ -124,7 +124,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
     const tickEpoch = getScopeEpochRef.current?.();
     try {
       // Serial, not parallel — bounded by MAX_BG_RECS_PER_TICK candidates, and
-      // a global failure (usage limit / auth) should stop the whole tick
+      // a global failure (usage limit / auth / unavailable model) should stop the whole tick
       // rather than fire N more calls that will fail the same way. An abort
       // (unmount mid-tick) is the same kind of global stop — checked before
       // starting a candidate AND after one settles, so neither a call that
@@ -170,7 +170,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
         } catch (e) {
           // NEVER log/echo the api key or response body. An abort (unmount)
           // stops the whole tick — the promise's rejection is expected, not a
-          // failure to classify. A limit/auth failure is likewise global
+          // failure to classify. A limit/auth/unavailable-model failure is likewise global
           // (every remaining call this tick would fail the same way) — stop
           // burning budget. Any OTHER failure (parse/network/one-off) is
           // swallowed so the next candidate still gets a try.
@@ -186,7 +186,8 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
           if (e instanceof AiKeyCheckUnavailableError) break;
           if (e instanceof AiHttpError) {
             const cls = classifyAiError(e.status, e.errorType);
-            if (cls === "limit" || cls === "auth") break;
+            // An unavailable model (retired or unknown) is the same model for every remaining candidate.
+            if (cls === "limit" || cls === "auth" || cls === "model") break;
           }
         }
       }
