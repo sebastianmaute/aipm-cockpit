@@ -10,9 +10,9 @@
 // It reads the project lists itself (never through usePortfolioProjects, which
 // follows the OPEN portfolio) so the picker works from any view.
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { isBackgroundOffForced } from "../ai-project-switches";
-import { type Lang, t } from "../i18n";
+import { type Lang, t, tPlural } from "../i18n";
 import { FieldHint } from "../field-hint";
 import { isAiBackgroundEnabled, isAiEnabled, type Settings } from "../settings-types";
 import { aiDeploymentBlockedMessageKey } from "../ai-deployment";
@@ -26,7 +26,10 @@ import { useDisplayTzOrBrowser } from "../display-timezone-context";
 import { loadCurrentTursoProjectId, loadPortfolioMode } from "../portfolio-mode";
 import { listProjectRefs } from "../turso-portfolio";
 import { resolveTimezone, tzZones } from "../timezone";
-import { DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
+import { type AcceptNotice, DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
+import { Banner } from "../banner";
+import { isRunnable, JobChangedError, JobGoneError, JobNotEditableError, JobSourceChangedError, jobSaveId } from "../scheduled-jobs/schedule";
+import { acceptanceScope, acceptanceState, acceptJob, jobFingerprint, storedAcceptanceEntry, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
 
 export interface ScheduledJobsSectionProps {
   lang: Lang;
@@ -76,7 +79,8 @@ function useProjectLists(config: TursoConfig | null, available: boolean): Projec
 }
 
 export function ScheduledJobsSection({ lang, settings, onChange, config }: ScheduledJobsSectionProps) {
-  const { jobs, busy, createJob, updateJob, deleteJob, assignProject } = useScheduledJobs({ config });
+  const { jobs, jobsSource, failedSource, busy, createJob, updateJob, deleteJob, assignProject, refresh, readFresh, savingJobs } =
+    useScheduledJobs({ config, refreshOnFocus: true, trackSaving: true });
   // §316 — every new job starts with the same default name.
   const jobTokens = useRowTokens(jobs, nameOfJob);
   const tz = useDisplayTzOrBrowser();
@@ -94,12 +98,128 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   const backgroundHintId = useId();
   // A LEGACY job predates §772: it carries no permanent key. A job added now has one (createJob mints it) and
   // only lacks a project, which its own row says.
+  useAcceptanceSnapshot(); // the notice follows Accept / Stop on this device
+  // This device's answers count in one portfolio only (a cloned database holds the same job keys): the portfolio of the
+  // list ON SCREEN. While that list is still the previous portfolio's (a switch whose new list has not arrived), the
+  // answer buttons are unusable, so a press never answers in either portfolio by mistake.
+  const activeBackend = config ? config.httpUrl : null;
+  const shownBackend = jobsSource !== undefined ? jobsSource : activeBackend;
+  const scope = acceptanceScope(shownBackend);
+  const answersLive = shownBackend === activeBackend;
+  // The active portfolio NOW (for an answer whose read resolves after a switch). Synced in a layout effect, so it is
+  // current from the commit on: no read resolves between a switch's commit and this update.
+  const activeBackendRef = useRef(activeBackend);
+  useLayoutEffect(() => { activeBackendRef.current = activeBackend; }, [activeBackend]);
+  // The new portfolio's list could not be read: the rows on screen are still the previous portfolio's (and cannot be
+  // answered), so say so until the next successful read (which brings that portfolio's list).
+  const loadFailedAfterSwitch = failedSource !== undefined && failedSource === activeBackend && shownBackend !== activeBackend;
+  const awaitingOk = jobs.filter((j) => {
+    if (!isRunnable(j)) return false;
+    const state = acceptanceState(j, scope);
+    return state === "none" || state === "changed" || state === "declined-changed";
+  }).length;
   const hasLegacyJob = jobs.some((j) => j.foreign === undefined && j.key === null);
   // A write that fails (the database unreachable) must not look as if it worked until the next reload.
   const [writeFailed, setWriteFailed] = useState(false);
-  const track = (write: Promise<void>): void => {
-    void Promise.resolve(write).then(() => setWriteFailed(false), () => setWriteFailed(true));
+  // A job deleted on another device leaves no row to speak in: the section's status region says so instead.
+  const [deletedElsewhere, setDeletedElsewhere] = useState(false);
+  // The legacy job whose project was just assigned here: its row starts afresh (the key it is given is part of the row
+  // key), and the new row puts focus back on its project select.
+  const [focusProjectOf, setFocusProjectOf] = useState<number | null>(null);
+  // An edit of a job a newer version rewrote (it cannot be edited here any more) is not a connection failure either.
+  const [editedByNewer, setEditedByNewer] = useState(false);
+  // A row edit (other than the instruction, which keeps its text) refused because the portfolio was switched first.
+  const [switchRefused, setSwitchRefused] = useState(false);
+  const track = (write: Promise<void>, instruction = false): void => {
+    // A conditional save refused (the row says so), an edit of a job deleted elsewhere or rewritten by a newer version
+    // is not a failed write: say what happened instead.
+    void Promise.resolve(write).then(
+      () => { setWriteFailed(false); setDeletedElsewhere(false); setEditedByNewer(false); setSwitchRefused(false); },
+      (err: unknown) => {
+        if (err instanceof JobGoneError) setDeletedElsewhere(true);
+        else if (err instanceof JobNotEditableError) setEditedByNewer(true);
+        // A write from a row of the portfolio just left: nothing written. A typed instruction is kept for copying by
+        // the row itself; any other refused edit is said here, so it is never lost in silence.
+        else if (err instanceof JobSourceChangedError) { if (!instruction) setSwitchRefused(true); }
+        else if (!(err instanceof JobChangedError)) setWriteFailed(true);
+      },
+    );
   };
+
+  // What the last Accept on each row found out when it accepted nothing, keyed by the job's permanent key.
+  const [acceptNotices, setAcceptNotices] = useState<ReadonlyMap<string, AcceptNotice>>(new Map());
+  const [acceptPending, setAcceptPending] = useState<ReadonlySet<string>>(new Set());
+  function setPending(key: string, on: boolean): void {
+    setAcceptPending((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }
+  function setAcceptNotice(key: string | null, notice: AcceptNotice | null): void {
+    if (key === null) return;
+    setAcceptNotices((prev) => {
+      const next = new Map(prev);
+      if (notice === null) next.delete(key);
+      else next.set(key, notice);
+      return next;
+    });
+  }
+
+  // The row may show a stale job: re-read, and accept only what the store still holds unchanged. Otherwise show the
+  // current job and say so; a failed read accepts nothing and says that.
+  async function acceptFresh(job: ScheduledJob): Promise<void> {
+    if (job.key === null || acceptPending.has(job.key)) return;
+    setAcceptNotice(job.key, null);
+    setDeletedElsewhere(false);
+    setEditedByNewer(false);
+    setSwitchRefused(false);
+    setPending(job.key, true);
+    const entryAtClick = storedAcceptanceEntry(job.key, scope);
+    try {
+      // After the saves in progress settle, so the job is compared with what the store holds once they land. (An answer
+      // press never ends the edit: an instruction still being typed is not saved yet, and the row shows the stored job.)
+      // Read from the portfolio of the list on screen only: an answer is never recorded for another one.
+      const fresh = (await readFresh(shownBackend)).find((j) => j.key !== null && j.key === job.key);
+      // Switched while reading: the portfolio answered for is no longer the active one, so nothing is answered.
+      if (activeBackendRef.current !== shownBackend) return;
+      if (fresh?.foreign !== undefined) {
+        // A newer version rewrote the job: this version can neither run nor answer it. Nothing is answered — and this is
+        // said first, even when an answer changed during the read.
+        setEditedByNewer(true);
+        await refresh();
+        return;
+      }
+      // The user answered again while the read was in flight (a decline, in this or another tab): that answer wins.
+      if (storedAcceptanceEntry(job.key, scope) !== entryAtClick) {
+        if (fresh && jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();
+        return;
+      }
+      if (fresh && acceptanceState(fresh, scope) === "accepted") {
+        // This device already accepted the current version; a row still showing an older one is brought up to date.
+        if (jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();
+        return;
+      }
+      if (fresh && jobFingerprint(fresh) === jobFingerprint(job)) {
+        if (!acceptJob(fresh, scope)) setAcceptNotice(job.key, "saveFailed");
+        return;
+      }
+      if (fresh === undefined) {
+        // Deleted on another device: its row goes away with the refresh, so the section says so.
+        setDeletedElsewhere(true);
+      } else {
+        setAcceptNotice(job.key, "changed");
+      }
+      await refresh();
+    } catch (err: unknown) {
+      // The portfolio changed before the read: nothing is answered (the row is about to be replaced by the new list).
+      if (err instanceof JobSourceChangedError) return;
+      setAcceptNotice(job.key, "failed");
+    } finally {
+      setPending(job.key, false);
+    }
+  }
 
   function toggleEnabled() {
     onChange({ ...settings, ai: { ...settings.ai, scheduledJobs: !enabled } });
@@ -159,13 +279,32 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
 
           {enabled && (
             <>
+              {/* Always mounted: a live region must exist before its text changes. */}
+              <div role="status">
+                {awaitingOk > 0 && (
+                  <Banner severity="info" role="none">
+                    {tPlural(lang, "scheduledJobsAwaitingOk", awaitingOk, String(awaitingOk))}
+                  </Banner>
+                )}
+                {deletedElsewhere && <p className="text-xs text-foreground">{t(lang, "scheduledJobDeletedElsewhere")}</p>}
+                {editedByNewer && <p className="text-xs text-foreground">{t(lang, "scheduledJobEditedByNewerVersion")}</p>}
+              </div>
               {projects.failed && <FieldHint>{t(lang, "tursoPickerError")}</FieldHint>}
               {writeFailed && <p role="alert" className="text-xs text-foreground">{t(lang, "scheduledJobsWriteFailed")}</p>}
+              {loadFailedAfterSwitch && (
+                <p role="alert" className="text-xs text-foreground">{t(lang, "scheduledJobsLoadFailedAfterSwitch")}</p>
+              )}
+              {switchRefused && (
+                <p role="alert" className="text-xs text-foreground">{t(lang, "scheduledJobChangeNotSavedPortfolioSwitch")}</p>
+              )}
 
               <ul className="flex flex-col gap-2">
                 {jobs.map((job) => (
                   <JobRow
-                    key={job.id}
+                    // Per portfolio (the backend the list was read from), id and permanent key: a portfolio switch, an id
+                    // reused for another job, or a key given to a legacy job starts a fresh row, so no text, draft or
+                    // notice is ever carried to another job.
+                    key={`${jobsSource ?? ""}:${job.id}:${job.key ?? ""}`}
                     lang={lang}
                     job={job}
                     token={jobTokens.get(job.id) ?? job.name}
@@ -176,10 +315,34 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     projectsLoaded={projects.loaded}
                     zones={zones}
                     defaultZone={defaultZone}
-                    // The permanent key rides along, so a write can only reach THIS portfolio's job (ids collide across portfolios).
-                    onUpdate={(id, patch) => track(updateJob(id, patch, job.key ?? undefined))}
-                    onAssign={(id, projectId, timeZone) => track(assignProject(id, projectId, timeZone, job.key ?? undefined))}
-                    onDelete={(id) => track(deleteJob(id, job.key ?? undefined))}
+                    // The permanent key rides along (`null` for a legacy job: the job with this id that has no key, or the key
+                    // this tab just minted for it), and the hook binds every row write to the portfolio this list was read
+                    // from, so a write reaches only this job (ids collide across portfolios).
+                    onUpdate={(id, patch, options) => {
+                      const key = job.key;
+                      const write = options === undefined ? updateJob(id, patch, key) : updateJob(id, patch, key, options);
+                      track(write, options !== undefined); // the instruction draft's save passes options
+                      return write; // the instruction draft waits for it: a failed save keeps the draft
+                    }}
+                    onAssign={(id, projectId, timeZone) => {
+                      const write = assignProject(id, projectId, timeZone, job.key);
+                      if (job.key === null) {
+                        // Minting the key starts the row afresh: its project select takes keyboard focus back on mount.
+                        setFocusProjectOf(id);
+                        write.catch(() => setFocusProjectOf((f) => (f === id ? null : f)));
+                      }
+                      track(write);
+                    }}
+                    focusProjectOnMount={focusProjectOf === job.id}
+                    scope={scope}
+                    onProjectFocused={() => setFocusProjectOf(null)}
+                    onDelete={(id) => track(deleteJob(id, job.key))}
+                    onAccept={(j) => { void acceptFresh(j); }}
+                    acceptPending={!answersLive || (job.key !== null && acceptPending.has(job.key))}
+                    // A save of this job in flight: its answer buttons wait for it, so an answer never races an edit.
+                    saving={savingJobs.has(jobSaveId(job))}
+                    acceptNotice={job.key !== null ? (acceptNotices.get(job.key) ?? null) : null}
+                    onNoticeClear={() => setAcceptNotice(job.key, null)}
                   />
                 ))}
               </ul>

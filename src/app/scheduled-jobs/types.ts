@@ -28,6 +28,8 @@ export interface ScheduledJob {
   timeZone: string | null;
   /** Permanent identity of the job across runs and devices; null on a legacy job. */
   key: string | null;
+  /** The creating device's label (display only); absent on a job made before this was recorded or when the label was unknown. */
+  createdBy?: string;
   lastRunAt: string | null;
   history: ScheduledJobRun[]; // newest-first, capped
   /** Fields a newer version added: kept verbatim and written back unchanged, so an edit here cannot strip them. */

@@ -4,7 +4,7 @@
 // project, cadence, time zone, standing instruction and run history (§772). Presentational: the job and the
 // project lists arrive as props, every write leaves through a callback.
 
-import { useEffect, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useId, useState } from "react";
 import { type Lang, t, tPlural, type TranslationKey } from "../i18n";
 import { aiKeyMessageKeyForStatusToken } from "../ai-key-status";
 import type { JobCadence, ScheduledJob, ScheduledJobRun } from "../scheduled-jobs/types";
@@ -12,8 +12,10 @@ import { Input, Select, Checkbox, Textarea } from "../form-controls";
 import { Button } from "../button";
 import { formatDisplayTimestamp } from "../tz-display";
 import { TEXTAREA_MAX } from "../sanitize-core";
-import type { UseScheduledJobsResult } from "../use-scheduled-jobs";
 import { REPORT_ERROR_KEY, type ReportErrorToken } from "../scheduled-reports-store";
+import { type JobUpdate, useInstructionDraft } from "./use-instruction-draft";
+import { type AcceptNotice, AcceptanceLine } from "./scheduled-job-acceptance-line";
+import { LostTextBox } from "./scheduled-job-lost-text";
 
 /** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
  *  token is the digit string the runner stores, so history recorded before this change reads the
@@ -32,8 +34,8 @@ function runResultText(lang: Lang, run: ScheduledJobRun): string {
   return run.error === "limit" ? t(lang, "aiUsageLimitReached") : runFailureText(lang, run.error);
 }
 
-/** The fields `updateJob` accepts — exactly its patch type, so a row can never write a project or key. */
-export type JobPatch = Parameters<UseScheduledJobsResult["updateJob"]>[1];
+export type { JobPatch } from "./use-instruction-draft";
+export type { AcceptNotice } from "./scheduled-job-acceptance-line";
 
 export interface ProjectOption {
   id: string;
@@ -53,82 +55,50 @@ const WEEKDAY_KEYS: TranslationKey[] = [
 
 export const DEFAULT_TIME = "09:00";
 
-interface InstructionDraft {
-  jobId: number;
-  draft: string;
-  saved: string;
-  onUpdate: (id: number, patch: JobPatch) => void;
-}
-
-/** Writes the trimmed draft when it differs from what was last saved; clearing it writes `undefined`. */
-function flushInstruction(d: InstructionDraft) {
-  const trimmed = d.draft.trim();
-  if (trimmed === d.saved) return;
-  d.saved = trimmed;
-  d.onUpdate(d.jobId, { instruction: trimmed === "" ? undefined : trimmed });
-}
-
-/** The standing instruction, edited as a draft and saved (trimmed) when the field loses focus OR is unmounted
- *  (closing the dialog fires no blur on a focused node that unmounts). The caller keys it by the stored value,
- *  so a save from elsewhere starts a fresh draft. */
+/** The standing instruction field: presentational, the draft lives in `useInstructionDraft`. A job with no permanent
+ *  key (a legacy job) shows it read-only — still focusable and selectable — with a hint to assign a project, which
+ *  gives the job its key; until then no draft exists, so nothing is saved, kept or lost. */
 function InstructionField({
+  id,
   lang,
-  job,
   token,
-  onUpdate,
+  value,
+  readOnly,
+  onChange,
+  onBlur,
 }: {
+  id: string;
   lang: Lang;
-  job: ScheduledJob;
   token: string;
-  onUpdate: (id: number, patch: JobPatch) => void;
+  value: string;
+  readOnly: boolean;
+  onChange: (value: string) => void;
+  onBlur: () => void;
 }) {
-  const [draft, setDraft] = useState(job.instruction ?? "");
-  // What a save needs, kept current from the handlers (no ref write during render).
-  const latest = useRef<InstructionDraft>({ jobId: job.id, draft, saved: draft, onUpdate });
-  useEffect(() => {
-    latest.current.onUpdate = onUpdate;
-  });
-  // The cleanup is the unmount save; a draft already saved on blur is a no-op there.
-  useEffect(() => {
-    const state = latest.current;
-    return () => flushInstruction(state);
-  }, []);
-
+  const hintId = `${id}-hint`;
   return (
     <label className="flex flex-col gap-1 text-xs text-foreground">
       <span>{t(lang, "scheduledJobInstruction")}</span>
       <Textarea
+        id={id}
         size="xs"
         rows={2}
         maxLength={TEXTAREA_MAX}
-        value={draft}
+        value={value}
         placeholder={t(lang, "scheduledJobInstructionPlaceholder")}
         aria-label={`${t(lang, "scheduledJobInstruction")} – ${token}`}
-        onChange={(e) => {
-          latest.current.draft = e.target.value;
-          setDraft(e.target.value);
-        }}
-        onBlur={() => flushInstruction(latest.current)}
+        {...(readOnly
+          ? { readOnly: true, "aria-describedby": hintId }
+          : { onChange: (e: ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value), onBlur })}
       />
+      {readOnly && <span id={hintId} className="text-muted-foreground">{t(lang, "scheduledJobAssignProjectToEdit")}</span>}
     </label>
   );
 }
 
-export function JobRow({
-  lang,
-  job,
-  token,
-  busy,
-  tz,
-  projects,
-  archivedProjects,
-  projectsLoaded,
-  zones,
-  defaultZone,
-  onUpdate,
-  onAssign,
-  onDelete,
-}: {
+function noop(): void {}
+
+type JobRowProps = {
   lang: Lang;
   job: ScheduledJob;
   /** §715 — the zone a run's time is shown in (the stored `ranAt` is UTC). */
@@ -144,11 +114,67 @@ export function JobRow({
   zones: readonly string[];
   /** The zone a newly assigned job starts in. */
   defaultZone: string;
-  onUpdate: (id: number, patch: JobPatch) => void;
+  onUpdate: JobUpdate;
   onAssign: (id: number, projectId: string, timeZone: string) => void;
   onDelete: (id: number) => void;
-}) {
+  /** Accept the job on this device; the owner re-reads the stored job first, so a stale row never accepts what it did not show. */
+  onAccept: (job: ScheduledJob) => void;
+  /** Why the last Accept on this row accepted nothing, until the next Accept or Stop. */
+  acceptNotice?: AcceptNotice | null;
+  /** True while this row's Accept is re-reading the job. */
+  acceptPending?: boolean;
+  /** True while a save of this job is in flight: Accept, Stop and "Not on this device" cannot be used meanwhile. */
+  saving?: boolean;
+  /** Called when Accept or Stop is pressed, so the owner can clear the notice. */
+  onNoticeClear?: () => void;
+  /** The project was just assigned from this job's previous (keyless) row: once the job has its key, focus the project
+   *  select on mount (the row started afresh) and report it with `onProjectFocused`. */
+  focusProjectOnMount?: boolean;
+  onProjectFocused?: () => void;
+  /** The portfolio this device's answers are kept for (`acceptanceScope`). */
+  scope: string;
+};
+
+/** One scheduled job. The section keys it by portfolio, id and permanent key, so it starts fresh for another job. */
+export function JobRow({
+  lang,
+  job,
+  token,
+  busy,
+  tz,
+  projects,
+  archivedProjects,
+  projectsLoaded,
+  zones,
+  defaultZone,
+  onUpdate,
+  onAssign,
+  onDelete,
+  onAccept,
+  acceptNotice,
+  acceptPending,
+  saving,
+  onNoticeClear,
+  focusProjectOnMount = false,
+  onProjectFocused,
+  scope,
+}: JobRowProps) {
   const [expanded, setExpanded] = useState(false);
+  const instruction = useInstructionDraft(job, onUpdate);
+  const fieldId = useId();
+  const projectSelectId = useId();
+  const hasKey = job.key !== null;
+  // Only the row that has the key (the fresh one) takes focus; the keyless row it replaces never does.
+  useEffect(() => {
+    if (!focusProjectOnMount || !hasKey) return;
+    document.getElementById(projectSelectId)?.focus();
+    onProjectFocused?.();
+  }, [focusProjectOnMount, hasKey, projectSelectId, onProjectFocused]);
+  // Dismiss removes the box it sits in: focus goes to the instruction field (when the row has one) rather than the page.
+  const dismissLost = () => {
+    instruction.dismissLost();
+    document.getElementById(fieldId)?.focus();
+  };
   const { cadence } = job;
 
   // A job a newer version made (a type or cadence this one does not know): listed read-only, never edited or run,
@@ -167,6 +193,7 @@ export function JobRow({
         >
           {t(lang, "delete")}
         </Button>
+        <LostTextBox lang={lang} token={token} text={instruction.lostText} onDismiss={dismissLost} />
       </li>
     );
   }
@@ -234,6 +261,7 @@ export function JobRow({
         <label className="flex items-center gap-1 text-xs text-foreground">
           <span>{t(lang, "scheduledJobProject")}</span>
           <Select
+            id={projectSelectId}
             size="xs"
             value={job.projectId ?? ""}
             aria-label={`${t(lang, "scheduledJobProject")} – ${token}`}
@@ -317,7 +345,24 @@ export function JobRow({
         </label>
       </div>
 
-      <InstructionField key={job.instruction ?? ""} lang={lang} job={job} token={token} onUpdate={onUpdate} />
+      <InstructionField id={fieldId} lang={lang} token={token} value={instruction.draft} readOnly={job.key === null} onChange={instruction.onChange} onBlur={instruction.onBlur} />
+      <LostTextBox lang={lang} token={token} text={instruction.lostText} onDismiss={dismissLost} />
+
+      <AcceptanceLine
+        lang={lang}
+        job={job}
+        scope={scope}
+        token={token}
+        onAccept={onAccept}
+        notice={acceptNotice ?? null}
+        pending={acceptPending ?? false}
+        saving={saving ?? false}
+        draftStatus={instruction.status}
+        onNoticeClear={() => {
+          (onNoticeClear ?? noop)();
+          instruction.clearDropped();
+        }}
+      />
 
       {job.projectId === null && (
         <span className="text-xs text-muted-foreground">{t(lang, "scheduledJobChooseProject")}</span>

@@ -95,6 +95,7 @@ function baseArgs(overrides: Partial<ScheduledJobRunnerArgs> = {}): ScheduledJob
     notify: vi.fn(),
     now: afternoon,
     openProjectId: null,
+    isAcceptedHere: () => true,
     ...overrides,
   };
   storeState.jobs = [...args.jobs];
@@ -270,6 +271,16 @@ describe("useScheduledJobRunner: jobs are judged on a fresh read of the store (Â
     expect(mClaim.mock.calls[0][1].jobKey).toBe("k5");
   });
 
+  it("never runs a foreign job that keeps its key, even one this device counts as accepted", async () => {
+    const keyed = dailyJob({ foreign: { raw: { id: 1, type: "future", key: dailyJob().key } } });
+    expect(keyed.key).not.toBeNull();
+    const args = baseArgs({ jobs: [keyed], isAcceptedHere: () => true });
+    renderHook(() => useScheduledJobRunner(args));
+    await settle();
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(mClaim).not.toHaveBeenCalled();
+  });
+
   it("never runs a foreign job (a type or cadence this version does not know)", async () => {
     const args = baseArgs({ jobs: [dailyJob({ foreign: { raw: { id: 1, type: "future" } } })] });
     renderHook(() => useScheduledJobRunner(args));
@@ -305,6 +316,63 @@ describe("useScheduledJobRunner", () => {
     expect(typeof run.ranAt).toBe("string");
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith("Daily portfolio", "Apollo: all good");
+  });
+
+  // KILLED BY: removing the `isAcceptedHere` filter on the due list in the tick.
+  it("a job this device has not accepted is neither claimed nor billed", async () => {
+    await act(async () => {
+      renderHook(() => useScheduledJobRunner(baseArgs({ isAcceptedHere: () => false })));
+    });
+    expect(vi.mocked(slotStatus)).not.toHaveBeenCalled();
+    expect(mClaim).not.toHaveBeenCalled();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  it("an accepted job still runs", async () => {
+    mockRun.mockResolvedValue({ summary: "ok", actions: [] });
+    await act(async () => {
+      renderHook(() => useScheduledJobRunner(baseArgs({ isAcceptedHere: () => true })));
+    });
+    expect(mClaim).toHaveBeenCalledTimes(1);
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  // KILLED BY: dropping the instruction comparison from `stillRunnable` â€” that term is false here before
+  // `isAcceptedHere(live)` is reached, so this test does NOT pin the live acceptance check (the next-but-one does).
+  it("an edit elsewhere between the tick and the send stops the run", async () => {
+    const args = baseArgs({
+      jobs: [dailyJob({ instruction: "a" })],
+      isAcceptedHere: (j) => j.instruction === "a",
+    });
+    backendState.onLoad = () => { storeState.jobs = [dailyJob({ instruction: "b" })]; };
+    await act(async () => { renderHook(() => useScheduledJobRunner(args)); });
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(vi.mocked(finishReport)).not.toHaveBeenCalled();
+    expect(args.recordRun).not.toHaveBeenCalled();
+  });
+
+  // KILLED BY: dropping the instruction comparison from `stillRunnable` (an accepted-everything predicate would send it).
+  it("an instruction changed elsewhere is not sent, even when this device accepts it", async () => {
+    const args = baseArgs({
+      jobs: [dailyJob({ instruction: "a" })],
+      isAcceptedHere: () => true,
+    });
+    backendState.onLoad = () => { storeState.jobs = [dailyJob({ instruction: "b" })]; };
+    await act(async () => { renderHook(() => useScheduledJobRunner(args)); });
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(args.recordRun).not.toHaveBeenCalled();
+  });
+
+  // KILLED BY: dropping `isAcceptedHere(live)` from `stillRunnable`. The job stays identical (key, project, instruction);
+  // only this device's answer changes between the tick and the live re-check, as a Stop or "Not on this device" would.
+  it("an answer withdrawn between the tick and the send stops the run (the job itself unchanged)", async () => {
+    let accepted = true;
+    const args = baseArgs({ isAcceptedHere: () => accepted });
+    backendState.onLoad = () => { accepted = false; }; // Stop pressed while the project loads
+    await act(async () => { renderHook(() => useScheduledJobRunner(args)); });
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(vi.mocked(finishReport)).not.toHaveBeenCalled();
+    expect(args.recordRun).not.toHaveBeenCalled();
   });
 
   it("does nothing for a not-due job", async () => {

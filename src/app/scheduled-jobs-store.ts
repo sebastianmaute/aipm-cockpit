@@ -125,16 +125,23 @@ function sanitizeRun(raw: unknown): ScheduledJobRun | null {
   return run;
 }
 
+/** The shape of a device label (`createdBy`): 1–32 letters, digits or dashes. Anything else reads as no creator. */
+const DEVICE_LABEL_SHAPE = /^[A-Za-z0-9-]{1,32}$/;
+
 /** The keys this version reads. Anything else on a stored job came from a newer version and is carried through. */
 const KNOWN_JOB_KEYS: ReadonlySet<string> = new Set([
-  "id", "name", "type", "cadence", "enabled", "projectId", "instruction", "timeZone", "key", "lastRunAt", "history",
+  "id", "name", "type", "cadence", "enabled", "projectId", "instruction", "timeZone", "key", "createdBy", "lastRunAt", "history",
 ]);
 
-/** A job this version cannot read (an unknown type or cadence): a placeholder that carries the stored JSON verbatim. */
+/** A job this version cannot read (an unknown type or cadence): a placeholder that carries the stored JSON verbatim.
+ *  It keeps its permanent key in memory (an edit made here before it turned foreign is then told "not editable", not
+ *  "deleted"), yet still never runs or takes an answer: `isRunnable` and the acceptance store exclude every foreign job,
+ *  and no write of this version reaches it. */
 function foreignJob(id: number, raw: Record<string, unknown>, rowId?: string): ScheduledJob {
   return {
     id, name: typeof raw.name === "string" ? raw.name : "", type: "portfolioAnalysis",
-    cadence: { kind: "daily", timeOfDay: "00:00" }, enabled: false, projectId: null, timeZone: null, key: null,
+    cadence: { kind: "daily", timeOfDay: "00:00" }, enabled: false, projectId: null, timeZone: null,
+    key: typeof raw.key === "string" && raw.key !== "" ? raw.key : null,
     lastRunAt: null, history: [], foreign: rowId !== undefined ? { raw, rowId } : { raw },
   };
 }
@@ -190,6 +197,8 @@ function sanitizeJob(raw: unknown, rowId?: string): ScheduledJob | null {
     ...(instruction !== undefined ? { instruction } : {}),
     timeZone,
     key: typeof raw.key === "string" && raw.key !== "" ? raw.key : null,
+    // Display-only and written by any client of the shared store: kept only in the shape of a device label.
+    ...(typeof raw.createdBy === "string" && DEVICE_LABEL_SHAPE.test(raw.createdBy) ? { createdBy: raw.createdBy } : {}),
     lastRunAt,
     history,
     ...(Object.keys(extra).length > 0 ? { extra } : {}),

@@ -1050,6 +1050,10 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§813](#813-erasure-and-retention-of-saved-chats-are-proven-live-only-for-the-statements-the-erasure-spec-covers--closed-2026-11-21) | Erasure and retention of saved chats are proven live only for the statements the erasure spec covers | — | — | **CLOSED** 2026-11-21 |
 | [§814](#814-dictation-and-voice-commands-have-no-recorded-cost-or-observed-behaviour-from-a-measured-run) | Dictation and voice commands have no recorded cost or observed behaviour from a measured run | — | — | open |
 | [§815](#815-ai-starter-content-applied-when-a-project-is-created-writes-no-activity-entry--closed-2026-11-21) | AI starter content applied when a project is created writes no activity entry | — | — | **CLOSED** 2026-11-21 |
+| [§816](#816-scheduled-jobs-five-narrow-gaps-around-a-portfolio-switch-remain) | Scheduled jobs: five narrow gaps around a portfolio switch remain | — | — | open |
+| [§817](#817-scheduled-jobs-a-key-minted-in-this-window-is-never-forgotten) | Scheduled jobs: a key minted in this window is never forgotten | — | — | open |
+| [§818](#818-scheduled-jobs-acceptance-entries-keep-full-instruction-text-and-are-never-pruned) | Scheduled jobs: acceptance entries keep full instruction text and are never pruned | — | — | open |
+| [§819](#819-scheduled-jobs-three-settings-functions-are-far-too-long) | Scheduled jobs: three settings functions are far too long | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46564,3 +46568,64 @@ Expected: an AI entry with its own feature value in `origin`, holding no user-au
 Size S.
 
 **Source:** second whole-branch review of §799, 2026-11-21.
+
+## 816. Scheduled jobs: five narrow gaps around a portfolio switch remain
+
+**Status:** OPEN 2026-11-25, found in review of the scheduled-job acceptance branch. Located by reading: `grep -n "JobSourceChangedError" src/app/settings-sections/use-instruction-draft.ts`, `grep -n "focusProjectOf" src/app/settings-sections/scheduled-jobs-section.tsx`, `grep -n "cfgRef" src/app/use-scheduled-jobs.ts`.
+
+**Work item:** #1028
+
+Every write a scheduled-job row in Settings issues is bound to the backend its list was read from; one that runs after the active backend changed is refused with `JobSourceChangedError`, writes nothing, and the section says so (`scheduled-jobs-section.tsx`). Five narrow gaps remain around a portfolio switch:
+1. On `JobSourceChangedError`, `use-instruction-draft.ts` offers the text that was being saved, then resets the field to the stored text. Text typed while that refused save was in flight is not offered and is lost.
+2. Kept instruction texts are stored by job key, not by backend (`lost-draft.ts`). If the other portfolio is a cloned database holding the same job key, its row also offers the first portfolio's text for copying. It is never written there.
+3. `focusProjectOf` (`scheduled-jobs-section.tsx`) holds a job id only. If the portfolio changes while an assign is in flight, the other portfolio's row with the same id can take the focus; and focus is pulled back to the project select even if the user tabbed elsewhere meanwhile.
+4. A failed FIRST load of the job list (no list shown yet) shows an empty list with no notice; only a failed load after a switch says so.
+5. `useScheduledJobs` keeps `cfgRef` in step with `config` in a `useEffect`, so a write that starts in the render that applies a switch can read the previous config. It fails closed (the source check refuses it), but the gap is the one the section closed with a layout effect.
+
+Expected: text typed during a refused save is offered; kept texts and the focus request are scoped by backend, and focus is restored only if it was still in the row; a failed first load says so; `cfgRef` is current when a switch commits.
+
+Size S.
+
+**Source:** review of the scheduled-job acceptance branch, 2026-11-25.
+
+## 817. Scheduled jobs: a key minted in this window is never forgotten
+
+**Status:** OPEN 2026-11-25, found in review of the scheduled-job acceptance branch. Located by reading: `grep -n "mintedRef" src/app/use-scheduled-jobs.ts` (set in the assign's `afterSave`, never deleted).
+
+**Work item:** #1029
+
+`useScheduledJobs` records in `mintedRef` the key it minted when a project was assigned to a job that had none, once that save landed, so a write the keyless row issued before it saw its key still reaches the job (`resolveKey`, `use-scheduled-jobs.ts`). The record is never cleared. If an older app version later recreates a keyless job with the same id in the same portfolio, a `null`-key write from this window resolves to the dead key and shows a false "deleted on another device" notice until a reload.
+
+Expected: the record is dropped once the list shows the job with that key, or once no job with that id and key remains.
+
+Size S.
+
+**Source:** review of the scheduled-job acceptance branch, 2026-11-25.
+
+## 818. Scheduled jobs: acceptance entries keep full instruction text and are never pruned
+
+**Status:** OPEN 2026-11-25, found in review of the scheduled-job acceptance branch. Located by reading: `grep -nE "EDITED_HERE_KEY|ACCEPTANCE_KEY" src/app/scheduled-job-acceptance.ts`.
+
+**Work item:** #1030
+
+A device's answers to shared scheduled jobs are kept in localStorage under `ACCEPTANCE_KEY`, and the jobs it last edited under `EDITED_HERE_KEY` (`scheduled-job-acceptance.ts`). Each entry's value is `jobFingerprint`, which holds the job's full instruction (up to 5,000 characters). Entries are removed only when the job is deleted on this device; a job deleted on another device, or a portfolio no longer used, leaves its entries behind. Storage grows without bound, and old instruction text stays on the device after its job is gone.
+
+Expected: store a hash of the fingerprint instead of the text (synchronous, so the runner's check stays synchronous), or prune entries whose job key no longer appears in a successful read of the same backend.
+
+Size S.
+
+**Source:** review of the scheduled-job acceptance branch, 2026-11-25.
+
+## 819. Scheduled jobs: three settings functions are far too long
+
+**Status:** OPEN 2026-11-25, found in review of the scheduled-job acceptance branch. Located by reading: `grep -nE "function flushDraft|export function useInstructionDraft" src/app/settings-sections/use-instruction-draft.ts` and `grep -n "function AcceptanceLine" src/app/settings-sections/scheduled-job-acceptance-line.tsx`.
+
+**Work item:** #1031
+
+Three functions in the scheduled-job settings are far longer than the rest of the code: `AcceptanceLine` (`scheduled-job-acceptance-line.tsx`, about 160 lines), `flushDraft` and `useInstructionDraft` (`use-instruction-draft.ts`, about 100 lines each). The save and lost-text handling in `flushDraft` is the hardest part of the feature to reason about, and the two answer buttons in `AcceptanceLine` repeat the same guard, ARIA wiring and click sequence.
+
+Expected: split `flushDraft`'s error branches into one named handler per error class, and the two answer buttons into one shared component. No behaviour change; the existing tests must stay green unchanged.
+
+Size S.
+
+**Source:** review of the scheduled-job acceptance branch, 2026-11-25.

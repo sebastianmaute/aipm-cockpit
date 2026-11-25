@@ -1,5 +1,6 @@
 // src/app/scheduled-jobs-store.test.ts
 import { describe, it, expect, beforeEach } from "vitest";
+import { isRunnable } from "./scheduled-jobs/schedule";
 import {
   loadScheduledJobs, saveScheduledJobs, LOCAL_KEY, SCHEDULED_JOBS_TABLE, SCHEDULED_JOBS_V2_TABLE,
 } from "./scheduled-jobs-store";
@@ -42,6 +43,28 @@ describe("scheduled-jobs-store (localStorage path, config=null)", () => {
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ id: 1, name: "Daily portfolio review", enabled: true });
     expect(out[0].cadence).toEqual({ kind: "daily", timeOfDay: "08:00" });
+  });
+
+  it("createdBy survives a save and load", async () => {
+    await saveScheduledJobs(null, [{ ...job, createdBy: "3f9a2c1d" }]);
+    const [out] = await loadScheduledJobs(null);
+    expect(out.createdBy).toBe("3f9a2c1d");
+    expect(out.extra).toBeUndefined();
+  });
+
+  it("a createdBy that is not a short device label (1–32 letters, digits or dashes) is dropped", async () => {
+    const labels = ["", "x".repeat(33), "has space", "<b>x</b>", "ünïcode", "a\nb"];
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(labels.map((createdBy, i) => ({ ...job, id: i + 1, createdBy }))));
+    const out = await loadScheduledJobs(null);
+    expect(out.map((j) => j.createdBy)).toEqual(labels.map(() => undefined));
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([{ ...job, createdBy: "a".repeat(32) }, { ...job, id: 2, createdBy: "Ab-9" }]));
+    expect((await loadScheduledJobs(null)).map((j) => j.createdBy)).toEqual(["a".repeat(32), "Ab-9"]);
+  });
+
+  it("a non-string createdBy is dropped", async () => {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([{ ...job, createdBy: 5 }]));
+    const [out] = await loadScheduledJobs(null);
+    expect(out.createdBy).toBeUndefined();
   });
 
   it("uses the namespaced localStorage key", async () => {
@@ -115,6 +138,20 @@ describe("scheduled-jobs-store (localStorage path, config=null)", () => {
     localStorage.setItem(LOCAL_KEY, JSON.stringify([{ ...job, history: runs }]));
     const out = await loadScheduledJobs(null);
     expect(out[0].history).toHaveLength(JOB_HISTORY_CAP);
+  });
+
+  it("a foreign job keeps a non-empty stored key in memory (and only that); it still never runs", async () => {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([
+      { ...job, id: 7, type: "future", key: "k-7" },
+      { ...job, id: 8, type: "future", key: "" },
+      { ...job, id: 9, type: "future", key: 42 },
+      { ...job, id: 10, type: "future" },
+    ]));
+    const out = await loadScheduledJobs(null);
+    expect(out.map((j) => [j.id, j.foreign !== undefined, j.key])).toEqual([
+      [7, true, "k-7"], [8, true, null], [9, true, null], [10, true, null],
+    ]);
+    expect(out.every((j) => !isRunnable(j))).toBe(true);
   });
 
   it("keeps a job with a cadence kind it does not know, as a foreign job carrying its stored JSON", async () => {

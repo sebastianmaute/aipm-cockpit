@@ -1605,6 +1605,158 @@
   `RUNNING_STALE_MS` shows as failed and is never re-run. `scheduled_reports` is a side table registered in
   `PROJECT_SCOPED_SIDE_TABLES` (`project-side-tables.ts`), retained at `REPORT_RETENTION_PER_JOB` per job; the view is
   Turso-only. Its live probe, `e2e/scheduled-reports-claim-live.spec.ts`, has NOT yet been run against a real database.
+  ★★ **A shared job runs on a device only after that device accepted it.**
+  - **What is stored:** per device, in localStorage `aipm-cockpit:scheduled-job-acceptance` (`scheduled-job-acceptance.ts`),
+    keyed by portfolio AND the job's permanent key (`acceptanceScope`: the backend the list is read from, its
+    database URL, or `local`; entry key `scope|key`): a fingerprint of project + instruction (a time change keeps
+    it), or `"declined:"` + the fingerprint. ★★ A cloned database holds the same job keys, so an answer given in one
+    portfolio never counts in another: an entry of another portfolio, or an older entry keyed by the job key alone,
+    reads `none` (it fails closed). The "edited here" marks are keyed the same way. Every reader and writer passes
+    the scope: the runner's `isAcceptedHere` (wired in `use-ai-orchestration.ts` with the runner's config, pinned by
+    `use-ai-orchestration.acceptance.test.ts`), the hook's writes (the backend the write went to), and the section, row
+    and acceptance line — with the portfolio of the list ON SCREEN (`jobsSource`), not the active config. ★★ While
+    that list is still the previous portfolio's (a switch whose new list has not arrived), the answer buttons are
+    unusable (`aria-disabled`, as while a re-read is pending), and an Accept re-reads only from that portfolio
+    (`readFresh(source)` rejects with `JobSourceChangedError` otherwise) and records only while it is still the
+    active one (checked against `activeBackendRef`, synced in a layout effect so it is current from the commit on), so
+    a press never answers in another portfolio; such an Accept answers nothing and says nothing. The row shows its
+    state in the scope of the list on screen too. If the new portfolio's list cannot be read, the previous list stays
+    on screen (its answers unusable) and the section says so with `scheduledJobsLoadFailedAfterSwitch` (the hook's
+    `failedSource`: the active backend whose latest read failed, cleared by the next successful read).
+    States: `accepted` · `declined` · `changed` (accepted another version) · `declined-changed`
+    (stopped another version, "Changed on another device", never "since you accepted it") · `none` · `cannot-run`
+    (legacy or foreign job). ★★ A foreign job (one a newer version rewrote) KEEPS its permanent key in memory
+    (`foreignJob` in `scheduled-jobs-store.ts`), so an edit of it made here reports "not editable", not "deleted";
+    it still never runs (`isRunnable` excludes every foreign job) and never takes or shows an answer (the acceptance
+    store's `keyOf` reads every foreign job as keyless, `isEditedHere` included).
+  - **When it is written:** creating a job accepts it on that device (after its save resolves); otherwise ONLY the user's
+    Accept, Stop or "Not on this device" in the Settings row writes it (`acceptJob` on the re-read job when it matches
+    the row; `declineJob` on the displayed job).
+  - ★★★ **An edit never answers.** `updateJob` and `assignProject` write no entry, ever: editing the project or
+    instruction of a job this device accepted makes it read `changed` once the save lands, and the user accepts again; an
+    edited stopped job stays stopped until answered. Editing it back to the version this device accepted makes it
+    runnable again, because the old entry matches again. While the job is still the version this device saved, its
+    row reads `scheduledJobChangedHere` (was accepted) or `scheduledJobChangedHereStopped` (was stopped) instead of
+    the "changed" wording: `markEditedHere` records the saved version's fingerprint when such a save lands, in
+    localStorage `EDITED_HERE_KEY` (so it survives a reload and is shared by this device's tabs; a `storage` event
+    re-renders the row), `isEditedHere` compares it to the job as it stands (so a later change from another device
+    reads as such again), and any answer or a delete clears it. Display only: it never decides a run, and storage
+    that cannot be read or written reads as "not edited here".
+  - **The instruction draft** (`useInstructionDraft`, `use-instruction-draft.ts`) saves on blur and on unmount, and
+    counts as saved only once the write succeeds. ★★ Its save is CONDITIONAL, judged when the save RUNS:
+    `updateJob(id, patch, key, { expectInstruction, onWritten, onRefused })` calls `expectInstruction()` inside the write chain,
+    on the FRESH store list, and writes only while the stored instruction is that text (the stored text the field
+    showed before that edit, or what this row's saves wrote since, learned through `onWritten` inside the chain) or
+    already equals the text being saved (the same text from both sides is a success, not a refusal);
+    `expectInstruction()` returning `null` refuses outright. Otherwise it writes nothing and rejects with
+    `JobChangedError` (the list is read again, and the section does not count it as a failed write). So a save is
+    refused only when the stored text changed from what this edit started from or this row wrote — whether or not
+    this tab has re-read the job — and the row drops the draft, says so (`scheduledJobDraftDropped`) and offers the
+    refused text read-only below the field (see "lost text" below). ★★ A refusal
+    starts a new generation (a counter in the draft hook), bumped in `onRefused`, which the hook calls INSIDE the write
+    chain where the precondition refuses, before any later queued save is judged: every save this row queued before it — the closing save
+    included — is refused when it runs, whatever the stored text has done since, and an edit made after the refusal
+    starts from the text then shown. A refused older save moves the field to the stored text only while the field
+    holds no edit made since the refusal. ★★ Inherent limit: the check runs
+    on a fresh read inside this device's write chain, but the store has no conditional write, so a change another
+    device writes in the instant between this device's read and its write can still be overwritten. When the stored
+    text changes: if it equals the draft, the draft rebases with no notice; the draft follows the stored text only when
+    the field holds no unsaved change AND no save of this row is pending; otherwise the draft is kept and its save
+    decides. After a failed save the field keeps the draft and the next blur retries; while the field still differs
+    from the stored text, both answer buttons read "Not saved" (`scheduledJobNotSaved`), are `aria-disabled` and ignore
+    clicks, with `scheduledJobChangeNotSaved` in the row's status. Draft notices outrank an ignored press; the
+    ignored-press notice clears when the job's version or the draft's status changes (not on typing). ★ Closing the
+    editor runs one last save on unmount; a failed save while the editor is open keeps the text in the field (above).
+    ★★ **Lost text is offered for copying only, never put back.** Text this row could not save — refused (the job
+    changed elsewhere), or a closing save that failed after the editor closed — is offered read-only in `LostTextBox`
+    (`scheduled-job-lost-text.tsx`) below the instruction field: a `readOnly` textarea named
+    "<`scheduledJobLostText`> – <job>", `aria-describedby` its visible hint (`scheduledJobLostTextHint`), and a
+    Dismiss button (`scheduledJobLostTextDismiss`, named `scheduledJobLostTextDismissNamed`) that moves focus to the
+    instruction field. The field always shows the stored text, so a press answers and a blur saves only what is shown,
+    and a restore blocks nothing (only the open editor's failed-save flow reads "Not saved"). Only the newest text of
+    one edit is offered (a save with a later save of the same refusal generation queued offers nothing); a refusal
+    that resets the field also offers text typed into it since that save started. ★★★ Texts are added and removed
+    ONE AT A TIME through `lost-draft.ts` (`addLostText`, `removeLostTexts`, `forgetLostDraft`) — never a whole
+    list written over the stored one, which once let one row erase a text a closed editor had just kept — and every
+    change is told to `subscribeLostTexts` listeners, so an open row also shows a text a closed editor lost after it
+    mounted. A row subscribes with a replay of what is kept at that moment (merged newest first, texts only this row
+    holds staying in place), so a text kept between its first render and the subscription is not missed; the removal
+    of a text the job holds runs BEFORE the subscription, so the replay never shows one (one commit at mount); a
+    change that alters nothing returns the same state (no render). The offered texts and the draft status are ONE
+    state: a removal reported by another writer that empties the offer ends its notice in the same update.
+    They are kept per tab in sessionStorage `LOST_DRAFT_KEY` (newest first, `{ text, reason }` per
+    `jobSaveId`; every access guarded, a storage that cannot be used keeps nothing but the open row still shows the
+    text; older single-entry shapes are ignored) and offered again when the row next mounts, with
+    `scheduledJobDraftDropped` or `scheduledJobLostNotSaved` by the newest one's reason. Storage keeps at most
+    `MAX_LOST_DRAFTS` (5) per job, dropping the oldest; an open row keeps showing every text it has offered. One box
+    holds them all, separated by a blank line. A text the job holds is removed (at mount too). A successful save of
+    this row (the closing one included) removes only the texts equal (trimmed) to what it saved; an answer removes
+    none; Dismiss removes the texts shown (a text kept since and not yet shown stays); deleting the job removes all
+    (`deleteJob`, or a re-read of the same backend no longer listing it). Nothing is kept for later for a job turned
+    foreign. ★★★ **A job without a permanent key (a legacy job) shows its instruction READ-ONLY** — still focusable,
+    selectable and row-uniquely named — with the visible hint `scheduledJobAssignProjectToEdit` linked by
+    `aria-describedby` (`InstructionField`). So it never has a draft: nothing is saved, offered, kept or lost for it,
+    and the draft hook has no keyless branch (its `id:N` save id is never written). Assigning a project gives the
+    job its key, and the row then starts afresh with an editable field; the section then puts keyboard focus back on the
+    new row's project select (`focusProjectOnMount`), so assigning with the keyboard does not drop focus to the page.
+    ★★ The section keys each row by portfolio (the backend the list was read from, `jobsSource`), id and permanent
+    key, so a portfolio switch, an id reused for another job, or a key given to a legacy job (here or on another
+    device) starts a fresh row: no text, draft or notice is carried to another job. A row's other writes (name,
+    cadence, zone, project) carry its job's key, `null` for a legacy job, which `matches` reads as "the job with this
+    id that has no key" — unless this hook instance just minted that job's key AND its save landed (`resolveKey`; the
+    key is recorded in the assign's `afterSave`, so a failed or refused assign leaves the job keyless and `null` keeps
+    meaning the keyless job), so an edit the keyless row made before it saw its key still reaches the job. ★★★ Every user write from a row (`updateJob`,
+    `assignProject`, `deleteJob`) is bound to the backend its list was read from, captured when it is issued: one that
+    RUNS after the active backend changed is refused with `JobSourceChangedError` and writes nothing — never into the
+    portfolio switched to. A refused instruction save keeps its text for copying (reason "notSaved") under that job,
+    offered when the job's row next shows, and shows no notice; any other refused row edit (name, cadence, zone,
+    project, on/off, delete) shows `scheduledJobChangeNotSavedPortfolioSwitch` (role=alert, cleared by the next
+    successful write or Accept), so no refused edit is lost in silence. The runner's writes always carry the
+    job's (non-null) key.
+    ★ A user's edit (`updateJob` / `assignProject`) that reaches no job never resolves as written:
+    a job deleted on another device rejects with `JobGoneError`, one that is still listed but no longer editable here
+    (a newer version rewrote it; it keeps its key, so the edit still finds it) with `JobNotEditableError`, and
+    `writeJob` reads the list again on either (and on a `JobChangedError`)
+    whichever path the edit came from. `onWritten` runs only when a job was written; the runner's own writes to a
+    gone job stay quiet. The section does not count `JobGoneError` as a failed write and shows
+    `scheduledJobDeletedElsewhere` in its always-mounted status region — as does an Accept whose re-read finds the
+    job gone — because the row disappears with the refresh. `JobNotEditableError` is not a connection failure either:
+    the section shows `scheduledJobEditedByNewerVersion` in the same status region — as does an Accept whose re-read
+    finds the job rewritten, which answers nothing (checked first, even when an answer changed during the read) —
+    and the typed text is offered in the (now read-only) row's `LostTextBox` while it is shown, never kept for later;
+    texts kept earlier for the job stay.
+  - ★★★ **A press answers the version shown when it was pressed.** Pressing Accept / Stop or "Not on this device"
+    does not take focus from the instruction field (`onMouseDown` prevents the default), so the press does not end
+    the edit: the button answers the saved instruction, even while the field shows text not yet saved, and the edit
+    saves on the next blur and then asks again.
+    Backstop (`usePressGuard`): a press records the button's action, the job's fingerprint and whether it was saving —
+    a pointer press on pointerdown, a key press on the first keydown of Space or Enter (Space clicks on keyup, so a
+    held Space spans renders like a held pointer); the click is ignored when the job was saving at the press or is
+    saving now, or when the action or fingerprint changed between press and release (`pressStillValid`). A press
+    that is cancelled, leaves the button before release, or a button that loses focus leaves nothing behind. An
+    activation with no press at all (a screen reader's click) acts on the current render; a held Enter or Space
+    (key repeat) never answers — its repeated keydowns are default-prevented and a click while the key repeats is
+    ignored silently. An ignored press says so in
+    the row's status (`scheduledJobPressIgnored`, cleared by the next answer) unless the button visibly could not be
+    used for the whole press ("Saving…" or "Not saved" at both press and click), where silence is correct.
+  - ★★★ **Answer buttons wait for this device's saves.** `useScheduledJobs({ trackSaving: true })` (the Settings list
+    only) exposes `savingJobs` (`jobSaveId`: the key, or the id of a keyless job), counted per job from the call until
+    every save of it settled, success or failure; without the option the set stays empty and a save adds no `savingJobs` re-render.
+    Meanwhile the row's Accept / Stop and "Not on this device" read "Saving…" (their names start with it, then the
+    answer they will give), are `aria-disabled` and ignore clicks; a press that starts or ends while the job is saving
+    is ignored, even if the save is over by the time of the click. When the save ends, a focused button keeps focus and
+    its name becomes the answer again; the row's status region is unchanged, so nothing extra is announced.
+  - **Accept** re-reads the store through `readFresh` (after the saves in progress settle; pending meanwhile) and accepts
+    only the version the row showed; a job changed elsewhere is refreshed with `scheduledJobAcceptChanged`, and an answer
+    given during the read wins. Other notices: `scheduledJobAcceptFailed` (re-read failed),
+    `scheduledJobAnswerSaveFailed` (this device could not store the answer).
+  - **Runner gate:** the runner filters before any claim and re-checks in `stillRunnable` (project, schedule,
+    instruction and acceptance, against a fresh read). The "needs your OK" notice counts `none`, `changed` and
+    `declined-changed`.
+  - `useScheduledJobs({ refreshOnFocus: true })` (the Settings list only, never the always-mounted runner instance in
+    `use-ai-orchestration.ts`) re-reads the store when the tab becomes visible again or the window regains focus. The row reads the device label with `peekDeviceLabel` (never writes during render); `ScheduledJob.createdBy`
+    is display-only, never a permission, and is read only in the shape of a device label (1–32 letters, digits or
+    dashes, `DEVICE_LABEL_SHAPE` in `scheduled-jobs-store.ts`); anything else reads as no creator.
 - **AI weight suggestions:** "Suggest with AI" in the next-actions settings → ONE forced-tool call
   (`suggest_weights`, forced, NO loop) in `weight-suggestion-call.ts` (the fetch now routes through the shared
   `runForcedToolCallWithRetry` (`ai-forced-call.ts`) — the single never-log envelope; a 4096-token reply cut at

@@ -62,6 +62,8 @@ export interface ScheduledJobRunnerArgs {
    *  the load, not skipped until the next interval. REQUIRED, so tsc proves a
    *  caller decided it (pass true when there is nothing to wait for). */
   guidesReady: boolean;
+  /** Whether this device accepted the job's current project and instruction. REQUIRED, so tsc proves a caller decided. */
+  isAcceptedHere: (job: ScheduledJob) => boolean;
 }
 
 interface DueJob { job: ScheduledJob; slot: Date }
@@ -115,7 +117,8 @@ function buildRunDeps(argsRef: { readonly current: ScheduledJobRunnerArgs }, con
       }
       if (!samePortfolio()) return false;
       const live = list.find((j) => j.key !== null && j.key === job.key);
-      return live !== undefined && isRunnable(live) && live.projectId === job.projectId && sameSchedule(live, job);
+      return live !== undefined && isRunnable(live) && live.projectId === job.projectId && sameSchedule(live, job)
+        && (live.instruction ?? null) === (job.instruction ?? null) && argsRef.current.isAcceptedHere(live);
     },
     // The people lock it reports is applied by the send itself (`postAiMessages` asks again).
     confirmDeployment: async () => {
@@ -239,7 +242,8 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
           return;
         }
         if (argsRef.current.config?.httpUrl !== identity) return;
-        const due = dueJobs(fresh, at).filter(notHandled).filter(notPaused);
+        // The device must have accepted the job's current project and instruction.
+        const due = dueJobs(fresh, at).filter(({ job }) => argsRef.current.isAcceptedHere(job)).filter(notHandled).filter(notPaused);
 
         if (due.length === 0) return;
 

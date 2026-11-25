@@ -80,6 +80,48 @@ export function normalizeJobFields(
   };
 }
 
+/** A conditional job write found the stored instruction changed (another device saved over it): nothing was written.
+ *  `stored` is the instruction the store holds now ("" for none). */
+export class JobChangedError extends Error {
+  readonly stored: string;
+  constructor(stored: string) {
+    super("The job changed before this write.");
+    this.name = "JobChangedError";
+    this.stored = stored;
+  }
+}
+
+/** A user's edit found its job gone from the store (deleted on another device): nothing was written. */
+export class JobGoneError extends Error {
+  constructor() {
+    super("The job was deleted before this write.");
+    this.name = "JobGoneError";
+  }
+}
+
+/** A user's edit found its job in the store but no longer editable here (a newer version rewrote it): nothing was
+ *  written. */
+export class JobNotEditableError extends Error {
+  constructor() {
+    super("The job can no longer be edited by this version.");
+    this.name = "JobNotEditableError";
+  }
+}
+
+/** A row's write issued while its list came from another portfolio (backend) than the one now active: nothing was
+ *  written — never into the portfolio switched to. */
+export class JobSourceChangedError extends Error {
+  constructor() {
+    super("The portfolio changed before this write.");
+    this.name = "JobSourceChangedError";
+  }
+}
+
+/** The identity of a job for "a save is in flight": its permanent key, or its id while it has none. */
+export function jobSaveId(job: Pick<ScheduledJob, "id" | "key">): string {
+  return job.key ?? `id:${job.id}`;
+}
+
 export function isRunnable(job: ScheduledJob): boolean {
   return job.foreign === undefined && job.enabled && job.projectId !== null && job.key !== null && job.timeZone !== null;
 }

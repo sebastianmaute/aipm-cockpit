@@ -14,12 +14,17 @@ import { formatDisplayTimestamp } from "../tz-display";
 import { resolveTimezone, tzZones } from "../timezone";
 import type { TursoConfig } from "../turso-config";
 
+/** The portfolio this file's answers are kept for (`acceptanceScope`). */
+const SCOPE = "https://x.example";
+
 // Mock the persistence hook — these are pure UI tests (mirrors how
 // comm-templates-section.test mocks use-comm-template-versions).
 const createJob = vi.fn(async () => {});
 const updateJob = vi.fn(async () => {});
 const deleteJob = vi.fn(async () => {});
 const assignProject = vi.fn(async () => {});
+const refreshMock = vi.hoisted(() => vi.fn(async () => {}));
+const loadJobsMock = vi.hoisted(() => vi.fn());
 const listProjectsMock = vi.hoisted(() => vi.fn());
 const listArchivedMock = vi.hoisted(() => vi.fn());
 const portfolioMode = vi.hoisted(() => ({ value: "turso" as "turso" | "file", openProject: null as string | null }));
@@ -35,9 +40,12 @@ vi.mock("../use-scheduled-jobs", () => ({
     deleteJob,
     assignProject,
     recordRun: vi.fn(),
-    refresh: vi.fn(),
+    refresh: refreshMock,
+    readFresh: () => loadJobsMock(null),
+    savingJobs: new Set<string>(),
   }),
 }));
+vi.mock("../scheduled-jobs-store", () => ({ loadScheduledJobs: loadJobsMock }));
 
 // The section reads both lists through ONE call (`listProjectRefs`); the two mocks keep feeding it entries.
 vi.mock("../turso-portfolio", () => ({
@@ -60,6 +68,8 @@ beforeEach(() => {
   listArchivedMock.mockReset();
   listProjectsMock.mockResolvedValue([]);
   listArchivedMock.mockResolvedValue([]);
+  refreshMock.mockClear();
+  loadJobsMock.mockReset();
   createJob.mockClear();
   updateJob.mockClear();
   deleteJob.mockClear();
@@ -180,7 +190,7 @@ describe("ScheduledJobsSection", () => {
     fireEvent.change(cadenceSelect, { target: { value: "weekly" } });
     expect(updateJob).toHaveBeenCalledWith(1, {
       cadence: { kind: "weekly", dayOfWeek: 0, timeOfDay: "09:00" },
-    }, undefined);
+    }, null); // a keyless job: null reaches only the job with no key
   });
 
   it("renders the weekday select for an existing weekly job", () => {
@@ -193,7 +203,7 @@ describe("ScheduledJobsSection", () => {
     mockJobs = [job({ id: 7, name: "Alpha" })];
     setup(withKey({ scheduledJobs: true }));
     fireEvent.click(screen.getByLabelText(`${t("en-US", "delete")} – Alpha`));
-    expect(deleteJob).toHaveBeenCalledWith(7, undefined);
+    expect(deleteJob).toHaveBeenCalledWith(7, null);
   });
 
   it("gives per-row controls job-name-qualified accessible names (WCAG 2.4.6)", () => {
@@ -370,7 +380,7 @@ describe("§772 — project, time zone and instruction", () => {
     await screen.findByRole("option", { name: "Apollo" });
     expect(screen.queryByRole("option", { name: "Old one" })).toBeNull();
     fireEvent.change(select, { target: { value: "p2" } });
-    expect(assignProject).toHaveBeenCalledWith(4, "p2", tz, undefined);
+    expect(assignProject).toHaveBeenCalledWith(4, "p2", tz, null);
   });
 
   it("keeps a job's own zone when assigning its project", async () => {
@@ -378,7 +388,7 @@ describe("§772 — project, time zone and instruction", () => {
     setup(withKey({ scheduledJobs: true }));
     await screen.findByRole("option", { name: "Apollo" });
     fireEvent.change(screen.getByRole("combobox", { name: nameOf("scheduledJobProject", "Alpha") }), { target: { value: "p1" } });
-    expect(assignProject).toHaveBeenCalledWith(4, "p1", "Asia/Tokyo", undefined);
+    expect(assignProject).toHaveBeenCalledWith(4, "p1", "Asia/Tokyo", null);
   });
 
   it("a legacy job shows 'Choose a project' where its next run would be", async () => {
@@ -416,7 +426,7 @@ describe("§772 — project, time zone and instruction", () => {
   });
 
   it("saves the trimmed instruction on blur, and nothing when it is unchanged", async () => {
-    mockJobs = [job({ id: 3, name: "Alpha", instruction: "keep" })];
+    mockJobs = [job({ id: 3, name: "Alpha", instruction: "keep", key: "k3" })];
     setup(withKey({ scheduledJobs: true }));
     const box = await screen.findByRole("textbox", { name: nameOf("scheduledJobInstruction", "Alpha") });
     fireEvent.blur(box);
@@ -424,7 +434,7 @@ describe("§772 — project, time zone and instruction", () => {
     fireEvent.change(box, { target: { value: "  focus on risks  " } });
     expect(updateJob).not.toHaveBeenCalled();
     fireEvent.blur(box);
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "focus on risks" }, undefined);
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "focus on risks" }, "k3", expect.objectContaining({ expectInstruction: expect.any(Function) }));
   });
 
   it("saves the time zone through updateJob and lists the IANA zones", async () => {
@@ -514,26 +524,26 @@ describe("§772 — project, time zone and instruction", () => {
     setup({ ...withKey({ scheduledJobs: true }), timezone: "Asia/Kolkata" });
     await screen.findByRole("option", { name: "Apollo" });
     fireEvent.change(screen.getByRole("combobox", { name: nameOf("scheduledJobProject", "Alpha") }), { target: { value: "p1" } });
-    expect(assignProject).toHaveBeenCalledWith(4, "p1", "Asia/Kolkata", undefined);
+    expect(assignProject).toHaveBeenCalledWith(4, "p1", "Asia/Kolkata", null);
   });
 
   it("saves an emptied instruction as undefined", async () => {
-    mockJobs = [job({ id: 3, name: "Alpha", instruction: "keep" })];
+    mockJobs = [job({ id: 3, name: "Alpha", instruction: "keep", key: "k3" })];
     setup(withKey({ scheduledJobs: true }));
     const box = await screen.findByRole("textbox", { name: nameOf("scheduledJobInstruction", "Alpha") });
     fireEvent.change(box, { target: { value: "   " } });
     fireEvent.blur(box);
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: undefined }, undefined);
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: undefined }, "k3", expect.objectContaining({ expectInstruction: expect.any(Function) }));
   });
 
   it("saves a typed instruction when the section unmounts before the field is blurred", async () => {
-    mockJobs = [job({ id: 3, name: "Alpha" })];
+    mockJobs = [job({ id: 3, name: "Alpha", key: "k3" })];
     const { unmount } = render(<ScheduledJobsSection lang="en-US" settings={withKey({ scheduledJobs: true })} onChange={vi.fn()} config={TURSO} />);
     const box = await screen.findByRole("textbox", { name: nameOf("scheduledJobInstruction", "Alpha") });
     fireEvent.change(box, { target: { value: "  watch the budget " } });
     expect(updateJob).not.toHaveBeenCalled();
     unmount();
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "watch the budget" }, undefined);
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "watch the budget" }, "k3", expect.objectContaining({ expectInstruction: expect.any(Function) }));
   });
 
   it("does not write on unmount when nothing was typed", async () => {
@@ -650,7 +660,7 @@ describe("§772 final review: Settings run history, Add job, keyed writes", () =
     const box = screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Alpha` });
     fireEvent.change(box, { target: { value: "x" } });
     fireEvent.blur(box);
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "x" }, "key-abc");
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "x" }, "key-abc", expect.objectContaining({ expectInstruction: expect.any(Function) }));
     fireEvent.click(screen.getByLabelText(`${t("en-US", "delete")} – Alpha`));
     expect(deleteJob).toHaveBeenCalledWith(3, "key-abc");
   });
@@ -735,7 +745,7 @@ describe("§772 cr3: foreign jobs and failed writes", () => {
     expect(screen.getByText(t("en-US", "scheduledJobForeign"))).toBeInTheDocument();
     for (const role of ["textbox", "checkbox", "combobox"] as const) expect(screen.queryByRole(role, { name: /From the future/ })).toBeNull();
     fireEvent.click(screen.getByLabelText(`${t("en-US", "delete")} – From the future`));
-    expect(deleteJob).toHaveBeenCalledWith(8, undefined);
+    expect(deleteJob).toHaveBeenCalledWith(8, null);
   });
 
   it("does not show the upgrade note for a foreign job (it has no key and is not a legacy job)", async () => {
@@ -757,5 +767,208 @@ describe("§772 cr3: foreign jobs and failed writes", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(t("en-US", "scheduledJobsWriteFailed"));
     fireEvent.change(box, { target: { value: "Alpha 3" } });
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  });
+});
+
+describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () => {
+  const runnable = (id: number, over: Partial<ScheduledJob> = {}) =>
+    job({ id, name: `Job ${id}`, projectId: "p1", timeZone: "UTC", key: `k${id}`, ...over });
+
+  beforeEach(() => {
+    localStorage.removeItem("aipm-cockpit:scheduled-job-acceptance");
+  });
+
+  it("the notice counts runnable jobs waiting for an OK", () => {
+    mockJobs = [runnable(1), runnable(2), runnable(3, { enabled: false })];
+    setup(withKey({ scheduledJobs: true }));
+    const notice = screen.getByText(/shared jobs? needs? your OK/);
+    expect(notice).toHaveTextContent("2 shared jobs need your OK to run on this device.");
+  });
+
+  it("a runnable job accepted with another instruction is counted in the notice", async () => {
+    const { acceptJob } = await import("../scheduled-job-acceptance");
+    mockJobs = [runnable(1, { instruction: "now" })];
+    act(() => { acceptJob(runnable(1, { instruction: "before" }), SCOPE); });
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.getByText(/shared jobs? needs? your OK/)).toHaveTextContent("1 shared job needs your OK to run on this device.");
+  });
+
+  it("Accept on an unchanged job accepts it", async () => {
+    const { acceptanceState } = await import("../scheduled-job-acceptance");
+    mockJobs = [runnable(1, { instruction: "x" })];
+    loadJobsMock.mockResolvedValue([runnable(1, { instruction: "x" })]);
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
+    await waitFor(() => expect(acceptanceState(mockJobs[0], SCOPE)).toBe("accepted"));
+    expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it("Accept on a job changed elsewhere refreshes instead of accepting", async () => {
+    const { acceptanceState } = await import("../scheduled-job-acceptance");
+    mockJobs = [runnable(1, { instruction: "x" })];
+    loadJobsMock.mockResolvedValue([runnable(1, { instruction: "changed elsewhere" })]);
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
+    await waitFor(() => expect(refreshMock).toHaveBeenCalledTimes(1));
+    expect(acceptanceState(mockJobs[0], SCOPE)).toBe("none");
+  });
+
+  it("Accept on a job changed elsewhere says so", async () => {
+    mockJobs = [runnable(1, { instruction: "x" })];
+    loadJobsMock.mockResolvedValue([runnable(1, { instruction: "changed elsewhere" })]);
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
+    expect(await screen.findByText(t("en-US", "scheduledJobAcceptChanged"))).toBeInTheDocument();
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("Accept on a job that is gone says it was deleted on another device", async () => {
+    mockJobs = [runnable(1)];
+    loadJobsMock.mockResolvedValue([]);
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
+    expect(await screen.findByText(t("en-US", "scheduledJobDeletedElsewhere"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
+    expect(refreshMock).toHaveBeenCalled();
+  });
+
+  it("a failed re-read says so and accepts nothing", async () => {
+    const { acceptanceState } = await import("../scheduled-job-acceptance");
+    mockJobs = [runnable(1)];
+    loadJobsMock.mockRejectedValue(new Error("offline"));
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
+    await waitFor(() => expect(screen.getByText(t("en-US", "scheduledJobAcceptFailed"))).toBeInTheDocument());
+    expect(acceptanceState(mockJobs[0], SCOPE)).toBe("none");
+  });
+
+  it("the message clears on the next Accept", async () => {
+    mockJobs = [runnable(1)];
+    loadJobsMock.mockRejectedValueOnce(new Error("offline"));
+    loadJobsMock.mockResolvedValue([runnable(1)]);
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
+    await screen.findByText(t("en-US", "scheduledJobAcceptFailed"));
+    fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
+    await waitFor(() => expect(screen.queryByText(t("en-US", "scheduledJobAcceptFailed"))).toBeNull());
+  });
+
+  it("a waiting job declined with Not on this device is not counted", () => {
+    mockJobs = [runnable(1), runnable(2)];
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.getByText(/shared jobs? needs? your OK/)).toHaveTextContent("2 shared jobs");
+    fireEvent.click(screen.getByRole("button", { name: "Not on this device: Job 1" }));
+    expect(screen.getByText(/shared jobs? needs? your OK/)).toHaveTextContent("1 shared job needs");
+  });
+
+  it("a declined job that changed elsewhere is counted in the notice", async () => {
+    const { declineJob } = await import("../scheduled-job-acceptance");
+    mockJobs = [runnable(1, { instruction: "now" })];
+    act(() => { declineJob(runnable(1, { instruction: "before" }), SCOPE); });
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.getByText(/shared jobs? needs? your OK/)).toHaveTextContent("1 shared job needs");
+    expect(screen.getByText(t("en-US", "scheduledJobChangedElsewhere"))).toBeInTheDocument();
+  });
+
+  it("while the re-read is pending the button is aria-disabled and a second click starts no second read", async () => {
+    let release: (v: ScheduledJob[]) => void = () => {};
+    loadJobsMock.mockReturnValue(new Promise<ScheduledJob[]>((r) => { release = r; }));
+    mockJobs = [runnable(1)];
+    setup(withKey({ scheduledJobs: true }));
+    const btn = screen.getByRole("button", { name: "Accept: Job 1" });
+    loadJobsMock.mockClear();
+    fireEvent.click(btn);
+    await waitFor(() => expect(btn).toHaveAttribute("aria-disabled", "true"));
+    fireEvent.click(btn);
+    expect(loadJobsMock).toHaveBeenCalledTimes(1);
+    release([runnable(1)]);
+    await waitFor(() => expect(btn).not.toHaveAttribute("aria-disabled"));
+  });
+
+  it("the awaiting-OK status container exists empty and gains the text when a job waits", async () => {
+    mockJobs = [];
+    const view = render(<ScheduledJobsSection lang="en-US" settings={withKey({ scheduledJobs: true })} onChange={vi.fn()} config={TURSO} />);
+    const region = screen.getByRole("status");
+    expect(region).toBeEmptyDOMElement();
+    mockJobs = [runnable(1)];
+    view.rerender(<ScheduledJobsSection lang="en-US" settings={withKey({ scheduledJobs: true })} onChange={vi.fn()} config={TURSO} />);
+    expect(screen.getAllByRole("status")[0]).toBe(region);
+    expect(region).toHaveTextContent("1 shared job needs your OK");
+  });
+
+  it("Accept when this device already accepted the current version shows no message", async () => {
+    const { acceptJob, acceptanceState } = await import("../scheduled-job-acceptance");
+    mockJobs = [runnable(1, { instruction: "old" })];
+    loadJobsMock.mockResolvedValue([runnable(1, { instruction: "new" })]);
+    act(() => { acceptJob(runnable(1, { instruction: "new" }), SCOPE); });
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
+    await waitFor(() => expect(loadJobsMock).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Accept: Job 1" })).not.toHaveAttribute("aria-disabled"));
+    expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
+    expect(acceptanceState(runnable(1, { instruction: "new" }), SCOPE)).toBe("accepted");
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("Accept that finds the same job already accepted does not refresh", async () => {
+    const { acceptJob, acceptanceState } = await import("../scheduled-job-acceptance");
+    let release: (v: ScheduledJob[]) => void = () => {};
+    loadJobsMock.mockReturnValue(new Promise<ScheduledJob[]>((r) => { release = r; }));
+    mockJobs = [runnable(1, { instruction: "same" })];
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
+    act(() => { acceptJob(runnable(1, { instruction: "same" }), SCOPE); }); // accepted elsewhere while the read is in flight
+    release([runnable(1, { instruction: "same" })]);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Stop on this device: Job 1" })).not.toHaveAttribute("aria-disabled"));
+    expect(refreshMock).not.toHaveBeenCalled();
+    expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
+    expect(acceptanceState(runnable(1, { instruction: "same" }), SCOPE)).toBe("accepted");
+  });
+
+  it("a decline recorded while Accept is pending is not overridden", async () => {
+    const { declineJob, acceptanceState } = await import("../scheduled-job-acceptance");
+    let release: (v: ScheduledJob[]) => void = () => {};
+    loadJobsMock.mockReturnValue(new Promise<ScheduledJob[]>((r) => { release = r; }));
+    mockJobs = [runnable(1)];
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
+    act(() => { declineJob(runnable(1), SCOPE); }); // the user's newer answer, e.g. in another tab
+    release([runnable(1)]);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Accept: Job 1" })).not.toHaveAttribute("aria-disabled"));
+    expect(acceptanceState(runnable(1), SCOPE)).toBe("declined");
+    expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
+  });
+
+  it("an answer given during the read, with a newer job found, refreshes and accepts nothing", async () => {
+    const { declineJob, acceptanceState } = await import("../scheduled-job-acceptance");
+    let release: (v: ScheduledJob[]) => void = () => {};
+    loadJobsMock.mockReturnValue(new Promise<ScheduledJob[]>((r) => { release = r; }));
+    mockJobs = [runnable(1, { instruction: "x" })];
+    setup(withKey({ scheduledJobs: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
+    act(() => { declineJob(runnable(1, { instruction: "x" }), SCOPE); });
+    release([runnable(1, { instruction: "newer" })]);
+    await waitFor(() => expect(refreshMock).toHaveBeenCalledTimes(1));
+    expect(acceptanceState(runnable(1, { instruction: "newer" }), SCOPE)).not.toBe("accepted");
+    expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
+  });
+
+  it("a runnable job this device stopped is not counted in the notice", async () => {
+    const { declineJob } = await import("../scheduled-job-acceptance");
+    mockJobs = [runnable(1), runnable(2)];
+    act(() => { declineJob(runnable(1), SCOPE); });
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.getByText(/shared jobs? needs? your OK/)).toHaveTextContent("1 shared job needs your OK to run on this device.");
+  });
+
+  it("no notice when the switch is off or all are accepted", async () => {
+    mockJobs = [runnable(1)];
+    const { unmount } = render(<ScheduledJobsSection lang="en-US" settings={withKey({ scheduledJobs: false })} onChange={vi.fn()} config={TURSO} />);
+    expect(screen.queryByText(/need your OK|needs your OK to run/)).toBeNull();
+    unmount();
+    const { acceptJob } = await import("../scheduled-job-acceptance");
+    act(() => { acceptJob(mockJobs[0], SCOPE); });
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.queryByText(/shared jobs? needs? your OK/)).toBeNull();
   });
 });

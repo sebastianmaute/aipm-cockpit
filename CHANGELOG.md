@@ -25,6 +25,13 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **A shared scheduled job now runs on a device only after you accept it there.** Each job in Settings → Scheduled jobs
+  shows whether this device accepted it, with Accept, Stop and "Not on this device". A job you create is accepted on
+  the device where you create it; changing a job's project or instruction asks every device again, including the one
+  you changed it on. An answer counts only on this device and only in the portfolio where you gave it. Jobs that
+  existed before this update wait for your OK, and one that has no project yet shows its instruction read-only until
+  you assign a project. Devices that have not updated yet still run shared jobs without asking, so update every
+  device that uses the portfolio.
 - **The forecast import sends Claude only the top of the sheet, without e-mail addresses.** Claude only names which
   column is which, so it now receives the sheet's first 30 non-empty rows instead of the whole sheet, and every
   e-mail address in them is replaced by a placeholder. Its column mapping is still applied to the whole sheet, and you
