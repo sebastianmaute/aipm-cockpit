@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
-import { sanitizeAiConfig, defaultAiConfig, DEFAULT_CHAT_MODEL, MODEL_DEFAULT_REVISION, type Settings, sanitizeBranding, hasAnyBrandingField, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled, isAiEnabled, isAiBackgroundEnabled, aiKeyIfEnabled, isAiConsentedForDictation, coerceHardCap } from "./settings-types";
+import { sanitizeAiConfig, defaultAiConfig, DEFAULT_CHAT_MODEL, MODEL_DEFAULT_REVISION, type Settings, sanitizeBranding, hasAnyBrandingField, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled, isAiEnabled, isAiBackgroundEnabled, aiKeyIfEnabled, isAiConsentedForDictation, coerceHardCap, aiNotReadyHintKey } from "./settings-types";
 import { newConsent, isInteractiveAiAllowed } from "./ai-consent";
 import { SETTINGS_KEY, writeSettings } from "./use-settings";
 import { setAiDeploymentState } from "./ai-deployment";
@@ -509,6 +509,15 @@ describe("AI consent gate", () => {
     const ai = sanitizeAiConfig({ consent: newConsent(D), backgroundConsent: newConsent(D) });
     expect(ai.consent).toEqual(newConsent(D));
     expect(ai.backgroundConsent).toEqual(newConsent(D));
+  });
+
+  it("aiNotReadyHintKey names the disclosure only when the switch and a key are there", () => {
+    expect(aiNotReadyHintKey(keyed)).toBe("aiActionNeedsConsent");
+    expect(aiNotReadyHintKey({ ...keyed, consent: { acceptedAt: D.toISOString(), disclosureVersion: 0 } })).toBe("aiActionNeedsConsent");
+    expect(aiNotReadyHintKey({ ...keyed, enabled: false })).toBe("aiActionNeedsAi");
+    expect(aiNotReadyHintKey({ ...keyed, apiKey: "" })).toBe("aiActionNeedsAi");
+    expect(aiNotReadyHintKey(undefined)).toBe("aiActionNeedsAi");
+    expect(aiNotReadyHintKey({ ...keyed, consent: newConsent(D) })).toBe("aiActionNeedsAi");
   });
 });
 

@@ -248,6 +248,13 @@ describe("useAllocPlan (plan-then-apply)", () => {
     expect(screen.queryByRole("button", { name: t("en-US", "allocPlanPropose") })).toBeNull();
   });
 
+  it("names the AI data disclosure when AI is on with a key but the disclosure is not accepted", () => {
+    renderHarness({ settings: { ...AI_ON, ai: { ...AI_ON.ai, consent: undefined } } });
+    const button = screen.getByRole("button", { name: /plan with ai/i });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsConsent"));
+  });
+
   it("keeps the fuller title as the description when AI is ready", () => {
     renderHarness();
     expect(screen.getByRole("button", { name: /plan with ai/i })).toHaveAccessibleDescription(t("en-US", "allocPlanTitle"));

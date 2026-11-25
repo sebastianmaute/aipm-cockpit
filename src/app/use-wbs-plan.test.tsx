@@ -967,6 +967,13 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(call.runWbsProposal).not.toHaveBeenCalled();
   });
 
+  it("names the AI data disclosure when AI is on with a key but the disclosure is not accepted", () => {
+    renderHarness({ settings: { ...AI_ON, ai: { ...AI_ON.ai, consent: undefined } } });
+    const button = screen.getByRole("button", { name: t("en-US", "wbsPlanButton") });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsConsent"));
+  });
+
   it("cancel during thinking aborts the signal and shows no error toast", async () => {
     let captured: AbortSignal | undefined;
     let rejectCall!: (e: unknown) => void;

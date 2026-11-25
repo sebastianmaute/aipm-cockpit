@@ -21,7 +21,7 @@
 import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import { SparklesIcon } from "./icons";
 import { type Lang, t, tPlural } from "./i18n";
-import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
+import { type Settings, aiKeyIfEnabled, aiNotReadyHintKey, isAiEnabled } from "./settings-types";
 import { type Absence, type Discipline, type Grade, type Milestone, type Resource, type ResourcePlan, type Role, type Stakeholder, type Task } from "./types";
 import { type LogActivityAiFn } from "./activity-log-context";
 import { aiOrigin } from "./activity-origin";
@@ -382,7 +382,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       onCancel={reset}
       idleLabelKey="allocPlan"
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
-      description={t(lang, aiReady ? "allocPlanTitle" : "aiActionNeedsAi")}
+      description={t(lang, aiReady ? "allocPlanTitle" : aiNotReadyHintKey(settings.ai))}
       disabled={!aiReady || (phase !== "idle" && phase !== "thinking")}
     />
   ) : null;

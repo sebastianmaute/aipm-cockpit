@@ -689,3 +689,14 @@ describe("useRaciSuggest — the trigger when AI is not ready", () => {
     expect(screen.queryByRole("button", { name: /suggest raci/i })).toBeNull();
   });
 });
+
+// AI on and a key set, but the AI data disclosure not accepted: the hint names the disclosure.
+describe("useRaciSuggest — the trigger while the AI data disclosure is not accepted", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("is disabled and described by the consent hint", () => {
+    renderHarness({ settings: { ...AI_ON, ai: { ...AI_ON.ai, consent: undefined } } });
+    const button = screen.getByRole("button", { name: /suggest raci/i });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsConsent"));
+  });
+});

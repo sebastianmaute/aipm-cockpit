@@ -33,7 +33,7 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { SparklesIcon } from "./icons";
 import { type Lang, t } from "./i18n";
-import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
+import { type Settings, aiKeyIfEnabled, aiNotReadyHintKey, isAiEnabled } from "./settings-types";
 import {
   type ChangeItem, type Discipline, type Grade, type Milestone,
   type RaidItem, type Resource, type Role, type Stakeholder, type Task,
@@ -401,7 +401,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       onCancel={reset}
       idleLabelKey="raciSuggest"
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
-      description={aiReady ? undefined : t(lang, "aiActionNeedsAi")}
+      description={aiReady ? undefined : t(lang, aiNotReadyHintKey(settings.ai))}
       disabled={!aiReady || (phase !== "idle" && phase !== "thinking")}
     />
   ) : null;

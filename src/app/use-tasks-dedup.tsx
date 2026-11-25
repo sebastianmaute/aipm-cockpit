@@ -16,7 +16,7 @@
 import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import { SparklesIcon } from "./icons";
 import { type Lang, t, tPlural } from "./i18n";
-import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
+import { type Settings, aiKeyIfEnabled, aiNotReadyHintKey, isAiEnabled } from "./settings-types";
 import { type Task } from "./types";
 import { type LogActivityAiFn } from "./activity-log-context";
 import { aiOrigin } from "./activity-origin";
@@ -221,7 +221,7 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
       idleLabelKey="taskDedup"
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
       nameQualifier={triggerQualifier}
-      description={t(lang, aiReady ? "taskDedupTitle" : "aiActionNeedsAi")}
+      description={t(lang, aiReady ? "taskDedupTitle" : aiNotReadyHintKey(settings.ai))}
       disabled={!aiReady || phase === "applying"}
     />
   ) : null;

@@ -31,7 +31,7 @@ import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEff
 import { flushSync } from "react-dom";
 import { SparklesIcon } from "./icons";
 import { type Lang, t, tPlural } from "./i18n";
-import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
+import { type Settings, aiKeyIfEnabled, aiNotReadyHintKey, isAiEnabled } from "./settings-types";
 import { type Task } from "./types";
 import { type LogActivityAiFn } from "./activity-log-context";
 import { aiOrigin } from "./activity-origin";
@@ -509,7 +509,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         onCancel={reset}
         idleLabelKey="wbsPlanButton"
         idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
-        description={t(lang, aiReady ? "wbsPlanButtonTitle" : "aiActionNeedsAi")}
+        description={t(lang, aiReady ? "wbsPlanButtonTitle" : aiNotReadyHintKey(settings.ai))}
         disabled={!aiReady || (phase !== "idle" && phase !== "thinking")}
       />
     </span>
