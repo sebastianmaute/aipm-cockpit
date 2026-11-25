@@ -36,7 +36,7 @@ Verarbeitungstätigkeiten](record-of-processing-input.md#ki-verarbeitung). [gepr
   anhängen. [Aussage des Maintainers]
 - **Im Hintergrund** senden drei Funktionen nach Zeitplan Projektdaten, solange die App geöffnet ist:
   geplante Analysen, automatische Empfehlungen zu Insights und der geplante Text der Zusammenfassung. Sie
-  laufen nur, wenn Sie unter Einstellungen → KI erlaubt haben, dass KI im Hintergrund läuft. [geprüft:
+  laufen nur, wenn Sie unter Einstellungen → KI-Assistent erlaubt haben, dass KI im Hintergrund läuft. [geprüft:
   `aiBackgroundConsentHelp` in `src/app/i18n.ts` und `src/app/i18n.de.ts`, `src/app/ai-consent.ts`]
 - **Das Diktat** sendet Ihre Stimme an den Sprachdienst, den Sie in den Einstellungen gewählt haben, nicht
   an Claude. [geprüft: die Zeile zum Diktat in derselben Tabelle]
@@ -57,7 +57,7 @@ Kennen Sie die Ausnahmen:
   Fälligkeitsdatums, kann er sie sofort vornehmen, ohne Prüfkarte. Er fragt immer vorher, wenn er etwas
   löschen, Besprechungsteilnehmer einladen, die eigenen Angaben des Projekts bearbeiten, mehr als eine
   Sache ändern oder Arbeit auf einen Tag legen will, an dem jemand abwesend ist, und immer dann, wenn eine
-  Datei an die Unterhaltung angehängt ist. Ist in Ihrem Projekt „Jede KI-Änderung prüfen“ in Einstellungen → KI
+  Datei an die Unterhaltung angehängt ist. Ist in Ihrem Projekt „Jede KI-Änderung prüfen“ in Einstellungen → KI-Assistent
   eingeschaltet, fragt er bei jeder Änderung vorher, auch bei einer einzelnen. [geprüft: `shouldStage` in
   `src/app/chat-proposal.ts`; `src/app/chat-panel.review-all-writes.test.tsx`]
 - **Von außen gelesener Text.** Hat der Chat in einer Unterhaltung eine aus Jira synchronisierte Aufgabe
@@ -172,7 +172,7 @@ braucht. [geprüft: `aiPeopleProtectionHelp` in `src/app/i18n.ts` und `src/app/i
 
 ## KI ausschalten
 
-- **Für sich selbst:** Schalten Sie unter Einstellungen → KI „KI-Assistent aktivieren“ aus, oder wählen
+- **Für sich selbst:** Schalten Sie unter Einstellungen → KI-Assistent „KI-Assistent aktivieren“ aus, oder wählen
   Sie „Zustimmung widerrufen“. Die KI-Funktionen ruhen, bis Sie KI wieder einschalten und erneut
   zustimmen. [geprüft: `aiEnable` und `aiConsentRevoke` in `src/app/i18n.ts` und `src/app/i18n.de.ts`,
   `src/app/settings-sections/ai-section.tsx`, `src/app/ai-consent.ts`]

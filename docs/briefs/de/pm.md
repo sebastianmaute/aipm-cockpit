@@ -46,7 +46,7 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
   *getestet (Unit)*).
 - **Im Hintergrund:** Die geplanten Analysen und Zusammenfassungen erzeugen Text und ändern keinen
   Projektdatensatz, und eine Empfehlung wartet auf Ihre Bestätigung (E56, *im Code gelesen*); für
-  Hintergrundläufe stimmen Sie einmal zu, nicht für jeden Lauf; ein Projekt (Einstellungen → KI) oder Ihre Organisation kann sie pausieren (E32, *getestet (Unit)*).
+  Hintergrundläufe stimmen Sie einmal zu, nicht für jeden Lauf; ein Projekt (Einstellungen → KI-Assistent) oder Ihre Organisation kann sie pausieren (E32, *getestet (Unit)*).
 
 ## Was Sie steuern
 
@@ -54,7 +54,7 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
   Server-Einstellungen des Betreibers der Installation (E19, *getestet (Unit)*; E4, *getestet (Unit)*; E7,
   *getestet (Unit)*); im Piloten, den die Kurzinformationen für CEO und COO vorschlagen, ist der Schutz
   erzwungen, was Ressourcenplanung und RACI ausblendet (E18, *getestet (Unit)*).
-- **Zwei Projekteinstellungen in Einstellungen → KI, beide aus, bis sie gesetzt werden:** „Jede KI-Änderung
+- **Zwei Projekteinstellungen in Einstellungen → KI-Assistent, beide aus, bis sie gesetzt werden:** „Jede KI-Änderung
   prüfen“ schickt jede Änderung an Projektdaten, die der Chat vorschlägt, auf die Prüfkarte, auch eine einzelne,
   und ein Lesezugriff wartet nie (E71, *getestet (Unit)*); „Stundensätze aus Mit KI planen, der Prognose im Chat
   und den Dashboard-Zahlen heraushalten“ lässt die internen Stundensätze aus dieser Anfrage weg, den Satz der Rolle

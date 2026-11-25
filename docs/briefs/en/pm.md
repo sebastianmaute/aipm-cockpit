@@ -40,14 +40,14 @@ feature on one demo project (E37, *measured*).
   that hold for the rest of the conversation; rows created from an imported file do not (E48, *tested (unit)*).
 - **In the background:** the scheduled analyses and digests produce text and change no project record, and a
   recommendation waits for your confirmation (E56, *read in code*); you consent to background runs once, not
-  run by run, and a project (Settings → AI) or your organisation can pause them (E32, *tested (unit)*).
+  run by run, and a project (Settings → AI Assistant) or your organisation can pause them (E32, *tested (unit)*).
 
 ## What you control
 
 - **Not the switches:** AI off, forced protection, the route and the key restriction are server settings of
   the deployment's operator (E19, *tested (unit)*; E4, *tested (unit)*; E7, *tested (unit)*); in the pilot the
   CEO and COO briefs suggest, protection is forced on, which hides allocation and RACI (E18, *tested (unit)*).
-- **Two project settings in Settings → AI, both off until set:** "Review every AI write" sends every change to
+- **Two project settings in Settings → AI Assistant, both off until set:** "Review every AI write" sends every change to
   project data the chat proposes to the review card, even a single one, and a read never waits (E71,
   *tested (unit)*); "Keep hourly rates out of Plan with AI and the chat's forecast and dashboard figures" leaves
   the internal hourly rates out of that request, the role rate of a person from the directory out of the forecast

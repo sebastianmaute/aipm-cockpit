@@ -179,7 +179,7 @@ default in every project; a user can turn it off for one project in Settings, an
 on for every project with `AIPM_DISABLED_INTEGRATIONS=ai-people`. [verified:
 `src/app/ai-people-protection.ts`, `src/app/settings-sections/ai-people-protection-control.tsx`,
 `src/app/deployment-variables.ts`] The three rows whose consent is "asked separately" run in the
-background while the app is open, without a person starting each run. A project can pause them in Settings → AI, and
+background while the app is open, without a person starting each run. A project can pause them in Settings → AI Assistant, and
 an operator can pause them for every project with `AIPM_DISABLED_INTEGRATIONS=ai-background`; the pause does not
 withdraw anyone's background consent. [verified: `level: "background"` in `src/app/ai-disclosure.ts`;
 `src/app/use-scheduled-job-runner.ts`, `src/app/use-insight-recommend-runner.ts`, `src/app/use-digest.ts`;

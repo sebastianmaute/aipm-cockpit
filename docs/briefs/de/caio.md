@@ -60,11 +60,11 @@ App tut nichts dafür, dass eine Anfrage zweimal dieselbe Antwort ergibt (E61, *
   eine einzelne Funktion ab (E42, *getestet (Unit)*).
 - **Prüfung und Stundensätze:** `ai-direct-writes` schickt jede Änderung des Chats in jedem Projekt auf die
   Prüfkarte, und `ai-rates` hält Stundensätze aus „Mit KI planen“, der Prognose im Chat und den Dashboard-Zahlen heraus; ohne sie kann jedes Projekt beides in
-  Einstellungen → KI festlegen, und beides ist aus, bis es gesetzt wird (E71, *getestet (Unit)*; E72,
+  Einstellungen → KI-Assistent festlegen, und beides ist aus, bis es gesetzt wird (E71, *getestet (Unit)*; E72,
   *getestet (Unit)*).
 - **KI im Hintergrund:** `ai-background` pausiert die Analyse durch geplante Aufträge, die automatischen
   Insight-Empfehlungen und die geplante Zusammenfassung des Digests in jedem Projekt, und jedes Projekt kann sie in
-  Einstellungen → KI pausieren; KI, die eine Person startet, bleibt unberührt, und die Pause zieht niemandes
+  Einstellungen → KI-Assistent pausieren; KI, die eine Person startet, bleibt unberührt, und die Pause zieht niemandes
   Hintergrund-Zustimmung zurück (E32, *getestet (Unit)*).
 - **Zu Artikel 50 (Transparenz):** Die Oberflächen benennen die KI („KI-Assistent“, „Claude fragen“,
   „KI-generiert – vor dem Handeln prüfen.“), und das Aktivitätsprotokoll zeigt ihre Änderungen im Chat mit dem
@@ -102,7 +102,7 @@ App tut nichts dafür, dass eine Anfrage zweimal dieselbe Antwort ergibt (E61, *
   E66, *im Code gelesen*).
 - Bitten Sie den Chat in einem Testprojekt um eine einzelne Terminänderung an einer Aufgabe, deren zuständige
   Person dann nicht abwesend ist: Sie wird ohne Karte angewendet, und das Aktivitätsprotokoll zeigt sie als
-  Änderung der KI; mit angehängter Datei, oder wenn „Jede KI-Änderung prüfen“ in Einstellungen → KI
+  Änderung der KI; mit angehängter Datei, oder wenn „Jede KI-Änderung prüfen“ in Einstellungen → KI-Assistent
   eingeschaltet ist, wartet dieselbe Bitte (E47, *getestet (Unit)*; E55, *im Code gelesen*; E71,
   *getestet (Unit)*).
 - Fragen Sie Anthropic, was es von einer Anfrage aufbewahrt, ob es damit trainiert und welche Bedingungen für

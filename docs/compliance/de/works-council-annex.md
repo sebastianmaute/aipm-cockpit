@@ -242,7 +242,7 @@ aufgeführt. [geprüft je Punkt unten]
   einzelne Änderung außerhalb dieser Fälle wird sofort ausgeführt, ohne Karte. Sie wird als
   Änderung der KI protokolliert, und die meisten solchen Änderungen lassen sich rückgängig machen, aber
   keine Person hat sie vorher freigegeben. [geprüft: `shouldStage` in `src/app/chat-proposal.ts`, `src/app/activity-log.ts`]
-  Ein Projekt kann die Ausnahme mit „Jede KI-Änderung prüfen“ in Einstellungen → KI aufheben, ein Betreiber
+  Ein Projekt kann die Ausnahme mit „Jede KI-Änderung prüfen“ in Einstellungen → KI-Assistent aufheben, ein Betreiber
   für jedes Projekt mit `ai-direct-writes`: Dann wartet jede Änderung an Projektdaten, die der Chat
   vorschlägt, auf der Karte, auch eine einzelne; Lesezugriffe warten nie. [geprüft: `isReviewAllWrites` in
   `src/app/ai-project-switches.ts`; `src/app/chat-panel.review-all-writes.test.tsx`] Hat der Chat eine aus Jira
