@@ -160,15 +160,21 @@ const CONTROL_CHARS = /[\x00-\x1f]/g;
 /** Cap on the surfaced error message length. */
 const MAX_AI_ERROR_MESSAGE = 500;
 
-export type AiErrorClass = "limit" | "auth" | "network" | "parse" | "generic";
+export type AiErrorClass = "limit" | "auth" | "model" | "network" | "parse" | "generic";
 
 /** Anthropic error `type` values that mean "you hit a usage/rate limit". */
 const LIMIT_ERROR_TYPES = new Set(["rate_limit_error", "overloaded_error"]);
+
+/** Anthropic's `error.type` on a 404 for a model that does not exist or was retired. */
+const MODEL_NOT_FOUND_ERROR_TYPE = "not_found_error";
 
 /**
  * Classify an AI call failure from its HTTP status + optional safe body token.
  *   - 429, or errorType rate_limit_error / overloaded_error → "limit"
  *   - 401 / 403 → "auth"
+ *   - 404 with errorType not_found_error → "model" (the selected model is unknown or retired). Only
+ *     Anthropic's own answer carries that type: the relay's empty 404 never reaches here, it is an
+ *     `AiDeploymentError("route-changed")`, and a 404 without the type stays "generic".
  *   - everything else → "generic"
  * ("network" / "parse" are produced by callers for non-HTTP failures, not here.)
  */
@@ -177,7 +183,15 @@ export function classifyAiError(status: number, errorType?: string): AiErrorClas
     return "limit";
   }
   if (status === 401 || status === 403) return "auth";
+  if (status === 404 && errorType === MODEL_NOT_FOUND_ERROR_TYPE) return "model";
   return "generic";
+}
+
+/** The message key for an Anthropic answer that the selected model is not available, or null for
+ *  any other error. i18n-free, like `aiTransportMessageKey`; "aiModelUnavailable" is a real key. */
+export function aiModelMessageKey(err: unknown): "aiModelUnavailable" | null {
+  if (!(err instanceof AiHttpError)) return null;
+  return classifyAiError(err.status, err.errorType) === "model" ? "aiModelUnavailable" : null;
 }
 
 /**

@@ -284,6 +284,7 @@ describe("useTasksDedup — §650 a refused key shows the key message", () => {
     [new AiDeploymentError("off"), "aiDeploymentOff"],
     [new AiGatewayError("ai-gateway-rejected"), "aiGatewayRejected"],
     [new AiGatewayError("ai-gateway-rate-limited"), "aiGatewayRateLimited"],
+    [new AiHttpError(404, "not_found_error", "model: claude-retired-1"), "aiModelUnavailable"],
   ] as const)("a transport failure toasts %s's own message, not the dedup error", async (err, key) => {
     vi.mocked(call.runDedupProposal).mockRejectedValue(err);
     renderHarness();

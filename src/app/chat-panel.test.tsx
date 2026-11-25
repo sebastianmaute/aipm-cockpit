@@ -5066,6 +5066,30 @@ describe("§650 a refused key shows the key message", () => {
   });
 });
 
+describe("a retired or unknown model shows the model message", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("Anthropic's 404 not_found_error names the model and Settings, not the raw failure", async () => {
+    const body = { type: "error", error: { type: "not_found_error", message: "model: claude-retired-1" } };
+    spyAiFetch().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: () => Promise.resolve(body),
+      text: () => Promise.resolve(JSON.stringify(body)),
+    } as unknown as Response);
+
+    render(
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(t("en-US", "aiModelUnavailable"));
+    expect(alert).not.toHaveTextContent(/Chat failed/i);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // AI-17 — the transport's own failures are named as what they are, never as a key problem.
 // ---------------------------------------------------------------------------

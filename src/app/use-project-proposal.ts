@@ -83,7 +83,7 @@ export function useProjectProposal(ai: AiCreds) {
           setError("limit");
           return null;
         }
-        // A switched-off deployment, a refused gateway, a refused or unchecked key → its own message key (step0 renders it).
+        // A switched-off deployment, a refused gateway, a refused or unchecked key, an unavailable model → its own message key (step0 renders it).
         setError(aiFailureToken(e) ?? (e instanceof Error ? e.message : "error"));
         return null;
       } finally {

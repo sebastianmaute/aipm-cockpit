@@ -62,7 +62,7 @@ import {
   type ToolFlags,
 } from "./chat-api";
 import { buildWireMessages } from "./chat-cache-layout";
-import { AiHttpError, aiTransportMessageKey, classifyAiError } from "./ai-errors";
+import { AiHttpError, aiModelMessageKey, aiTransportMessageKey, classifyAiError } from "./ai-errors";
 import { aiKeyMessageKeyForError, syncAiKey } from "./ai-key-status";
 import { setSessionAiKey } from "./session-ai-key";
 import { useSessionAiKey } from "./use-session-ai-key";
@@ -1197,6 +1197,7 @@ function ChatPanelInner({
       if (projectIdRef.current === sendProjectId && chatThreads.threadIdRef.current === sendThreadId) {
         const keyMsg = aiKeyMessageKeyForError(err);
         const transportMsg = aiTransportMessageKey(err);
+        const modelMsg = aiModelMessageKey(err);
         if (errName === "AbortError") {
           setDisplay((prev) => [
             ...prev,
@@ -1226,6 +1227,9 @@ function ChatPanelInner({
           // §650 — a refused key (401/403) is named as the KEY problem, with the way out,
           // instead of "Chat failed: 401 — invalid x-api-key".
           setError(t(lang, keyMsg));
+        } else if (modelMsg) {
+          // Anthropic does not know the selected model (retired or unknown): name it, with the way out.
+          setError(t(lang, modelMsg));
         } else {
           // AiHttpError.message is status-only ("400"); its `safeMessage` (the
           // sanitized RESPONSE error.message, e.g. "prompt is too long: N > M")
