@@ -130,6 +130,90 @@ describe("runForcedToolCall — models known to refuse a forced tool_choice", ()
   });
 });
 
+// The learned auto-choice models are kept on this device. `__resetToolChoiceFallbackForTests` forgets the
+// in-memory state but leaves localStorage, which is what a reload does.
+describe("runForcedToolCall — a learned auto-choice model survives a reload", () => {
+  const STORE_KEY = "aipm-cockpit:auto-choice-models";
+  const REFUSAL = {
+    ok: false,
+    status: 400,
+    json: async () => ({ error: { type: "invalid_request_error", message: 'tool_choice: type "tool" is not supported for this model.' } }),
+  };
+  const TOOL_REPLY = {
+    ok: true,
+    status: 200,
+    json: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "t", input: { a: 1 } }] }),
+  };
+  const choices = (fetchMock: ReturnType<typeof vi.fn>) =>
+    fetchMock.mock.calls.map((c: unknown[]) => (JSON.parse((c[1] as { body: string }).body) as { tool_choice: unknown }).tool_choice);
+  const choicesFor = async (model: string) => {
+    const fetchMock = vi.fn().mockResolvedValue(TOOL_REPLY);
+    stubAiFetch(fetchMock);
+    await runForcedToolCall({ ...args(), model });
+    return choices(fetchMock);
+  };
+  const stored = () => JSON.parse(localStorage.getItem(STORE_KEY) ?? "null") as unknown;
+
+  beforeEach(() => __resetToolChoiceFallbackForTests());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("stores the learned id and asks it with auto, in one fetch, after a reload", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValueOnce(TOOL_REPLY);
+    stubAiFetch(fetchMock);
+    await runForcedToolCall({ ...args(), model: "claude-refuses-forced-choice" });
+    expect(stored()).toEqual(["claude-refuses-forced-choice"]);
+
+    __resetToolChoiceFallbackForTests();
+    expect(await choicesFor("claude-refuses-forced-choice")).toEqual([{ type: "auto" }]);
+    expect(await choicesFor("claude-sonnet-5")).toEqual([{ type: "tool", name: "t" }]);
+  });
+
+  it("never stores a model already on the known list", async () => {
+    await choicesFor("claude-sonnet-5-5");
+    expect(localStorage.getItem(STORE_KEY)).toBeNull();
+  });
+
+  it("ignores stored values that are not model ids", async () => {
+    localStorage.setItem(STORE_KEY, JSON.stringify(["Claude Bad!", 42, null, "a".repeat(81), "claude-learned-1"]));
+    __resetToolChoiceFallbackForTests();
+    expect(await choicesFor("Claude Bad!")).toEqual([{ type: "tool", name: "t" }]);
+    expect(await choicesFor("a".repeat(81))).toEqual([{ type: "tool", name: "t" }]);
+    expect(await choicesFor("claude-learned-1")).toEqual([{ type: "auto" }]);
+  });
+
+  it.each([["not json"], [JSON.stringify({ model: "claude-learned-1" })], [JSON.stringify("claude-learned-1")]])(
+    "ignores a stored value that is not a list (%s)",
+    async (raw) => {
+      localStorage.setItem(STORE_KEY, raw);
+      __resetToolChoiceFallbackForTests();
+      expect(await choicesFor("claude-learned-1")).toEqual([{ type: "tool", name: "t" }]);
+    },
+  );
+
+  it("keeps at most 20 ids, the newest", async () => {
+    const ids = Array.from({ length: 20 }, (_, i) => `claude-old-${i}`);
+    localStorage.setItem(STORE_KEY, JSON.stringify(ids));
+    __resetToolChoiceFallbackForTests();
+    const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValueOnce(TOOL_REPLY);
+    stubAiFetch(fetchMock);
+    await runForcedToolCall({ ...args(), model: "claude-newest" });
+    expect(stored()).toEqual([...ids.slice(1), "claude-newest"]);
+  });
+
+  it("learns for the session only when storage throws", async () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValueOnce(TOOL_REPLY);
+    stubAiFetch(fetchMock);
+    await expect(runForcedToolCall({ ...args(), model: "claude-refuses-forced-choice" })).resolves.toEqual({ a: 1 });
+    expect(await choicesFor("claude-refuses-forced-choice")).toEqual([{ type: "auto" }]);
+  });
+});
+
 describe("runForcedToolCall — a model that refuses a forced tool_choice", () => {
   const REFUSAL = {
     ok: false,

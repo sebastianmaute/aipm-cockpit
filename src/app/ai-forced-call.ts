@@ -18,6 +18,7 @@
 import type { ApiMessage, SystemBlock } from "./chat-api";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import { reportAiKeyResponse } from "./ai-key-status";
+import { readDeviceJson, writeDeviceJson } from "./device-store";
 import { type AiConsentLevel, assertAiConsentLive, type BackgroundTarget } from "./ai-consent";
 import { matchesSchema, withStrictTool } from "./ai-tool-schema";
 import { postAiMessages } from "./ai-transport";
@@ -88,8 +89,45 @@ export const KNOWN_AUTO_CHOICE_MODELS: readonly string[] = Object.freeze([
 ]);
 
 /** Models asked with `{ type: "auto" }`: the known ones above, plus any other model that answered a
- *  forced choice with a 400 (learned for the rest of the session). Every other model keeps the forced choice. */
+ *  forced choice with a 400 (learned, and kept on this device — see `LEARNED_AUTO_CHOICE_KEY`). Every
+ *  other model keeps the forced choice. */
 const autoChoiceModels = new Set<string>(KNOWN_AUTO_CHOICE_MODELS);
+
+/** Where the LEARNED auto-choice models (never the known ones) are kept, so a reload does not pay the 400
+ *  round trip again. Device app config: never exported, not in recovery's `CONFIG_KEYS` (it cannot keep
+ *  the app from starting), cleared by `clearAppConfig`'s `aipm-cockpit:*` sweep. Every read and write goes
+ *  through `device-store.ts`, which swallows a blocked or full storage: learning then lasts the session. */
+const LEARNED_AUTO_CHOICE_KEY = "aipm-cockpit:auto-choice-models";
+/** At most this many learned ids are kept, the newest. */
+const MAX_LEARNED_AUTO_CHOICE_MODELS = 20;
+/** The shape a stored id must have to be used; anything else in storage is ignored. */
+const MODEL_ID_SHAPE = /^[a-z0-9][a-z0-9.-]{0,79}$/;
+/** Whether this page has read the stored ids yet (read once, on first use). */
+let learnedAutoChoiceLoaded = false;
+
+function isLearnableModelId(value: unknown): value is string {
+  return typeof value === "string" && MODEL_ID_SHAPE.test(value) && !KNOWN_AUTO_CHOICE_MODELS.includes(value);
+}
+
+/** The stored learned ids that pass the shape check, de-duplicated, the newest `MAX_LEARNED_AUTO_CHOICE_MODELS`. */
+function storedLearnedAutoChoiceModels(): string[] {
+  const raw = readDeviceJson<unknown>(LEARNED_AUTO_CHOICE_KEY, []);
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(raw.filter(isLearnableModelId))].slice(-MAX_LEARNED_AUTO_CHOICE_MODELS);
+}
+
+function loadLearnedAutoChoiceModels(): void {
+  if (learnedAutoChoiceLoaded) return;
+  learnedAutoChoiceLoaded = true;
+  for (const model of storedLearnedAutoChoiceModels()) autoChoiceModels.add(model);
+}
+
+function learnAutoChoiceModel(model: string): void {
+  autoChoiceModels.add(model);
+  if (!isLearnableModelId(model)) return;
+  const next = [...storedLearnedAutoChoiceModels().filter((m) => m !== model), model];
+  writeDeviceJson(LEARNED_AUTO_CHOICE_KEY, next.slice(-MAX_LEARNED_AUTO_CHOICE_MODELS));
+}
 
 /** Tools whose plain auto reply did not match their schema: asked in strict form from then on.
  *  ★★ Sonnet 5.5 sent the next-actions analysis with `actions` as a string holding tool markup in 8 of
@@ -101,7 +139,10 @@ const strictTools = new Set<string>();
  *  That cost is why strict is the fallback and not the first try. */
 const nonStrictTools = new Set<string>();
 
+/** Test-only: forget everything learned in memory, as a reload does. The stored learned ids stay and are
+ *  read again on the next call. */
 export function __resetToolChoiceFallbackForTests(): void {
+  learnedAutoChoiceLoaded = false;
   autoChoiceModels.clear();
   for (const model of KNOWN_AUTO_CHOICE_MODELS) autoChoiceModels.add(model);
   strictTools.clear();
@@ -198,6 +239,7 @@ export async function runForcedToolCallWithRetry(
 /** The reply to one call: forced, or auto for a model that refuses a forced choice. `isRetry` marks the
  *  larger-budget retry, whose 400 may be the budget rather than the strict form (`postStrict`). */
 async function requestReply(args: ForcedToolCallArgs, isRetry = false): Promise<ReplyBody> {
+  loadLearnedAutoChoiceModels();
   if (autoChoiceModels.has(args.model)) return postAuto(args, isRetry);
   try {
     return await postOnce(args, "forced");
@@ -205,7 +247,7 @@ async function requestReply(args: ForcedToolCallArgs, isRetry = false): Promise<
     if (!refusesForcedChoice(e)) throw e;
     // With "auto" and a single tool the model still calls it; a reply without the call is
     // the same "parse" failure as before.
-    autoChoiceModels.add(args.model);
+    learnAutoChoiceModel(args.model);
     return postAuto(args, isRetry);
   }
 }
