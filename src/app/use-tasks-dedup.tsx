@@ -91,8 +91,8 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
   const apiKey = aiKeyIfEnabled(settings.ai);
   const guideText = useActionGuideText("dedup");
   const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
-  // AI switched on with a key. Without it the trigger still shows (when `showTrigger`), disabled with
-  // the shared `aiActionNeedsAi` hint; a popout or a list below the minimum shows none.
+  // AI switched on with a key and a current consent (`isAiEnabled`). Without it the trigger still shows (when
+  // `showTrigger`), disabled with the hint `aiNotReadyHintKey` picks; a popout or a list below the minimum shows none.
   const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
   const showTrigger = !isPopout && tasks.length >= MIN_TASKS_FOR_DEDUP;
   const enabled = aiReady && showTrigger;

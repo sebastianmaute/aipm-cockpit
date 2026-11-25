@@ -152,8 +152,8 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   // all — the trigger is hidden, an open window closes and is reset (below), and propose/apply refuse. Guarded HERE, not at the
   // button, so no other entry point reaches it.
   const peopleProtected = usePeopleProtected();
-  // AI switched on with a key. Without it the trigger still shows (when `showTrigger`), disabled with the
-  // shared `aiActionNeedsAi` hint; a popout, no resources, or people protection shows none.
+  // AI switched on with a key and a current consent (`isAiEnabled`). Without it the trigger still shows (when
+  // `showTrigger`), disabled with the hint `aiNotReadyHintKey` picks; a popout, no resources, or people protection shows none.
   const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
   const showTrigger = !isPopout && resources.length > 0 && !peopleProtected;
   const enabled = aiReady && showTrigger;

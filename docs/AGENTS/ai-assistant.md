@@ -244,10 +244,13 @@
   background insight runner (`use-insight-recommend-runner.ts`) ends its tick on the model class as on limit/auth, and
   a scheduled job records it as the `ReportErrorToken` `ai-model-unavailable`, shown as `aiModelUnavailable` in the
   reports view and the run history (an older version reads that token as a generic failure: its report decoder maps
-  an unknown token to "error" and its run history prints the generic failed line). Of the transport failures,
-  scheduled jobs record only a GATEWAY failure as its own `ReportErrorToken` (`toErrorToken`: `ai-gateway-rejected`, `ai-gateway-error`,
-  `ai-gateway-rate-limited`, and `ai-relay-rate-limited`, the relay's own per-caller limit, §806, a 429 the client
-  reads as `AiGatewayError` so it is never shown as Anthropic's limit); a deployment error (`AiDeploymentError`: off, invalid, changed route, unconfirmed) is
+  an unknown token to "error" and its run history prints the generic failed line). Besides `limit`, `401`/`403`,
+  `parse`, `turso`, `storage-unreachable` and the fallback `error`, `toErrorToken` gives these AI failures a
+  `ReportErrorToken` of their own: an unavailable model (`ai-model-unavailable`), a timeout (`ai-timed-out`, §798), a
+  key the organisation key check refused (`ai-key-wrong-organization`, `ai-key-wrong-workspace`) and a GATEWAY
+  failure (`ai-gateway-rejected`, `ai-gateway-error`, `ai-gateway-rate-limited`, and `ai-relay-rate-limited`, the
+  relay's own per-caller limit, §806, a 429 the client reads as `AiGatewayError` so it is never shown as
+  Anthropic's limit) — the full set is the `ReportErrorToken` union in `scheduled-reports-store.ts`. A deployment error (`AiDeploymentError`: off, invalid, changed route, unconfirmed) is
   transient — the run records nothing, keeps its period and retries on its next check.
 - **Per-project setting overrides (`Workspace.settingsOverrides`, v0.190.42):** a "This project" Settings section
   (`settings-sections/project-overrides-section.tsx`, SectionId `projectOverrides`, hidden in popouts) overrides

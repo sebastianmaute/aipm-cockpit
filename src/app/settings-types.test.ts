@@ -539,6 +539,8 @@ describe("deployment closes the AI gate", () => {
       expect(isAiBackgroundEnabled(allowed)).toBe(false);
       expect(aiKeyIfEnabled(allowed)).toBe("");
       expect(isAiConsentedForDictation(allowed)).toBe(false);
+      // A missing consent is not the reason while the deployment is off: the hint stays the plain needs-AI one.
+      expect(aiNotReadyHintKey({ ...allowed, consent: undefined })).toBe("aiActionNeedsAi");
     });
 });
 

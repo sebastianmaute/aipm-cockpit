@@ -193,8 +193,9 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
   // AI people protection (layer 1): RACI suggestions rate people, so a protected project has none — the
   // trigger is hidden, an open preview closes and is reset (below), and propose/apply refuse. Guarded HERE, not at the button.
   const peopleProtected = usePeopleProtected();
-  // AI switched on with a key. Without it the trigger still shows (when `showTrigger`), disabled with the
-  // shared `aiActionNeedsAi` hint; a popout, nothing to assign against, or people protection shows none.
+  // AI switched on with a key and a current consent (`isAiEnabled`). Without it the trigger still shows (when
+  // `showTrigger`), disabled with the hint `aiNotReadyHintKey` picks; a popout, nothing to assign against, or people
+  // protection shows none.
   const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
   const showTrigger = !isPopout && stakeholders.length > 0 && milestones.length > 0 && !peopleProtected;
   const enabled = aiReady && showTrigger;
