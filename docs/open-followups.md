@@ -3875,12 +3875,13 @@ phase === "applying"`.
 ★★ **THE TRIGGER HAS SINCE SPLIT THAT INTO TWO PROPS, and it STRENGTHENS the "cannot recur" verdict
 at the foot of this entry rather than weakening it.**
 `7151ebfd feat: give every AI trigger a Stop affordance` (2026-08-08) routed this trigger through
-`AiTriggerButton` with `busy={phase === "thinking"}` and `disabled={phase === "applying"}`. A
-thinking trigger is therefore ENABLED now (it is a Stop button) and its visible text is `aiStop`,
-which does not match `/dup/i` at all — so the recorded dump's `disabled=""` on a thinking trigger is
-no longer producible, and neither is the text match. Do not read the deduction above as a statement
-about today's source. Reproduce:
-`grep -n "busy={phase\|disabled={phase" src/app/use-tasks-dedup.tsx`. Modal absent **and** trigger disabled ⇒ the phase was **`"thinking"`** ⇒ the
+`AiTriggerButton` with `busy={phase === "thinking"}` and `disabled={phase === "applying"}`; today the
+prop reads `disabled={(!aiReady && phase !== "thinking") || phase === "applying"}`, which adds the
+AI-not-ready case for the IDLE trigger only. A thinking trigger is therefore ENABLED now (it is a
+Stop button) and its visible text is `aiStop`, which does not match `/dup/i` at all — so the
+recorded dump's `disabled=""` on a thinking trigger is no longer producible, and neither is the text
+match. Do not read the deduction above as a statement about today's source. Reproduce:
+`grep -n "busy={phase\|disabled={" src/app/use-tasks-dedup.tsx`. Modal absent **and** trigger disabled ⇒ the phase was **`"thinking"`** ⇒ the
 trigger's text child read "Claude is looking for duplicate tasks…" ⇒ exactly one node matched ⇒
 `getByText` **succeeded**. Nothing opened and closed; the gate simply matched the trigger.
 ★ The single-match step is not a *unique* deduction — the `idle` phase also yields exactly one match
