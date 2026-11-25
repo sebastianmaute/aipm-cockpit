@@ -1687,8 +1687,9 @@
     key, so a portfolio switch, an id reused for another job, or a key given to a legacy job (here or on another
     device) starts a fresh row: no text, draft or notice is carried to another job. A row's other writes (name,
     cadence, zone, project) carry its job's key, `null` for a legacy job, which `matches` reads as "the job with this
-    id that has no key" — unless this hook instance just minted that job's key (`resolveKey`), so an edit the keyless
-    row made before it saw its key still reaches the job. ★★★ Every user write from a row (`updateJob`,
+    id that has no key" — unless this hook instance just minted that job's key AND its save landed (`resolveKey`; the
+    key is recorded in the assign's `afterSave`, so a failed or refused assign leaves the job keyless and `null` keeps
+    meaning the keyless job), so an edit the keyless row made before it saw its key still reaches the job. ★★★ Every user write from a row (`updateJob`,
     `assignProject`, `deleteJob`) is bound to the backend its list was read from, captured when it is issued: one that
     RUNS after the active backend changed is refused with `JobSourceChangedError` and writes nothing — never into the
     portfolio switched to. The section shows no notice for it; a refused instruction save keeps its text for copying
