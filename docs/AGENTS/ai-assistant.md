@@ -1607,15 +1607,22 @@
   Turso-only. Its live probe, `e2e/scheduled-reports-claim-live.spec.ts`, has NOT yet been run against a real database.
   ★★ **A shared job runs on a device only after that device accepted it.**
   - **What is stored:** per device, in localStorage `aipm-cockpit:scheduled-job-acceptance` (`scheduled-job-acceptance.ts`),
-    keyed by the job's permanent key: a fingerprint of project + instruction (a time change keeps it), or `"declined:"` +
-    the fingerprint. States: `accepted` · `declined` · `changed` (accepted another version) · `declined-changed`
+    keyed by portfolio AND the job's permanent key (`acceptanceScope`: the backend the list is read from, its
+    database URL, or `local`; entry key `scope|key`): a fingerprint of project + instruction (a time change keeps
+    it), or `"declined:"` + the fingerprint. ★★ A cloned database holds the same job keys, so an answer given in one
+    portfolio never counts in another: an entry of another portfolio, or an older entry keyed by the job key alone,
+    reads `none` (it fails closed). The "edited here" marks are keyed the same way. Every reader and writer passes
+    the scope: the runner's `isAcceptedHere` (wired in `use-ai-orchestration.ts` with the runner's config), the
+    section, row and acceptance line (the active config), and the hook's writes (the backend the write went to).
+    States: `accepted` · `declined` · `changed` (accepted another version) · `declined-changed`
     (stopped another version, "Changed on another device", never "since you accepted it") · `none` · `cannot-run`
     (legacy or foreign job). ★★ A foreign job (one a newer version rewrote) KEEPS its permanent key in memory
     (`foreignJob` in `scheduled-jobs-store.ts`), so an edit of it made here reports "not editable", not "deleted";
     it still never runs (`isRunnable` excludes every foreign job) and never takes or shows an answer (the acceptance
     store's `keyOf` reads every foreign job as keyless, `isEditedHere` included).
   - **When it is written:** creating a job accepts it on that device (after its save resolves); otherwise ONLY the user's
-    Accept, Stop or "Not on this device" in the Settings row writes it (`acceptJob` / `declineJob` on the displayed job).
+    Accept, Stop or "Not on this device" in the Settings row writes it (`acceptJob` on the re-read job when it matches
+    the row; `declineJob` on the displayed job).
   - ★★★ **An edit never answers.** `updateJob` and `assignProject` write no entry, ever: editing the project or
     instruction of a job this device accepted makes it read `changed` once the save lands, and the user accepts again; an
     edited stopped job stays stopped until answered. Editing it back to the version this device accepted makes it
@@ -1692,8 +1699,10 @@
     meaning the keyless job), so an edit the keyless row made before it saw its key still reaches the job. ★★★ Every user write from a row (`updateJob`,
     `assignProject`, `deleteJob`) is bound to the backend its list was read from, captured when it is issued: one that
     RUNS after the active backend changed is refused with `JobSourceChangedError` and writes nothing — never into the
-    portfolio switched to. The section shows no notice for it; a refused instruction save keeps its text for copying
-    (reason "notSaved") under that job, offered when the job's row next shows. The runner's writes always carry the
+    portfolio switched to. A refused instruction save keeps its text for copying (reason "notSaved") under that job,
+    offered when the job's row next shows, and shows no notice; any other refused row edit (name, cadence, zone,
+    project, on/off, delete) shows `scheduledJobChangeNotSavedPortfolioSwitch` (role=alert, cleared by the next
+    successful write or Accept), so no refused edit is lost in silence. The runner's writes always carry the
     job's (non-null) key.
     ★ A user's edit (`updateJob` / `assignProject`) that reaches no job never resolves as written:
     a job deleted on another device rejects with `JobGoneError`, one that is still listed but no longer editable here
@@ -1737,7 +1746,8 @@
     `declined-changed`.
   - `useScheduledJobs({ refreshOnFocus: true })` (the Settings list only, never the always-mounted runner instance in
     `use-ai-orchestration.ts`) re-reads the store when the tab becomes visible again or the window regains focus. The row reads the device label with `peekDeviceLabel` (never writes during render); `ScheduledJob.createdBy`
-    is display-only, never a permission.
+    is display-only, never a permission, and is read only in the shape of a device label (1–32 letters, digits or
+    dashes, `DEVICE_LABEL_SHAPE` in `scheduled-jobs-store.ts`); anything else reads as no creator.
 - **AI weight suggestions:** "Suggest with AI" in the next-actions settings → ONE forced-tool call
   (`suggest_weights`, forced, NO loop) in `weight-suggestion-call.ts` (the fetch now routes through the shared
   `runForcedToolCallWithRetry` (`ai-forced-call.ts`) — the single never-log envelope; a 4096-token reply cut at

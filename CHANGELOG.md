@@ -26,24 +26,12 @@ longer carries its own changelog comment.
 ### Changed
 
 - **A shared scheduled job now runs on a device only after you accept it there.** Each job in Settings → Scheduled jobs
-  shows whether you accepted it on this device, with Accept and Stop. Changing a job's project or instruction asks
-  every device again, including the one you changed it on: accept it there again to keep it running. A job you
-  create is accepted on the device where you create it. Accept and Stop answer the job's saved instruction: a change
-  you are still typing does not count, and once it is saved the job asks for your OK again. While a change is being
-  saved, Accept and Stop cannot be used; if it could not be saved, your text stays in the field and Accept and Stop
-  wait until it is saved. If another device changes the job while you are typing, your unsaved text is not written
-  over that change: the job keeps the other device's change, says so, and shows your text below the instruction for
-  you to copy. Text that could not be saved before you closed the settings is shown the same way the next time you
-  open them in the same browser tab; it is never put back into the job by itself. Saving removes only the shown text
-  you saved; Dismiss removes the text shown. Only a change made at almost exactly the moment your change is being
-  saved can still be overwritten. If another device deletes the job while you edit it, Settings says so. If a newer
-  version of the app changed the job, Settings says your change was not saved and shows your text for copying; this
-  version never runs or answers such a job. Jobs that existed before this update wait for your OK, and a job waiting
-  can be declined with "Not on this device" without ever running. An older job that has no project yet shows its
-  instruction read-only until you assign a project, which makes it editable. Switching to another portfolio starts
-  every job's row afresh, and a change not yet saved when you switch is never written into the other portfolio: an
-  instruction is shown for copying when you come back. Devices that have not
-  updated yet still run shared jobs without asking, so update every device that uses the portfolio.
+  shows whether this device accepted it, with Accept, Stop and "Not on this device". A job you create is accepted on
+  the device where you create it; changing a job's project or instruction asks every device again, including the one
+  you changed it on. An answer counts only on this device and only in the portfolio where you gave it. Jobs that
+  existed before this update wait for your OK, and one that has no project yet shows its instruction read-only until
+  you assign a project. Devices that have not updated yet still run shared jobs without asking, so update every
+  device that uses the portfolio.
 - **The forecast import sends Claude only the top of the sheet, without e-mail addresses.** Claude only names which
   column is which, so it now receives the sheet's first 30 non-empty rows instead of the whole sheet, and every
   e-mail address in them is replaced by a placeholder. Its column mapping is still applied to the whole sheet, and you
