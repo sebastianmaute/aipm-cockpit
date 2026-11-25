@@ -5,7 +5,7 @@ import type { StakeholderQuadrant } from "./stakeholders";
 import type { FeatureModuleId } from "./feature-modules";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { getSessionAiKey } from "./session-ai-key";
-import { isAiDeploymentOn } from "./ai-deployment";
+import { aiDeploymentBlockedMessageKey, isAiDeploymentOn } from "./ai-deployment";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
 import { type AiConsent, isBackgroundConsentCurrent, isConsentCurrent, sanitizeConsent } from "./ai-consent";
 import { BRANDING_EXPORT_FOOTER_MAX } from "./export-footer";
@@ -228,11 +228,19 @@ export function isAiEnabled(ai: AiConfig | undefined): boolean {
   return isAiDeploymentOn() && ai?.enabled === true && liveAiKey(ai) !== "" && isConsentCurrent(ai.consent);
 }
 
-/** The hint a disabled AI trigger shows when `isAiEnabled` is false: the switch and a key are there but the AI data
- *  disclosure is not (or no longer) accepted → "aiActionNeedsConsent"; anything else → "aiActionNeedsAi". String
- *  literals, not `TranslationKey`, so this module stays i18n-free; both are real keys in i18n.ts. */
-export function aiNotReadyHintKey(ai: AiConfig | undefined): "aiActionNeedsAi" | "aiActionNeedsConsent" {
-  const consentMissing = isAiDeploymentOn() && ai?.enabled === true && liveAiKey(ai) !== "" && !isConsentCurrent(ai.consent);
+/** The hint a disabled AI trigger shows when `isAiEnabled` is false, first match wins:
+ *  - the deployment blocks AI (switched off, or an invalid setting) → its message from `aiDeploymentBlockedMessageKey`,
+ *    the contract every surface that names the block follows — the user cannot switch AI on there;
+ *  - the switch and a key are there but the AI data disclosure is not (or no longer) accepted → "aiActionNeedsConsent";
+ *  - anything else → "aiActionNeedsAi".
+ *  String literals, not `TranslationKey`, so this module stays i18n-free; each is a real key in i18n.ts. */
+export function aiNotReadyHintKey(
+  ai: AiConfig | undefined,
+): "aiDeploymentOff" | "aiDeploymentInvalid" | "aiActionNeedsAi" | "aiActionNeedsConsent" {
+  const blocked = aiDeploymentBlockedMessageKey();
+  if (blocked !== null) return blocked;
+  // The deployment is on from here (a block returned above), so only the user's own settings decide.
+  const consentMissing = ai?.enabled === true && liveAiKey(ai) !== "" && !isConsentCurrent(ai.consent);
   return consentMissing ? "aiActionNeedsConsent" : "aiActionNeedsAi";
 }
 
