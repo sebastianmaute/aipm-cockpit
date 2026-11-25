@@ -10,7 +10,7 @@
 // It reads the project lists itself (never through usePortfolioProjects, which
 // follows the OPEN portfolio) so the picker works from any view.
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { isBackgroundOffForced } from "../ai-project-switches";
 import { type Lang, t, tPlural } from "../i18n";
 import { FieldHint } from "../field-hint";
@@ -99,8 +99,16 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   // A LEGACY job predates §772: it carries no permanent key. A job added now has one (createJob mints it) and
   // only lacks a project, which its own row says.
   useAcceptanceSnapshot(); // the notice follows Accept / Stop on this device
-  // This device's answers count in the active portfolio only (a cloned database holds the same job keys).
-  const scope = acceptanceScope(config ? config.httpUrl : null);
+  // This device's answers count in one portfolio only (a cloned database holds the same job keys): the portfolio of the
+  // list ON SCREEN. While that list is still the previous portfolio's (a switch whose new list has not arrived), the
+  // answer buttons are unusable, so a press never answers in either portfolio by mistake.
+  const activeBackend = config ? config.httpUrl : null;
+  const shownBackend = jobsSource !== undefined ? jobsSource : activeBackend;
+  const scope = acceptanceScope(shownBackend);
+  const answersLive = shownBackend === activeBackend;
+  // The active portfolio NOW (for an answer whose read resolves after a switch).
+  const activeBackendRef = useRef(activeBackend);
+  useEffect(() => { activeBackendRef.current = activeBackend; }, [activeBackend]);
   const awaitingOk = jobs.filter((j) => {
     if (!isRunnable(j)) return false;
     const state = acceptanceState(j, scope);
@@ -168,7 +176,10 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
     try {
       // After the saves in progress settle, so the job is compared with what the store holds once they land. (An answer
       // press never ends the edit: an instruction still being typed is not saved yet, and the row shows the stored job.)
-      const fresh = (await readFresh()).find((j) => j.key !== null && j.key === job.key);
+      // Read from the portfolio of the list on screen only: an answer is never recorded for another one.
+      const fresh = (await readFresh(shownBackend)).find((j) => j.key !== null && j.key === job.key);
+      // Switched while reading: the portfolio answered for is no longer the active one, so nothing is answered.
+      if (activeBackendRef.current !== shownBackend) return;
       if (fresh?.foreign !== undefined) {
         // A newer version rewrote the job: this version can neither run nor answer it. Nothing is answered — and this is
         // said first, even when an answer changed during the read.
@@ -197,7 +208,9 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
         setAcceptNotice(job.key, "changed");
       }
       await refresh();
-    } catch {
+    } catch (err: unknown) {
+      // The portfolio changed before the read: nothing is answered (the row is about to be replaced by the new list).
+      if (err instanceof JobSourceChangedError) return;
       setAcceptNotice(job.key, "failed");
     } finally {
       setPending(job.key, false);
@@ -318,7 +331,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     onProjectFocused={() => setFocusProjectOf(null)}
                     onDelete={(id) => track(deleteJob(id, job.key))}
                     onAccept={(j) => { void acceptFresh(j); }}
-                    acceptPending={job.key !== null && acceptPending.has(job.key)}
+                    acceptPending={!answersLive || (job.key !== null && acceptPending.has(job.key))}
                     // A save of this job in flight: its answer buttons wait for it, so an answer never races an edit.
                     saving={savingJobs.has(jobSaveId(job))}
                     acceptNotice={job.key !== null ? (acceptNotices.get(job.key) ?? null) : null}

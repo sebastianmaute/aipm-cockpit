@@ -1,6 +1,6 @@
 // A row's writes are bound to the portfolio its list was read from, and assigning a project to a legacy job keeps
 // keyboard focus and lets a follow-up edit reach the job (the real hook, over a store mock with one list per backend).
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ScheduledJobsSection } from "./scheduled-jobs-section";
@@ -9,7 +9,7 @@ import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import type { TursoConfig } from "../turso-config";
-import { __resetEditedHereForTests, ACCEPTANCE_KEY, acceptanceScope, acceptanceState } from "../scheduled-job-acceptance";
+import { __resetEditedHereForTests, ACCEPTANCE_KEY, acceptanceScope, acceptanceState, storedAcceptanceEntry } from "../scheduled-job-acceptance";
 
 const store = vi.hoisted(() => ({
   lists: new Map<string, unknown[]>(),
@@ -60,8 +60,12 @@ const section = (config: TursoConfig) => <ScheduledJobsSection lang="en-US" sett
 function holdLoads(): () => void {
   let release: () => void = () => {};
   store.loadGate = new Promise<void>((r) => { release = r; });
-  return () => { store.loadGate = null; release(); };
+  heldRelease = () => { store.loadGate = null; release(); };
+  return heldRelease;
 }
+/** The last hold, released after every test so a failed test never leaves reads blocked for the next. */
+let heldRelease: () => void = () => {};
+afterEach(() => { heldRelease(); heldRelease = () => {}; });
 
 beforeEach(() => {
   sessionStorage.clear();
@@ -158,6 +162,109 @@ describe("ScheduledJobsSection — an answer counts in its own portfolio only", 
     view.rerender(section(A));
     await sleep(300);
     expect(screen.getByRole("button", { name: "Stop on this device: Daily risks" })).toBeInTheDocument();
+  });
+});
+
+describe("ScheduledJobsSection — an answer is recorded only for the portfolio of the list on screen", () => {
+  const entryIn = (c: TursoConfig) => storedAcceptanceEntry("KA", acceptanceScope(c.httpUrl));
+  const acceptButton = () => screen.getByRole("button", { name: "Accept: Daily risks" });
+
+  it("while the previous portfolio's list is still shown after a switch, Accept answers nothing anywhere", async () => {
+    store.lists.set(A.httpUrl, [job()]);
+    store.lists.set(B.httpUrl, [job()]); // a clone: same key, project and instruction
+    const view = render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    const release = holdLoads();
+    view.rerender(section(B));
+    await sleep(20);
+    expect(acceptButton()).toHaveAttribute("aria-disabled", "true"); // A's row, still on screen
+    fireEvent.click(acceptButton());
+    await sleep(20);
+    release();
+    await sleep(300);
+    expect(entryIn(A)).toBeNull();
+    expect(entryIn(B)).toBeNull();
+  });
+
+  it("once the new list is shown, its rows answer for that portfolio", async () => {
+    const user = userEvent.setup();
+    store.lists.set(A.httpUrl, [job()]);
+    store.lists.set(B.httpUrl, [job()]);
+    const view = render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    view.rerender(section(B));
+    await sleep(300);
+    expect(acceptButton()).not.toHaveAttribute("aria-disabled");
+    await user.click(acceptButton());
+    await sleep(150);
+    expect(acceptanceState(job(), acceptanceScope(B.httpUrl))).toBe("accepted");
+    expect(entryIn(A)).toBeNull();
+  });
+
+  it("an Accept whose read resolves after a switch answers nothing (A is no longer active)", async () => {
+    store.lists.set(A.httpUrl, [job()]);
+    store.lists.set(B.httpUrl, [job()]);
+    const view = render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    const release = holdLoads();
+    fireEvent.click(acceptButton()); // the re-read of A starts, held
+    await sleep(20);
+    view.rerender(section(B));
+    await sleep(20);
+    release();
+    await sleep(300);
+    expect(entryIn(A)).toBeNull();
+    expect(entryIn(B)).toBeNull();
+  });
+
+  it("an Accept whose re-read would start in another portfolio answers nothing, even after switching back", async () => {
+    const other = job({ id: 2, key: "K2", name: "Other job" });
+    store.lists.set(A.httpUrl, [job(), other]);
+    store.lists.set(B.httpUrl, [job(), other]);
+    const view = render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    let release = holdLoads();
+    // A save of another job of A is in flight (held), so the Accept's re-read waits behind it.
+    fireEvent.click(screen.getByRole("checkbox", { name: `${t("en-US", "scheduledJobEnabled")} – Other job` }));
+    await sleep(20);
+    fireEvent.click(acceptButton());
+    await sleep(20);
+    view.rerender(section(B)); // the re-read would now start in B
+    await sleep(20);
+    await act(async () => {
+      release();
+      release = holdLoads(); // B's read (if it started) is held while the user switches back
+    });
+    await sleep(20);
+    view.rerender(section(A));
+    await sleep(20);
+    release();
+    await sleep(300);
+    expect(entryIn(A)).toBeNull(); // never an answer for A judged on B's job
+    expect(entryIn(B)).toBeNull();
+  });
+
+  it("with no switch, Accept, Stop and Not on this device answer as before", async () => {
+    const user = userEvent.setup();
+    store.lists.set(A.httpUrl, [job()]);
+    render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    await user.click(acceptButton());
+    await sleep(150);
+    expect(acceptanceState(job(), acceptanceScope(A.httpUrl))).toBe("accepted");
+    await user.click(screen.getByRole("button", { name: "Stop on this device: Daily risks" }));
+    await sleep(50);
+    expect(acceptanceState(job(), acceptanceScope(A.httpUrl))).toBe("declined");
+  });
+
+  it("Not on this device on a job waiting for an OK declines it in this portfolio", async () => {
+    const user = userEvent.setup();
+    store.lists.set(A.httpUrl, [job()]);
+    render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    await user.click(screen.getByRole("button", { name: "Not on this device: Daily risks" }));
+    await sleep(50);
+    expect(acceptanceState(job(), acceptanceScope(A.httpUrl))).toBe("declined");
   });
 });
 

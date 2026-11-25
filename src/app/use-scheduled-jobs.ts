@@ -79,8 +79,9 @@ export interface UseScheduledJobsResult {
   /** With `key`, only the job carrying that permanent key is written: ids collide across portfolios. */
   recordRun: (jobId: number, run: ScheduledJobRun, key?: string) => Promise<void>;
   refresh: () => Promise<void>;
-  /** The current backend's list, read AFTER the writes in progress settle (a rejected link does not reject the read). */
-  readFresh: () => Promise<ScheduledJob[]>;
+  /** The current backend's list, read AFTER the writes in progress settle (a rejected link does not reject the read).
+   *  With `source`, a read that finds another backend active rejects with `JobSourceChangedError` instead. */
+  readFresh: (source?: string | null) => Promise<ScheduledJob[]>;
   /** `jobSaveId`s of the jobs this instance is saving: from the call until every save of that job settled (success or
    *  failure). The Settings row disables its answer buttons meanwhile, so an answer never races this device's edit. */
   savingJobs: ReadonlySet<string>;
@@ -356,11 +357,14 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
   );
 
   const readFresh = useCallback(
-    (): Promise<ScheduledJob[]> =>
-      writeChain.then(
-        () => loadScheduledJobs(cfgRef.current),
-        () => loadScheduledJobs(cfgRef.current),
-      ),
+    (source?: string | null): Promise<ScheduledJob[]> => {
+      const read = () => {
+        const config = cfgRef.current;
+        if (source !== undefined && backendOf(config) !== source) throw new JobSourceChangedError();
+        return loadScheduledJobs(config);
+      };
+      return writeChain.then(read, read);
+    },
     [],
   );
 
