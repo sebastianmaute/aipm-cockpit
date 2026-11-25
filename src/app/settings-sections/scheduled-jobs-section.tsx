@@ -111,7 +111,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   const activeBackendRef = useRef(activeBackend);
   useLayoutEffect(() => { activeBackendRef.current = activeBackend; }, [activeBackend]);
   // The new portfolio's list could not be read: the rows on screen are still the previous portfolio's (and cannot be
-  // answered), so say so until a read of it succeeds.
+  // answered), so say so until the next successful read (which brings that portfolio's list).
   const loadFailedAfterSwitch = failedSource !== undefined && failedSource === activeBackend && shownBackend !== activeBackend;
   const awaitingOk = jobs.filter((j) => {
     if (!isRunnable(j)) return false;

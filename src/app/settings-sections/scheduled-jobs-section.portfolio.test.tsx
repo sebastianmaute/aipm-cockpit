@@ -1,9 +1,10 @@
 // A row's writes are bound to the portfolio its list was read from, and assigning a project to a legacy job keeps
 // keyboard focus and lets a follow-up edit reach the job (the real hook, over a store mock with one list per backend).
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ScheduledJobsSection } from "./scheduled-jobs-section";
+import { useScheduledJobs } from "../use-scheduled-jobs";
 import { newConsent } from "../ai-consent";
 import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
@@ -338,6 +339,32 @@ describe("ScheduledJobsSection — an answer is recorded only for the portfolio 
     expect(notice()).toBeNull(); // nothing failed this time
   });
 
+  it("a failed re-read of the portfolio whose list is on screen shows no load-failed notice", async () => {
+    store.lists.set(A.httpUrl, [job()]);
+    render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    store.failLoadOf = A.httpUrl;
+    await act(async () => { window.dispatchEvent(new Event("focus")); }); // A's re-read fails; A's list stays, still A's
+    await sleep(100);
+    expect(screen.queryByText(t("en-US", "scheduledJobsLoadFailedAfterSwitch"))).toBeNull();
+    expect(acceptButton()).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("a portfolio switched to that is still loading shows no load-failed notice, even after an earlier failed read", async () => {
+    store.lists.set(A.httpUrl, [job()]);
+    store.lists.set(B.httpUrl, [job()]);
+    const view = render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    store.failLoadOf = A.httpUrl;
+    await act(async () => { window.dispatchEvent(new Event("focus")); }); // A's re-read fails (A is on screen)
+    await sleep(100);
+    store.failLoadOf = null;
+    holdLoads(); // B's list is on its way, nothing has failed for B
+    view.rerender(section(B));
+    await sleep(20);
+    expect(screen.queryByText(t("en-US", "scheduledJobsLoadFailedAfterSwitch"))).toBeNull();
+  });
+
   it("with no switch, Accept, Stop and Not on this device answer as before", async () => {
     const user = userEvent.setup();
     store.lists.set(A.httpUrl, [job()]);
@@ -487,5 +514,35 @@ describe("ScheduledJobsSection — a row's writes stay in the portfolio it was r
     await sleep(300);
     expect(listOf(B)[0].name).toBe("B job");
     expect(store.writes).not.toContain(B.httpUrl);
+  });
+});
+
+describe("useScheduledJobs — failedSource names only the active backend", () => {
+  it("a read of the previous backend that fails after the switch is not reported", async () => {
+    store.lists.set(A.httpUrl, [job()]);
+    store.lists.set(B.httpUrl, [job()]);
+    store.failLoadOf = A.httpUrl;
+    let releaseA: () => void = () => {};
+    store.loadGate = new Promise<void>((r) => { releaseA = r; }); // A's first read waits here
+    const hook = renderHook((p: { config: TursoConfig }) => useScheduledJobs({ config: p.config }), { initialProps: { config: A } });
+    await sleep(20);
+    store.loadGate = null; // B's read is not held
+    hook.rerender({ config: B });
+    await sleep(50);
+    expect(hook.result.current.jobsSource).toBe(B.httpUrl);
+    await act(async () => { releaseA(); }); // A's read now fails, with B active
+    await sleep(50);
+    expect(hook.result.current.failedSource).toBeUndefined();
+  });
+
+  it("a failed read of the active backend is reported, and a later successful read clears it", async () => {
+    store.lists.set(A.httpUrl, [job()]);
+    store.failLoadOf = A.httpUrl;
+    const hook = renderHook(() => useScheduledJobs({ config: A }));
+    await sleep(50);
+    expect(hook.result.current.failedSource).toBe(A.httpUrl);
+    store.failLoadOf = null;
+    await act(async () => { await hook.result.current.refresh(); });
+    expect(hook.result.current.failedSource).toBeUndefined();
   });
 });

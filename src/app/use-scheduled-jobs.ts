@@ -60,8 +60,8 @@ export interface UseScheduledJobsResult {
   /** The backend `jobs` was read from (`backendOf`): undefined before the first read. After a config change `jobs`
    *  still belongs to the previous backend until the new read lands. */
   jobsSource: string | null | undefined;
-  /** The backend whose latest read failed while it was the active one (`backendOf`), until a read of it succeeds;
-   *  undefined when none did. */
+  /** The backend whose latest read failed while it was the active one (`backendOf`), until the next successful read
+   *  of any backend; undefined when none did. */
   failedSource: string | null | undefined;
   busy: boolean;
   ready: boolean;
