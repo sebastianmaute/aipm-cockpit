@@ -1598,6 +1598,7 @@ export const de: Record<TranslationKey, string> = {
   scheduledJobLostNotSaved: "Ihre letzte Änderung konnte nicht gespeichert werden. Ihr Text steht unten.",
   scheduledJobEditedByNewerVersion: "Dieser Job wurde von einer neueren Version der App geändert; Ihre Änderung wurde nicht gespeichert.",
   scheduledJobDeletedElsewhere: "Dieser Job wurde auf einem anderen Gerät gelöscht.",
+  scheduledJobChangeNotSavedPortfolioSwitch: "Eine Änderung an einem Job im vorherigen Portfolio wurde nicht gespeichert, weil Sie das Portfolio gewechselt haben.",
   scheduledJobAcceptChanged: "Dieser Job wurde auf einem anderen Gerät geändert. Prüfen Sie ihn und stimmen Sie erneut zu.",
   scheduledJobNeedsOk: "Braucht Ihre Zustimmung, um auf diesem Gerät zu laufen",
   scheduledJobChanged: "Seit Ihrer Zustimmung geändert: braucht Ihre Zustimmung erneut",

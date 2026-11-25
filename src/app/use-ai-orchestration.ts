@@ -46,7 +46,7 @@ import { useGuideTextFrom } from "./action-guides-context";
 import { useOpenProjectPeopleProtected } from "./ai-privacy-context";
 import { actionsForAi } from "./next-actions/people-signals";
 import { actionText } from "./action-text";
-import { isAcceptedHere } from "./scheduled-job-acceptance";
+import { acceptanceScope, isAcceptedHere } from "./scheduled-job-acceptance";
 
 const MAX_LEARNING_SUMMARY_ENTRIES = 20;
 
@@ -275,7 +275,8 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     disableJob: scheduledJobs.disableJob,
     ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? DEFAULT_CHAT_MODEL, guideText: jobGuideText },
     notify: notifyScheduledJob,
-    isAcceptedHere,
+    // An answer counts only in the portfolio it was given in (the runner's backend).
+    isAcceptedHere: (job) => isAcceptedHere(job, acceptanceScope(tursoConfig ? tursoConfig.httpUrl : null)),
   });
 
   return { aiAnalysisBundle, buildWeightSuggestionContext };

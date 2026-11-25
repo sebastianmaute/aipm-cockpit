@@ -103,6 +103,7 @@ function keepFocus(e: { preventDefault: () => void }): void {
 export function AcceptanceLine({
   lang,
   job,
+  scope,
   token,
   onAccept,
   notice,
@@ -113,6 +114,8 @@ export function AcceptanceLine({
 }: {
   lang: Lang;
   job: ScheduledJob;
+  /** The portfolio this device's answers are kept for (`acceptanceScope`). */
+  scope: string;
   token: string;
   onAccept: (job: ScheduledJob) => void;
   notice: AcceptNotice | null;
@@ -129,7 +132,7 @@ export function AcceptanceLine({
   // A press the press check ignored because the job changed while it was held says so, until the next answer.
   const [pressIgnored, setPressIgnored] = useState(false);
   const mainRef = useRef<HTMLButtonElement>(null);
-  const state = acceptanceState(job);
+  const state = acceptanceState(job, scope);
   // A press answers the version shown when it was pressed. Pressing does not take focus from the instruction field,
   // so the edit is not saved by the press; it saves on the next blur and the job then asks again. While a save of this
   // job is in flight no answer can be given (see `pressStillValid` for a press that spans a save).
@@ -175,7 +178,7 @@ export function AcceptanceLine({
   const declineGuard = usePressGuard(declineNow);
   // "Changed on another device" never describes the version this tab saved (display only); a stopped job is never
   // asked to be accepted "again".
-  const editedHere = (decided === "changed" || decided === "declined-changed") && isEditedHere(job);
+  const editedHere = (decided === "changed" || decided === "declined-changed") && isEditedHere(job, scope);
   const statusKey: TranslationKey | null = decided === null
     ? null
     : editedHere
@@ -212,7 +215,7 @@ export function AcceptanceLine({
                 setPressIgnored(false);
                 onNoticeClear();
                 setStopFailed(false);
-                if (accepted) setStopFailed(!declineJob(job));
+                if (accepted) setStopFailed(!declineJob(job, scope));
                 else onAccept(job);
               }}
               // The visible "Saving…" is part of the name (label in name), and the name stays unique in the row.
@@ -241,7 +244,7 @@ export function AcceptanceLine({
                 // Only a focused button hands focus on (a keyboard press); a mouse press left focus where it was.
                 const hadFocus = document.activeElement === declineRef.current;
                 onNoticeClear();
-                const declined = declineJob(job);
+                const declined = declineJob(job, scope);
                 setStopFailed(!declined);
                 // The button is about to unmount: the main one (same element, now reading Accept) takes focus.
                 if (declined && hadFocus) mainRef.current?.focus();

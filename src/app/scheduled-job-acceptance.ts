@@ -1,8 +1,20 @@
 import { useSyncExternalStore } from "react";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 
-/** Per-device record of the scheduled jobs this device accepted, keyed by the job's permanent `key`. */
+/** Per-device record of the scheduled jobs this device accepted, keyed by the portfolio (`acceptanceScope`) AND the
+ *  job's permanent `key`: a cloned database holds the same keys, and an answer given in one portfolio never counts in
+ *  another. An entry of another portfolio, or an older entry keyed by the job key alone, reads as no answer (it fails
+ *  closed: the job waits for an OK). */
 export const ACCEPTANCE_KEY = "aipm-cockpit:scheduled-job-acceptance";
+
+/** The portfolio an answer belongs to: the backend the job list is read from (its database URL), or a fixed token for
+ *  this device's local list — the same identity the job list itself uses. */
+export function acceptanceScope(backend: string | null): string {
+  return backend ?? "local";
+}
+
+/** The stored entry key of a job in a portfolio. */
+const entryKey = (scope: string, key: string): string => `${scope}|${key}`;
 
 export type AcceptanceState = "accepted" | "declined" | "declined-changed" | "changed" | "none" | "cannot-run";
 
@@ -48,26 +60,29 @@ function keyOf(job: ScheduledJob): string | null {
   return job.key === null || job.foreign !== undefined ? null : job.key;
 }
 
-export function acceptanceState(job: ScheduledJob): AcceptanceState {
+/** This device's answer for the job in portfolio `scope`. */
+export function acceptanceState(job: ScheduledJob, scope: string): AcceptanceState {
   const key = keyOf(job);
   if (key === null) return "cannot-run";
-  const stored = parse(readRaw());
-  if (!Object.prototype.hasOwnProperty.call(stored, key)) return "none";
+  const entry = storedAcceptanceEntry(key, scope);
+  if (entry === null) return "none";
   const fingerprint = jobFingerprint(job);
-  if (stored[key] === fingerprint) return "accepted";
-  if (stored[key] === DECLINED_PREFIX + fingerprint) return "declined";
+  if (entry === fingerprint) return "accepted";
+  if (entry === DECLINED_PREFIX + fingerprint) return "declined";
   // A decline of another version never reads "since you accepted it": this device never accepted anything.
-  return stored[key].startsWith(DECLINED_PREFIX) ? "declined-changed" : "changed";
+  return entry.startsWith(DECLINED_PREFIX) ? "declined-changed" : "changed";
 }
 
-/** The raw stored entry for a job key (an accepted fingerprint or a decline), or null when absent or unreadable. */
-export function storedAcceptanceEntry(key: string): string | null {
+/** The raw stored entry for a job key in portfolio `scope` (an accepted fingerprint or a decline), or null when absent
+ *  or unreadable. */
+export function storedAcceptanceEntry(key: string, scope: string): string | null {
   const stored = parse(readRaw());
-  return Object.prototype.hasOwnProperty.call(stored, key) ? stored[key] : null;
+  const k = entryKey(scope, key);
+  return Object.prototype.hasOwnProperty.call(stored, k) ? stored[k] : null;
 }
 
-export function isAcceptedHere(job: ScheduledJob): boolean {
-  return acceptanceState(job) === "accepted";
+export function isAcceptedHere(job: ScheduledJob, scope: string): boolean {
+  return acceptanceState(job, scope) === "accepted";
 }
 
 /** The entry value an accept (or, with `declined`, a decline) of this job writes. */
@@ -75,7 +90,7 @@ function acceptanceEntryValue(job: ScheduledJob, declined: boolean): string {
   return declined ? DECLINED_PREFIX + jobFingerprint(job) : jobFingerprint(job);
 }
 
-/** Per job key, the fingerprint of the version THIS DEVICE saved when it changed the job's project or instruction, until
+/** Per portfolio and job key, the fingerprint of the version THIS DEVICE saved when it changed the job's project or instruction, until
  *  this device answers. In localStorage, so it survives a reload and is shared by this device's tabs. Display-only: it
  *  picks the wording of a "changed" row and never decides whether a job runs, so any storage failure reads as "not
  *  edited here". */
@@ -103,15 +118,15 @@ function dropEdited(key: string): void {
   writeEdited(({ [key]: _dropped, ...rest }) => { void _dropped; return rest; });
 }
 
-/** This device's save of job `key` landed with the version `fingerprint`. */
-export function markEditedHere(key: string, fingerprint: string): void {
-  writeEdited((marks) => ({ ...marks, [key]: fingerprint }));
+/** This device's save of job `key` in portfolio `scope` landed with the version `fingerprint`. */
+export function markEditedHere(key: string, fingerprint: string, scope: string): void {
+  writeEdited((marks) => ({ ...marks, [entryKey(scope, key)]: fingerprint }));
 }
 
 /** Whether the job, as it stands, is the version this device saved: a later change from elsewhere is not. */
-export function isEditedHere(job: ScheduledJob): boolean {
+export function isEditedHere(job: ScheduledJob, scope: string): boolean {
   const key = keyOf(job);
-  return key !== null && parse(readEditedRaw())[key] === jobFingerprint(job);
+  return key !== null && parse(readEditedRaw())[entryKey(scope, key)] === jobFingerprint(job);
 }
 
 /** Test-only: forget every mark, so test order cannot matter. */
@@ -125,33 +140,37 @@ export function __resetEditedHereForTests(): void {
 
 /** Writes an answer. Only a user's Accept / Stop / "Not on this device" and creating a job answer, so an answer ends
  *  the "you changed this job" wording. */
-function record(job: ScheduledJob, value: string): boolean {
+function record(job: ScheduledJob, value: string, scope: string): boolean {
   const key = keyOf(job);
   if (key === null) return false;
+  const k = entryKey(scope, key);
   try {
-    const next = { ...parse(readRaw()), [key]: value };
+    const next = { ...parse(readRaw()), [k]: value };
     localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify(next));
   } catch {
     return false;
   }
-  dropEdited(key);
+  dropEdited(k);
   notify();
   return true;
 }
 
-export function acceptJob(job: ScheduledJob): boolean {
-  return record(job, acceptanceEntryValue(job, false));
+/** Records that this device accepted the job, as it stands now, in portfolio `scope`. */
+export function acceptJob(job: ScheduledJob, scope: string): boolean {
+  return record(job, acceptanceEntryValue(job, false), scope);
 }
 
-/** Records that this device stopped the job as it stands now; a later change to it asks again. */
-export function declineJob(job: ScheduledJob): boolean {
-  return record(job, acceptanceEntryValue(job, true));
+/** Records that this device stopped the job as it stands now, in portfolio `scope`; a later change to it asks again. */
+export function declineJob(job: ScheduledJob, scope: string): boolean {
+  return record(job, acceptanceEntryValue(job, true), scope);
 }
 
-export function forgetJob(key: string): void {
-  dropEdited(key);
+/** Forgets this device's answer (and "edited here" mark) for job `key` in portfolio `scope` (it was deleted here). */
+export function forgetJob(key: string, scope: string): void {
+  const k = entryKey(scope, key);
+  dropEdited(k);
   try {
-    const { [key]: _removed, ...rest } = parse(readRaw());
+    const { [k]: _removed, ...rest } = parse(readRaw());
     void _removed;
     localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify(rest));
   } catch {

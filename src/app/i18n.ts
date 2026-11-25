@@ -1703,6 +1703,7 @@ const enUS = {
   scheduledJobLostNotSaved: "Your last change could not be saved. Your text is below.",
   scheduledJobEditedByNewerVersion: "This job was changed by a newer version of the app; your change was not saved.",
   scheduledJobDeletedElsewhere: "This job was deleted on another device.",
+  scheduledJobChangeNotSavedPortfolioSwitch: "A change to a job in the previous portfolio was not saved because you switched portfolio.",
   scheduledJobAcceptChanged: "This job changed on another device. Review it and accept again.",
   scheduledJobNeedsOk: "Needs your OK to run on this device",
   scheduledJobChanged: "Changed since you accepted it: needs your OK again",

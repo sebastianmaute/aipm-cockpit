@@ -11,6 +11,11 @@ import {
   markEditedHere,
 } from "../scheduled-job-acceptance";
 
+/** The portfolio this file's answers are kept for (`acceptanceScope`). */
+const SCOPE = "row-scope";
+/** An Accept that answers in this file's portfolio. */
+const acceptHere = (j: ScheduledJob): boolean => acceptJob(j, SCOPE);
+
 const deviceLabel = vi.hoisted(() => ({ value: "aaaa1111" }));
 vi.mock("../device-label", () => ({
   getDeviceLabel: () => deviceLabel.value,
@@ -36,14 +41,14 @@ function job(over: Partial<ScheduledJob> = {}): ScheduledJob {
 
 function renderRow(
   j: ScheduledJob,
-  onAccept: (job: ScheduledJob) => void = acceptJob,
+  onAccept: (job: ScheduledJob) => void = acceptHere,
   acceptNotice: "failed" | "changed" | null = null,
   acceptPending = false,
   saving = false,
 ) {
   return render(
     <ul>
-      <JobRow
+      <JobRow scope={SCOPE}
         lang="en-US"
         job={j}
         token={j.name}
@@ -84,21 +89,21 @@ describe("JobRow acceptance", () => {
   });
 
   it("an accepted job never claims to run here", () => {
-    acceptJob(job());
+    acceptJob(job(), SCOPE);
     renderRow(job());
     expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
     expect(screen.queryByText(/Runs on this device/)).toBeNull();
   });
 
   it("a changed job says so", () => {
-    acceptJob(job({ instruction: "Something else" }));
+    acceptJob(job({ instruction: "Something else" }), SCOPE);
     renderRow(job());
     expect(screen.getByText(t("en-US", "scheduledJobChanged"))).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Accept: Weekly review" })).toBeInTheDocument();
   });
 
   it("Stop records a decline: the row says stopped and offers Accept", () => {
-    acceptJob(job());
+    acceptJob(job(), SCOPE);
     renderRow(job());
     fireEvent.click(screen.getByRole("button", { name: "Stop on this device: Weekly review" }));
     expect(screen.getByText(t("en-US", "scheduledJobStoppedHere"))).toBeInTheDocument();
@@ -126,7 +131,7 @@ describe("JobRow acceptance", () => {
   });
 
   it("shows the accept notice inside a status region", () => {
-    renderRow(job(), acceptJob, "failed");
+    renderRow(job(), acceptHere, "failed");
     expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobAcceptFailed"));
   });
 
@@ -136,7 +141,7 @@ describe("JobRow acceptance", () => {
     expect(region).toBeEmptyDOMElement();
     view.rerender(
       <ul>
-        <JobRow
+        <JobRow scope={SCOPE}
           lang="en-US"
           job={job()}
           token="Weekly review"
@@ -150,7 +155,7 @@ describe("JobRow acceptance", () => {
           onUpdate={vi.fn()}
           onAssign={vi.fn()}
           onDelete={vi.fn()}
-          onAccept={acceptJob}
+          onAccept={acceptHere}
           acceptNotice="failed"
         />
       </ul>,
@@ -160,7 +165,7 @@ describe("JobRow acceptance", () => {
   });
 
   it("Stop that cannot be recorded says so and keeps the job accepted", () => {
-    acceptJob(job());
+    acceptJob(job(), SCOPE);
     renderRow(job());
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("quota");
@@ -184,7 +189,7 @@ describe("JobRow acceptance", () => {
         fireEvent.click(b);
       }
       expect(onAccept).not.toHaveBeenCalled();
-      expect(acceptanceState(job())).toBe("none");
+      expect(acceptanceState(job(), SCOPE)).toBe("none");
       expect(screen.getByText(t("en-US", "scheduledJobNeedsOk"))).toBeInTheDocument(); // the status text stays
       expect(screen.queryByText(t("en-US", "scheduledJobPressIgnored"))).toBeNull(); // visibly Saving…: silence
     });
@@ -200,10 +205,10 @@ describe("JobRow acceptance", () => {
     });
 
     it("an accepted job's Stop ignores clicks while saving", () => {
-      acceptJob(job());
+      acceptJob(job(), SCOPE);
       saving(job(), vi.fn());
       fireEvent.click(screen.getByRole("button", { name: "Saving… Stop on this device: Weekly review" }));
-      expect(acceptanceState(job())).toBe("accepted");
+      expect(acceptanceState(job(), SCOPE)).toBe("accepted");
     });
 
     it("when the save ends the focused button keeps focus and its name becomes the answer again", () => {
@@ -212,7 +217,7 @@ describe("JobRow acceptance", () => {
       main.focus();
       view.rerender(
         <ul>
-          <JobRow lang="en-US" job={job()} token="Weekly review" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
+          <JobRow scope={SCOPE} lang="en-US" job={job()} token="Weekly review" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
             archivedProjects={[]} projectsLoaded zones={["UTC"]} defaultZone="UTC" onUpdate={vi.fn()} onAssign={vi.fn()}
             onDelete={vi.fn()} onAccept={vi.fn()} saving={false} />
         </ul>,
@@ -232,27 +237,27 @@ describe("JobRow acceptance", () => {
     });
 
     it("a press is ignored when the job's version changed between press and release", () => {
-      acceptJob(job());
+      acceptJob(job(), SCOPE);
       const onAccept = vi.fn();
       const view = renderRow(job(), onAccept);
       const main = screen.getByRole("button", { name: "Stop on this device: Weekly review" });
       fireEvent.pointerDown(main);
       view.rerender(
         <ul>
-          <JobRow lang="en-US" job={job({ instruction: "Changed" })} token="Weekly review" busy={false} tz="UTC"
+          <JobRow scope={SCOPE} lang="en-US" job={job({ instruction: "Changed" })} token="Weekly review" busy={false} tz="UTC"
             projects={[{ id: "p1", name: "Alpha" }]} archivedProjects={[]} projectsLoaded zones={["UTC"]} defaultZone="UTC"
             onUpdate={vi.fn()} onAssign={vi.fn()} onDelete={vi.fn()} onAccept={onAccept} />
         </ul>,
       );
       fireEvent.click(main);
       expect(onAccept).not.toHaveBeenCalled();
-      expect(acceptanceState(job())).toBe("accepted");
+      expect(acceptanceState(job(), SCOPE)).toBe("accepted");
       expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobPressIgnored"));
     });
 
     const notSaving = (onAccept: (job: ScheduledJob) => void) => (
       <ul>
-        <JobRow lang="en-US" job={job()} token="Weekly review" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
+        <JobRow scope={SCOPE} lang="en-US" job={job()} token="Weekly review" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
           archivedProjects={[]} projectsLoaded zones={["UTC"]} defaultZone="UTC" onUpdate={vi.fn()} onAssign={vi.fn()}
           onDelete={vi.fn()} onAccept={onAccept} saving={false} />
       </ul>
@@ -280,7 +285,7 @@ describe("JobRow acceptance", () => {
       expect(onAccept).toHaveBeenCalledTimes(1);
       view.rerender(
         <ul>
-          <JobRow lang="en-US" job={job()} token="Weekly review" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
+          <JobRow scope={SCOPE} lang="en-US" job={job()} token="Weekly review" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
             archivedProjects={[]} projectsLoaded zones={["UTC"]} defaultZone="UTC" onUpdate={vi.fn()} onAssign={vi.fn()}
             onDelete={vi.fn()} onAccept={onAccept} saving />
         </ul>,
@@ -305,17 +310,17 @@ describe("JobRow acceptance", () => {
     });
 
     it("a draft notice outranks an ignored press, and a draft status change clears the ignored press", async () => {
-      acceptJob(job());
+      acceptJob(job(), SCOPE);
       const onUpdate = vi.fn(async () => { throw new Error("offline"); });
       const props = {
         lang: "en-US" as const, token: "Weekly review", busy: false, tz: "UTC", projects: [{ id: "p1", name: "Alpha" }],
         archivedProjects: [], projectsLoaded: true, zones: ["UTC"], defaultZone: "UTC", onUpdate, onAssign: vi.fn(),
         onDelete: vi.fn(), onAccept: vi.fn(),
       };
-      const view = render(<ul><JobRow {...props} job={job()} /></ul>);
+      const view = render(<ul><JobRow scope={SCOPE} {...props} job={job()} /></ul>);
       const main = screen.getByRole("button", { name: "Stop on this device: Weekly review" });
       fireEvent.pointerDown(main);
-      view.rerender(<ul><JobRow {...props} job={job({ instruction: "Changed" })} /></ul>);
+      view.rerender(<ul><JobRow scope={SCOPE} {...props} job={job({ instruction: "Changed" })} /></ul>);
       fireEvent.click(main);
       expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobPressIgnored"));
       const field = screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Weekly review` });
@@ -340,7 +345,7 @@ describe("JobRow acceptance", () => {
         options?.onRefused?.();
         throw new JobChangedError("Remote");
       });
-      render(<ul><JobRow {...lostProps(onUpdate)} job={job()} /></ul>);
+      render(<ul><JobRow scope={SCOPE} {...lostProps(onUpdate)} job={job()} /></ul>);
       const field = screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Weekly review` });
       fireEvent.change(field, { target: { value: "Mine" } });
       await act(async () => { fireEvent.focusOut(field); await new Promise((res) => setTimeout(res, 10)); });
@@ -356,11 +361,11 @@ describe("JobRow acceptance", () => {
 
     it("a text a newer version refused is still offered once the row shows the job read-only", async () => {
       const onUpdate = vi.fn(async () => { throw new JobNotEditableError(); });
-      const view = render(<ul><JobRow {...lostProps(onUpdate)} job={job()} /></ul>);
+      const view = render(<ul><JobRow scope={SCOPE} {...lostProps(onUpdate)} job={job()} /></ul>);
       const field = screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Weekly review` });
       fireEvent.change(field, { target: { value: "Mine" } });
       await act(async () => { fireEvent.focusOut(field); await new Promise((res) => setTimeout(res, 10)); });
-      view.rerender(<ul><JobRow {...lostProps(onUpdate)} job={job({ foreign: { raw: { id: 1 } } })} /></ul>);
+      view.rerender(<ul><JobRow scope={SCOPE} {...lostProps(onUpdate)} job={job({ foreign: { raw: { id: 1 } } })} /></ul>);
       expect(screen.getByText(t("en-US", "scheduledJobForeign"))).toBeInTheDocument();
       expect(lostBox()).toHaveValue("Mine");
       expect(sessionStorage.length).toBe(0); // never kept for later
@@ -377,14 +382,14 @@ describe("JobRow acceptance", () => {
         archivedProjects: [], projectsLoaded: true, zones: ["UTC"], defaultZone: "UTC", onUpdate, onAssign: vi.fn(),
         onDelete: vi.fn(), onAccept: vi.fn(),
       };
-      const view = render(<ul><JobRow {...props} job={job()} /></ul>);
+      const view = render(<ul><JobRow scope={SCOPE} {...props} job={job()} /></ul>);
       const field = screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Weekly review` });
       fireEvent.change(field, { target: { value: "Mine" } });
       await act(async () => { fireEvent.focusOut(field); await new Promise((res) => setTimeout(res, 10)); });
       expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobDraftDropped"));
       const main = screen.getByRole("button", { name: "Accept: Weekly review" });
       fireEvent.pointerDown(main);
-      view.rerender(<ul><JobRow {...props} job={job({ instruction: "Remote" })} /></ul>);
+      view.rerender(<ul><JobRow scope={SCOPE} {...props} job={job({ instruction: "Remote" })} /></ul>);
       fireEvent.click(main);
       expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobDraftDropped"));
       expect(screen.getByRole("status")).not.toHaveTextContent(t("en-US", "scheduledJobPressIgnored"));
@@ -408,7 +413,7 @@ describe("JobRow acceptance", () => {
       fireEvent.pointerDown(screen.getByRole("button", { name: "Saving… Not on this device: Weekly review" }));
       view.rerender(
         <ul>
-          <JobRow lang="en-US" job={job()} token="Weekly review" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
+          <JobRow scope={SCOPE} lang="en-US" job={job()} token="Weekly review" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
             archivedProjects={[]} projectsLoaded zones={["UTC"]} defaultZone="UTC" onUpdate={vi.fn()} onAssign={vi.fn()}
             onDelete={vi.fn()} onAccept={onAccept} saving={false} />
         </ul>,
@@ -416,7 +421,7 @@ describe("JobRow acceptance", () => {
       fireEvent.click(screen.getByRole("button", { name: "Accept: Weekly review" }));
       fireEvent.click(screen.getByRole("button", { name: "Not on this device: Weekly review" }));
       expect(onAccept).not.toHaveBeenCalled();
-      expect(acceptanceState(job())).toBe("none");
+      expect(acceptanceState(job(), SCOPE)).toBe("none");
       // The next press, made after the save, works.
       fireEvent.pointerDown(screen.getByRole("button", { name: "Accept: Weekly review" }));
       fireEvent.click(screen.getByRole("button", { name: "Accept: Weekly review" }));
@@ -426,10 +431,10 @@ describe("JobRow acceptance", () => {
 
   describe("a job this tab changed", () => {
     afterEach(() => __resetEditedHereForTests());
-    const markShown = () => markEditedHere("job-key-1", jobFingerprint(job()));
+    const markShown = () => markEditedHere("job-key-1", jobFingerprint(job()), SCOPE);
 
     it("a job this device had accepted reads You changed this job: accept it again", () => {
-      acceptJob(job({ instruction: "Before" }));
+      acceptJob(job({ instruction: "Before" }), SCOPE);
       markShown();
       renderRow(job());
       expect(screen.getByText(t("en-US", "scheduledJobChangedHere"))).toBeInTheDocument();
@@ -437,7 +442,7 @@ describe("JobRow acceptance", () => {
     });
 
     it("a job this device had stopped reads You changed this job: accept it (never 'again')", () => {
-      declineJob(job({ instruction: "Before" }));
+      declineJob(job({ instruction: "Before" }), SCOPE);
       markShown();
       renderRow(job());
       expect(screen.getByText(t("en-US", "scheduledJobChangedHereStopped"))).toBeInTheDocument();
@@ -446,7 +451,7 @@ describe("JobRow acceptance", () => {
     });
 
     it("a later change from another device reads as such again", () => {
-      acceptJob(job({ instruction: "Before" }));
+      acceptJob(job({ instruction: "Before" }), SCOPE);
       markShown();
       renderRow(job({ instruction: "Changed elsewhere" }));
       expect(screen.getByText(t("en-US", "scheduledJobChanged"))).toBeInTheDocument();
@@ -454,32 +459,32 @@ describe("JobRow acceptance", () => {
     });
 
     it("a later change from another device of a stopped job reads changed on another device again", () => {
-      declineJob(job({ instruction: "Before" }));
+      declineJob(job({ instruction: "Before" }), SCOPE);
       markShown();
       renderRow(job({ instruction: "Changed elsewhere" }));
       expect(screen.getByText(t("en-US", "scheduledJobChangedElsewhere"))).toBeInTheDocument();
     });
 
     it("the mark only changes the wording of a changed job", () => {
-      acceptJob(job());
+      acceptJob(job(), SCOPE);
       markShown();
       renderRow(job());
       expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
     });
 
     it("another tab's marker write updates the wording without a reload", () => {
-      acceptJob(job({ instruction: "Before" }));
+      acceptJob(job({ instruction: "Before" }), SCOPE);
       renderRow(job());
       expect(screen.getByText(t("en-US", "scheduledJobChanged"))).toBeInTheDocument();
       act(() => {
-        localStorage.setItem(EDITED_HERE_KEY, JSON.stringify({ "job-key-1": jobFingerprint(job()) }));
+        localStorage.setItem(EDITED_HERE_KEY, JSON.stringify({ [`${SCOPE}|job-key-1`]: jobFingerprint(job()) }));
         window.dispatchEvent(new StorageEvent("storage", { key: EDITED_HERE_KEY }));
       });
       expect(screen.getByText(t("en-US", "scheduledJobChangedHere"))).toBeInTheDocument();
     });
 
     it("unreadable marker storage falls back to the generic wording", () => {
-      acceptJob(job({ instruction: "Before" }));
+      acceptJob(job({ instruction: "Before" }), SCOPE);
       markShown();
       const realGet = Storage.prototype.getItem;
       vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, k: string) {
@@ -491,7 +496,7 @@ describe("JobRow acceptance", () => {
     });
 
     it("answering ends the mark", () => {
-      acceptJob(job({ instruction: "Before" }));
+      acceptJob(job({ instruction: "Before" }), SCOPE);
       markShown();
       renderRow(job());
       fireEvent.click(screen.getByRole("button", { name: "Not on this device: Weekly review" }));
@@ -499,7 +504,7 @@ describe("JobRow acceptance", () => {
       fireEvent.click(screen.getByRole("button", { name: "Accept: Weekly review" }));
       expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Stop on this device: Weekly review" }));
-      expect(isEditedHere(job())).toBe(false);
+      expect(isEditedHere(job(), SCOPE)).toBe(false);
     });
   });
 
@@ -528,7 +533,7 @@ describe("JobRow acceptance", () => {
 
     it("from changed, by keyboard: the same", async () => {
       const user = userEvent.setup();
-      acceptJob(job({ instruction: "Something else" }));
+      acceptJob(job({ instruction: "Something else" }), SCOPE);
       renderRow(job());
       screen.getByRole("button", decline).focus();
       await user.keyboard("{Enter}");
@@ -549,12 +554,12 @@ describe("JobRow acceptance", () => {
     });
 
     it("is absent when accepted, when declined and without a project", () => {
-      acceptJob(job());
+      acceptJob(job(), SCOPE);
       const first = renderRow(job());
       expect(screen.queryByRole("button", decline)).toBeNull();
       first.unmount();
       localStorage.removeItem(ACCEPTANCE_KEY);
-      declineJob(job());
+      declineJob(job(), SCOPE);
       const second = renderRow(job());
       expect(screen.queryByRole("button", decline)).toBeNull();
       second.unmount();
@@ -564,7 +569,7 @@ describe("JobRow acceptance", () => {
   });
 
   it("a declined job that changed reads changed elsewhere and offers both buttons", () => {
-    declineJob(job({ instruction: "Something else" }));
+    declineJob(job({ instruction: "Something else" }), SCOPE);
     renderRow(job());
     expect(screen.getByText(t("en-US", "scheduledJobChangedElsewhere"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "scheduledJobChanged"))).toBeNull();
@@ -585,7 +590,7 @@ describe("JobRow acceptance", () => {
   });
 
   it("while an Accept is pending the decline button is aria-disabled too and ignores clicks", () => {
-    renderRow(job(), acceptJob, null, true);
+    renderRow(job(), acceptHere, null, true);
     const decline = screen.getByRole("button", { name: "Not on this device: Weekly review" });
     expect(decline).toHaveAttribute("aria-disabled", "true");
     expect(decline.className).toContain("aria-disabled:opacity-50");
@@ -595,22 +600,22 @@ describe("JobRow acceptance", () => {
   });
 
   it("an accepted job shows no stale Accept notice but keeps its status element, empty", () => {
-    acceptJob(job());
-    renderRow(job(), acceptJob, "changed");
+    acceptJob(job(), SCOPE);
+    renderRow(job(), acceptHere, "changed");
     const region = screen.getByRole("status");
     expect(region).toBeEmptyDOMElement();
     expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
   });
 
   it("an unassigned job with no creator still has its status element and shows a notice", () => {
-    renderRow(job({ projectId: null }), acceptJob, "changed");
+    renderRow(job({ projectId: null }), acceptHere, "changed");
     expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobAcceptChanged"));
   });
 
   it("the status element keeps its identity when the project is assigned", () => {
     const el = (j: ScheduledJob) => (
       <ul>
-        <JobRow
+        <JobRow scope={SCOPE}
           lang="en-US"
           job={j}
           token="Weekly review"
@@ -624,7 +629,7 @@ describe("JobRow acceptance", () => {
           onUpdate={vi.fn()}
           onAssign={vi.fn()}
           onDelete={vi.fn()}
-          onAccept={acceptJob}
+          onAccept={acceptHere}
           acceptNotice="changed"
         />
       </ul>
@@ -641,11 +646,11 @@ describe("JobRow acceptance", () => {
     const bare = renderRow(job({ projectId: null }));
     expect(screen.getByRole("status").parentElement?.className).toContain("-mt-2");
     bare.unmount();
-    const noLine = renderRow(job({ projectId: null }), acceptJob, "changed");
+    const noLine = renderRow(job({ projectId: null }), acceptHere, "changed");
     expect(screen.getByRole("status").parentElement?.className ?? "").not.toContain("-mt-2");
     expect(screen.getByRole("status").className).not.toContain("mt-2");
     noLine.unmount();
-    const withNotice = renderRow(job(), acceptJob, "changed");
+    const withNotice = renderRow(job(), acceptHere, "changed");
     expect(screen.getByRole("status").parentElement?.className ?? "").not.toContain("-mt-2");
     expect(screen.getByRole("status").className).toContain("mt-2");
     withNotice.unmount();
@@ -677,7 +682,7 @@ describe("JobRow acceptance", () => {
   });
 
   it("shows the changed-elsewhere notice", () => {
-    renderRow(job(), acceptJob, "changed");
+    renderRow(job(), acceptHere, "changed");
     expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "scheduledJobAcceptChanged"));
   });
 
@@ -692,7 +697,7 @@ describe("JobRow acceptance", () => {
     const user = userEvent.setup();
     const view = render(
       <ul>
-        <JobRow lang="en-US" job={job({ key: null })} token="Weekly review" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
+        <JobRow scope={SCOPE} lang="en-US" job={job({ key: null })} token="Weekly review" busy={false} tz="UTC" projects={[{ id: "p1", name: "Alpha" }]}
           archivedProjects={[]} projectsLoaded zones={["UTC"]} defaultZone="UTC" onUpdate={onUpdate} onAssign={vi.fn()}
           onDelete={vi.fn()} onAccept={vi.fn()} />
       </ul>,

@@ -11,6 +11,9 @@ import type { ScheduledJob } from "./scheduled-jobs/types";
 import { getDeviceLabel } from "./device-label";
 import { JOB_HISTORY_CAP, type JobCadence, type ScheduledJobRun } from "./scheduled-jobs/types";
 
+/** The portfolio this file's answers are kept for (`acceptanceScope`). */
+const SCOPE = "local";
+
 vi.mock("./device-label", () => ({ getDeviceLabel: vi.fn(() => "unknown") }));
 
 const dailyCadence: JobCadence = { kind: "daily", timeOfDay: "09:00" };
@@ -491,12 +494,12 @@ describe("useScheduledJobs acceptance on this device", () => {
     await act(async () => {
       await result.current.createJob({ name: "A", cadence: dailyCadence, enabled: true, projectId: "p1", instruction: "x" });
     });
-    expect(acceptanceState(result.current.jobs[0])).toBe("accepted");
+    expect(acceptanceState(result.current.jobs[0], SCOPE)).toBe("accepted");
   });
 
   it("an instruction edit of an accepted job writes no answer: once saved the job reads changed", async () => {
     seed();
-    act(() => { acceptJob(version({})); });
+    act(() => { acceptJob(version({}), SCOPE); });
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
     const writes = await acceptanceWrites(async () => {
@@ -504,12 +507,12 @@ describe("useScheduledJobs acceptance on this device", () => {
     });
     expect(writes).toEqual([]);
     expect(result.current.jobs[0].instruction).toBe("c");
-    expect(acceptanceState(result.current.jobs[0])).toBe("changed");
+    expect(acceptanceState(result.current.jobs[0], SCOPE)).toBe("changed");
   });
 
   it("assigning another project to an accepted job writes no answer: once saved the job reads changed", async () => {
     seed();
-    act(() => { acceptJob(version({})); });
+    act(() => { acceptJob(version({}), SCOPE); });
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
     const writes = await acceptanceWrites(async () => {
@@ -517,20 +520,20 @@ describe("useScheduledJobs acceptance on this device", () => {
     });
     expect(writes).toEqual([]);
     expect(result.current.jobs[0].projectId).toBe("p2");
-    expect(acceptanceState(result.current.jobs[0])).toBe("changed");
+    expect(acceptanceState(result.current.jobs[0], SCOPE)).toBe("changed");
   });
 
   it("an edit of a stopped job writes no answer and it never becomes runnable", async () => {
     seed();
-    act(() => { declineJob(version({})); });
+    act(() => { declineJob(version({}), SCOPE); });
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
     const writes = await acceptanceWrites(async () => {
       await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "key-1"); });
     });
     expect(writes).toEqual([]);
-    expect(acceptanceState(result.current.jobs[0])).toBe("declined-changed");
-    expect(isAcceptedHere(result.current.jobs[0])).toBe(false);
+    expect(acceptanceState(result.current.jobs[0], SCOPE)).toBe("declined-changed");
+    expect(isAcceptedHere(result.current.jobs[0], SCOPE)).toBe(false);
   });
 
   it("assigning a project to a legacy job (minting its key) answers nothing", async () => {
@@ -539,13 +542,13 @@ describe("useScheduledJobs acceptance on this device", () => {
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
     await act(async () => { await result.current.assignProject(1, "p1", "UTC"); });
     expect(result.current.jobs[0].key).toMatch(/\S+/);
-    expect(acceptanceState(result.current.jobs[0])).toBe("none");
+    expect(acceptanceState(result.current.jobs[0], SCOPE)).toBe("none");
   });
 
   it("a failed save stops the saving state and leaves the answer untouched", async () => {
     seed();
-    act(() => { acceptJob(version({})); });
-    const before = storedAcceptanceEntry("key-1");
+    act(() => { acceptJob(version({}), SCOPE); });
+    const before = storedAcceptanceEntry("key-1", SCOPE);
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
     let rejected = false;
@@ -554,9 +557,9 @@ describe("useScheduledJobs acceptance on this device", () => {
     });
     expect(rejected).toBe(true);
     expect(result.current.savingJobs.size).toBe(0);
-    expect(storedAcceptanceEntry("key-1")).toBe(before);
-    expect(isEditedHere(result.current.jobs[0])).toBe(false);
-    expect(isEditedHere(version({ instruction: "c" }))).toBe(false);
+    expect(storedAcceptanceEntry("key-1", SCOPE)).toBe(before);
+    expect(isEditedHere(result.current.jobs[0], SCOPE)).toBe(false);
+    expect(isEditedHere(version({ instruction: "c" }), SCOPE)).toBe(false);
   });
 
   it("a saved change of the instruction or project marks the job edited here; a rename does not", async () => {
@@ -564,15 +567,15 @@ describe("useScheduledJobs acceptance on this device", () => {
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
     await act(async () => { await result.current.updateJob(1, { name: "n" }, "key-1"); });
-    expect(isEditedHere(result.current.jobs[0])).toBe(false);
+    expect(isEditedHere(result.current.jobs[0], SCOPE)).toBe(false);
     await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "key-1"); });
-    expect(isEditedHere(result.current.jobs[0])).toBe(true);
-    act(() => { acceptJob(result.current.jobs[0]); }); // the user answers
-    expect(isEditedHere(result.current.jobs[0])).toBe(false);
+    expect(isEditedHere(result.current.jobs[0], SCOPE)).toBe(true);
+    act(() => { acceptJob(result.current.jobs[0], SCOPE); }); // the user answers
+    expect(isEditedHere(result.current.jobs[0], SCOPE)).toBe(false);
     await act(async () => { await result.current.assignProject(1, "p2", "UTC", "key-1"); });
-    expect(isEditedHere(result.current.jobs[0])).toBe(true);
-    act(() => { declineJob(result.current.jobs[0]); });
-    expect(isEditedHere(result.current.jobs[0])).toBe(false);
+    expect(isEditedHere(result.current.jobs[0], SCOPE)).toBe(true);
+    act(() => { declineJob(result.current.jobs[0], SCOPE); });
+    expect(isEditedHere(result.current.jobs[0], SCOPE)).toBe(false);
   });
 
   it("the edited mark describes only the version this tab saved: a later change from elsewhere is not 'yours'", async () => {
@@ -580,8 +583,8 @@ describe("useScheduledJobs acceptance on this device", () => {
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
     await act(async () => { await result.current.updateJob(1, { instruction: "c" }, "key-1"); });
-    expect(isEditedHere(version({ instruction: "c" }))).toBe(true);
-    expect(isEditedHere(version({ instruction: "d" }))).toBe(false); // another device's later version
+    expect(isEditedHere(version({ instruction: "c" }), SCOPE)).toBe(true);
+    expect(isEditedHere(version({ instruction: "d" }), SCOPE)).toBe(false); // another device's later version
   });
 
   it("renaming does not accept", async () => {
@@ -590,7 +593,7 @@ describe("useScheduledJobs acceptance on this device", () => {
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
     await act(async () => { await result.current.updateJob(1, { name: "n" }, "key-1"); });
     expect(result.current.jobs[0].name).toBe("n");
-    expect(acceptanceState(result.current.jobs[0])).toBe("none");
+    expect(acceptanceState(result.current.jobs[0], SCOPE)).toBe("none");
   });
 
   it("a failed create accepts nothing", async () => {
@@ -613,16 +616,16 @@ describe("useScheduledJobs acceptance on this device", () => {
     await act(async () => { await result.current.createJob(input); });
     const oldKey = result.current.jobs[0].key as string;
     await act(async () => { await result.current.updateJob(result.current.jobs[0].id, { instruction: "y" }, oldKey); });
-    expect(accepted()).toHaveProperty(oldKey);
+    expect(accepted()).toHaveProperty([`${SCOPE}|${oldKey}`]);
     const edited = result.current.jobs[0];
-    expect(isEditedHere(edited)).toBe(true);
+    expect(isEditedHere(edited, SCOPE)).toBe(true);
     await act(async () => { await result.current.deleteJob(result.current.jobs[0].id, oldKey); });
-    expect(accepted()).not.toHaveProperty(oldKey);
-    expect(isEditedHere(edited)).toBe(false);
+    expect(accepted()).not.toHaveProperty([`${SCOPE}|${oldKey}`]);
+    expect(isEditedHere(edited, SCOPE)).toBe(false);
     await act(async () => { await result.current.createJob(input); });
     const fresh = result.current.jobs[0];
     expect(fresh.key).not.toBe(oldKey);
-    expect(Object.keys(accepted())).toEqual([fresh.key]);
+    expect(Object.keys(accepted())).toEqual([`${SCOPE}|${fresh.key}`]);
   });
 
   it("clearProject does not accept", async () => {
@@ -630,7 +633,7 @@ describe("useScheduledJobs acceptance on this device", () => {
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.jobs).toHaveLength(1));
     await act(async () => { await result.current.clearProject(1, "key-1"); });
-    expect(acceptanceState(result.current.jobs[0])).toBe("none");
+    expect(acceptanceState(result.current.jobs[0], SCOPE)).toBe("none");
   });
 });
 

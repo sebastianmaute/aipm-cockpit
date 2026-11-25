@@ -7,6 +7,9 @@ import { acceptJob, storedAcceptanceEntry } from "./scheduled-job-acceptance";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 import type { TursoConfig } from "./turso-config";
 
+/** The portfolio this file's answers are kept for (`acceptanceScope`). */
+const SCOPE = "https://saving.example";
+
 const store = vi.hoisted(() => ({
   list: [] as unknown[],
   gate: null as Promise<void> | null,
@@ -86,8 +89,8 @@ describe("useScheduledJobs — jobs with a save in flight", () => {
   });
 
   it("a failed save ends the saving state and leaves this device's answer untouched", async () => {
-    act(() => { acceptJob(job()); });
-    const before = storedAcceptanceEntry("saving-key");
+    act(() => { acceptJob(job(), SCOPE); });
+    const before = storedAcceptanceEntry("saving-key", SCOPE);
     const { result } = await mounted();
     holdSaves([true]);
     let saving: Promise<void> = Promise.resolve();
@@ -96,7 +99,7 @@ describe("useScheduledJobs — jobs with a save in flight", () => {
     releaseHeld();
     await act(async () => { await saving.catch(() => {}); });
     expect(result.current.savingJobs.size).toBe(0);
-    expect(storedAcceptanceEntry("saving-key")).toBe(before);
+    expect(storedAcceptanceEntry("saving-key", SCOPE)).toBe(before);
   });
 
   it("a job without a key is tracked by its id", async () => {
@@ -186,8 +189,8 @@ describe("useScheduledJobs — a save that checks the stored instruction first",
   });
 
   it("refuses, writes nothing, answers nothing and re-reads the list when the stored instruction changed", async () => {
-    act(() => { acceptJob(job()); });
-    const before = storedAcceptanceEntry("saving-key");
+    act(() => { acceptJob(job(), SCOPE); });
+    const before = storedAcceptanceEntry("saving-key", SCOPE);
     const { result } = await mounted();
     store.list = [job({ instruction: "d" })]; // another device, not yet re-read here
     let error: unknown = null;
@@ -197,7 +200,7 @@ describe("useScheduledJobs — a save that checks the stored instruction first",
     expect(error).toBeInstanceOf(JobChangedError);
     expect((error as JobChangedError).stored).toBe("d");
     expect((store.list[0] as ScheduledJob).instruction).toBe("d");
-    expect(storedAcceptanceEntry("saving-key")).toBe(before);
+    expect(storedAcceptanceEntry("saving-key", SCOPE)).toBe(before);
     await waitFor(() => expect(result.current.jobs[0].instruction).toBe("d")); // the list was read again
     expect(result.current.savingJobs.size).toBe(0);
   });

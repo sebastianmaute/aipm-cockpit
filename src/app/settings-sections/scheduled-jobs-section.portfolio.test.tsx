@@ -9,7 +9,7 @@ import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import type { TursoConfig } from "../turso-config";
-import { __resetEditedHereForTests, ACCEPTANCE_KEY } from "../scheduled-job-acceptance";
+import { __resetEditedHereForTests, ACCEPTANCE_KEY, acceptanceScope, acceptanceState } from "../scheduled-job-acceptance";
 
 const store = vi.hoisted(() => ({
   lists: new Map<string, unknown[]>(),
@@ -138,6 +138,77 @@ describe("ScheduledJobsSection — an assign whose save failed leaves the legacy
     fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "delete")} – Daily risks` }));
     await sleep(300);
     expect(listOf(A)).toEqual([]);
+  });
+});
+
+describe("ScheduledJobsSection — an answer counts in its own portfolio only", () => {
+  it("a job accepted in one portfolio waits for an OK in a clone that holds the same job, and stays accepted at home", async () => {
+    const user = userEvent.setup();
+    store.lists.set(A.httpUrl, [job()]);
+    store.lists.set(B.httpUrl, [job()]);
+    const view = render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    await user.click(screen.getByRole("button", { name: "Accept: Daily risks" }));
+    await sleep(150);
+    expect(acceptanceState(job(), acceptanceScope(A.httpUrl))).toBe("accepted");
+    view.rerender(section(B));
+    await sleep(300);
+    expect(acceptanceState(job(), acceptanceScope(B.httpUrl))).toBe("none");
+    expect(screen.getByRole("button", { name: "Accept: Daily risks" })).toBeInTheDocument(); // asks again here
+    view.rerender(section(A));
+    await sleep(300);
+    expect(screen.getByRole("button", { name: "Stop on this device: Daily risks" })).toBeInTheDocument();
+  });
+});
+
+describe("ScheduledJobsSection — a row write refused by a portfolio switch is never silent", () => {
+  const switchNotice = () => screen.queryByText(t("en-US", "scheduledJobChangeNotSavedPortfolioSwitch"));
+
+  it("a delete refused by the switch says so", async () => {
+    store.lists.set(A.httpUrl, [job()]);
+    store.lists.set(B.httpUrl, [job({ key: "KB", name: "B job" })]);
+    const view = render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    const release = holdLoads();
+    view.rerender(section(B));
+    await sleep(20);
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "delete")} – Daily risks` }));
+    await sleep(20);
+    release();
+    await sleep(300);
+    expect(listOf(A)).toHaveLength(1);
+    expect(listOf(B)).toHaveLength(1);
+    expect(switchNotice()).not.toBeNull();
+  });
+
+  it("an on/off change refused by the switch says so", async () => {
+    store.lists.set(A.httpUrl, [job()]);
+    store.lists.set(B.httpUrl, [job({ key: "KB", name: "B job" })]);
+    const view = render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    const release = holdLoads();
+    view.rerender(section(B));
+    await sleep(20);
+    fireEvent.click(screen.getByRole("checkbox", { name: `${t("en-US", "scheduledJobEnabled")} – Daily risks` }));
+    await sleep(20);
+    release();
+    await sleep(300);
+    expect(listOf(A)[0].enabled).toBe(true);
+    expect(listOf(B)[0].enabled).toBe(true);
+    expect(switchNotice()).not.toBeNull();
+  });
+
+  it("a refused instruction save keeps its text and shows no such notice", async () => {
+    const user = userEvent.setup();
+    store.lists.set(A.httpUrl, [job()]);
+    store.lists.set(B.httpUrl, [job({ key: "KB" })]);
+    const view = render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    await user.clear(field());
+    await user.type(field(), "typed-in-A");
+    view.rerender(section(B));
+    await sleep(300);
+    expect(switchNotice()).toBeNull();
   });
 });
 

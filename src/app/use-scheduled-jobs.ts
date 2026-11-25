@@ -12,7 +12,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceLabel } from "./device-label";
-import { acceptJob, forgetJob, jobFingerprint, markEditedHere } from "./scheduled-job-acceptance";
+import { acceptanceScope, acceptJob, forgetJob, jobFingerprint, markEditedHere } from "./scheduled-job-acceptance";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
 import {
   appendRun, JobChangedError, JobGoneError, JobNotEditableError, JobSourceChangedError, jobSaveId, normalizeJobFields,
@@ -269,7 +269,7 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
   // user saw was read from), a write that RUNS after the active backend changed is refused: nothing is written, and
   // never into the portfolio switched to.
   const mutate = useCallback(
-    (transform: (list: readonly ScheduledJob[]) => ScheduledJob[], onSaved?: () => void, source?: string | null): Promise<void> => {
+    (transform: (list: readonly ScheduledJob[]) => ScheduledJob[], onSaved?: (backend: string | null) => void, source?: string | null): Promise<void> => {
       if (mountedRef.current) setBusy(true);
       const run = writeChain.then(async () => {
         // ONE backend per write: read the config once, so a switch mid-write cannot load from one and save
@@ -280,7 +280,7 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
         const next = transform(existing);
         await saveScheduledJobs(config, next);
         savedGenerations.set(backendOf(config), generationOf(config) + 1);
-        onSaved?.(); // before the new list renders, so the row reads it with the new list
+        onSaved?.(backendOf(config)); // before the new list renders, so the row reads it with the new list
         if (mountedRef.current && backendOf(cfgRef.current) === backendOf(config)) { setJobs(next); setJobsSource(backendOf(config)); }
         for (const reread of instances) if (reread !== rereadRef.current) reread();
       });
@@ -337,10 +337,10 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
         if (!matched && how.rejectIfGone) throw list.some((j) => matches(j, id, target)) ? new JobNotEditableError() : new JobGoneError();
         return next;
       };
-      const onSaved = () => {
+      const onSaved = (backend: string | null) => {
         if (!matched) return; // nothing of this job was written
         const saved: ScheduledJob | null = edited;
-        if (saved !== null && saved.key !== null) markEditedHere(saved.key, jobFingerprint(saved));
+        if (saved !== null && saved.key !== null) markEditedHere(saved.key, jobFingerprint(saved), acceptanceScope(backend));
         how.afterSave?.();
       };
       const write = mutate(transform, onSaved, source).catch((err: unknown) => {
@@ -385,7 +385,7 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
       };
       written = job;
       return [...list, job];
-    }).then(() => { if (written) acceptJob(written); });
+    }, (backend) => { if (written) acceptJob(written, acceptanceScope(backend)); });
   }, [mutate]);
 
   const updateJob = useCallback(
@@ -417,8 +417,9 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
       const target = resolveKey(key, source, id);
       removedKey = list.find((j) => matches(j, id, target))?.key;
       return list.filter((j) => !matches(j, id, target));
-    }, undefined, source).then(() => {
-      if (typeof removedKey === "string") forgetJob(removedKey);
+    }, (backend) => {
+      if (typeof removedKey === "string") forgetJob(removedKey, acceptanceScope(backend));
+    }, source).then(() => {
       forgetLostDraft(jobSaveId({ id, key: removedKey ?? key ?? null }));
     });
     return trackSave(jobSaveId(displayed ?? { id, key: key ?? null }), write);

@@ -14,6 +14,9 @@ import { formatDisplayTimestamp } from "../tz-display";
 import { resolveTimezone, tzZones } from "../timezone";
 import type { TursoConfig } from "../turso-config";
 
+/** The portfolio this file's answers are kept for (`acceptanceScope`). */
+const SCOPE = "https://x.example";
+
 // Mock the persistence hook — these are pure UI tests (mirrors how
 // comm-templates-section.test mocks use-comm-template-versions).
 const createJob = vi.fn(async () => {});
@@ -785,7 +788,7 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
   it("a runnable job accepted with another instruction is counted in the notice", async () => {
     const { acceptJob } = await import("../scheduled-job-acceptance");
     mockJobs = [runnable(1, { instruction: "now" })];
-    act(() => { acceptJob(runnable(1, { instruction: "before" })); });
+    act(() => { acceptJob(runnable(1, { instruction: "before" }), SCOPE); });
     setup(withKey({ scheduledJobs: true }));
     expect(screen.getByText(/shared jobs? needs? your OK/)).toHaveTextContent("1 shared job needs your OK to run on this device.");
   });
@@ -796,7 +799,7 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     loadJobsMock.mockResolvedValue([runnable(1, { instruction: "x" })]);
     setup(withKey({ scheduledJobs: true }));
     fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
-    await waitFor(() => expect(acceptanceState(mockJobs[0])).toBe("accepted"));
+    await waitFor(() => expect(acceptanceState(mockJobs[0], SCOPE)).toBe("accepted"));
     expect(refreshMock).not.toHaveBeenCalled();
   });
 
@@ -807,7 +810,7 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     setup(withKey({ scheduledJobs: true }));
     fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
     await waitFor(() => expect(refreshMock).toHaveBeenCalledTimes(1));
-    expect(acceptanceState(mockJobs[0])).toBe("none");
+    expect(acceptanceState(mockJobs[0], SCOPE)).toBe("none");
   });
 
   it("Accept on a job changed elsewhere says so", async () => {
@@ -836,7 +839,7 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     setup(withKey({ scheduledJobs: true }));
     fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
     await waitFor(() => expect(screen.getByText(t("en-US", "scheduledJobAcceptFailed"))).toBeInTheDocument());
-    expect(acceptanceState(mockJobs[0])).toBe("none");
+    expect(acceptanceState(mockJobs[0], SCOPE)).toBe("none");
   });
 
   it("the message clears on the next Accept", async () => {
@@ -861,7 +864,7 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
   it("a declined job that changed elsewhere is counted in the notice", async () => {
     const { declineJob } = await import("../scheduled-job-acceptance");
     mockJobs = [runnable(1, { instruction: "now" })];
-    act(() => { declineJob(runnable(1, { instruction: "before" })); });
+    act(() => { declineJob(runnable(1, { instruction: "before" }), SCOPE); });
     setup(withKey({ scheduledJobs: true }));
     expect(screen.getByText(/shared jobs? needs? your OK/)).toHaveTextContent("1 shared job needs");
     expect(screen.getByText(t("en-US", "scheduledJobChangedElsewhere"))).toBeInTheDocument();
@@ -897,13 +900,13 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     const { acceptJob, acceptanceState } = await import("../scheduled-job-acceptance");
     mockJobs = [runnable(1, { instruction: "old" })];
     loadJobsMock.mockResolvedValue([runnable(1, { instruction: "new" })]);
-    act(() => { acceptJob(runnable(1, { instruction: "new" })); });
+    act(() => { acceptJob(runnable(1, { instruction: "new" }), SCOPE); });
     setup(withKey({ scheduledJobs: true }));
     fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
     await waitFor(() => expect(loadJobsMock).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByRole("button", { name: "Accept: Job 1" })).not.toHaveAttribute("aria-disabled"));
     expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
-    expect(acceptanceState(runnable(1, { instruction: "new" }))).toBe("accepted");
+    expect(acceptanceState(runnable(1, { instruction: "new" }), SCOPE)).toBe("accepted");
     expect(refreshMock).toHaveBeenCalledTimes(1);
   });
 
@@ -914,12 +917,12 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     mockJobs = [runnable(1, { instruction: "same" })];
     setup(withKey({ scheduledJobs: true }));
     fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
-    act(() => { acceptJob(runnable(1, { instruction: "same" })); }); // accepted elsewhere while the read is in flight
+    act(() => { acceptJob(runnable(1, { instruction: "same" }), SCOPE); }); // accepted elsewhere while the read is in flight
     release([runnable(1, { instruction: "same" })]);
     await waitFor(() => expect(screen.getByRole("button", { name: "Stop on this device: Job 1" })).not.toHaveAttribute("aria-disabled"));
     expect(refreshMock).not.toHaveBeenCalled();
     expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
-    expect(acceptanceState(runnable(1, { instruction: "same" }))).toBe("accepted");
+    expect(acceptanceState(runnable(1, { instruction: "same" }), SCOPE)).toBe("accepted");
   });
 
   it("a decline recorded while Accept is pending is not overridden", async () => {
@@ -929,10 +932,10 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     mockJobs = [runnable(1)];
     setup(withKey({ scheduledJobs: true }));
     fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
-    act(() => { declineJob(runnable(1)); }); // the user's newer answer, e.g. in another tab
+    act(() => { declineJob(runnable(1), SCOPE); }); // the user's newer answer, e.g. in another tab
     release([runnable(1)]);
     await waitFor(() => expect(screen.getByRole("button", { name: "Accept: Job 1" })).not.toHaveAttribute("aria-disabled"));
-    expect(acceptanceState(runnable(1))).toBe("declined");
+    expect(acceptanceState(runnable(1), SCOPE)).toBe("declined");
     expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
   });
 
@@ -943,17 +946,17 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     mockJobs = [runnable(1, { instruction: "x" })];
     setup(withKey({ scheduledJobs: true }));
     fireEvent.click(screen.getByRole("button", { name: "Accept: Job 1" }));
-    act(() => { declineJob(runnable(1, { instruction: "x" })); });
+    act(() => { declineJob(runnable(1, { instruction: "x" }), SCOPE); });
     release([runnable(1, { instruction: "newer" })]);
     await waitFor(() => expect(refreshMock).toHaveBeenCalledTimes(1));
-    expect(acceptanceState(runnable(1, { instruction: "newer" }))).not.toBe("accepted");
+    expect(acceptanceState(runnable(1, { instruction: "newer" }), SCOPE)).not.toBe("accepted");
     expect(screen.queryByText(t("en-US", "scheduledJobAcceptChanged"))).toBeNull();
   });
 
   it("a runnable job this device stopped is not counted in the notice", async () => {
     const { declineJob } = await import("../scheduled-job-acceptance");
     mockJobs = [runnable(1), runnable(2)];
-    act(() => { declineJob(runnable(1)); });
+    act(() => { declineJob(runnable(1), SCOPE); });
     setup(withKey({ scheduledJobs: true }));
     expect(screen.getByText(/shared jobs? needs? your OK/)).toHaveTextContent("1 shared job needs your OK to run on this device.");
   });
@@ -964,7 +967,7 @@ describe("ScheduledJobsSection — shared jobs awaiting this device's OK", () =>
     expect(screen.queryByText(/need your OK|needs your OK to run/)).toBeNull();
     unmount();
     const { acceptJob } = await import("../scheduled-job-acceptance");
-    act(() => { acceptJob(mockJobs[0]); });
+    act(() => { acceptJob(mockJobs[0], SCOPE); });
     setup(withKey({ scheduledJobs: true }));
     expect(screen.queryByText(/shared jobs? needs? your OK/)).toBeNull();
   });

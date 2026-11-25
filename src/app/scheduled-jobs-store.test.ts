@@ -52,6 +52,15 @@ describe("scheduled-jobs-store (localStorage path, config=null)", () => {
     expect(out.extra).toBeUndefined();
   });
 
+  it("a createdBy that is not a short device label (1–32 letters, digits or dashes) is dropped", async () => {
+    const labels = ["", "x".repeat(33), "has space", "<b>x</b>", "ünïcode", "a\nb"];
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(labels.map((createdBy, i) => ({ ...job, id: i + 1, createdBy }))));
+    const out = await loadScheduledJobs(null);
+    expect(out.map((j) => j.createdBy)).toEqual(labels.map(() => undefined));
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([{ ...job, createdBy: "a".repeat(32) }, { ...job, id: 2, createdBy: "Ab-9" }]));
+    expect((await loadScheduledJobs(null)).map((j) => j.createdBy)).toEqual(["a".repeat(32), "Ab-9"]);
+  });
+
   it("a non-string createdBy is dropped", async () => {
     localStorage.setItem(LOCAL_KEY, JSON.stringify([{ ...job, createdBy: 5 }]));
     const [out] = await loadScheduledJobs(null);

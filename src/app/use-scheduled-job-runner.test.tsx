@@ -337,7 +337,8 @@ describe("useScheduledJobRunner", () => {
     expect(mockRun).toHaveBeenCalledTimes(1);
   });
 
-  // KILLED BY: dropping `isAcceptedHere(live)` from `stillRunnable` (the tick-time check alone would let the edited job run).
+  // KILLED BY: dropping the instruction comparison from `stillRunnable` — that term is false here before
+  // `isAcceptedHere(live)` is reached, so this test does NOT pin the live acceptance check (the next-but-one does).
   it("an edit elsewhere between the tick and the send stops the run", async () => {
     const args = baseArgs({
       jobs: [dailyJob({ instruction: "a" })],
@@ -359,6 +360,18 @@ describe("useScheduledJobRunner", () => {
     backendState.onLoad = () => { storeState.jobs = [dailyJob({ instruction: "b" })]; };
     await act(async () => { renderHook(() => useScheduledJobRunner(args)); });
     expect(mockRun).not.toHaveBeenCalled();
+    expect(args.recordRun).not.toHaveBeenCalled();
+  });
+
+  // KILLED BY: dropping `isAcceptedHere(live)` from `stillRunnable`. The job stays identical (key, project, instruction);
+  // only this device's answer changes between the tick and the live re-check, as a Stop or "Not on this device" would.
+  it("an answer withdrawn between the tick and the send stops the run (the job itself unchanged)", async () => {
+    let accepted = true;
+    const args = baseArgs({ isAcceptedHere: () => accepted });
+    backendState.onLoad = () => { accepted = false; }; // Stop pressed while the project loads
+    await act(async () => { renderHook(() => useScheduledJobRunner(args)); });
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(vi.mocked(finishReport)).not.toHaveBeenCalled();
     expect(args.recordRun).not.toHaveBeenCalled();
   });
 

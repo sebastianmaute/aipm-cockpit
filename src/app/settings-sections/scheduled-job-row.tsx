@@ -131,6 +131,8 @@ type JobRowProps = {
    *  select on mount (the row started afresh) and report it with `onProjectFocused`. */
   focusProjectOnMount?: boolean;
   onProjectFocused?: () => void;
+  /** The portfolio this device's answers are kept for (`acceptanceScope`). */
+  scope: string;
 };
 
 /** One scheduled job. The section keys it by portfolio, id and permanent key, so it starts fresh for another job. */
@@ -155,6 +157,7 @@ export function JobRow({
   onNoticeClear,
   focusProjectOnMount = false,
   onProjectFocused,
+  scope,
 }: JobRowProps) {
   const [expanded, setExpanded] = useState(false);
   const instruction = useInstructionDraft(job, onUpdate);
@@ -348,6 +351,7 @@ export function JobRow({
       <AcceptanceLine
         lang={lang}
         job={job}
+        scope={scope}
         token={token}
         onAccept={onAccept}
         notice={acceptNotice ?? null}

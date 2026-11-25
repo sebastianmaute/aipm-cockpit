@@ -29,7 +29,7 @@ import { resolveTimezone, tzZones } from "../timezone";
 import { type AcceptNotice, DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
 import { Banner } from "../banner";
 import { isRunnable, JobChangedError, JobGoneError, JobNotEditableError, JobSourceChangedError, jobSaveId } from "../scheduled-jobs/schedule";
-import { acceptanceState, acceptJob, jobFingerprint, storedAcceptanceEntry, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
+import { acceptanceScope, acceptanceState, acceptJob, jobFingerprint, storedAcceptanceEntry, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
 
 export interface ScheduledJobsSectionProps {
   lang: Lang;
@@ -99,9 +99,11 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   // A LEGACY job predates §772: it carries no permanent key. A job added now has one (createJob mints it) and
   // only lacks a project, which its own row says.
   useAcceptanceSnapshot(); // the notice follows Accept / Stop on this device
+  // This device's answers count in the active portfolio only (a cloned database holds the same job keys).
+  const scope = acceptanceScope(config ? config.httpUrl : null);
   const awaitingOk = jobs.filter((j) => {
     if (!isRunnable(j)) return false;
-    const state = acceptanceState(j);
+    const state = acceptanceState(j, scope);
     return state === "none" || state === "changed" || state === "declined-changed";
   }).length;
   const hasLegacyJob = jobs.some((j) => j.foreign === undefined && j.key === null);
@@ -114,17 +116,20 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   const [focusProjectOf, setFocusProjectOf] = useState<number | null>(null);
   // An edit of a job a newer version rewrote (it cannot be edited here any more) is not a connection failure either.
   const [editedByNewer, setEditedByNewer] = useState(false);
-  const track = (write: Promise<void>): void => {
+  // A row edit (other than the instruction, which keeps its text) refused because the portfolio was switched first.
+  const [switchRefused, setSwitchRefused] = useState(false);
+  const track = (write: Promise<void>, instruction = false): void => {
     // A conditional save refused (the row says so), an edit of a job deleted elsewhere or rewritten by a newer version
     // is not a failed write: say what happened instead.
     void Promise.resolve(write).then(
-      () => { setWriteFailed(false); setDeletedElsewhere(false); setEditedByNewer(false); },
+      () => { setWriteFailed(false); setDeletedElsewhere(false); setEditedByNewer(false); setSwitchRefused(false); },
       (err: unknown) => {
         if (err instanceof JobGoneError) setDeletedElsewhere(true);
         else if (err instanceof JobNotEditableError) setEditedByNewer(true);
-        // A write from a row of the portfolio just left: nothing written, and the row is gone (a typed instruction is
-        // kept for copying by the row itself).
-        else if (!(err instanceof JobChangedError || err instanceof JobSourceChangedError)) setWriteFailed(true);
+        // A write from a row of the portfolio just left: nothing written. A typed instruction is kept for copying by
+        // the row itself; any other refused edit is said here, so it is never lost in silence.
+        else if (err instanceof JobSourceChangedError) { if (!instruction) setSwitchRefused(true); }
+        else if (!(err instanceof JobChangedError)) setWriteFailed(true);
       },
     );
   };
@@ -157,8 +162,9 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
     setAcceptNotice(job.key, null);
     setDeletedElsewhere(false);
     setEditedByNewer(false);
+    setSwitchRefused(false);
     setPending(job.key, true);
-    const entryAtClick = storedAcceptanceEntry(job.key);
+    const entryAtClick = storedAcceptanceEntry(job.key, scope);
     try {
       // After the saves in progress settle, so the job is compared with what the store holds once they land. (An answer
       // press never ends the edit: an instruction still being typed is not saved yet, and the row shows the stored job.)
@@ -171,17 +177,17 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
         return;
       }
       // The user answered again while the read was in flight (a decline, in this or another tab): that answer wins.
-      if (storedAcceptanceEntry(job.key) !== entryAtClick) {
+      if (storedAcceptanceEntry(job.key, scope) !== entryAtClick) {
         if (fresh && jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();
         return;
       }
-      if (fresh && acceptanceState(fresh) === "accepted") {
+      if (fresh && acceptanceState(fresh, scope) === "accepted") {
         // This device already accepted the current version; a row still showing an older one is brought up to date.
         if (jobFingerprint(fresh) !== jobFingerprint(job)) await refresh();
         return;
       }
       if (fresh && jobFingerprint(fresh) === jobFingerprint(job)) {
-        if (!acceptJob(fresh)) setAcceptNotice(job.key, "saveFailed");
+        if (!acceptJob(fresh, scope)) setAcceptNotice(job.key, "saveFailed");
         return;
       }
       if (fresh === undefined) {
@@ -268,6 +274,9 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
               </div>
               {projects.failed && <FieldHint>{t(lang, "tursoPickerError")}</FieldHint>}
               {writeFailed && <p role="alert" className="text-xs text-foreground">{t(lang, "scheduledJobsWriteFailed")}</p>}
+              {switchRefused && (
+                <p role="alert" className="text-xs text-foreground">{t(lang, "scheduledJobChangeNotSavedPortfolioSwitch")}</p>
+              )}
 
               <ul className="flex flex-col gap-2">
                 {jobs.map((job) => (
@@ -292,7 +301,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     onUpdate={(id, patch, options) => {
                       const key = job.key;
                       const write = options === undefined ? updateJob(id, patch, key) : updateJob(id, patch, key, options);
-                      track(write);
+                      track(write, options !== undefined); // the instruction draft's save passes options
                       return write; // the instruction draft waits for it: a failed save keeps the draft
                     }}
                     onAssign={(id, projectId, timeZone) => {
@@ -305,6 +314,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                       track(write);
                     }}
                     focusProjectOnMount={focusProjectOf === job.id}
+                    scope={scope}
                     onProjectFocused={() => setFocusProjectOf(null)}
                     onDelete={(id) => track(deleteJob(id, job.key))}
                     onAccept={(j) => { void acceptFresh(j); }}
