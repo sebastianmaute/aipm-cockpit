@@ -76,6 +76,15 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A retired or unknown AI model is named as such.** When Anthropic no longer offers the selected model, the chat
+  and the AI actions now say so and point to Settings → AI Assistant to choose another one, instead of a generic
+  failure.
+- **Models that need a different tool request are remembered after a reload.** The app learns which models refuse
+  its usual way of asking for a structured answer; it now keeps that on this device, so the first AI action after a
+  reload no longer pays an extra failed request.
+- **AI action buttons stay visible while AI is not ready.** With AI switched off or no API key set, Deduplicate &
+  unify, Suggest RACI and Plan with AI now show disabled with a hint on how to turn AI on, as Optimize with AI
+  already did, instead of disappearing.
 - **With AI switched off, the chat says so instead of asking for a key.** An empty chat told you to add your
   Anthropic API key even when one was saved and only the AI switch in Settings was off, and a chat with a conversation
   on screen gave no reason at all for its disabled message box. Both now say the AI assistant is switched off, where

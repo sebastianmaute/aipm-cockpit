@@ -196,8 +196,13 @@
 - **★★ Forced `tool_choice` is refused by some models.** Sonnet 5.5, Opus 5.5 and Fable 5.1 answer
   `tool_choice: {type:"tool"}` (and `"any"`) with a 400 `invalid_request_error` naming `tool_choice`, measured
   against the API on 2026-10-19; Haiku 5.5, Sonnet 5 and Opus 5 accept it. `runForcedToolCallWithStop` resends
-  that one refusal with `{type:"auto"}` and remembers the model for the session (`autoChoiceModels`), so every
-  forced-call feature works on them with no per-feature code. ★ Those three are known up front
+  that one refusal with `{type:"auto"}` and remembers the model (`autoChoiceModels`), so every
+  forced-call feature works on them with no per-feature code. ★ A LEARNED model (never a known one) is also
+  kept on this device under `aipm-cockpit:auto-choice-models` — at most 20 ids, each matching a model-id shape,
+  read once per page on the first forced call — so a reload does not pay the 400 again. All storage goes through
+  `device-store.ts`; blocked or full storage leaves the learning session-only. It is app config: cleared by
+  `clearAppConfig`'s `aipm-cockpit:*` sweep, never exported, and not one of recovery's `CONFIG_KEYS` (it cannot
+  keep the app from starting). ★ Those three are known up front
   (`KNOWN_AUTO_CHOICE_MODELS`) and are asked with auto from the FIRST request, so the default model (Sonnet 5.5)
   pays no 400 round trip per feature per session; the learn-on-400 path stays for every other model. ★★ The auto request is plain first, and its tool input is checked
   against the tool's schema (`matchesSchema`, `ai-tool-schema.ts`): plain auto on Sonnet 5.5 returned the
@@ -231,8 +236,11 @@
   `aiFailureMessageKeyForToken` where a hook stores a string token, and then stores `aiTransportMessageKey(err)`
   itself as the token) BEFORE its generic or network message — otherwise a 401 reads as "couldn't reach Claude"
   again, and a switched-off deployment or a refused gateway reads as a connection problem. It returns the
-  transport message ahead of the key message and never turns a transport failure into a key verdict. The chat
-  (`chat-panel.tsx`) asks `aiTransportMessageKey` and `aiKeyMessageKeyForError` separately. Scheduled jobs record only a
+  transport message ahead of the key message, then `aiModelUnavailable` for a selected model Anthropic does not
+  know (`classifyAiError`'s `"model"` class: a 404 whose `error.type` is `not_found_error`; the relay's empty
+  404 is an `AiDeploymentError` and a 404 without that type stays generic), and never turns a transport failure
+  into a key verdict. `aiFailureToken` stores the model key too, so the token-keeping surfaces show it. The chat
+  (`chat-panel.tsx`) asks `aiTransportMessageKey`, `aiKeyMessageKeyForError` and `aiModelMessageKey` separately. Scheduled jobs record only a
   GATEWAY failure as its own `ReportErrorToken` (`toErrorToken`: `ai-gateway-rejected`, `ai-gateway-error`,
   `ai-gateway-rate-limited`, and `ai-relay-rate-limited`, the relay's own per-caller limit, §806, a 429 the client
   reads as `AiGatewayError` so it is never shown as Anthropic's limit); a deployment error (`AiDeploymentError`: off, invalid, changed route, unconfirmed) is
@@ -1440,8 +1448,11 @@
   propose→preview→confirm/cancel state machine (a `.tsx` glue hook, coverage-EXCLUDED like the other glue
   hooks); `task-dedup-modal.tsx` is the review modal (per-group deselect). ★★ Confirm folds the duplicates +
   applies the KEEP task's sanitized unified fields via a FUNCTIONAL `setTasks(prev=>…)` updater and records
-  ONE undo entry (removed duplicates + edited keeps). Gated `isAiEnabled && !isPopout && tasks.length >= 2`;
-  no duplicates → toast; usage-limit / API errors surface via the shared `classifyAiError`. New `ai.taskDedup`
+  ONE undo entry (removed duplicates + edited keeps). Gated `isAiEnabled && !isPopout && tasks.length >= 2`.
+  ★ The AI half of that gate only DISABLES the trigger: with AI off or no key it renders disabled, its
+  description the shared `aiActionNeedsAi` hint, as Suggest RACI, Plan with AI and Optimize with AI do; a
+  popout or fewer than two tasks renders none (RACI also hides with nothing to assign against, Plan with AI
+  with no resources, both under people protection). No duplicates → toast; usage-limit / API errors surface via the shared `classifyAiError`. New `ai.taskDedup`
   activity kind + EN/DE strings. Wired into the Open Points toolbar (`tasks-section.tsx` → `task-manager`).
 - **AI "Optimize with AI" (Open Points) and the `optimize_wbs` chat tool (§3):** plan-then-apply over the
   existing task path, mirroring `alloc-plan/` — ZERO new Workspace fields or backend write paths. The model
