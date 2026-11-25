@@ -63,6 +63,8 @@ function Harness({ captureSpy, onTasks, triggerQualifier, logAiSpy, settings = A
       {dedup.button}
       {dedup.modal}
       <output data-testid="ids">{tasks.map((t) => t.id).join(",")}</output>
+      {/* The reason the hook hands its toolbar (Open Points writes it, shared or not). */}
+      <output data-testid="reason" data-reason={dedup.unavailableReason ?? ""} />
     </div>
   );
 }
@@ -421,9 +423,12 @@ describe("useTasksDedup — Stop while AI stops being ready", () => {
     );
     const stop = screen.getByRole("button", { name: t("en-US", "aiStop") });
     expect(stop).toBeEnabled();
+    // No "needs AI" hint for the toolbar beside a live Stop: the reason is handed on only once the trigger is idle.
+    expect(screen.getByTestId("reason")).toHaveAttribute("data-reason", "");
     fireEvent.click(stop);
     expect(signals[0].aborted).toBe(true);
     expect(screen.queryByRole("button", { name: t("en-US", "aiStop") })).toBeNull();
     expect(screen.getByRole("button", { name: DEDUP_TRIGGER })).toBeDisabled();
+    expect(screen.getByTestId("reason")).toHaveAttribute("data-reason", t("en-US", "aiActionNeedsAi"));
   });
 });

@@ -508,7 +508,9 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   //   user cannot switch it on there), renders no trigger and no reason.
   // `contents`: the box adds no layout of its own to the toolbar row.
   const showTrigger = !isPopout && isAiDeploymentOn();
-  const unavailableReason = showTrigger && !aiReady ? t(lang, aiNotReadyHintKey(settings.ai)) : undefined;
+  // None while a request runs: the trigger is a live Stop then, and the toolbar must not write a needs-AI hint beside it.
+  const unavailableReason =
+    showTrigger && !aiReady && phase !== "thinking" ? t(lang, aiNotReadyHintKey(settings.ai)) : undefined;
   const button = !showTrigger ? null : (
     <span ref={triggerBoxRef} className="contents">
       <AiTriggerButton

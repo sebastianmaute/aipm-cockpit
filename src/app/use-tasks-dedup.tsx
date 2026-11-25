@@ -217,7 +217,9 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
   //   It used to be this trigger's aria-label; the NAME is now the visible label
   //   (see the test file for why that swap was not itself a 2.5.3 fix), so
   //   without `description` the longer sentence would be lost disclosure.
-  const unavailableReason = showTrigger && !aiReady ? t(lang, aiNotReadyHintKey(settings.ai)) : undefined;
+  // None while a request runs: the trigger is a live Stop then, and the toolbar must not write a needs-AI hint beside it.
+  const unavailableReason =
+    showTrigger && !aiReady && phase !== "thinking" ? t(lang, aiNotReadyHintKey(settings.ai)) : undefined;
   const button = showTrigger ? (
     <AiTriggerButton
       lang={lang}

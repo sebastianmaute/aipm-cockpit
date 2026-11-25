@@ -1082,9 +1082,12 @@ describe("useWbsPlan — Stop while AI stops being ready", () => {
     act(() => { api.reprops({ settings: defaultSettings }); });
     const stop = screen.getByRole("button", { name: t("en-US", "aiStop") });
     expect(stop).toBeEnabled();
+    // No "needs AI" hint for the toolbar beside a live Stop: the reason is handed on only once the trigger is idle.
+    expect(api().wbs.unavailableReason).toBeUndefined();
     fireEvent.click(stop);
     expect(signals[0].aborted).toBe(true);
     expect(screen.queryByRole("button", { name: t("en-US", "aiStop") })).toBeNull();
     expect(screen.getByRole("button", { name: t("en-US", "wbsPlanButton") })).toBeDisabled();
+    expect(api().wbs.unavailableReason).toBe(t("en-US", "aiActionNeedsAi"));
   });
 });
