@@ -1,3 +1,5 @@
+import { setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
@@ -1117,5 +1119,18 @@ describe("useAllocPlan — other projects (§785)", () => {
     await waitFor(() => expect(call.runAllocProposal).toHaveBeenCalled());
     const lines = vi.mocked(call.runAllocProposal).mock.calls[0][0].split("\n").filter((l) => l.includes("ELSEWHERE"));
     expect(lines).toEqual(["ELSEWHERE: other projects cannot be seen in this storage mode"]);
+  });
+});
+
+
+// The organisation switched AI off for this app, or its AI setting is invalid: the user cannot turn AI on, so the
+// trigger is HIDDEN (no button, no reason text).
+describe("useAllocPlan — the trigger while the deployment blocks AI", () => {
+  afterEach(() => { setAiDeploymentState(DIRECT_AI_STATUS); });
+  it.each([["off", { off: true }], ["invalid", { invalid: true }]] as const)("renders no trigger and no reason when it is %s", (_n, over) => {
+    setAiDeploymentState({ ...DIRECT_AI_STATUS, ...over });
+    renderHarness();
+    expect(screen.queryByRole("button", { name: /plan with ai/i })).toBeNull();
+    expect(screen.queryByText(t("en-US", "aiActionNeedsAi"))).toBeNull();
   });
 });

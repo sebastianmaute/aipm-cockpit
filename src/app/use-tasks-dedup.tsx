@@ -17,6 +17,7 @@ import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEff
 import { SparklesIcon } from "./icons";
 import { type Lang, t, tPlural } from "./i18n";
 import { type Settings, aiKeyIfEnabled, aiNotReadyHintKey, isAiEnabled } from "./settings-types";
+import { isAiDeploymentOn } from "./ai-deployment";
 import { type Task } from "./types";
 import { type LogActivityAiFn } from "./activity-log-context";
 import { aiOrigin } from "./activity-origin";
@@ -95,9 +96,10 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
   const guideText = useActionGuideText("dedup");
   const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
   // AI switched on with a key and a current consent (`isAiEnabled`). Without it the trigger still shows (when
-  // `showTrigger`), disabled with the hint `aiNotReadyHintKey` picks; a popout or a list below the minimum shows none.
+  // `showTrigger`), disabled with the hint `aiNotReadyHintKey` picks; a popout, a list below the minimum, or a
+  // deployment that blocks AI (the user cannot switch it on there) shows none.
   const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
-  const showTrigger = !isPopout && tasks.length >= MIN_TASKS_FOR_DEDUP;
+  const showTrigger = !isPopout && isAiDeploymentOn() && tasks.length >= MIN_TASKS_FOR_DEDUP;
   const enabled = aiReady && showTrigger;
 
   // Abort any in-flight proposal if the pane unmounts — a billed response must

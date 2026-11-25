@@ -373,18 +373,17 @@ describe("useTasksDedup — the trigger while the AI data disclosure is not acce
   });
 });
 
-// The organisation switched AI off for this app: the user cannot turn it on, so the hint names the deployment's
-// block (`aiDeploymentBlockedMessageKey`), not the needs-AI or consent hint.
-describe("useTasksDedup — the trigger while the deployment switches AI off", () => {
+// The organisation switched AI off for this app, or its AI setting is invalid: the user cannot turn AI on, so the
+// trigger is HIDDEN (no button, no reason text), as before the disabled-trigger change.
+describe("useTasksDedup — the trigger while the deployment blocks AI", () => {
   beforeEach(() => { vi.clearAllMocks(); });
   afterEach(() => { setAiDeploymentState(DIRECT_AI_STATUS); });
-  it("is disabled and names the deployment's block", () => {
-    setAiDeploymentState({ ...DIRECT_AI_STATUS, off: true });
+  it.each([["off", { off: true }], ["invalid", { invalid: true }]] as const)("renders no trigger and no reason when it is %s", (_n, over) => {
+    setAiDeploymentState({ ...DIRECT_AI_STATUS, ...over });
     renderHarness();
-    const button = screen.getByRole("button", { name: DEDUP_TRIGGER });
-    expect(button).toBeDisabled();
-    expect(button).toHaveAccessibleDescription(t("en-US", "aiDeploymentOff"));
-    expect(screen.getByText(t("en-US", "aiDeploymentOff"))).toBeVisible();
+    expect(screen.queryByRole("button", { name: DEDUP_TRIGGER })).toBeNull();
+    expect(screen.queryByText(t("en-US", "aiDeploymentOff"))).toBeNull();
+    expect(screen.queryByText(t("en-US", "aiActionNeedsAi"))).toBeNull();
   });
 });
 

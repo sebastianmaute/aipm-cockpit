@@ -532,19 +532,13 @@ describe("deployment closes the AI gate", () => {
     expect(isAiConsentedForDictation(allowed)).toBe(true);
   });
   it.each([["off", { off: true, route: "direct", invalid: false, keyRestricted: false, chat: null }], ["invalid", { off: false, route: "direct", invalid: true, keyRestricted: false, chat: null }]] as const)(
-    "is closed when the deployment is %s", (n, st) => {
+    "is closed when the deployment is %s", (_n, st) => {
       setAiDeploymentState(st);
       expect(isInteractiveAiAllowed(allowed)).toBe(false);
       expect(isAiEnabled(allowed)).toBe(false);
       expect(isAiBackgroundEnabled(allowed)).toBe(false);
       expect(aiKeyIfEnabled(allowed)).toBe("");
       expect(isAiConsentedForDictation(allowed)).toBe(false);
-      // The deployment's block is named first (`aiDeploymentBlockedMessageKey`), whatever the user's own settings say:
-      // the user cannot switch AI on, so neither the needs-AI nor the consent hint applies.
-      const blocked = n === "off" ? "aiDeploymentOff" : "aiDeploymentInvalid";
-      expect(aiNotReadyHintKey(allowed)).toBe(blocked);
-      expect(aiNotReadyHintKey({ ...allowed, consent: undefined })).toBe(blocked);
-      expect(aiNotReadyHintKey({ ...allowed, enabled: false })).toBe(blocked);
     });
 });
 

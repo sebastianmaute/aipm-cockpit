@@ -1,3 +1,5 @@
+import { setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
@@ -710,6 +712,19 @@ describe("useRaciSuggest — the reason is visible beside the disabled trigger",
     expect(screen.getByText(t("en-US", "aiActionNeedsAi"))).toBeVisible();
     unmount();
     renderHarness();
+    expect(screen.queryByText(t("en-US", "aiActionNeedsAi"))).toBeNull();
+  });
+});
+
+
+// The organisation switched AI off for this app, or its AI setting is invalid: the user cannot turn AI on, so the
+// trigger is HIDDEN (no button, no reason text).
+describe("useRaciSuggest — the trigger while the deployment blocks AI", () => {
+  afterEach(() => { setAiDeploymentState(DIRECT_AI_STATUS); });
+  it.each([["off", { off: true }], ["invalid", { invalid: true }]] as const)("renders no trigger and no reason when it is %s", (_n, over) => {
+    setAiDeploymentState({ ...DIRECT_AI_STATUS, ...over });
+    renderHarness();
+    expect(screen.queryByRole("button", { name: /suggest raci/i })).toBeNull();
     expect(screen.queryByText(t("en-US", "aiActionNeedsAi"))).toBeNull();
   });
 });

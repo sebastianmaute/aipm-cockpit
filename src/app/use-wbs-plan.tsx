@@ -32,6 +32,7 @@ import { flushSync } from "react-dom";
 import { SparklesIcon } from "./icons";
 import { type Lang, t, tPlural } from "./i18n";
 import { type Settings, aiKeyIfEnabled, aiNotReadyHintKey, isAiEnabled } from "./settings-types";
+import { isAiDeploymentOn } from "./ai-deployment";
 import { type Task } from "./types";
 import { type LogActivityAiFn } from "./activity-log-context";
 import { aiOrigin } from "./activity-origin";
@@ -500,11 +501,15 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
 
   // ★ The trigger only OPENS the dialog; the billed call fires from inside it,
   //   so it is busy (and a Stop button) in `thinking` alone.
-  // ★ With the AI off or no key it stays visible but disabled, and its reason
-  //   rides `description` → `title`; the accessible NAME stays the visible label.
+  // ★ With the AI off, no key or no current consent it stays visible but disabled,
+  //   and its reason goes in as `unavailableReason`: visible text beside it (or the
+  //   toolbar's one shared copy), its description and its `title`; the accessible
+  //   NAME stays the visible label. A popout, or a deployment that blocks AI (the
+  //   user cannot switch it on there), renders no trigger and no reason.
   // `contents`: the box adds no layout of its own to the toolbar row.
-  const unavailableReason = !isPopout && !aiReady ? t(lang, aiNotReadyHintKey(settings.ai)) : undefined;
-  const button = isPopout ? null : (
+  const showTrigger = !isPopout && isAiDeploymentOn();
+  const unavailableReason = showTrigger && !aiReady ? t(lang, aiNotReadyHintKey(settings.ai)) : undefined;
+  const button = !showTrigger ? null : (
     <span ref={triggerBoxRef} className="contents">
       <AiTriggerButton
         lang={lang}

@@ -34,6 +34,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { SparklesIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { type Settings, aiKeyIfEnabled, aiNotReadyHintKey, isAiEnabled } from "./settings-types";
+import { isAiDeploymentOn } from "./ai-deployment";
 import {
   type ChangeItem, type Discipline, type Grade, type Milestone,
   type RaidItem, type Resource, type Role, type Stakeholder, type Task,
@@ -194,10 +195,10 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
   // trigger is hidden, an open preview closes and is reset (below), and propose/apply refuse. Guarded HERE, not at the button.
   const peopleProtected = usePeopleProtected();
   // AI switched on with a key and a current consent (`isAiEnabled`). Without it the trigger still shows (when
-  // `showTrigger`), disabled with the hint `aiNotReadyHintKey` picks; a popout, nothing to assign against, or people
-  // protection shows none.
+  // `showTrigger`), disabled with the hint `aiNotReadyHintKey` picks; a popout, a deployment that blocks AI, nothing to
+  // assign against, or people protection shows none.
   const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
-  const showTrigger = !isPopout && stakeholders.length > 0 && milestones.length > 0 && !peopleProtected;
+  const showTrigger = !isPopout && isAiDeploymentOn() && stakeholders.length > 0 && milestones.length > 0 && !peopleProtected;
   const enabled = aiReady && showTrigger;
   // Review 3, R6: protection turning on RESETS the preview (render-time reconcile; set-state-in-effect is banned),
   // so a stale proposal cannot reappear when protection is turned off again. The request in flight is

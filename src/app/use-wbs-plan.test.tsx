@@ -2,6 +2,8 @@
 // forced call is mocked, the workspace is the REAL WorkspaceProvider and, where
 // undo matters, the stack is the REAL useUndoStack — so apply, the apply-time
 // re-ground and undo are exercised end to end, not against spies.
+import { setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
@@ -1047,5 +1049,18 @@ describe("new-task assignees under people protection", () => {
     const { previewShowsAssignee, created } = await applyOneNewTask(false);
     expect(previewShowsAssignee).toBe(true);
     expect(created.assignee).toBe("Zelda Quartz");
+  });
+});
+
+
+// The organisation switched AI off for this app, or its AI setting is invalid: the user cannot turn AI on, so the
+// trigger is HIDDEN (no button, no reason text).
+describe("useWbsPlan — the trigger while the deployment blocks AI", () => {
+  afterEach(() => { setAiDeploymentState(DIRECT_AI_STATUS); });
+  it.each([["off", { off: true }], ["invalid", { invalid: true }]] as const)("renders no trigger and no reason when it is %s", (_n, over) => {
+    setAiDeploymentState({ ...DIRECT_AI_STATUS, ...over });
+    renderHarness();
+    expect(screen.queryByRole("button", { name: t("en-US", "wbsPlanButton") })).toBeNull();
+    expect(screen.queryByText(t("en-US", "aiActionNeedsAi"))).toBeNull();
   });
 });
