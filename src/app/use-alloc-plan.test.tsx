@@ -244,6 +244,8 @@ describe("useAllocPlan (plan-then-apply)", () => {
     const button = screen.getByRole("button", { name: /plan with ai/i });
     expect(button).toBeDisabled();
     expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsAi"));
+    // Also visible text beside the trigger: a disabled button takes no focus and `title` never shows on touch.
+    expect(screen.getByText(t("en-US", "aiActionNeedsAi"))).toBeVisible();
     fireEvent.click(button);
     expect(screen.queryByRole("button", { name: t("en-US", "allocPlanPropose") })).toBeNull();
   });

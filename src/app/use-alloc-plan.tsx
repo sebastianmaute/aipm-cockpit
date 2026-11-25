@@ -382,7 +382,8 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       onCancel={reset}
       idleLabelKey="allocPlan"
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
-      description={t(lang, aiReady ? "allocPlanTitle" : aiNotReadyHintKey(settings.ai))}
+      description={t(lang, "allocPlanTitle")}
+      unavailableReason={aiReady ? undefined : t(lang, aiNotReadyHintKey(settings.ai))}
       disabled={!aiReady || (phase !== "idle" && phase !== "thinking")}
     />
   ) : null;

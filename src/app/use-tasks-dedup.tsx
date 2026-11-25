@@ -221,7 +221,8 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
       idleLabelKey="taskDedup"
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
       nameQualifier={triggerQualifier}
-      description={t(lang, aiReady ? "taskDedupTitle" : aiNotReadyHintKey(settings.ai))}
+      description={t(lang, "taskDedupTitle")}
+      unavailableReason={aiReady ? undefined : t(lang, aiNotReadyHintKey(settings.ai))}
       disabled={!aiReady || phase === "applying"}
     />
   ) : null;

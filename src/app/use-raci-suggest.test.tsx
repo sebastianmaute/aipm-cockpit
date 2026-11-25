@@ -700,3 +700,16 @@ describe("useRaciSuggest — the trigger while the AI data disclosure is not acc
     expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsConsent"));
   });
 });
+
+// A disabled button takes no keyboard focus and `title` never shows on touch, so the reason is also visible text
+// beside the trigger (and its description), reachable by keyboard and screen-reader reading order alike.
+describe("useRaciSuggest — the reason is visible beside the disabled trigger", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("shows the hint as text when AI is off, and none when AI is ready", () => {
+    const { unmount } = renderHarness({ settings: defaultSettings });
+    expect(screen.getByText(t("en-US", "aiActionNeedsAi"))).toBeVisible();
+    unmount();
+    renderHarness();
+    expect(screen.queryByText(t("en-US", "aiActionNeedsAi"))).toBeNull();
+  });
+});

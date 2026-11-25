@@ -972,6 +972,8 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     const button = screen.getByRole("button", { name: t("en-US", "wbsPlanButton") });
     expect(button).toBeDisabled();
     expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsConsent"));
+    // Also visible text beside the trigger: a disabled button takes no focus and `title` never shows on touch.
+    expect(screen.getByText(t("en-US", "aiActionNeedsConsent"))).toBeVisible();
   });
 
   it("cancel during thinking aborts the signal and shows no error toast", async () => {

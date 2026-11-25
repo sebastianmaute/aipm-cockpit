@@ -402,7 +402,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       onCancel={reset}
       idleLabelKey="raciSuggest"
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
-      description={aiReady ? undefined : t(lang, aiNotReadyHintKey(settings.ai))}
+      unavailableReason={aiReady ? undefined : t(lang, aiNotReadyHintKey(settings.ai))}
       disabled={!aiReady || (phase !== "idle" && phase !== "thinking")}
     />
   ) : null;

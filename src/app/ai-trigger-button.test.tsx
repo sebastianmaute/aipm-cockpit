@@ -215,3 +215,38 @@ describe("AiTriggerButton", () => {
     expect(onSubmit2).toHaveBeenCalledTimes(1); // the second path — the defect
   });
 });
+
+// `unavailableReason`: the feature cannot run (AI not ready). The trigger keeps a REAL `disabled`, and the reason is
+// visible text beside it as well as its description — a disabled button takes no keyboard focus and `title` never
+// shows on touch, so a title-only reason reached mouse users alone.
+describe("AiTriggerButton unavailableReason", () => {
+  const REASON = "Turn AI on first.";
+
+  it("disables the trigger, shows the reason as visible text and describes the trigger by it", async () => {
+    const onRun = vi.fn();
+    render(
+      <AiTriggerButton lang="en-US" busy={false} onRun={onRun} onCancel={vi.fn()} idleLabelKey="raciSuggest" unavailableReason={REASON} />,
+    );
+    const btn = screen.getByRole("button", { name: t("en-US", "raciSuggest") });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAccessibleDescription(REASON);
+    expect(screen.getByText(REASON)).toBeVisible();
+    await userEvent.click(btn);
+    expect(onRun).not.toHaveBeenCalled();
+  });
+
+  it("renders no reason without the prop, and adds no button of its own", () => {
+    render(
+      <AiTriggerButton lang="en-US" busy={false} onRun={vi.fn()} onCancel={vi.fn()} idleLabelKey="raciSuggest" description="Longer" />,
+    );
+    expect(screen.queryByText(REASON)).toBeNull();
+    expect(screen.getByRole("button")).toHaveAccessibleDescription("Longer");
+  });
+
+  it("adds no button beside the trigger when it shows a reason", () => {
+    render(
+      <AiTriggerButton lang="en-US" busy={false} onRun={vi.fn()} onCancel={vi.fn()} idleLabelKey="raciSuggest" unavailableReason={REASON} />,
+    );
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
+});

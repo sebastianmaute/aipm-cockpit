@@ -4,6 +4,8 @@ vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { newConsent } from "./ai-consent";
 import { AiDeploymentError, AiGatewayError, AiHttpError } from "./ai-errors";
 import { t } from "./i18n";
+import { setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { useTasksDedup } from "./use-tasks-dedup";
@@ -368,5 +370,33 @@ describe("useTasksDedup — the trigger while the AI data disclosure is not acce
     const button = screen.getByRole("button", { name: DEDUP_TRIGGER });
     expect(button).toBeDisabled();
     expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsConsent"));
+  });
+});
+
+// The organisation switched AI off for this app: the user cannot turn it on, so the hint names the deployment's
+// block (`aiDeploymentBlockedMessageKey`), not the needs-AI or consent hint.
+describe("useTasksDedup — the trigger while the deployment switches AI off", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  afterEach(() => { setAiDeploymentState(DIRECT_AI_STATUS); });
+  it("is disabled and names the deployment's block", () => {
+    setAiDeploymentState({ ...DIRECT_AI_STATUS, off: true });
+    renderHarness();
+    const button = screen.getByRole("button", { name: DEDUP_TRIGGER });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "aiDeploymentOff"));
+    expect(screen.getByText(t("en-US", "aiDeploymentOff"))).toBeVisible();
+  });
+});
+
+// A disabled button takes no keyboard focus and `title` never shows on touch, so the reason is also visible text
+// beside the trigger (and its description), reachable by keyboard and screen-reader reading order alike.
+describe("useTasksDedup — the reason is visible beside the disabled trigger", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("shows the hint as text when AI is off, and none when AI is ready", () => {
+    const { unmount } = renderHarness({ settings: defaultSettings });
+    expect(screen.getByText(t("en-US", "aiActionNeedsAi"))).toBeVisible();
+    unmount();
+    renderHarness();
+    expect(screen.queryByText(t("en-US", "aiActionNeedsAi"))).toBeNull();
   });
 });
