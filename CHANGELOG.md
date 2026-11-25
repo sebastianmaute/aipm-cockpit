@@ -38,8 +38,10 @@ longer carries its own changelog comment.
   you saved; Dismiss removes the text shown. Only a change made at almost exactly the moment your change is being
   saved can still be overwritten. If another device deletes the job while you edit it, Settings says so. If a newer
   version of the app changed the job, Settings says your change was not saved and shows your text for copying; this
-  version never runs or answers such a job. Jobs that existed before this update wait for
-  your OK, and a job waiting can be declined with "Not on this device" without ever running. Devices that have not
+  version never runs or answers such a job. Jobs that existed before this update wait for your OK, and a job waiting
+  can be declined with "Not on this device" without ever running. An older job that has no project yet shows its
+  instruction read-only until you assign a project, which makes it editable. Switching to another portfolio starts
+  every job's row afresh. Devices that have not
   updated yet still run shared jobs without asking, so update every device that uses the portfolio.
 - **The forecast import sends Claude only the top of the sheet, without e-mail addresses.** Claude only names which
   column is which, so it now receives the sheet's first 30 non-empty rows instead of the whole sheet, and every
