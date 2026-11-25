@@ -3395,7 +3395,7 @@ const enUS = {
   aiModelNeedsKey: "Enter a valid Anthropic API key to load available models.",
   // §650 — the AI key verdict (ai-key-status.ts): banner, Settings → AI notice, per-feature errors.
   aiKeyRejected: "Claude rejected your Anthropic API key. Enter a new key in Settings → AI.",
-  aiModelUnavailable: "The selected AI model is not available (it may have been retired). Choose another model in Settings → AI Assistant.",
+  aiModelUnavailable: "The selected AI model is not available (it may have been retired). Choose another model in Settings → AI.",
   aiKeyForbidden:
     "Your Anthropic API key isn't allowed to make this request. Check the key's permissions in the Anthropic Console, or enter a different key in Settings → AI.",
   aiKeyUnreadable: "Your saved Anthropic API key couldn't be read on this device. Enter it again in Settings → AI.",
