@@ -34,7 +34,7 @@ on, the app showed you a list of every feature and what it sends; you can read t
   e-mail, only e-mails you attach yourself. [vendor statement]
 - **In the background**, three features send project data on a schedule while the app is open: scheduled
   analyses, automatic recommendations for insights, and the scheduled digest summary. They run only if you
-  allowed AI to run in the background in Settings → AI. [verified: `aiBackgroundConsentHelp` in
+  allowed AI to run in the background in Settings → AI Assistant. [verified: `aiBackgroundConsentHelp` in
   `src/app/i18n.ts`, `src/app/ai-consent.ts`]
 - **Dictation** sends your voice to the speech service you chose in the settings, not to Claude.
   [verified: the dictation row of the same table]
@@ -54,7 +54,7 @@ Know the exceptions:
   make it straight away, without a review card. It always asks first when it wants to delete something,
   invite meeting attendees, edit the project's own details, change more than one thing, or put work on a
   day someone is absent, and whenever a file is attached to the conversation. If your project has "Review
-  every AI write" on in Settings → AI, it asks first for every change, even a single one. [verified:
+  every AI write" on in Settings → AI Assistant, it asks first for every change, even a single one. [verified:
   `shouldStage` in `src/app/chat-proposal.ts`; `src/app/chat-panel.review-all-writes.test.tsx`]
 - **Text read from outside.** Once the chat has read a task synced from Jira in a conversation, every change
   it proposes after that waits on the review card, as it does while a file is attached. Text from outside
@@ -154,7 +154,7 @@ paste personal details into the chat that the task does not need. [verified: `ai
 
 ## Switching AI off
 
-- **For yourself:** in Settings → AI, switch off "Enable AI assistant", or choose "Revoke consent". AI
+- **For yourself:** in Settings → AI Assistant, switch off "Enable AI assistant", or choose "Revoke consent". AI
   features stop until you switch AI on and accept again. [verified: `aiEnable` and `aiConsentRevoke` in
   `src/app/i18n.ts`, `src/app/settings-sections/ai-section.tsx`, `src/app/ai-consent.ts`]
 - **Background runs only:** switch off "Allow AI to run in the background" in the same place. [verified:

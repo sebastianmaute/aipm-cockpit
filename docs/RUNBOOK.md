@@ -236,7 +236,7 @@ the section that owns its detail.
    the gateway and the organisation-key restriction have sections of their own below. On a
    shared Turso project, prefer the locks over the per-project switches while clients are
    upgraded one by one.
-3. **Deploy and restart**, then check Settings → AI and `/api/ai/status`, and, when the
+3. **Deploy and restart**, then check Settings → AI Assistant and `/api/ai/status`, and, when the
    server sweeps a database, the `chat sweep:` line in the server log.
 4. **Ask everyone to reload every open tab, and update every desktop install that shares
    the database** (desktop installs update separately). A client still on 1.20.x drops the
@@ -366,7 +366,7 @@ The repo contains **no production secrets**. Multiple credential paths, all brow
 
 | Credential | Stored | Sent to | Rotation path |
 |---|---|---|---|
-| Anthropic API key | Browser, encrypted (AES-256-GCM ciphertext in `localStorage["aipm-cockpit:secrets"]`, device key in IndexedDB; optional passphrase) | `api.anthropic.com` (direct from browser); on a gateway deployment, the same-origin `/api/ai/*` relay, which forwards it to the organisation's AI gateway and **never persists or logs it** | User edits Settings → AI |
+| Anthropic API key | Browser, encrypted (AES-256-GCM ciphertext in `localStorage["aipm-cockpit:secrets"]`, device key in IndexedDB; optional passphrase) | `api.anthropic.com` (direct from browser); on a gateway deployment, the same-origin `/api/ai/*` relay, which forwards it to the organisation's AI gateway and **never persists or logs it** | User edits Settings → AI Assistant |
 | AI gateway token (`AIPM_AI_GATEWAY_TOKEN`, optional) | Server environment only; never sent to a browser | The configured AI gateway, as `cf-aig-authorization: Bearer <token>` on every relayed call | Create a new token in Cloudflare, set it, restart, then revoke the old one |
 | Jira site URL + email + API token | Site URL + email: browser `localStorage`, unencrypted. Token: encrypted like the Anthropic key (device key only) | Forwarded to Atlassian via `/api/jira/*` route handlers; **never persisted server-side** | User edits Settings → Jira |
 | Timelog host + tenant + email + API token | Host, tenant, email: browser `localStorage`, unencrypted. Token: encrypted (device key only) | Forwarded to the user's `*.timelog.com` host via `/api/timelog`; never persisted server-side | User edits Settings → Integrations → Timelog |
@@ -448,7 +448,7 @@ section there.
   in `AIPM_DISABLED_INTEGRATIONS` rather than relying on the per-project switches: a lock does not live in
   the project, so no client's save can turn it off. A client that has not been upgraded also ignores the `ai-background` lock (its parser drops the unknown id), so that lock protects fully only once every client is upgraded.
 - **`ai` switches every AI feature off**, and dictation to a speech service with it
-  (`/api/stt` refuses too). To check it took effect, open Settings → AI: it says the
+  (`/api/stt` refuses too). To check it took effect, open Settings → AI Assistant: it says the
   organisation switched AI off, and the master switch cannot be ticked. Users' keys and
   consents are kept and work again once `ai` is removed (unless the AI route changed
   meanwhile; then users are asked again).
@@ -503,7 +503,7 @@ which owns that list.
    `keyRestricted: true`, never the ids.
 3. **Check it.** After the restart, open `GET /api/ai/status` on the deployment: it must
    answer `keyRestricted: true` and `invalid: false` (with `invalid: true`, its
-   `invalidReason` names what to fix). Then open Settings → AI: the note under the key
+   `invalidReason` names what to fix). Then open Settings → AI Assistant: the note under the key
    field must say that your organisation restricts which Anthropic organisation's keys
    may be used (behind a gateway, that this app's server checks the key against your
    organisation's key restriction; the gateway does no such check). If either is
@@ -532,12 +532,12 @@ which owns that list.
    the same key share one check.
    - A key of another organisation or an unlisted workspace gets `403`
      `ai-key-wrong-organization` or `ai-key-wrong-workspace`. The refusal is cached
-     for 5 minutes; users see it in the AI key banner and in Settings → AI. With a
+     for 5 minutes; users see it in the AI key banner and in Settings → AI Assistant. With a
      workspace list set, a key that is not tied to a workspace (Anthropic sends no
      `anthropic-workspace-id` for it) counts as an unlisted workspace.
    - A check that cannot be completed gets `503` `ai-key-check-unavailable` and nothing
      is forwarded; it is not cached, and users see that the key could not be checked
-     and should try again, in Settings → AI and in the feature that failed. That covers
+     and should try again, in Settings → AI Assistant and in the feature that failed. That covers
      any other answer than `2xx`, `401` or `403` (a `3xx`, `404`, `429` or `5xx`
      among them), a network error, a check that receives nothing for 10 seconds (a
      gateway that is slow to wake up, too: the user tries again a moment later), a check
@@ -569,7 +569,7 @@ which owns that list.
    `cf-aig-skip-cache: true` so that a cached answer for another key can never pass.
    ★★ **The gateway must pass Anthropic's two answer headers through.** A gateway that
    drops them makes every check "unavailable": AI stays off for everyone. Such a
-   gateway cannot be combined with the restriction; check with Settings → AI after
+   gateway cannot be combined with the restriction; check with Settings → AI Assistant after
    turning it on.
 7. **Desktop.** The desktop app's server child receives the operating system's
    environment variables (`desktop/src/server-child.ts` copies `process.env`), so set
@@ -625,7 +625,7 @@ that list.
    Both are read from the server's environment (`process.env`), which a running server does
    not re-read: a change needs a server restart; no rebuild.
    An invalid value switches AI off for the whole deployment instead of falling back
-   to a direct call: Settings → AI says the gateway setting is invalid, and
+   to a direct call: Settings → AI Assistant says the gateway setting is invalid, and
    `GET /api/ai/status` answers `invalid: true`. Which part is invalid is named by a
    reason code (`url`, `token` or `token-without-url`), never by the value, in two
    places: the server log, once per server process, as
@@ -655,7 +655,7 @@ that list.
    policy the consent screen links to (`NEXT_PUBLIC_AI_POLICY_URL`). The consent screen
    tells users the gateway and its provider receive their requests and that the
    organisation decides what it logs.
-7. **Check it.** Open Settings → AI: every user is asked to accept the AI data
+7. **Check it.** Open Settings → AI Assistant: every user is asked to accept the AI data
    disclosure again, and the dialog and the key note now say the data goes through
    this app's server and the organisation's AI gateway. Send one chat message and
    find it in the gateway's logs (if logging is on).
@@ -666,7 +666,7 @@ What to know when running it:
   or a gateway deployment, so turning the gateway on — or off again — asks every
   user to accept the disclosure again. The background consent (for the scheduled jobs
   and the automatic insight recommendations) follows the route too: it lapses at the
-  same change, and each user has to tick background AI in Settings → AI again,
+  same change, and each user has to tick background AI in Settings → AI Assistant again,
   separately from accepting the disclosure; until then those features do not run.
   Changing from one gateway URL to another is not a route change and asks nothing.
   If the new gateway belongs to a different provider or account, or logs differently,
@@ -794,7 +794,7 @@ saved at all.
    | `AIPM_CHAT_SWEEP_TURSO_URL` | the database the server sweeps (optional) |
    | `AIPM_CHAT_SWEEP_TURSO_TOKEN` | its token (needed for a remote URL) |
 
-   An invalid retention or key is shown in Settings → AI and in `/api/ai/status`. ★★ While
+   An invalid retention or key is shown in Settings → AI Assistant and in `/api/ai/status`. ★★ While
    the retention is invalid, deleting chats for age is PAUSED everywhere until you fix it:
    the browser deletes nothing for age, the server logs
    `chat sweep: paused, retention setting invalid` on each run, and `expire` without
@@ -991,7 +991,7 @@ failure that repeats on a good connection points at a stale deployment (the
 page references a chunk the server no longer has) — reload the page.
 
 ### "Claude chat returns 401 / 403"
-The Anthropic key the user saved in Settings → AI (held encrypted in the browser) is invalid, expired, revoked, or
+The Anthropic key the user saved in Settings → AI Assistant (held encrypted in the browser) is invalid, expired, revoked, or
 rate-limited. Users must regenerate at
 <https://console.anthropic.com/settings/keys>. The server does not see this
 traffic, so server-side logs will be silent. On a gateway deployment the relay
@@ -1054,10 +1054,10 @@ projects, or tick **Include closed projects** to also pull finished/closed ones.
 ### "AI features look disabled / missing"
 AI is gated behind a master switch (0.144.0+) that is **off by default**, even
 for existing users. If chat, action suggestions, scheduled jobs, weight
-suggestions, or AI project proposal don't appear, open Settings → AI assistant
+suggestions, or AI project proposal don't appear, open Settings → AI Assistant assistant
 and tick **"Enable AI assistant"** — the rest of the AI configuration UI stays
 collapsed until it is enabled (a valid Anthropic key is still required on top of
-the switch). If Settings → AI says the organisation switched AI off, or that the
+the switch). If Settings → AI Assistant says the organisation switched AI off, or that the
 AI gateway setting is invalid, the switch cannot be ticked: the deployment's
 `AIPM_DISABLED_INTEGRATIONS` names `ai`, or `AIPM_AI_GATEWAY_URL` /
 `AIPM_AI_GATEWAY_TOKEN` is invalid (see

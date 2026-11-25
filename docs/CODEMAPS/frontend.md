@@ -70,7 +70,7 @@ keep — see AGENTS.md's "task-manager decomposition map".
 
 ## AI privacy surfaces
 
-Settings → AI renders one control per project switch in `settings-sections/`:
+Settings → AI Assistant renders one control per project switch in `settings-sections/`:
 `ai-people-protection-control.tsx`, `ai-review-writes-control.tsx`, `ai-rates-control.tsx` and
 `ai-background-control.tsx` (each disabled, with a notice, when the deployment forces it), plus
 `chat-passphrase-section.tsx` on a Turso project. The chat sidebar's erase and find dialogs are

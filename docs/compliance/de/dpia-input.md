@@ -196,7 +196,7 @@ für ein Projekt in den Einstellungen ausschalten, und ein Administrator kann ih
 `src/app/ai-people-protection.ts`, `src/app/settings-sections/ai-people-protection-control.tsx`,
 `src/app/deployment-variables.ts`] Die drei Zeilen, deren Zustimmung „gesondert“ abgefragt wird, laufen
 im Hintergrund, solange die App geöffnet ist, ohne dass eine Person jeden Lauf startet. Ein Projekt kann sie in
-Einstellungen → KI pausieren, und ein Betreiber kann sie für jedes Projekt mit
+Einstellungen → KI-Assistent pausieren, und ein Betreiber kann sie für jedes Projekt mit
 `AIPM_DISABLED_INTEGRATIONS=ai-background` pausieren; die Pause zieht niemandes Hintergrund-Zustimmung zurück.
 [geprüft: `level: "background"` in `src/app/ai-disclosure.ts`; `src/app/use-scheduled-job-runner.ts`,
 `src/app/use-insight-recommend-runner.ts`, `src/app/use-digest.ts`; `assertBackgroundConsentLive` in

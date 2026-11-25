@@ -53,10 +53,10 @@ twice (E61, *read in code*).
   protected (E35, *read in code*); lifting the lock returns each project to its stored setting (E43,
   *read in code*). No switch turns off a single feature (E42, *tested (unit)*).
 - **Review and rates:** `ai-direct-writes` sends every chat write in every project to the review card, and
-  `ai-rates` keeps hourly rates out of Plan with AI and the chat's forecast and dashboard figures; without them, each project can set either in Settings → AI,
+  `ai-rates` keeps hourly rates out of Plan with AI and the chat's forecast and dashboard figures; without them, each project can set either in Settings → AI Assistant,
   and both are off until set (E71, *tested (unit)*; E72, *tested (unit)*).
 - **Background AI:** `ai-background` pauses the scheduled job analysis, the automatic insight recommendations and
-  the scheduled digest summary in every project, and each project can pause them in Settings → AI; AI a person
+  the scheduled digest summary in every project, and each project can pause them in Settings → AI Assistant; AI a person
   starts is not affected, and the pause does not withdraw anyone's background consent (E32, *tested (unit)*).
 - **For Article 50 (transparency):** the screens name the AI ("AI Assistant", "Ask Claude", "AI-generated — review
   before acting.") and the activity log shows its chat changes with the actor "AI assistant"; project documents the AI
@@ -89,7 +89,7 @@ twice (E61, *read in code*).
   *read in code*; E66, *read in code*).
 - In a test project, ask the chat for one due-date change on a task whose assignee is not away then: it applies
   without a card and the activity log shows it as the AI's; with a file attached, or with "Review every AI
-  write" on in Settings → AI, the same request waits (E47, *tested (unit)*; E55, *read in code*; E71,
+  write" on in Settings → AI Assistant, the same request waits (E47, *tested (unit)*; E55, *read in code*; E71,
   *tested (unit)*).
 - Ask Anthropic what it retains of a request, whether it trains on it, and which terms apply to your account.
 

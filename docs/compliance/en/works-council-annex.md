@@ -215,7 +215,7 @@ below]
   `src/app/chat-proposal.ts`, `stagesWhenUntrusted` in `src/app/chat-send-record.ts`] **Exception:** a
   single change outside those cases applies at once, without a card. It is logged as the AI's, and
   most such changes can be undone, but no person approved it first. [verified: `shouldStage` in `src/app/chat-proposal.ts`, `src/app/activity-log.ts`]
-  A project can remove the exception with "Review every AI write" in Settings → AI, and an operator for every
+  A project can remove the exception with "Review every AI write" in Settings → AI Assistant, and an operator for every
   project with `ai-direct-writes`: then every change to project data the chat proposes waits on the card, even
   a single one; reads never wait. [verified: `isReviewAllWrites` in `src/app/ai-project-switches.ts`;
   `src/app/chat-panel.review-all-writes.test.tsx`]
