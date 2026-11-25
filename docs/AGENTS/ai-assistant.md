@@ -1618,7 +1618,11 @@
     that list is still the previous portfolio's (a switch whose new list has not arrived), the answer buttons are
     unusable (`aria-disabled`, as while a re-read is pending), and an Accept re-reads only from that portfolio
     (`readFresh(source)` rejects with `JobSourceChangedError` otherwise) and records only while it is still the
-    active one, so a press never answers in another portfolio; such an Accept answers nothing and says nothing.
+    active one (checked against `activeBackendRef`, synced in a layout effect so it is current from the commit on), so
+    a press never answers in another portfolio; such an Accept answers nothing and says nothing. The row shows its
+    state in the scope of the list on screen too. If the new portfolio's list cannot be read, the previous list stays
+    on screen (its answers unusable) and the section says so with `scheduledJobsLoadFailedAfterSwitch` (the hook's
+    `failedSource`: the active backend whose latest read failed, cleared by the next successful read).
     States: `accepted` · `declined` · `changed` (accepted another version) · `declined-changed`
     (stopped another version, "Changed on another device", never "since you accepted it") · `none` · `cannot-run`
     (legacy or foreign job). ★★ A foreign job (one a newer version rewrote) KEEPS its permanent key in memory
