@@ -5871,7 +5871,7 @@ export const de: Record<TranslationKey, string> = {
   wbsPlanSkip_cycle: "die Abhängigkeit würde einen Zyklus erzeugen",
   wbsPlanButton: "Mit KI optimieren",
   wbsPlanButtonTitle: "Verbesserungen der Arbeitspakete für die angezeigten Aufgaben vorschlagen",
-  aiActionNeedsAi: "Schalten Sie den KI-Assistenten ein und hinterlegen Sie einen API-Schlüssel unter Einstellungen → KI-Assistent, um dies zu nutzen.",
+  aiActionNeedsAi: "Schalten Sie den KI-Assistenten ein und hinterlegen Sie einen API-Schlüssel unter Einstellungen → KI, um dies zu nutzen.",
   aiActionNeedsConsent: "Akzeptieren Sie unter Einstellungen → KI den Datenhinweis zur KI, um dies zu nutzen.",
   wbsPlanNoTasks: "In der aktuellen Ansicht gibt es keine offenen Aufgaben zum Optimieren.",
   wbsPlanIntro: "Claude schlägt Aufteilungen, neue Gruppen, neue Aufgaben, Schätzungen und Abhängigkeiten vor. Nichts ändert sich, bevor Sie prüfen und übernehmen.",
