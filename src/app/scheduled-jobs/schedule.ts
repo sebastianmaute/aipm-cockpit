@@ -108,6 +108,15 @@ export class JobNotEditableError extends Error {
   }
 }
 
+/** A row's write issued while its list came from another portfolio (backend) than the one now active: nothing was
+ *  written — never into the portfolio switched to. */
+export class JobSourceChangedError extends Error {
+  constructor() {
+    super("The portfolio changed before this write.");
+    this.name = "JobSourceChangedError";
+  }
+}
+
 /** The identity of a job for "a save is in flight": its permanent key, or its id while it has none. */
 export function jobSaveId(job: Pick<ScheduledJob, "id" | "key">): string {
   return job.key ?? `id:${job.id}`;

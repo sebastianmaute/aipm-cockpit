@@ -14,7 +14,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceLabel } from "./device-label";
 import { acceptJob, forgetJob, jobFingerprint, markEditedHere } from "./scheduled-job-acceptance";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
-import { appendRun, JobChangedError, JobGoneError, JobNotEditableError, jobSaveId, normalizeJobFields } from "./scheduled-jobs/schedule";
+import {
+  appendRun, JobChangedError, JobGoneError, JobNotEditableError, JobSourceChangedError, jobSaveId, normalizeJobFields,
+} from "./scheduled-jobs/schedule";
 import { forgetLostDraft } from "./scheduled-jobs/lost-draft";
 import type {
   JobCadence, ScheduledJob, ScheduledJobRun,
@@ -254,14 +256,26 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
     return () => { instances.delete(reread); };
   }, [refresh]);
 
-  // Run a mutation on the live store list, serialized behind the write chain.
+  // The keys this instance minted (assigning a project to a legacy job), by portfolio and id: a write from that job's
+  // row made before the row saw its new key (it still says `null`) means that job, not "a job with no key".
+  const mintedRef = useRef(new Map<string, string>());
+  const resolveKey = useCallback(
+    (key: string | null | undefined, source: string | null | undefined, id: number): string | null | undefined =>
+      key === null ? (mintedRef.current.get(`${source ?? ""}:${id}`) ?? null) : key,
+    [],
+  );
+
+  // Run a mutation on the live store list, serialized behind the write chain. With `source` (the backend the list the
+  // user saw was read from), a write that RUNS after the active backend changed is refused: nothing is written, and
+  // never into the portfolio switched to.
   const mutate = useCallback(
-    (transform: (list: readonly ScheduledJob[]) => ScheduledJob[], onSaved?: () => void): Promise<void> => {
+    (transform: (list: readonly ScheduledJob[]) => ScheduledJob[], onSaved?: () => void, source?: string | null): Promise<void> => {
       if (mountedRef.current) setBusy(true);
       const run = writeChain.then(async () => {
         // ONE backend per write: read the config once, so a switch mid-write cannot load from one and save
         // to the other. The list reaches this instance only while it is still on that backend.
         const config = cfgRef.current;
+        if (source !== undefined && backendOf(config) !== source) throw new JobSourceChangedError();
         const existing = await loadScheduledJobs(config);
         const next = transform(existing);
         await saveScheduledJobs(config, next);
@@ -299,15 +313,19 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
 
   /** Writes one job (by id, and key when known). With `markEdit`, a saved change of its project or instruction marks it
    *  edited here (display only). An edit NEVER writes an acceptance answer: this device answers only by creating a job
-   *  or by the user's Accept / Stop / "Not on this device". */
+   *  or by the user's Accept / Stop / "Not on this device". A user's edit (`rejectIfGone`) is bound to the portfolio
+   *  its list was read from (`mutate`'s `source`), and a `null` key means the key this tab just minted for that job,
+   *  if it did (`resolveKey`). */
   const writeJob = useCallback(
     (id: number, key: string | null | undefined, edit: (j: ScheduledJob) => ScheduledJob, how: WriteJobHow = {}): Promise<void> => {
       const displayed = jobsRef.current.find((j) => matches(j, id, key));
+      const source = how.rejectIfGone ? jobsSourceRef.current : undefined;
       let edited: ScheduledJob | null = null;
       let matched = false;
       const transform = (list: readonly ScheduledJob[]) => {
+        const target = resolveKey(key, source, id);
         const next = list.map((j) => {
-          if (!(editable(j) && matches(j, id, key))) return j;
+          if (!(editable(j) && matches(j, id, target))) return j;
           matched = true;
           const written = edit(j);
           edited = how.markEdit && jobFingerprint(written) !== jobFingerprint(j) ? written : null;
@@ -316,7 +334,7 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
         // A user's edit of a job deleted elsewhere writes nothing and says so; the runner's writes stay quiet.
         // A user's edit that reached no job never resolves as written: gone (deleted elsewhere), or no longer editable
         // here (it turned foreign).
-        if (!matched && how.rejectIfGone) throw list.some((j) => matches(j, id, key)) ? new JobNotEditableError() : new JobGoneError();
+        if (!matched && how.rejectIfGone) throw list.some((j) => matches(j, id, target)) ? new JobNotEditableError() : new JobGoneError();
         return next;
       };
       const onSaved = () => {
@@ -325,7 +343,7 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
         if (saved !== null && saved.key !== null) markEditedHere(saved.key, jobFingerprint(saved));
         how.afterSave?.();
       };
-      const write = mutate(transform, onSaved).catch((err: unknown) => {
+      const write = mutate(transform, onSaved, source).catch((err: unknown) => {
         // A user's edit refused, or whose job is gone or no longer editable: read the list again, so the row shows what
         // the store holds now (or goes away) whichever write path it came from.
         const stale = err instanceof JobChangedError || err instanceof JobGoneError || err instanceof JobNotEditableError;
@@ -334,7 +352,7 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
       });
       return trackSave(jobSaveId(displayed ?? { id, key: key ?? null }), write);
     },
-    [mutate, trackSave, refresh],
+    [mutate, trackSave, refresh, resolveKey],
   );
 
   const readFresh = useCallback(
@@ -393,21 +411,31 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
   const deleteJob = useCallback((id: number, key?: string | null): Promise<void> => {
     let removedKey: string | null | undefined;
     const displayed = jobsRef.current.find((j) => matches(j, id, key));
+    // A user's delete, bound like an edit to the portfolio its list was read from.
+    const source = jobsSourceRef.current;
     const write = mutate((list) => {
-      removedKey = list.find((j) => matches(j, id, key))?.key;
-      return list.filter((j) => !matches(j, id, key));
-    }).then(() => {
+      const target = resolveKey(key, source, id);
+      removedKey = list.find((j) => matches(j, id, target))?.key;
+      return list.filter((j) => !matches(j, id, target));
+    }, undefined, source).then(() => {
       if (typeof removedKey === "string") forgetJob(removedKey);
       forgetLostDraft(jobSaveId({ id, key: removedKey ?? key ?? null }));
     });
     return trackSave(jobSaveId(displayed ?? { id, key: key ?? null }), write);
-  }, [mutate, trackSave]);
+  }, [mutate, trackSave, resolveKey]);
 
   const assignProject = useCallback(
-    (id: number, projectId: string, timeZone: string, key?: string | null): Promise<void> =>
-      writeJob(id, key, (j) => ({
-        ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: j.key ?? crypto.randomUUID(),
-      }), { markEdit: true, rejectIfGone: true }),
+    (id: number, projectId: string, timeZone: string, key?: string | null): Promise<void> => {
+      const source = jobsSourceRef.current;
+      return writeJob(id, key, (j) => {
+        let jobKey = j.key;
+        if (jobKey === null) {
+          jobKey = crypto.randomUUID();
+          mintedRef.current.set(`${source ?? ""}:${j.id}`, jobKey);
+        }
+        return { ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: jobKey };
+      }, { markEdit: true, rejectIfGone: true });
+    },
     [writeJob],
   );
 

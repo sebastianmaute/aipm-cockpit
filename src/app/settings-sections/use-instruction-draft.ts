@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import type { UpdateJobOptions, UseScheduledJobsResult } from "../use-scheduled-jobs";
-import { JobChangedError, JobGoneError, JobNotEditableError, jobSaveId } from "../scheduled-jobs/schedule";
+import { JobChangedError, JobGoneError, JobNotEditableError, JobSourceChangedError, jobSaveId } from "../scheduled-jobs/schedule";
 import {
   addLostText, peekLostDrafts, removeLostTexts, subscribeLostTexts, withLostDraft, type LostText,
 } from "../scheduled-jobs/lost-draft";
@@ -113,6 +113,17 @@ function flushDraft(r: DraftRefs): void {
       settle();
       // The job was deleted on another device: its row goes away; the section says so.
       if (err instanceof JobGoneError) return;
+      if (err instanceof JobSourceChangedError) {
+        // The portfolio changed before the save ran, so nothing was written (never into the portfolio switched to).
+        // The text is kept for copying under this job: offered again when its row next shows.
+        offer({ text: typed, reason: "notSaved" });
+        const now = r.latest.current;
+        r.latest.current = { ...now, draft: now.base };
+        if (!r.mounted.current) return;
+        r.setDraft(now.base);
+        r.setStatus(() => "ok");
+        return;
+      }
       if (err instanceof JobNotEditableError) {
         // A newer version rewrote the job: the text is offered while the row is shown, never kept for later.
         offer({ text: typed, reason: "newerVersion" });

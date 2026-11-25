@@ -28,7 +28,7 @@ import { listProjectRefs } from "../turso-portfolio";
 import { resolveTimezone, tzZones } from "../timezone";
 import { type AcceptNotice, DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
 import { Banner } from "../banner";
-import { isRunnable, JobChangedError, JobGoneError, JobNotEditableError, jobSaveId } from "../scheduled-jobs/schedule";
+import { isRunnable, JobChangedError, JobGoneError, JobNotEditableError, JobSourceChangedError, jobSaveId } from "../scheduled-jobs/schedule";
 import { acceptanceState, acceptJob, jobFingerprint, storedAcceptanceEntry, useAcceptanceSnapshot } from "../scheduled-job-acceptance";
 
 export interface ScheduledJobsSectionProps {
@@ -109,6 +109,9 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   const [writeFailed, setWriteFailed] = useState(false);
   // A job deleted on another device leaves no row to speak in: the section's status region says so instead.
   const [deletedElsewhere, setDeletedElsewhere] = useState(false);
+  // The legacy job whose project was just assigned here: its row starts afresh (the key it is given is part of the row
+  // key), and the new row puts focus back on its project select.
+  const [focusProjectOf, setFocusProjectOf] = useState<number | null>(null);
   // An edit of a job a newer version rewrote (it cannot be edited here any more) is not a connection failure either.
   const [editedByNewer, setEditedByNewer] = useState(false);
   const track = (write: Promise<void>): void => {
@@ -119,7 +122,9 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
       (err: unknown) => {
         if (err instanceof JobGoneError) setDeletedElsewhere(true);
         else if (err instanceof JobNotEditableError) setEditedByNewer(true);
-        else if (!(err instanceof JobChangedError)) setWriteFailed(true);
+        // A write from a row of the portfolio just left: nothing written, and the row is gone (a typed instruction is
+        // kept for copying by the row itself).
+        else if (!(err instanceof JobChangedError || err instanceof JobSourceChangedError)) setWriteFailed(true);
       },
     );
   };
@@ -281,15 +286,26 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     projectsLoaded={projects.loaded}
                     zones={zones}
                     defaultZone={defaultZone}
-                    // The permanent key rides along, so a write can only reach THIS portfolio's job (ids collide across portfolios);
-                    // a keyless job's `null` reaches only a keyless job with that id, never another job that now holds it.
+                    // The permanent key rides along (`null` for a legacy job: the job with this id that has no key, or the key
+                    // this tab just minted for it), and the hook binds every row write to the portfolio this list was read
+                    // from, so a write reaches only this job (ids collide across portfolios).
                     onUpdate={(id, patch, options) => {
                       const key = job.key;
                       const write = options === undefined ? updateJob(id, patch, key) : updateJob(id, patch, key, options);
                       track(write);
                       return write; // the instruction draft waits for it: a failed save keeps the draft
                     }}
-                    onAssign={(id, projectId, timeZone) => track(assignProject(id, projectId, timeZone, job.key))}
+                    onAssign={(id, projectId, timeZone) => {
+                      const write = assignProject(id, projectId, timeZone, job.key);
+                      if (job.key === null) {
+                        // Minting the key starts the row afresh: its project select takes keyboard focus back on mount.
+                        setFocusProjectOf(id);
+                        write.catch(() => setFocusProjectOf((f) => (f === id ? null : f)));
+                      }
+                      track(write);
+                    }}
+                    focusProjectOnMount={focusProjectOf === job.id}
+                    onProjectFocused={() => setFocusProjectOf(null)}
                     onDelete={(id) => track(deleteJob(id, job.key))}
                     onAccept={(j) => { void acceptFresh(j); }}
                     acceptPending={job.key !== null && acceptPending.has(job.key)}

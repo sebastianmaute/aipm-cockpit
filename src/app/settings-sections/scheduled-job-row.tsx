@@ -4,7 +4,7 @@
 // project, cadence, time zone, standing instruction and run history (§772). Presentational: the job and the
 // project lists arrive as props, every write leaves through a callback.
 
-import { type ChangeEvent, useId, useState } from "react";
+import { type ChangeEvent, useEffect, useId, useState } from "react";
 import { type Lang, t, tPlural, type TranslationKey } from "../i18n";
 import { aiKeyMessageKeyForStatusToken } from "../ai-key-status";
 import type { JobCadence, ScheduledJob, ScheduledJobRun } from "../scheduled-jobs/types";
@@ -127,6 +127,10 @@ type JobRowProps = {
   saving?: boolean;
   /** Called when Accept or Stop is pressed, so the owner can clear the notice. */
   onNoticeClear?: () => void;
+  /** The project was just assigned from this job's previous (keyless) row: once the job has its key, focus the project
+   *  select on mount (the row started afresh) and report it with `onProjectFocused`. */
+  focusProjectOnMount?: boolean;
+  onProjectFocused?: () => void;
 };
 
 /** One scheduled job. The section keys it by portfolio, id and permanent key, so it starts fresh for another job. */
@@ -149,10 +153,20 @@ export function JobRow({
   acceptPending,
   saving,
   onNoticeClear,
+  focusProjectOnMount = false,
+  onProjectFocused,
 }: JobRowProps) {
   const [expanded, setExpanded] = useState(false);
   const instruction = useInstructionDraft(job, onUpdate);
   const fieldId = useId();
+  const projectSelectId = useId();
+  const hasKey = job.key !== null;
+  // Only the row that has the key (the fresh one) takes focus; the keyless row it replaces never does.
+  useEffect(() => {
+    if (!focusProjectOnMount || !hasKey) return;
+    document.getElementById(projectSelectId)?.focus();
+    onProjectFocused?.();
+  }, [focusProjectOnMount, hasKey, projectSelectId, onProjectFocused]);
   // Dismiss removes the box it sits in: focus goes to the instruction field (when the row has one) rather than the page.
   const dismissLost = () => {
     instruction.dismissLost();
@@ -244,6 +258,7 @@ export function JobRow({
         <label className="flex items-center gap-1 text-xs text-foreground">
           <span>{t(lang, "scheduledJobProject")}</span>
           <Select
+            id={projectSelectId}
             size="xs"
             value={job.projectId ?? ""}
             aria-label={`${t(lang, "scheduledJobProject")} – ${token}`}
