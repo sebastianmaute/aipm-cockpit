@@ -960,7 +960,7 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     const api = renderHarness({ settings: defaultSettings });
     const button = screen.getByRole("button", { name: t("en-US", "wbsPlanButton") });
     expect(button).toBeDisabled();
-    expect(button.getAttribute("title")).toBe(t("en-US", "wbsPlanNeedsAi"));
+    expect(button.getAttribute("title")).toBe(t("en-US", "aiActionNeedsAi"));
     let res: ReturnType<WbsPlan["open"]> | undefined;
     act(() => { res = api().wbs.open({}); });
     expect(res).toEqual({ opened: false, tasksInScope: 0, reason: "aiOff" });

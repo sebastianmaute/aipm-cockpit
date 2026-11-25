@@ -98,9 +98,11 @@ interface HarnessProps {
   /** Stakeholders beyond Sam (1) and Lee (2), e.g. a third person who takes A from outside. */
   extraStakeholders?: Stakeholder[];
   logAiSpy?: ReturnType<typeof vi.fn>;
+  settings?: Settings;
+  isPopout?: boolean;
 }
 
-function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakeholderRaci, externalWrite, extraStakeholders, logAiSpy }: HarnessProps) {
+function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakeholderRaci, externalWrite, extraStakeholders, logAiSpy, settings = AI_ON, isPopout = false }: HarnessProps) {
   // Bound to a const so the `ext &&` guard's narrowing survives into the nested
   // setState/map callbacks below — a destructured PARAMETER's narrowing does not.
   const ext = externalWrite;
@@ -110,8 +112,8 @@ function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakehold
     ...(extraStakeholders ?? []),
   ]);
   const suggest = useRaciSuggest({
-    settings: AI_ON,
-    isPopout: false,
+    settings,
+    isPopout,
     lang: "en-US",
     stakeholders,
     milestones: milestonesProp ?? milestones,
@@ -650,5 +652,40 @@ describe("dropOrphanedPairHalves — only a well-formed pair survives (§771)", 
   it("drops a group of three cells, and keeps unpaired cells", () => {
     const plain: GroundedRaciCell = { ...half(4, "C"), pairKey: undefined };
     expect(dropOrphanedPairHalves([half(2, "A"), half(1, "C"), half(3, "C"), plain])).toEqual([plain]);
+  });
+});
+
+// With AI off or no key the trigger stays visible but disabled, its hint as the description; a popout and a
+// project with nothing to assign against still render none.
+describe("useRaciSuggest — the trigger when AI is not ready", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  const NO_KEY: Settings = { ...AI_ON, ai: { ...AI_ON.ai, apiKey: "" } };
+
+  it.each([
+    ["AI is off", defaultSettings],
+    ["no API key is set", NO_KEY],
+  ] as const)("when %s the trigger is present, disabled and described by the hint", (_label, settings) => {
+    renderHarness({ settings });
+    const button = screen.getByRole("button", { name: /suggest raci/i });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsAi"));
+    fireEvent.click(button);
+    expect(screen.queryByRole("button", { name: t("en-US", "raciSuggestRun") })).toBeNull();
+  });
+
+  it("is enabled without the hint when AI is ready", () => {
+    renderHarness();
+    const button = screen.getByRole("button", { name: /suggest raci/i });
+    expect(button).toBeEnabled();
+    expect(button).not.toHaveAccessibleDescription(t("en-US", "aiActionNeedsAi"));
+  });
+
+  it.each([
+    ["in a popout", { isPopout: true }],
+    ["in a popout with AI off", { isPopout: true, settings: defaultSettings }],
+    ["with no milestones and AI off", { milestones: [], settings: defaultSettings }],
+  ] as [string, HarnessProps][])("renders no trigger %s", (_label, props) => {
+    renderHarness(props);
+    expect(screen.queryByRole("button", { name: /suggest raci/i })).toBeNull();
   });
 });

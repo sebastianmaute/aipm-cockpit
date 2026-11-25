@@ -509,7 +509,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         onCancel={reset}
         idleLabelKey="wbsPlanButton"
         idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
-        description={t(lang, aiReady ? "wbsPlanButtonTitle" : "wbsPlanNeedsAi")}
+        description={t(lang, aiReady ? "wbsPlanButtonTitle" : "aiActionNeedsAi")}
         disabled={!aiReady || (phase !== "idle" && phase !== "thinking")}
       />
     </span>

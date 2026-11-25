@@ -356,9 +356,13 @@ describe("RaciPanel", () => {
     expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
   });
 
-  it("hides the trigger when AI is not configured", () => {
+  it("shows the trigger disabled, with the hint, when AI is not configured — still ahead of Print/Reset", () => {
     render(<RaciPanel lang="en-US" settings={stubbed} {...NO_EVIDENCE} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
+    const suggest = screen.getByRole("button", { name: t("en-US", "raciSuggest") });
+    expect(suggest).toBeDisabled();
+    expect(suggest).toHaveAccessibleDescription(t("en-US", "aiActionNeedsAi"));
+    expectButtonOrder(["raciSuggest", "printHint", "tableResetSizeHint"], { contiguous: false });
+    expectButtonOrder(["printHint", "tableResetSizeHint"], { contiguous: true });
   });
 
   it("renders Suggest RACI ahead of the person filter, with Print/Reset still trailing", () => {
@@ -381,15 +385,16 @@ describe("RaciPanel", () => {
     expect(suggest.compareDocumentPosition(filter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  // The button is null when AI is off, so the filter must simply become first —
+  // The button is null in a popout (AI off only disables it), so the filter must simply become first —
   // no placeholder, no reserved gap.
   // ★ Asserting only "trigger absent AND filter present" would duplicate the
-  //   existing "hides the trigger when AI is not configured" test and prove
+  //   existing "hides the trigger in a popout" test and prove
   //   nothing about the gap: a spacer <div> rendered in the trigger's place
   //   would satisfy it. Checking that the filter lives in the group's FIRST
   //   child is what actually rules that out.
   it("leaves the filter first when the Suggest trigger is absent", () => {
-    render(<RaciPanel lang="en-US" settings={stubbed} {...NO_EVIDENCE} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    stubSettings(AI_ON);
+    render(<RaciPanel lang="en-US" settings={stubbed} {...NO_EVIDENCE} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} isPopout />);
     expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
 
     const filter = screen.getByRole("combobox", { name: /filter people/i });

@@ -193,9 +193,11 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
   // AI people protection (layer 1): RACI suggestions rate people, so a protected project has none — the
   // trigger is hidden, an open preview closes and is reset (below), and propose/apply refuse. Guarded HERE, not at the button.
   const peopleProtected = usePeopleProtected();
-  const enabled =
-    isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() &&
-    stakeholders.length > 0 && milestones.length > 0 && !peopleProtected;
+  // AI switched on with a key. Without it the trigger still shows (when `showTrigger`), disabled with the
+  // shared `aiActionNeedsAi` hint; a popout, nothing to assign against, or people protection shows none.
+  const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
+  const showTrigger = !isPopout && stakeholders.length > 0 && milestones.length > 0 && !peopleProtected;
+  const enabled = aiReady && showTrigger;
   // Review 3, R6: protection turning on RESETS the preview (render-time reconcile; set-state-in-effect is banned),
   // so a stale proposal cannot reappear when protection is turned off again. The request in flight is
   // invalidated by the effect below (refs are not touched during render).
@@ -391,7 +393,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
   // ★ `busy` here is `"thinking"` ALONE, not this hook's `busy` const —
   //   `"applying"` is committing rows locally, not waiting on Claude, so it is
   //   not a stoppable state. It stays DISABLED, exactly as it was before.
-  const button = enabled ? (
+  const button = showTrigger ? (
     <AiTriggerButton
       lang={lang}
       busy={phase === "thinking"}
@@ -399,7 +401,8 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       onCancel={reset}
       idleLabelKey="raciSuggest"
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
-      disabled={phase !== "idle" && phase !== "thinking"}
+      description={aiReady ? undefined : t(lang, "aiActionNeedsAi")}
+      disabled={!aiReady || (phase !== "idle" && phase !== "thinking")}
     />
   ) : null;
 

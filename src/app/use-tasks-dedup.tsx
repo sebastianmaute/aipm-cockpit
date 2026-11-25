@@ -91,8 +91,11 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
   const apiKey = aiKeyIfEnabled(settings.ai);
   const guideText = useActionGuideText("dedup");
   const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
-  const enabled =
-    isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() && tasks.length >= MIN_TASKS_FOR_DEDUP;
+  // AI switched on with a key. Without it the trigger still shows (when `showTrigger`), disabled with
+  // the shared `aiActionNeedsAi` hint; a popout or a list below the minimum shows none.
+  const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
+  const showTrigger = !isPopout && tasks.length >= MIN_TASKS_FOR_DEDUP;
+  const enabled = aiReady && showTrigger;
 
   // Abort any in-flight proposal if the pane unmounts — a billed response must
   // never keep running against a dead component. Cleanup-only: sets no state, so
@@ -209,7 +212,7 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
   //   It used to be this trigger's aria-label; the NAME is now the visible label
   //   (see the test file for why that swap was not itself a 2.5.3 fix), so
   //   without `description` the longer sentence would be lost disclosure.
-  const button = enabled ? (
+  const button = showTrigger ? (
     <AiTriggerButton
       lang={lang}
       busy={phase === "thinking"}
@@ -218,8 +221,8 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
       idleLabelKey="taskDedup"
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
       nameQualifier={triggerQualifier}
-      description={t(lang, "taskDedupTitle")}
-      disabled={phase === "applying"}
+      description={t(lang, aiReady ? "taskDedupTitle" : "aiActionNeedsAi")}
+      disabled={!aiReady || phase === "applying"}
     />
   ) : null;
 

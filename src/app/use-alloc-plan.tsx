@@ -152,7 +152,11 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   // all — the trigger is hidden, an open window closes and is reset (below), and propose/apply refuse. Guarded HERE, not at the
   // button, so no other entry point reaches it.
   const peopleProtected = usePeopleProtected();
-  const enabled = isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() && resources.length > 0 && !peopleProtected;
+  // AI switched on with a key. Without it the trigger still shows (when `showTrigger`), disabled with the
+  // shared `aiActionNeedsAi` hint; a popout, no resources, or people protection shows none.
+  const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
+  const showTrigger = !isPopout && resources.length > 0 && !peopleProtected;
+  const enabled = aiReady && showTrigger;
   // Review 3, R6: protection turning on RESETS the window (render-time reconcile; set-state-in-effect is banned),
   // so a stale instruction step or proposal cannot reappear when protection is turned off again. The request
   // in flight is invalidated by the effect below (refs are not touched during render).
@@ -370,7 +374,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   //   DESCRIPTION. Naming the button with the long sentence would fail WCAG
   //   2.5.3 (the visible string is not contained in it); dropping the sentence
   //   entirely would lose real disclosure for screen-reader users.
-  const button = enabled ? (
+  const button = showTrigger ? (
     <AiTriggerButton
       lang={lang}
       busy={phase === "thinking"}
@@ -378,8 +382,8 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       onCancel={reset}
       idleLabelKey="allocPlan"
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
-      description={t(lang, "allocPlanTitle")}
-      disabled={phase !== "idle" && phase !== "thinking"}
+      description={t(lang, aiReady ? "allocPlanTitle" : "aiActionNeedsAi")}
+      disabled={!aiReady || (phase !== "idle" && phase !== "thinking")}
     />
   ) : null;
 

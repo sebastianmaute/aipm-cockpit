@@ -33,17 +33,22 @@ interface HarnessProps {
   onTasks?: (t: readonly Task[]) => void;
   triggerQualifier?: string;
   logAiSpy?: ReturnType<typeof vi.fn>;
+  settings?: Settings;
+  isPopout?: boolean;
+  initialTasks?: readonly Task[];
 }
 
-function Harness({ captureSpy, onTasks, triggerQualifier, logAiSpy }: HarnessProps) {
-  const [tasks, setTasks] = useState<readonly Task[]>([
-    mkTask(1, "Write API docs"),
-    mkTask(2, "Write the API documentation"),
-    mkTask(3, "Deploy"),
-  ]);
+const DEFAULT_TASKS: readonly Task[] = [
+  mkTask(1, "Write API docs"),
+  mkTask(2, "Write the API documentation"),
+  mkTask(3, "Deploy"),
+];
+
+function Harness({ captureSpy, onTasks, triggerQualifier, logAiSpy, settings = AI_ON, isPopout = false, initialTasks = DEFAULT_TASKS }: HarnessProps) {
+  const [tasks, setTasks] = useState<readonly Task[]>(initialTasks);
   const dedup = useTasksDedup({
-    settings: AI_ON,
-    isPopout: false,
+    settings,
+    isPopout,
     lang: "en-US",
     tasks,
     setTasks: (u) => setTasks((prev) => { const next = typeof u === "function" ? u(prev) : u; onTasks?.(next); return next; }),
@@ -317,5 +322,40 @@ describe("useTasksDedup operating guides (§701)", () => {
     const ai = vi.mocked(call.runDedupProposal).mock.calls[0][1];
     expect(ai.guideText).toBe(actionGuideText([guide], true, "dedup"));
     expect(ai.guideText).toContain("DEDUP-GUIDE-701");
+  });
+});
+
+// With AI off or no key the trigger stays visible but disabled, its hint as the description; a popout
+// and a list below the minimum still render none.
+describe("useTasksDedup — the trigger when AI is not ready", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  const NO_KEY: Settings = { ...AI_ON, ai: { ...AI_ON.ai, apiKey: "" } };
+
+  it.each([
+    ["AI is off", defaultSettings],
+    ["no API key is set", NO_KEY],
+  ] as const)("when %s the trigger is present, disabled and described by the hint", (_label, settings) => {
+    renderHarness({ settings });
+    const button = screen.getByRole("button", { name: DEDUP_TRIGGER });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsAi"));
+    fireEvent.click(button);
+    expect(call.runDedupProposal).not.toHaveBeenCalled();
+  });
+
+  it("keeps the fuller title as the description when AI is ready", () => {
+    renderHarness();
+    const button = screen.getByRole("button", { name: DEDUP_TRIGGER });
+    expect(button).toBeEnabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "taskDedupTitle"));
+  });
+
+  it.each([
+    ["in a popout", { isPopout: true }],
+    ["in a popout with AI off", { isPopout: true, settings: defaultSettings }],
+    ["below the minimum task count with AI off", { settings: defaultSettings, initialTasks: [mkTask(1, "Only")] }],
+  ] as const)("renders no trigger %s", (_label, props) => {
+    renderHarness(props);
+    expect(screen.queryByRole("button", { name: DEDUP_TRIGGER })).toBeNull();
   });
 });

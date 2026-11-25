@@ -235,8 +235,31 @@ describe("useAllocPlan (plan-then-apply)", () => {
     expect(screen.queryByRole("button", { name: /plan with ai/i })).toBeNull();
   });
 
-  it("renders no button when AI is disabled", () => {
-    renderHarness({ settings: defaultSettings });
+  // With AI off or no key the trigger stays visible but disabled, its hint as the description.
+  it.each([
+    ["AI is off", defaultSettings],
+    ["no API key is set", { ...AI_ON, ai: { ...AI_ON.ai, apiKey: "" } }],
+  ] as const)("when %s the button is present, disabled and described by the hint", (_label, settings) => {
+    renderHarness({ settings });
+    const button = screen.getByRole("button", { name: /plan with ai/i });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsAi"));
+    fireEvent.click(button);
+    expect(screen.queryByRole("button", { name: t("en-US", "allocPlanPropose") })).toBeNull();
+  });
+
+  it("keeps the fuller title as the description when AI is ready", () => {
+    renderHarness();
+    expect(screen.getByRole("button", { name: /plan with ai/i })).toHaveAccessibleDescription(t("en-US", "allocPlanTitle"));
+  });
+
+  it("renders no button in a popout with AI off", () => {
+    renderHarness({ isPopout: true, settings: defaultSettings });
+    expect(screen.queryByRole("button", { name: /plan with ai/i })).toBeNull();
+  });
+
+  it("renders no button with no resources and AI off", () => {
+    renderHarness({ initialResources: [], settings: defaultSettings });
     expect(screen.queryByRole("button", { name: /plan with ai/i })).toBeNull();
   });
 

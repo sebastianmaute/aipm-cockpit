@@ -16,6 +16,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { WorkspaceTabProvider } from "./workspace-tab-context";
 import { GanttView } from "./gantt-view";
 import { defaultSettings, type Settings } from "./settings-types";
+import { t } from "./i18n";
 import type { Task } from "./types";
 import * as call from "./task-dedup-call";
 
@@ -106,10 +107,12 @@ describe("GanttView", () => {
     expect(button.getAttribute("aria-label")).toBe("Deduplicate & unify – Gantt");
   });
 
-  it("renders no dedup trigger when AI is disabled", () => {
+  it("renders the dedup trigger disabled, with the hint, when AI is disabled", () => {
     stubSettings(defaultSettings); // ai.enabled defaults to false
     renderGanttView([mkTask(1, "Write API docs"), mkTask(2, "Write the API documentation")]);
-    expect(screen.queryByRole("button", { name: /deduplicate & unify/i })).toBeNull();
+    const trigger = screen.getByRole("button", { name: /deduplicate & unify/i });
+    expect(trigger).toBeDisabled();
+    expect(trigger).toHaveAccessibleDescription(t("en-US", "aiActionNeedsAi"));
   });
 
   it("wires the onCaptureUndo prop through to the dedup hook's undo capture", async () => {

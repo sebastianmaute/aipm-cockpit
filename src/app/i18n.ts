@@ -6159,7 +6159,7 @@ const enUS = {
   wbsPlanSkip_cycle: "the dependency would create a cycle",
   wbsPlanButton: "Optimize with AI",
   wbsPlanButtonTitle: "Propose work-breakdown improvements for the tasks shown",
-  wbsPlanNeedsAi: "Turn on the AI assistant and add an API key under Settings → AI Assistant to use this.",
+  aiActionNeedsAi: "Turn on the AI assistant and add an API key under Settings → AI Assistant to use this.",
   wbsPlanNoTasks: "There are no open tasks in the current view to optimize.",
   wbsPlanIntro: "Claude proposes splits, new groups, new tasks, estimates and dependencies. Nothing changes until you review and apply.",
   wbsPlanInstructionLabel: "Instructions (optional)",
