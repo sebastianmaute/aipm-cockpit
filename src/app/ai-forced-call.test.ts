@@ -168,9 +168,24 @@ describe("runForcedToolCall — a learned auto-choice model survives a reload", 
     expect(await choicesFor("claude-sonnet-5")).toEqual([{ type: "tool", name: "t" }]);
   });
 
-  it("never stores a model already on the known list", async () => {
-    await choicesFor("claude-sonnet-5-5");
-    expect(localStorage.getItem(STORE_KEY)).toBeNull();
+  // A known model is never forced, so it never reaches the learn path itself; the guard is reached when a stored
+  // list (e.g. written by another version) carries one and a new learn re-writes that list.
+  it("drops a known model from the stored list when it writes a new learned id", async () => {
+    localStorage.setItem(STORE_KEY, JSON.stringify(["claude-sonnet-5-5", "claude-learned-1"]));
+    __resetToolChoiceFallbackForTests();
+    const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValueOnce(TOOL_REPLY);
+    stubAiFetch(fetchMock);
+    await runForcedToolCall({ ...args(), model: "claude-refuses-forced-choice" });
+    expect(stored()).toEqual(["claude-learned-1", "claude-refuses-forced-choice"]);
+  });
+
+  it("reads at most the newest 20 stored ids", async () => {
+    const ids = Array.from({ length: 25 }, (_, i) => `claude-old-${i}`);
+    localStorage.setItem(STORE_KEY, JSON.stringify(ids));
+    __resetToolChoiceFallbackForTests();
+    expect(await choicesFor("claude-old-4")).toEqual([{ type: "tool", name: "t" }]);
+    expect(await choicesFor("claude-old-5")).toEqual([{ type: "auto" }]);
+    expect(await choicesFor("claude-old-24")).toEqual([{ type: "auto" }]);
   });
 
   it("ignores stored values that are not model ids", async () => {
