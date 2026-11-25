@@ -28,6 +28,7 @@ import { IconButton } from "./icon-button";
 import { EraserIcon, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { TOUR_ANCHORS } from "./app-tour";
 import { Button } from "./button";
+import { SharedAiReasonTexts, SharedAiReasonsProvider, useSharedAiReasons } from "./ai-trigger-button";
 
 export type TasksViewMode = NonNullable<Settings["tasksViewMode"]>;
 
@@ -61,6 +62,10 @@ export interface TasksToolbarProps {
   dedupButton: React.ReactNode;
   /** The AI work-breakdown optimizer trigger; second in the control row, after Add task (null in a popout). */
   aiOptimizeButton?: React.ReactNode;
+  /** Why each AI trigger above is unavailable (its `unavailableReason`), undefined when it is ready or absent. The
+   *  same reason for both is written ONCE, after the dedup trigger, and describes both (`useSharedAiReasons`). */
+  aiOptimizeReason?: string;
+  dedupReason?: string;
   hideFinished: boolean;
   onToggleHideFinished: () => void;
   hideExternal: boolean;
@@ -94,6 +99,7 @@ export interface TasksToolbarProps {
 
 export function TasksToolbar({
   lang, onAdd, jiraEnabled, handleJiraSync, jiraSyncing, jiraProjectKey, dedupButton, aiOptimizeButton,
+  aiOptimizeReason, dedupReason,
   hideFinished, onToggleHideFinished, hideExternal, onToggleHideExternal, tasksViewMode, setTasksViewMode,
   assignableResources, laneIds, addLane, search, setSearch, priorityFilter, setPriorityFilter, effectiveFilters,
   setAssigneeFilter, setGroupFilter, setLabelFilter, uniqueAssignees, uniqueGroups, uniqueLabels,
@@ -106,7 +112,9 @@ export function TasksToolbar({
   const fold = (s: string) => s.trim().toLocaleLowerCase();
   const optionName = (value: string, fixed: readonly TranslationKey[]) =>
     fixed.some((key) => fold(t(lang, key)) === fold(value)) ? t(lang, "filterQuotedValue", value) : value;
+  const sharedAiReasons = useSharedAiReasons([aiOptimizeReason, dedupReason]);
   return (
+    <SharedAiReasonsProvider ids={sharedAiReasons}>
     <div className="mb-4 flex flex-wrap items-center gap-2">
       <AddButton
         onClick={onAdd}
@@ -133,6 +141,7 @@ export function TasksToolbar({
         </button>
       )}
       {dedupButton}
+      <SharedAiReasonTexts ids={sharedAiReasons} />
       <ToggleButton lang={lang}
         pressed={hideFinished}
         onToggle={onToggleHideFinished}
@@ -274,6 +283,7 @@ export function TasksToolbar({
       <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
       <ResetSizeButton onClick={resetTableSize} lang={lang} />
     </div>
+    </SharedAiReasonsProvider>
   );
 }
 

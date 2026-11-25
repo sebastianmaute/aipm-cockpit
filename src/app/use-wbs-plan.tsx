@@ -139,6 +139,9 @@ export interface WbsOpenResult {
 export interface WbsPlan {
   /** The toolbar trigger (null in a popout). */
   button: ReactNode;
+  /** Why the trigger is unavailable (its `unavailableReason`), or undefined when it is ready or not shown. A toolbar
+   *  holding another AI trigger passes it on, so one reason both share is written once (`useSharedAiReasons`). */
+  unavailableReason: string | undefined;
   /** The instruction dialog or preview modal (null while idle). */
   modal: ReactNode;
   /** The chat tool's entry point: goes straight to `thinking`. Refuses (and
@@ -500,6 +503,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   // ★ With the AI off or no key it stays visible but disabled, and its reason
   //   rides `description` → `title`; the accessible NAME stays the visible label.
   // `contents`: the box adds no layout of its own to the toolbar row.
+  const unavailableReason = !isPopout && !aiReady ? t(lang, aiNotReadyHintKey(settings.ai)) : undefined;
   const button = isPopout ? null : (
     <span ref={triggerBoxRef} className="contents">
       <AiTriggerButton
@@ -510,7 +514,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         idleLabelKey="wbsPlanButton"
         idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
         description={t(lang, "wbsPlanButtonTitle")}
-        unavailableReason={aiReady ? undefined : t(lang, aiNotReadyHintKey(settings.ai))}
+        unavailableReason={unavailableReason}
         disabled={!aiReady || (phase !== "idle" && phase !== "thinking")}
       />
     </span>
@@ -544,7 +548,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
     );
   }
 
-  return { button, modal, open };
+  return { button, modal, open, unavailableReason };
 }
 
 /**

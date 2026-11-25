@@ -6,6 +6,7 @@ import { t, loadI18n } from "./i18n";
 import { ToastProvider } from "./toast-context";
 import { getAppearanceSnapshot, saveProjectAppearance } from "./project-appearance-prefs";
 import { buttonNames, expectButtonOrder } from "../test/toolbar-order";
+import { AiTriggerButton } from "./ai-trigger-button";
 import { setDisabledIntegrations } from "./integration-switches";
 
 vi.mock("./workspace-context", () => ({ useWorkspace: vi.fn() }));
@@ -1183,6 +1184,26 @@ describe("TasksSection", () => {
     // Relative order only: the leading position is proven by the two checks above.
     expectButtonOrder(["wbsPlanButton", "clearAll", "printHint"]);
     expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
+  });
+
+  // Owner decision: with AI not ready, Optimize with AI and Deduplicate & unify share one reason, written ONCE.
+  it("writes the shared not-ready reason once and describes both AI triggers by it", () => {
+    const tasks = [{ id: 1, taskName: "T1" }, { id: 2, taskName: "T2" }];
+    stubWorkspace(tasks, tasks);
+    const hint = t("en-US", "aiActionNeedsAi");
+    render(
+      <TasksSection
+        {...makeProps()}
+        aiOptimizeButton={<AiTriggerButton lang="en-US" busy={false} onRun={vi.fn()} onCancel={vi.fn()} idleLabelKey="wbsPlanButton" unavailableReason={hint} />}
+        aiOptimizeReason={hint}
+      />,
+    );
+    expect(screen.getAllByText(hint)).toHaveLength(1);
+    for (const key of ["wbsPlanButton", "taskDedup"] as const) {
+      const btn = screen.getByRole("button", { name: t("en-US", key) });
+      expect(btn).toBeDisabled();
+      expect(btn).toHaveAccessibleDescription(hint);
+    }
   });
 
   it("gives the tasks search box a descriptive tooltip", () => {

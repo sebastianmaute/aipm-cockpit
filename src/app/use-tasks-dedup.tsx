@@ -72,6 +72,9 @@ export interface TasksDedupDeps {
 export interface TasksDedup {
   /** The toolbar trigger element (null when the feature is unavailable). */
   button: ReactNode;
+  /** Why the trigger is unavailable (its `unavailableReason`), or undefined when it is ready or not shown. A toolbar
+   *  holding another AI trigger passes it on, so one reason both share is written once (`useSharedAiReasons`). */
+  unavailableReason: string | undefined;
   /** The review/confirm modal element (null when no proposal is open). */
   modal: ReactNode;
 }
@@ -212,6 +215,7 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
   //   It used to be this trigger's aria-label; the NAME is now the visible label
   //   (see the test file for why that swap was not itself a 2.5.3 fix), so
   //   without `description` the longer sentence would be lost disclosure.
+  const unavailableReason = showTrigger && !aiReady ? t(lang, aiNotReadyHintKey(settings.ai)) : undefined;
   const button = showTrigger ? (
     <AiTriggerButton
       lang={lang}
@@ -222,7 +226,7 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
       nameQualifier={triggerQualifier}
       description={t(lang, "taskDedupTitle")}
-      unavailableReason={aiReady ? undefined : t(lang, aiNotReadyHintKey(settings.ai))}
+      unavailableReason={unavailableReason}
       disabled={!aiReady || phase === "applying"}
     />
   ) : null;
@@ -240,5 +244,5 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
     />
   ) : null;
 
-  return { button, modal };
+  return { button, modal, unavailableReason };
 }

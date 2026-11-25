@@ -1,8 +1,46 @@
 "use client";
-import { type ReactNode, useId } from "react";
+import { createContext, type ReactNode, useContext, useId } from "react";
 import { StopIcon } from "./icons";
 import { Button, type ButtonSize, type ButtonVariant } from "./button";
 import { t, type Lang, type TranslationKey } from "./i18n";
+
+/** Reason text → the id of the ONE visible copy a toolbar renders for it (`SharedAiReasonTexts`). */
+const SharedAiReasonIds = createContext<ReadonlyMap<string, string> | null>(null);
+
+/**
+ * The reasons more than one trigger in the same toolbar is unavailable for, each with one id. The toolbar
+ * passes the `unavailableReason` of each trigger it renders (undefined for one that is ready or absent), wraps
+ * its row in `SharedAiReasonsProvider` and renders `SharedAiReasonTexts` once: a trigger whose reason is in
+ * the map points `aria-describedby` at that copy and renders none of its own. A reason only one trigger has
+ * is not in the map, so that trigger keeps its own text. Computed in render from the props — no state.
+ */
+export function useSharedAiReasons(reasons: readonly (string | undefined)[]): ReadonlyMap<string, string> {
+  const base = useId();
+  const counts = new Map<string, number>();
+  for (const r of reasons) if (r) counts.set(r, (counts.get(r) ?? 0) + 1);
+  const shared = [...counts].filter(([, n]) => n > 1).map(([r]) => r);
+  return new Map(shared.map((r, i) => [r, `${base}-reason-${i}`]));
+}
+
+export function SharedAiReasonsProvider({ ids, children }: { ids: ReadonlyMap<string, string>; children: ReactNode }) {
+  return <SharedAiReasonIds.Provider value={ids}>{children}</SharedAiReasonIds.Provider>;
+}
+
+/** The one visible copy of each shared reason, styled like a trigger's own reason text. */
+export function SharedAiReasonTexts({ ids }: { ids: ReadonlyMap<string, string> }) {
+  return (
+    <>
+      {[...ids].map(([reason, id]) => (
+        <span key={id} id={id} className={REASON_TEXT_CLASS}>
+          {reason}
+        </span>
+      ))}
+    </>
+  );
+}
+
+// `max-w-56` lets a long reason wrap within itself rather than stretch the toolbar row.
+const REASON_TEXT_CLASS = "max-w-56 text-xs text-muted-foreground";
 
 /**
  * The shared trigger for every AI feature that can be stopped mid-flight.
@@ -106,6 +144,9 @@ export function AiTriggerButton({
   const label = busy ? t(lang, "aiStop") : t(lang, idleLabelKey);
   const name = nameQualifier ? `${label} – ${nameQualifier}` : label;
   const reason = !busy && unavailableReason ? unavailableReason : undefined;
+  // A toolbar that holds several triggers unavailable for the same reason renders that reason once.
+  const sharedIds = useContext(SharedAiReasonIds);
+  const sharedReasonId = reason ? sharedIds?.get(reason) : undefined;
   const trigger = (
     <Button
       variant={variant}
@@ -113,7 +154,7 @@ export function AiTriggerButton({
       type={type}
       onClick={busy ? onCancel : onRun}
       aria-label={name}
-      aria-describedby={reason ? reasonId : undefined}
+      aria-describedby={reason ? (sharedReasonId ?? reasonId) : undefined}
       title={reason ?? (!busy && description ? description : name)}
       // ★ A real `disabled` attribute, never an `aria-disabled` lookalike —
       //   the lookalike still fires onClick, which here would start a billed
@@ -134,12 +175,11 @@ export function AiTriggerButton({
       <span>{label}</span>
     </Button>
   );
-  if (!reason) return trigger;
-  // `max-w-56` lets a long reason wrap within itself rather than stretch the toolbar row.
+  if (!reason || sharedReasonId !== undefined) return trigger;
   return (
     <>
       {trigger}
-      <span id={reasonId} className="max-w-56 text-xs text-muted-foreground">
+      <span id={reasonId} className={REASON_TEXT_CLASS}>
         {reason}
       </span>
     </>

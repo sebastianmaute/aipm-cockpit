@@ -1463,7 +1463,11 @@
   `aiActionNeedsAi` — as Suggest RACI, Plan with AI and Optimize with AI do. The hint goes in through
   `AiTriggerButton`'s `unavailableReason`, which keeps a real `disabled` and shows the hint as VISIBLE muted text
   beside the trigger, also its `aria-describedby` description and `title`: a disabled button takes no keyboard
-  focus and `title` never shows on touch, so a title-only hint reached mouse users alone. A
+  focus and `title` never shows on touch, so a title-only hint reached mouse users alone. ★ A toolbar holding
+  several triggers unavailable for the SAME reason writes it once: the Open Points toolbar passes each trigger's
+  reason (the hooks' `unavailableReason`) to `useSharedAiReasons`, wraps its row in `SharedAiReasonsProvider` and
+  renders `SharedAiReasonTexts` after the dedup trigger; a trigger whose reason is shared points `aria-describedby`
+  at that one copy and renders none, while a reason only one trigger has stays beside it. A
   popout or fewer than two tasks renders none (RACI also hides with nothing to assign against, Plan with AI
   with no resources, both under people protection). No duplicates → toast; usage-limit / API errors surface via the shared `classifyAiError`. New `ai.taskDedup`
   activity kind + EN/DE strings. Wired into the Open Points toolbar (`tasks-section.tsx` → `task-manager`).
