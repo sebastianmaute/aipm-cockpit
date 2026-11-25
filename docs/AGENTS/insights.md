@@ -90,7 +90,7 @@ types through the validator was weighed and rejected.
   `max_tokens`; a cut reply is never read (§763). TWO triggers share the generate path: on-demand hook `use-insight-recommend.ts`
   (per-insight ✨ button) + opt-in background `use-insight-recommend-runner.ts` (mirrors `use-scheduled-job-runner`
   — `[]`-dep refs, mount+visibility+interval tick (user-settable, default `DEFAULT_INSIGHT_REC_INTERVAL_MIN`,
-  clamped by `clampInsightRecInterval`), serial, capped `MAX_BG_RECS_PER_TICK`, breaks the tick on a limit/auth
+  clamped by `clampInsightRecInterval`), serial, capped `MAX_BG_RECS_PER_TICK`, breaks the tick on a limit/auth/unavailable-model
   error; gated `isAiEnabled && settings.ai.insightRecommendations === true && !isPopout && !loadPending`
   (§548), default OFF).
   ★★ WHICH insights either trigger may send is the chat's rule, ONE predicate: `insightReachesAi`

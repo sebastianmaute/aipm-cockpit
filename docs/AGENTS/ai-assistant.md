@@ -240,8 +240,12 @@
   know (`classifyAiError`'s `"model"` class: a 404 whose `error.type` is `not_found_error`; the relay's empty
   404 is an `AiDeploymentError` and a 404 without that type stays generic), and never turns a transport failure
   into a key verdict. `aiFailureToken` stores the model key too, so the token-keeping surfaces show it. The chat
-  (`chat-panel.tsx`) asks `aiTransportMessageKey`, `aiKeyMessageKeyForError` and `aiModelMessageKey` separately. Scheduled jobs record only a
-  GATEWAY failure as its own `ReportErrorToken` (`toErrorToken`: `ai-gateway-rejected`, `ai-gateway-error`,
+  (`chat-panel.tsx`) asks `aiTransportMessageKey`, `aiKeyMessageKeyForError` and `aiModelMessageKey` separately. The
+  background insight runner (`use-insight-recommend-runner.ts`) ends its tick on the model class as on limit/auth, and
+  a scheduled job records it as the `ReportErrorToken` `ai-model-unavailable`, shown as `aiModelUnavailable` in the
+  reports view and the run history (an older version reads that token as a generic failure: its report decoder maps
+  an unknown token to "error" and its run history prints the generic failed line). Of the transport failures,
+  scheduled jobs record only a GATEWAY failure as its own `ReportErrorToken` (`toErrorToken`: `ai-gateway-rejected`, `ai-gateway-error`,
   `ai-gateway-rate-limited`, and `ai-relay-rate-limited`, the relay's own per-caller limit, §806, a 429 the client
   reads as `AiGatewayError` so it is never shown as Anthropic's limit); a deployment error (`AiDeploymentError`: off, invalid, changed route, unconfirmed) is
   transient — the run records nothing, keeps its period and retries on its next check.
@@ -1449,8 +1453,10 @@
   hooks); `task-dedup-modal.tsx` is the review modal (per-group deselect). ★★ Confirm folds the duplicates +
   applies the KEEP task's sanitized unified fields via a FUNCTIONAL `setTasks(prev=>…)` updater and records
   ONE undo entry (removed duplicates + edited keeps). Gated `isAiEnabled && !isPopout && tasks.length >= 2`.
-  ★ The AI half of that gate only DISABLES the trigger: with AI off or no key it renders disabled, its
-  description the shared `aiActionNeedsAi` hint, as Suggest RACI, Plan with AI and Optimize with AI do; a
+  ★ The AI half of that gate only DISABLES the trigger: with AI off, no key or no current AI data disclosure
+  consent it renders disabled, its description the hint `aiNotReadyHintKey` picks (`aiActionNeedsConsent` when
+  the switch and a key are there but the consent is missing or stale, otherwise `aiActionNeedsAi`), as Suggest
+  RACI, Plan with AI and Optimize with AI do; a
   popout or fewer than two tasks renders none (RACI also hides with nothing to assign against, Plan with AI
   with no resources, both under people protection). No duplicates → toast; usage-limit / API errors surface via the shared `classifyAiError`. New `ai.taskDedup`
   activity kind + EN/DE strings. Wired into the Open Points toolbar (`tasks-section.tsx` → `task-manager`).
