@@ -1681,12 +1681,19 @@
     selectable and row-uniquely named — with the visible hint `scheduledJobAssignProjectToEdit` linked by
     `aria-describedby` (`InstructionField`). So it never has a draft: nothing is saved, offered, kept or lost for it,
     and the draft hook has no keyless branch (its `id:N` save id is never written). Assigning a project gives the
-    job its key, and the row then starts afresh with an editable field. ★★ The section keys each row by portfolio (the
-    backend the list was read from, `jobsSource`), id and permanent key, so a portfolio switch, an id reused for
-    another job, or a key given to a legacy job (here or on another device) starts a fresh row: no text, draft or
-    notice is carried to another job. A row's other writes (name, cadence, zone, project) carry its job's key, `null`
-    for a legacy job, which `matches` reads as "the job with this id that has no key". The runner's writes always
-    carry the job's (non-null) key.
+    job its key, and the row then starts afresh with an editable field; the section then puts keyboard focus back on the
+    new row's project select (`focusProjectOnMount`), so assigning with the keyboard does not drop focus to the page.
+    ★★ The section keys each row by portfolio (the backend the list was read from, `jobsSource`), id and permanent
+    key, so a portfolio switch, an id reused for another job, or a key given to a legacy job (here or on another
+    device) starts a fresh row: no text, draft or notice is carried to another job. A row's other writes (name,
+    cadence, zone, project) carry its job's key, `null` for a legacy job, which `matches` reads as "the job with this
+    id that has no key" — unless this hook instance just minted that job's key (`resolveKey`), so an edit the keyless
+    row made before it saw its key still reaches the job. ★★★ Every user write from a row (`updateJob`,
+    `assignProject`, `deleteJob`) is bound to the backend its list was read from, captured when it is issued: one that
+    RUNS after the active backend changed is refused with `JobSourceChangedError` and writes nothing — never into the
+    portfolio switched to. The section shows no notice for it; a refused instruction save keeps its text for copying
+    (reason "notSaved") under that job, offered when the job's row next shows. The runner's writes always carry the
+    job's (non-null) key.
     ★ A user's edit (`updateJob` / `assignProject`) that reaches no job never resolves as written:
     a job deleted on another device rejects with `JobGoneError`, one that is still listed but no longer editable here
     (a newer version rewrote it; it keeps its key, so the edit still finds it) with `JobNotEditableError`, and

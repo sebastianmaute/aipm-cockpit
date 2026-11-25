@@ -41,7 +41,8 @@ longer carries its own changelog comment.
   version never runs or answers such a job. Jobs that existed before this update wait for your OK, and a job waiting
   can be declined with "Not on this device" without ever running. An older job that has no project yet shows its
   instruction read-only until you assign a project, which makes it editable. Switching to another portfolio starts
-  every job's row afresh. Devices that have not
+  every job's row afresh, and a change not yet saved when you switch is never written into the other portfolio: an
+  instruction is shown for copying when you come back. Devices that have not
   updated yet still run shared jobs without asking, so update every device that uses the portfolio.
 - **The forecast import sends Claude only the top of the sheet, without e-mail addresses.** Claude only names which
   column is which, so it now receives the sheet's first 30 non-empty rows instead of the whole sheet, and every
