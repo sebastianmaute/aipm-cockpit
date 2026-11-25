@@ -196,8 +196,13 @@
 - **★★ Forced `tool_choice` is refused by some models.** Sonnet 5.5, Opus 5.5 and Fable 5.1 answer
   `tool_choice: {type:"tool"}` (and `"any"`) with a 400 `invalid_request_error` naming `tool_choice`, measured
   against the API on 2026-10-19; Haiku 5.5, Sonnet 5 and Opus 5 accept it. `runForcedToolCallWithStop` resends
-  that one refusal with `{type:"auto"}` and remembers the model for the session (`autoChoiceModels`), so every
-  forced-call feature works on them with no per-feature code. ★ Those three are known up front
+  that one refusal with `{type:"auto"}` and remembers the model (`autoChoiceModels`), so every
+  forced-call feature works on them with no per-feature code. ★ A LEARNED model (never a known one) is also
+  kept on this device under `aipm-cockpit:auto-choice-models` — at most 20 ids, each matching a model-id shape,
+  read once per page on the first forced call — so a reload does not pay the 400 again. All storage goes through
+  `device-store.ts`; blocked or full storage leaves the learning session-only. It is app config: cleared by
+  `clearAppConfig`'s `aipm-cockpit:*` sweep, never exported, and not one of recovery's `CONFIG_KEYS` (it cannot
+  keep the app from starting). ★ Those three are known up front
   (`KNOWN_AUTO_CHOICE_MODELS`) and are asked with auto from the FIRST request, so the default model (Sonnet 5.5)
   pays no 400 round trip per feature per session; the learn-on-400 path stays for every other model. ★★ The auto request is plain first, and its tool input is checked
   against the tool's schema (`matchesSchema`, `ai-tool-schema.ts`): plain auto on Sonnet 5.5 returned the
@@ -231,11 +236,21 @@
   `aiFailureMessageKeyForToken` where a hook stores a string token, and then stores `aiTransportMessageKey(err)`
   itself as the token) BEFORE its generic or network message — otherwise a 401 reads as "couldn't reach Claude"
   again, and a switched-off deployment or a refused gateway reads as a connection problem. It returns the
-  transport message ahead of the key message and never turns a transport failure into a key verdict. The chat
-  (`chat-panel.tsx`) asks `aiTransportMessageKey` and `aiKeyMessageKeyForError` separately. Scheduled jobs record only a
-  GATEWAY failure as its own `ReportErrorToken` (`toErrorToken`: `ai-gateway-rejected`, `ai-gateway-error`,
-  `ai-gateway-rate-limited`, and `ai-relay-rate-limited`, the relay's own per-caller limit, §806, a 429 the client
-  reads as `AiGatewayError` so it is never shown as Anthropic's limit); a deployment error (`AiDeploymentError`: off, invalid, changed route, unconfirmed) is
+  transport message ahead of the key message, then `aiModelUnavailable` for a selected model Anthropic does not
+  know (`classifyAiError`'s `"model"` class: a 404 whose `error.type` is `not_found_error`; the relay's empty
+  404 is an `AiDeploymentError` and a 404 without that type stays generic), and never turns a transport failure
+  into a key verdict. `aiFailureToken` stores the model key too, so the token-keeping surfaces show it. The chat
+  (`chat-panel.tsx`) asks `aiTransportMessageKey`, `aiKeyMessageKeyForError` and `aiModelMessageKey` separately. The
+  background insight runner (`use-insight-recommend-runner.ts`) ends its tick on the model class as on limit/auth, and
+  a scheduled job records it as the `ReportErrorToken` `ai-model-unavailable`, shown as `aiModelUnavailable` in the
+  reports view and the run history (an older version reads that token as a generic failure: its report decoder maps
+  an unknown token to "error" and its run history prints the generic failed line). Besides `limit`, `401`/`403`,
+  `parse`, `turso`, `storage-unreachable` and the fallback `error`, `toErrorToken` gives these AI failures a
+  `ReportErrorToken` of their own: an unavailable model (`ai-model-unavailable`), a timeout (`ai-timed-out`, §798), a
+  key the organisation key check refused (`ai-key-wrong-organization`, `ai-key-wrong-workspace`) and a GATEWAY
+  failure (`ai-gateway-rejected`, `ai-gateway-error`, `ai-gateway-rate-limited`, and `ai-relay-rate-limited`, the
+  relay's own per-caller limit, §806, a 429 the client reads as `AiGatewayError` so it is never shown as
+  Anthropic's limit) — the full set is the `ReportErrorToken` union in `scheduled-reports-store.ts`. A deployment error (`AiDeploymentError`: off, invalid, changed route, unconfirmed) is
   transient — the run records nothing, keeps its period and retries on its next check.
 - **Per-project setting overrides (`Workspace.settingsOverrides`, v0.190.42):** a "This project" Settings section
   (`settings-sections/project-overrides-section.tsx`, SectionId `projectOverrides`, hidden in popouts) overrides
@@ -1440,8 +1455,25 @@
   propose→preview→confirm/cancel state machine (a `.tsx` glue hook, coverage-EXCLUDED like the other glue
   hooks); `task-dedup-modal.tsx` is the review modal (per-group deselect). ★★ Confirm folds the duplicates +
   applies the KEEP task's sanitized unified fields via a FUNCTIONAL `setTasks(prev=>…)` updater and records
-  ONE undo entry (removed duplicates + edited keeps). Gated `isAiEnabled && !isPopout && tasks.length >= 2`;
-  no duplicates → toast; usage-limit / API errors surface via the shared `classifyAiError`. New `ai.taskDedup`
+  ONE undo entry (removed duplicates + edited keeps). Gated `isAiEnabled && !isPopout && tasks.length >= 2`.
+  ★ The user's half of that gate only DISABLES the IDLE trigger: with AI off, no key or no current AI data
+  disclosure consent it renders disabled with the hint `aiNotReadyHintKey` picks — `aiActionNeedsConsent` when the
+  switch and a key are there but the consent is missing or stale, otherwise `aiActionNeedsAi`. ★★ A RUNNING
+  request's Stop stays ENABLED when AI stops being ready meanwhile (consent withdrawn, key removed, AI switched off
+  in another tab — cancelling must always work), and no hint is shown or handed to the toolbar beside a live Stop
+  (the dedup and work-breakdown hooks return no `unavailableReason` while thinking). All four triggers behave so:
+  Deduplicate & unify, Suggest RACI, Plan with AI and Optimize with AI. ★ A deployment that blocks AI (`isAiDeploymentOn` false: switched off or an
+  invalid setting) HIDES all four triggers instead, with no reason text: the user cannot switch AI on there, and
+  Settings already names the block (`aiDeploymentBlockedMessageKey`). The hint goes in through
+  `AiTriggerButton`'s `unavailableReason`, which keeps a real `disabled` and shows the hint as VISIBLE muted text
+  beside the trigger, also its `aria-describedby` description and `title`: a disabled button takes no keyboard
+  focus and `title` never shows on touch, so a title-only hint reached mouse users alone. ★ A toolbar holding
+  several triggers unavailable for the SAME reason writes it once: the Open Points toolbar passes each trigger's
+  reason (the hooks' `unavailableReason`) to `useSharedAiReasons`, wraps its row in `SharedAiReasonsProvider` and
+  renders `SharedAiReasonTexts` after the dedup trigger; a trigger whose reason is shared points `aria-describedby`
+  at that one copy and renders none, while a reason only one trigger has stays beside it. A
+  popout or fewer than two tasks renders none (RACI also hides with nothing to assign against, Plan with AI
+  with no resources, both under people protection). No duplicates → toast; usage-limit / API errors surface via the shared `classifyAiError`. New `ai.taskDedup`
   activity kind + EN/DE strings. Wired into the Open Points toolbar (`tasks-section.tsx` → `task-manager`).
 - **AI "Optimize with AI" (Open Points) and the `optimize_wbs` chat tool (§3):** plan-then-apply over the
   existing task path, mirroring `alloc-plan/` — ZERO new Workspace fields or backend write paths. The model

@@ -37,7 +37,7 @@ export function useWeightSuggestions(ai: AiCreds) {
           setError("limit");
           return null;
         }
-        // A switched-off deployment, a refused gateway, a refused or unchecked key → its own message key, never "network".
+        // A switched-off deployment, a refused gateway, a refused or unchecked key, an unavailable model → its own message key, never "network".
         const failureKey = aiFailureToken(e);
         if (failureKey) {
           setError(failureKey);

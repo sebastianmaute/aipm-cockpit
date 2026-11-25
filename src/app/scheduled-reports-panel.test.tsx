@@ -372,6 +372,7 @@ describe("ScheduledReportsPanel", () => {
     ["a key of another organisation", { status: "done" as const, ok: false }, { error: "ai-key-wrong-organization" as const }, "aiKeyWrongOrganization"],
     ["a key of an unlisted workspace", { status: "done" as const, ok: false }, { error: "ai-key-wrong-workspace" as const }, "aiKeyWrongWorkspace"],
     ["a timed-out request (§798)", { status: "done" as const, ok: false }, { error: "ai-timed-out" as const }, "aiRequestTimedOut"],
+    ["an unavailable model", { status: "done" as const, ok: false }, { error: "ai-model-unavailable" as const }, "aiModelUnavailable"],
     ["a failure without a token", { status: "done" as const, ok: false }, {}, "scheduledReportsErrError"],
     ["an interrupted run", { status: "running" as const, ok: false, ranAt: "2020-01-01T00:00:00.000Z" }, {}, "scheduledReportsErrInterrupted"],
     ["a run in progress", { status: "running" as const, ok: false, ranAt: "2999-01-01T00:00:00.000Z" }, {}, "scheduledReportsRunningNote"],

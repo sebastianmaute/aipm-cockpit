@@ -33,7 +33,8 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { SparklesIcon } from "./icons";
 import { type Lang, t } from "./i18n";
-import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
+import { type Settings, aiKeyIfEnabled, aiNotReadyHintKey, isAiEnabled } from "./settings-types";
+import { isAiDeploymentOn } from "./ai-deployment";
 import {
   type ChangeItem, type Discipline, type Grade, type Milestone,
   type RaidItem, type Resource, type Role, type Stakeholder, type Task,
@@ -193,9 +194,12 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
   // AI people protection (layer 1): RACI suggestions rate people, so a protected project has none — the
   // trigger is hidden, an open preview closes and is reset (below), and propose/apply refuse. Guarded HERE, not at the button.
   const peopleProtected = usePeopleProtected();
-  const enabled =
-    isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() &&
-    stakeholders.length > 0 && milestones.length > 0 && !peopleProtected;
+  // AI switched on with a key and a current consent (`isAiEnabled`). Without it the trigger still shows (when
+  // `showTrigger`), disabled with the hint `aiNotReadyHintKey` picks; a popout, a deployment that blocks AI, nothing to
+  // assign against, or people protection shows none.
+  const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
+  const showTrigger = !isPopout && isAiDeploymentOn() && stakeholders.length > 0 && milestones.length > 0 && !peopleProtected;
+  const enabled = aiReady && showTrigger;
   // Review 3, R6: protection turning on RESETS the preview (render-time reconcile; set-state-in-effect is banned),
   // so a stale proposal cannot reappear when protection is turned off again. The request in flight is
   // invalidated by the effect below (refs are not touched during render).
@@ -391,7 +395,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
   // ★ `busy` here is `"thinking"` ALONE, not this hook's `busy` const —
   //   `"applying"` is committing rows locally, not waiting on Claude, so it is
   //   not a stoppable state. It stays DISABLED, exactly as it was before.
-  const button = enabled ? (
+  const button = showTrigger ? (
     <AiTriggerButton
       lang={lang}
       busy={phase === "thinking"}
@@ -399,7 +403,10 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       onCancel={reset}
       idleLabelKey="raciSuggest"
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
-      disabled={phase !== "idle" && phase !== "thinking"}
+      unavailableReason={aiReady ? undefined : t(lang, aiNotReadyHintKey(settings.ai))}
+      // AI not ready only disables the IDLE trigger: while thinking it is Stop, and cancelling must always work
+      // (consent withdrawn, key removed or AI switched off in another tab while the request runs).
+      disabled={(!aiReady && phase !== "thinking") || (phase !== "idle" && phase !== "thinking")}
     />
   ) : null;
 

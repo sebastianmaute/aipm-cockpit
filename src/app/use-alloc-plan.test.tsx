@@ -1,3 +1,5 @@
+import { setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
@@ -235,8 +237,40 @@ describe("useAllocPlan (plan-then-apply)", () => {
     expect(screen.queryByRole("button", { name: /plan with ai/i })).toBeNull();
   });
 
-  it("renders no button when AI is disabled", () => {
-    renderHarness({ settings: defaultSettings });
+  // With AI off or no key the trigger stays visible but disabled, its hint as the description.
+  it.each([
+    ["AI is off", defaultSettings],
+    ["no API key is set", { ...AI_ON, ai: { ...AI_ON.ai, apiKey: "" } }],
+  ] as const)("when %s the button is present, disabled and described by the hint", (_label, settings) => {
+    renderHarness({ settings });
+    const button = screen.getByRole("button", { name: /plan with ai/i });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsAi"));
+    // Also visible text beside the trigger: a disabled button takes no focus and `title` never shows on touch.
+    expect(screen.getByText(t("en-US", "aiActionNeedsAi"))).toBeVisible();
+    fireEvent.click(button);
+    expect(screen.queryByRole("button", { name: t("en-US", "allocPlanPropose") })).toBeNull();
+  });
+
+  it("names the AI data disclosure when AI is on with a key but the disclosure is not accepted", () => {
+    renderHarness({ settings: { ...AI_ON, ai: { ...AI_ON.ai, consent: undefined } } });
+    const button = screen.getByRole("button", { name: /plan with ai/i });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsConsent"));
+  });
+
+  it("keeps the fuller title as the description when AI is ready", () => {
+    renderHarness();
+    expect(screen.getByRole("button", { name: /plan with ai/i })).toHaveAccessibleDescription(t("en-US", "allocPlanTitle"));
+  });
+
+  it("renders no button in a popout with AI off", () => {
+    renderHarness({ isPopout: true, settings: defaultSettings });
+    expect(screen.queryByRole("button", { name: /plan with ai/i })).toBeNull();
+  });
+
+  it("renders no button with no resources and AI off", () => {
+    renderHarness({ initialResources: [], settings: defaultSettings });
     expect(screen.queryByRole("button", { name: /plan with ai/i })).toBeNull();
   });
 
@@ -1085,5 +1119,47 @@ describe("useAllocPlan — other projects (§785)", () => {
     await waitFor(() => expect(call.runAllocProposal).toHaveBeenCalled());
     const lines = vi.mocked(call.runAllocProposal).mock.calls[0][0].split("\n").filter((l) => l.includes("ELSEWHERE"));
     expect(lines).toEqual(["ELSEWHERE: other projects cannot be seen in this storage mode"]);
+  });
+});
+
+
+// The organisation switched AI off for this app, or its AI setting is invalid: the user cannot turn AI on, so the
+// trigger is HIDDEN (no button, no reason text).
+describe("useAllocPlan — the trigger while the deployment blocks AI", () => {
+  afterEach(() => { setAiDeploymentState(DIRECT_AI_STATUS); });
+  it.each([["off", { off: true }], ["invalid", { invalid: true }]] as const)("renders no trigger and no reason when it is %s", (_n, over) => {
+    setAiDeploymentState({ ...DIRECT_AI_STATUS, ...over });
+    renderHarness();
+    expect(screen.queryByRole("button", { name: /plan with ai/i })).toBeNull();
+    expect(screen.queryByText(t("en-US", "aiActionNeedsAi"))).toBeNull();
+  });
+});
+
+
+// A request is running and AI stops being ready meanwhile (consent withdrawn, key removed or AI switched off in
+// another tab): the trigger is a Stop button then, and cancelling must always work — it stays ENABLED.
+describe("useAllocPlan — Stop while AI stops being ready", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("keeps Stop enabled and cancels the request", async () => {
+    const signals: AbortSignal[] = [];
+    vi.mocked(call.runAllocProposal).mockImplementation((...args: unknown[]) => {
+      for (const a of args) if (a instanceof AbortSignal) signals.push(a);
+      return new Promise(() => {});
+    });
+    const { rerender } = renderHarness();
+    openAndType();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "allocPlanPropose") }));
+    await waitFor(() => expect(signals).toHaveLength(1));
+    rerender(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <Harness settings={defaultSettings} />
+      </ToastProvider>,
+    );
+    const stop = screen.getByRole("button", { name: t("en-US", "aiStop") });
+    expect(stop).toBeEnabled();
+    fireEvent.click(stop);
+    expect(signals[0].aborted).toBe(true);
+    expect(screen.queryByRole("button", { name: t("en-US", "aiStop") })).toBeNull();
+    expect(screen.getByRole("button", { name: /plan with ai/i })).toBeDisabled();
   });
 });

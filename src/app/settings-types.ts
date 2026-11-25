@@ -228,6 +228,16 @@ export function isAiEnabled(ai: AiConfig | undefined): boolean {
   return isAiDeploymentOn() && ai?.enabled === true && liveAiKey(ai) !== "" && isConsentCurrent(ai.consent);
 }
 
+/** The hint a disabled AI trigger shows when `isAiEnabled` is false: the switch and a key are there but the AI data
+ *  disclosure is not (or no longer) accepted → "aiActionNeedsConsent"; anything else → "aiActionNeedsAi".
+ *  ★ Only for a deployment that allows AI: where the deployment blocks it (`isAiDeploymentOn` false) the user
+ *  cannot switch AI on, so the triggers render no button and no reason at all and never ask here.
+ *  String literals, not `TranslationKey`, so this module stays i18n-free; both are real keys in i18n.ts. */
+export function aiNotReadyHintKey(ai: AiConfig | undefined): "aiActionNeedsAi" | "aiActionNeedsConsent" {
+  const consentMissing = ai?.enabled === true && liveAiKey(ai) !== "" && !isConsentCurrent(ai.consent);
+  return consentMissing ? "aiActionNeedsConsent" : "aiActionNeedsAi";
+}
+
 /** Unattended AI (scheduled jobs, background recommendations): AI is enabled AND the separate background consent is
  *  current, and no older than the interactive consent (`isBackgroundConsentCurrent`). */
 export function isAiBackgroundEnabled(ai: AiConfig | undefined): boolean {

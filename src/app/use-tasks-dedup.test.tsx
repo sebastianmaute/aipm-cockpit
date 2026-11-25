@@ -4,6 +4,8 @@ vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { newConsent } from "./ai-consent";
 import { AiDeploymentError, AiGatewayError, AiHttpError } from "./ai-errors";
 import { t } from "./i18n";
+import { setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { useTasksDedup } from "./use-tasks-dedup";
@@ -33,17 +35,22 @@ interface HarnessProps {
   onTasks?: (t: readonly Task[]) => void;
   triggerQualifier?: string;
   logAiSpy?: ReturnType<typeof vi.fn>;
+  settings?: Settings;
+  isPopout?: boolean;
+  initialTasks?: readonly Task[];
 }
 
-function Harness({ captureSpy, onTasks, triggerQualifier, logAiSpy }: HarnessProps) {
-  const [tasks, setTasks] = useState<readonly Task[]>([
-    mkTask(1, "Write API docs"),
-    mkTask(2, "Write the API documentation"),
-    mkTask(3, "Deploy"),
-  ]);
+const DEFAULT_TASKS: readonly Task[] = [
+  mkTask(1, "Write API docs"),
+  mkTask(2, "Write the API documentation"),
+  mkTask(3, "Deploy"),
+];
+
+function Harness({ captureSpy, onTasks, triggerQualifier, logAiSpy, settings = AI_ON, isPopout = false, initialTasks = DEFAULT_TASKS }: HarnessProps) {
+  const [tasks, setTasks] = useState<readonly Task[]>(initialTasks);
   const dedup = useTasksDedup({
-    settings: AI_ON,
-    isPopout: false,
+    settings,
+    isPopout,
     lang: "en-US",
     tasks,
     setTasks: (u) => setTasks((prev) => { const next = typeof u === "function" ? u(prev) : u; onTasks?.(next); return next; }),
@@ -56,6 +63,8 @@ function Harness({ captureSpy, onTasks, triggerQualifier, logAiSpy }: HarnessPro
       {dedup.button}
       {dedup.modal}
       <output data-testid="ids">{tasks.map((t) => t.id).join(",")}</output>
+      {/* The reason the hook hands its toolbar (Open Points writes it, shared or not). */}
+      <output data-testid="reason" data-reason={dedup.unavailableReason ?? ""} />
     </div>
   );
 }
@@ -284,6 +293,7 @@ describe("useTasksDedup — §650 a refused key shows the key message", () => {
     [new AiDeploymentError("off"), "aiDeploymentOff"],
     [new AiGatewayError("ai-gateway-rejected"), "aiGatewayRejected"],
     [new AiGatewayError("ai-gateway-rate-limited"), "aiGatewayRateLimited"],
+    [new AiHttpError(404, "not_found_error", "model: claude-retired-1"), "aiModelUnavailable"],
   ] as const)("a transport failure toasts %s's own message, not the dedup error", async (err, key) => {
     vi.mocked(call.runDedupProposal).mockRejectedValue(err);
     renderHarness();
@@ -316,5 +326,109 @@ describe("useTasksDedup operating guides (§701)", () => {
     const ai = vi.mocked(call.runDedupProposal).mock.calls[0][1];
     expect(ai.guideText).toBe(actionGuideText([guide], true, "dedup"));
     expect(ai.guideText).toContain("DEDUP-GUIDE-701");
+  });
+});
+
+// With AI off or no key the trigger stays visible but disabled, its hint as the description; a popout
+// and a list below the minimum still render none.
+describe("useTasksDedup — the trigger when AI is not ready", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  const NO_KEY: Settings = { ...AI_ON, ai: { ...AI_ON.ai, apiKey: "" } };
+
+  it.each([
+    ["AI is off", defaultSettings],
+    ["no API key is set", NO_KEY],
+  ] as const)("when %s the trigger is present, disabled and described by the hint", (_label, settings) => {
+    renderHarness({ settings });
+    const button = screen.getByRole("button", { name: DEDUP_TRIGGER });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsAi"));
+    fireEvent.click(button);
+    expect(call.runDedupProposal).not.toHaveBeenCalled();
+  });
+
+  it("keeps the fuller title as the description when AI is ready", () => {
+    renderHarness();
+    const button = screen.getByRole("button", { name: DEDUP_TRIGGER });
+    expect(button).toBeEnabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "taskDedupTitle"));
+  });
+
+  it.each([
+    ["in a popout", { isPopout: true }],
+    ["in a popout with AI off", { isPopout: true, settings: defaultSettings }],
+    ["below the minimum task count with AI off", { settings: defaultSettings, initialTasks: [mkTask(1, "Only")] }],
+  ] as const)("renders no trigger %s", (_label, props) => {
+    renderHarness(props);
+    expect(screen.queryByRole("button", { name: DEDUP_TRIGGER })).toBeNull();
+  });
+});
+
+// AI on and a key set, but the AI data disclosure not accepted: the hint names the disclosure.
+describe("useTasksDedup — the trigger while the AI data disclosure is not accepted", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("is disabled and described by the consent hint", () => {
+    renderHarness({ settings: { ...AI_ON, ai: { ...AI_ON.ai, consent: undefined } } });
+    const button = screen.getByRole("button", { name: DEDUP_TRIGGER });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsConsent"));
+  });
+});
+
+// The organisation switched AI off for this app, or its AI setting is invalid: the user cannot turn AI on, so the
+// trigger is HIDDEN (no button, no reason text), as before the disabled-trigger change.
+describe("useTasksDedup — the trigger while the deployment blocks AI", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  afterEach(() => { setAiDeploymentState(DIRECT_AI_STATUS); });
+  it.each([["off", { off: true }], ["invalid", { invalid: true }]] as const)("renders no trigger and no reason when it is %s", (_n, over) => {
+    setAiDeploymentState({ ...DIRECT_AI_STATUS, ...over });
+    renderHarness();
+    expect(screen.queryByRole("button", { name: DEDUP_TRIGGER })).toBeNull();
+    expect(screen.queryByText(t("en-US", "aiDeploymentOff"))).toBeNull();
+    expect(screen.queryByText(t("en-US", "aiActionNeedsAi"))).toBeNull();
+  });
+});
+
+// A disabled button takes no keyboard focus and `title` never shows on touch, so the reason is also visible text
+// beside the trigger (and its description), reachable by keyboard and screen-reader reading order alike.
+describe("useTasksDedup — the reason is visible beside the disabled trigger", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("shows the hint as text when AI is off, and none when AI is ready", () => {
+    const { unmount } = renderHarness({ settings: defaultSettings });
+    expect(screen.getByText(t("en-US", "aiActionNeedsAi"))).toBeVisible();
+    unmount();
+    renderHarness();
+    expect(screen.queryByText(t("en-US", "aiActionNeedsAi"))).toBeNull();
+  });
+});
+
+
+// A request is running and AI stops being ready meanwhile (consent withdrawn, key removed or AI switched off in
+// another tab): the trigger is a Stop button then, and cancelling must always work — it stays ENABLED.
+describe("useTasksDedup — Stop while AI stops being ready", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("keeps Stop enabled and cancels the request", async () => {
+    const signals: AbortSignal[] = [];
+    vi.mocked(call.runDedupProposal).mockImplementation((...args: unknown[]) => {
+      for (const a of args) if (a instanceof AbortSignal) signals.push(a);
+      return new Promise(() => {});
+    });
+    const { rerender } = renderHarness();
+    fireEvent.click(screen.getByRole("button", { name: DEDUP_TRIGGER }));
+    await waitFor(() => expect(signals).toHaveLength(1));
+    rerender(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <Harness settings={defaultSettings} />
+      </ToastProvider>,
+    );
+    const stop = screen.getByRole("button", { name: t("en-US", "aiStop") });
+    expect(stop).toBeEnabled();
+    // No "needs AI" hint for the toolbar beside a live Stop: the reason is handed on only once the trigger is idle.
+    expect(screen.getByTestId("reason")).toHaveAttribute("data-reason", "");
+    fireEvent.click(stop);
+    expect(signals[0].aborted).toBe(true);
+    expect(screen.queryByRole("button", { name: t("en-US", "aiStop") })).toBeNull();
+    expect(screen.getByRole("button", { name: DEDUP_TRIGGER })).toBeDisabled();
+    expect(screen.getByTestId("reason")).toHaveAttribute("data-reason", t("en-US", "aiActionNeedsAi"));
   });
 });

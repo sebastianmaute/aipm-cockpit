@@ -184,6 +184,8 @@ export interface TasksSectionProps {
   captureMerge?: UndoStackApi["capture"];
   /** The optimize_wbs toolbar trigger, built by `useWbsPlan` in task-manager (null in a popout). */
   aiOptimizeButton?: React.ReactNode;
+  /** Why that trigger is unavailable (`useWbsPlan().unavailableReason`). */
+  aiOptimizeReason?: string;
 }
 
 export function TasksSection({
@@ -250,6 +252,7 @@ export function TasksSection({
   reassignHours,
   captureMerge,
   aiOptimizeButton,
+  aiOptimizeReason,
 }: TasksSectionProps) {
   // A fresh object every render (deps-object hook): read through a ref so onInlinePatch stays memoized.
   const reassignHoursRef = useRef(reassignHours);
@@ -690,6 +693,8 @@ export function TasksSection({
         jiraProjectKey={jiraProjectKey}
         dedupButton={dedup.button}
         aiOptimizeButton={aiOptimizeButton}
+        aiOptimizeReason={aiOptimizeReason}
+        dedupReason={dedup.unavailableReason}
         hideFinished={hideFinished}
         onToggleHideFinished={() => setSettings((s) => ({ ...s, hideFinishedTasks: !(s.hideFinishedTasks ?? false) }))}
         hideExternal={hideExternal}

@@ -14,7 +14,7 @@
 // the start-up check), and the §567 mount probe in use-settings.ts (unreadable). Who syncs the live
 // key: `useAiKeyCheck`, mounted once in task-manager.tsx.
 import {
-  AiHttpError, AiKeyRefusedError, aiTransportMessageKey, classifyAiError, isAiTransportMessageKey,
+  AiHttpError, AiKeyRefusedError, aiModelMessageKey, aiTransportMessageKey, classifyAiError, isAiTransportMessageKey,
   type AiKeyRefusedReason, type AiTransportMessageKey,
 } from "./ai-errors";
 
@@ -143,31 +143,39 @@ export function aiKeyMessageKeyForStatusToken(token: string | undefined | null):
   return null;
 }
 
+/** Every message key the failure mappers below can return: the transport's, the key's, and the
+ *  unavailable model's (Anthropic's 404 not_found_error, `aiModelMessageKey`). */
+export type AiFailureMessageKey = AiTransportMessageKey | AiKeyMessageKey | "aiModelUnavailable";
+
 /** The message for a thrown AI failure that is not the feature's own: the transport's (a
- *  switched-off or changed deployment, a refused or failing gateway) ahead of a refused key, or
- *  null. A surface asks this BEFORE its own network or generic fallback. Reading it records no key
- *  verdict, and a transport failure never maps to a key message. */
-export function aiFailureMessageKey(err: unknown): AiTransportMessageKey | AiKeyMessageKey | null {
-  return aiTransportMessageKey(err) ?? aiKeyMessageKeyForError(err);
+ *  switched-off or changed deployment, a refused or failing gateway) ahead of a refused key, then a
+ *  selected model Anthropic does not know (retired or unknown), or null. A surface asks this BEFORE
+ *  its own network or generic fallback. Reading it records no key verdict, and a transport failure
+ *  never maps to a key or model message. */
+export function aiFailureMessageKey(err: unknown): AiFailureMessageKey | null {
+  return aiTransportMessageKey(err) ?? aiKeyMessageKeyForError(err) ?? aiModelMessageKey(err);
 }
 
-const REFUSAL_MESSAGE_KEYS: ReadonlySet<string> = new Set<AiKeyMessageKey>(["aiKeyWrongOrganization", "aiKeyWrongWorkspace"]);
+/** The stored tokens that are their own message: a refused key's, and the unavailable model's. */
+const OWN_MESSAGE_TOKENS: ReadonlySet<string> = new Set<AiFailureMessageKey>([
+  "aiKeyWrongOrganization", "aiKeyWrongWorkspace", "aiModelUnavailable",
+]);
 
 /** The token a token-keeping hook stores for a failure that is not the feature's own: the transport's message
- *  key (an unavailable key check among them) or a refused key's message key; null for anything else, which the
- *  hook maps to its own token ("401", "limit", "network", …). The one mapper those hooks share. */
-export function aiFailureToken(err: unknown): AiTransportMessageKey | AiKeyMessageKey | null {
+ *  key (an unavailable key check among them), a refused key's message key, or the unavailable model's; null for
+ *  anything else, which the hook maps to its own token ("401", "limit", "network", …). The one mapper those
+ *  hooks share. */
+export function aiFailureToken(err: unknown): AiFailureMessageKey | null {
   if (err instanceof AiKeyRefusedError) return aiKeyMessageKeyForError(err);
-  return aiTransportMessageKey(err);
+  return aiTransportMessageKey(err) ?? aiModelMessageKey(err);
 }
 
-/** `aiFailureMessageKey` for a stored token: a transport or refused-key message key is its own message (the
- *  token-keeping hooks store it as the token, `aiFailureToken`), "401"/"403" name the key, anything else is null. */
-export function aiFailureMessageKeyForToken(
-  token: string | undefined | null,
-): AiTransportMessageKey | AiKeyMessageKey | null {
+/** `aiFailureMessageKey` for a stored token: a transport, refused-key or unavailable-model message key is its own
+ *  message (the token-keeping hooks store it as the token, `aiFailureToken`), "401"/"403" name the key, anything
+ *  else is null. */
+export function aiFailureMessageKeyForToken(token: string | undefined | null): AiFailureMessageKey | null {
   if (isAiTransportMessageKey(token)) return token;
-  if (typeof token === "string" && REFUSAL_MESSAGE_KEYS.has(token)) return token as AiKeyMessageKey;
+  if (typeof token === "string" && OWN_MESSAGE_TOKENS.has(token)) return token as AiFailureMessageKey;
   return aiKeyMessageKeyForStatusToken(token);
 }
 

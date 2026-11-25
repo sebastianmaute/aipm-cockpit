@@ -1054,6 +1054,8 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§817](#817-scheduled-jobs-a-key-minted-in-this-window-is-never-forgotten) | Scheduled jobs: a key minted in this window is never forgotten | — | — | open |
 | [§818](#818-scheduled-jobs-acceptance-entries-keep-full-instruction-text-and-are-never-pruned) | Scheduled jobs: acceptance entries keep full instruction text and are never pruned | — | — | open |
 | [§819](#819-scheduled-jobs-three-settings-functions-are-far-too-long) | Scheduled jobs: three settings functions are far too long | — | — | open |
+| [§820](#820-ai-action-buttons-refresh-the-open-points-and-gantt-visual-baselines) | AI action buttons: refresh the Open Points and Gantt visual baselines | — | — | open |
+| [§821](#821-work-breakdown-open-request-refuses-with-ai-off-when-the-installation-blocks-ai) | Work-breakdown open request refuses with "AI off" when the installation blocks AI | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -3875,12 +3877,13 @@ phase === "applying"`.
 ★★ **THE TRIGGER HAS SINCE SPLIT THAT INTO TWO PROPS, and it STRENGTHENS the "cannot recur" verdict
 at the foot of this entry rather than weakening it.**
 `7151ebfd feat: give every AI trigger a Stop affordance` (2026-08-08) routed this trigger through
-`AiTriggerButton` with `busy={phase === "thinking"}` and `disabled={phase === "applying"}`. A
-thinking trigger is therefore ENABLED now (it is a Stop button) and its visible text is `aiStop`,
-which does not match `/dup/i` at all — so the recorded dump's `disabled=""` on a thinking trigger is
-no longer producible, and neither is the text match. Do not read the deduction above as a statement
-about today's source. Reproduce:
-`grep -n "busy={phase\|disabled={phase" src/app/use-tasks-dedup.tsx`. Modal absent **and** trigger disabled ⇒ the phase was **`"thinking"`** ⇒ the
+`AiTriggerButton` with `busy={phase === "thinking"}` and `disabled={phase === "applying"}`; today the
+prop reads `disabled={(!aiReady && phase !== "thinking") || phase === "applying"}`, which adds the
+AI-not-ready case for the IDLE trigger only. A thinking trigger is therefore ENABLED now (it is a
+Stop button) and its visible text is `aiStop`, which does not match `/dup/i` at all — so the
+recorded dump's `disabled=""` on a thinking trigger is no longer producible, and neither is the text
+match. Do not read the deduction above as a statement about today's source. Reproduce:
+`grep -n "busy={phase\|disabled={" src/app/use-tasks-dedup.tsx`. Modal absent **and** trigger disabled ⇒ the phase was **`"thinking"`** ⇒ the
 trigger's text child read "Claude is looking for duplicate tasks…" ⇒ exactly one node matched ⇒
 `getByText` **succeeded**. Nothing opened and closed; the gate simply matched the trigger.
 ★ The single-match step is not a *unique* deduction — the `idle` phase also yields exactly one match
@@ -46629,3 +46632,31 @@ Expected: split `flushDraft`'s error branches into one named handler per error c
 Size S.
 
 **Source:** review of the scheduled-job acceptance branch, 2026-11-25.
+
+## 820. AI action buttons: refresh the Open Points and Gantt visual baselines
+
+**Status:** OPEN 2026-11-25, found in review of the AI action button change; never machine-verified (the visual project is opt-in and was not run). Located by reading: `grep -n "VISUAL_VIEWS" e2e/visual.spec.ts`.
+
+**Work item:** #1033
+
+With AI not ready (the e2e seed has AI off), the Deduplicate & unify trigger on Open Points and the Optimize with AI trigger now render disabled with a visible reason beside them, instead of being hidden or showing a title only. The opt-in screenshot baselines of `e2e/visual.spec.ts` (`VISUAL_VIEWS`: Dashboard, Gantt, Open Points) were taken before that, so the Open Points and Gantt baselines will differ.
+
+What it would take: run `npm run e2e:visual`, check the Open Points and Gantt differences by eye (one shared reason line on Open Points, the toolbar row height), then `npm run e2e:visual:update` with the owner's OK, and check the user-guide screenshots of those toolbars.
+
+Size S.
+
+**Source:** review of the AI action button change, 2026-11-25.
+
+## 821. Work-breakdown open request refuses with "AI off" when the installation blocks AI
+
+**Status:** OPEN 2026-11-25, found in review of the AI action button change. Located by reading: `grep -n "refuse(\"aiOff\")" src/app/use-wbs-plan.tsx`.
+
+**Work item:** #1034
+
+When the installation has AI switched off or its AI setting is invalid, the four AI action triggers are hidden. The chat's request to open the work-breakdown planner still refuses with the reason `aiOff` (`WbsOpenRefusal` in `src/app/wbs-plan/wbs-open-refusal.ts`), which tells the user to turn AI on, something they cannot do on such an installation. Whether a chat request can reach this path on such an installation at all has not been checked.
+
+Expected: a distinct refusal for the deployment block whose message uses `aiDeploymentBlockedMessageKey`, like dictation does.
+
+Size S.
+
+**Source:** review of the AI action button change, 2026-11-25.

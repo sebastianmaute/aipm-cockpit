@@ -1,3 +1,5 @@
+import { setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
@@ -98,9 +100,11 @@ interface HarnessProps {
   /** Stakeholders beyond Sam (1) and Lee (2), e.g. a third person who takes A from outside. */
   extraStakeholders?: Stakeholder[];
   logAiSpy?: ReturnType<typeof vi.fn>;
+  settings?: Settings;
+  isPopout?: boolean;
 }
 
-function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakeholderRaci, externalWrite, extraStakeholders, logAiSpy }: HarnessProps) {
+function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakeholderRaci, externalWrite, extraStakeholders, logAiSpy, settings = AI_ON, isPopout = false }: HarnessProps) {
   // Bound to a const so the `ext &&` guard's narrowing survives into the nested
   // setState/map callbacks below — a destructured PARAMETER's narrowing does not.
   const ext = externalWrite;
@@ -110,8 +114,8 @@ function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakehold
     ...(extraStakeholders ?? []),
   ]);
   const suggest = useRaciSuggest({
-    settings: AI_ON,
-    isPopout: false,
+    settings,
+    isPopout,
     lang: "en-US",
     stakeholders,
     milestones: milestonesProp ?? milestones,
@@ -650,5 +654,105 @@ describe("dropOrphanedPairHalves — only a well-formed pair survives (§771)", 
   it("drops a group of three cells, and keeps unpaired cells", () => {
     const plain: GroundedRaciCell = { ...half(4, "C"), pairKey: undefined };
     expect(dropOrphanedPairHalves([half(2, "A"), half(1, "C"), half(3, "C"), plain])).toEqual([plain]);
+  });
+});
+
+// With AI off or no key the trigger stays visible but disabled, its hint as the description; a popout and a
+// project with nothing to assign against still render none.
+describe("useRaciSuggest — the trigger when AI is not ready", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  const NO_KEY: Settings = { ...AI_ON, ai: { ...AI_ON.ai, apiKey: "" } };
+
+  it.each([
+    ["AI is off", defaultSettings],
+    ["no API key is set", NO_KEY],
+  ] as const)("when %s the trigger is present, disabled and described by the hint", (_label, settings) => {
+    renderHarness({ settings });
+    const button = screen.getByRole("button", { name: /suggest raci/i });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsAi"));
+    fireEvent.click(button);
+    expect(screen.queryByRole("button", { name: t("en-US", "raciSuggestRun") })).toBeNull();
+  });
+
+  it("is enabled without the hint when AI is ready", () => {
+    renderHarness();
+    const button = screen.getByRole("button", { name: /suggest raci/i });
+    expect(button).toBeEnabled();
+    expect(button).not.toHaveAccessibleDescription(t("en-US", "aiActionNeedsAi"));
+  });
+
+  it.each([
+    ["in a popout", { isPopout: true }],
+    ["in a popout with AI off", { isPopout: true, settings: defaultSettings }],
+    ["with no milestones and AI off", { milestones: [], settings: defaultSettings }],
+  ] as [string, HarnessProps][])("renders no trigger %s", (_label, props) => {
+    renderHarness(props);
+    expect(screen.queryByRole("button", { name: /suggest raci/i })).toBeNull();
+  });
+});
+
+// AI on and a key set, but the AI data disclosure not accepted: the hint names the disclosure.
+describe("useRaciSuggest — the trigger while the AI data disclosure is not accepted", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("is disabled and described by the consent hint", () => {
+    renderHarness({ settings: { ...AI_ON, ai: { ...AI_ON.ai, consent: undefined } } });
+    const button = screen.getByRole("button", { name: /suggest raci/i });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsConsent"));
+  });
+});
+
+// A disabled button takes no keyboard focus and `title` never shows on touch, so the reason is also visible text
+// beside the trigger (and its description), reachable by keyboard and screen-reader reading order alike.
+describe("useRaciSuggest — the reason is visible beside the disabled trigger", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("shows the hint as text when AI is off, and none when AI is ready", () => {
+    const { unmount } = renderHarness({ settings: defaultSettings });
+    expect(screen.getByText(t("en-US", "aiActionNeedsAi"))).toBeVisible();
+    unmount();
+    renderHarness();
+    expect(screen.queryByText(t("en-US", "aiActionNeedsAi"))).toBeNull();
+  });
+});
+
+
+// The organisation switched AI off for this app, or its AI setting is invalid: the user cannot turn AI on, so the
+// trigger is HIDDEN (no button, no reason text).
+describe("useRaciSuggest — the trigger while the deployment blocks AI", () => {
+  afterEach(() => { setAiDeploymentState(DIRECT_AI_STATUS); });
+  it.each([["off", { off: true }], ["invalid", { invalid: true }]] as const)("renders no trigger and no reason when it is %s", (_n, over) => {
+    setAiDeploymentState({ ...DIRECT_AI_STATUS, ...over });
+    renderHarness();
+    expect(screen.queryByRole("button", { name: /suggest raci/i })).toBeNull();
+    expect(screen.queryByText(t("en-US", "aiActionNeedsAi"))).toBeNull();
+  });
+});
+
+
+// A request is running and AI stops being ready meanwhile (consent withdrawn, key removed or AI switched off in
+// another tab): the trigger is a Stop button then, and cancelling must always work — it stays ENABLED.
+describe("useRaciSuggest — Stop while AI stops being ready", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("keeps Stop enabled and cancels the request", async () => {
+    const signals: AbortSignal[] = [];
+    vi.mocked(call.runRaciSuggestion).mockImplementation((...args: unknown[]) => {
+      for (const a of args) if (a instanceof AbortSignal) signals.push(a);
+      return new Promise(() => {});
+    });
+    const { rerender } = renderHarness();
+    openAndRun();
+    await waitFor(() => expect(signals).toHaveLength(1));
+    rerender(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <Harness settings={defaultSettings} />
+      </ToastProvider>,
+    );
+    const stop = screen.getByRole("button", { name: t("en-US", "aiStop") });
+    expect(stop).toBeEnabled();
+    fireEvent.click(stop);
+    expect(signals[0].aborted).toBe(true);
+    expect(screen.queryByRole("button", { name: t("en-US", "aiStop") })).toBeNull();
+    expect(screen.getByRole("button", { name: /suggest raci/i })).toBeDisabled();
   });
 });

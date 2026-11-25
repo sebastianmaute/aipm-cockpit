@@ -6,6 +6,7 @@ import { TestProviders } from "./test-providers";
 import { loadI18n, t, type Lang } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { FILTER_ALL } from "./task-filters";
+import { AiTriggerButton } from "./ai-trigger-button";
 
 function renderToolbar(lang: Lang, over: Partial<TasksToolbarProps> = {}) {
   const props: TasksToolbarProps = {
@@ -134,5 +135,60 @@ describe("TasksSelectionBar Send inquiries", () => {
     expect(screen.getByRole("button", { name: t("en-US", "bulkSendInquiries") }).className).toBe(
       buttonClassFor({ variant: "accent", size: "sm" }),
     );
+  });
+});
+
+// Open Points holds two AI triggers (Optimize with AI, Deduplicate & unify). Unavailable for the SAME reason, the
+// reason is written once and both triggers are described by that one text; different reasons stay separate.
+describe("TasksToolbar — one shared reason for AI triggers unavailable for the same reason", () => {
+  const REASON = "Turn AI on first.";
+  const OTHER = "Accept the disclosure first.";
+  const trigger = (labelKey: "wbsPlanButton" | "taskDedup", reason: string) => (
+    <AiTriggerButton lang="en-US" busy={false} onRun={vi.fn()} onCancel={vi.fn()} idleLabelKey={labelKey} unavailableReason={reason} />
+  );
+
+  test("the same reason appears once and describes both disabled triggers", () => {
+    renderToolbar("en-US", {
+      aiOptimizeButton: trigger("wbsPlanButton", REASON), aiOptimizeReason: REASON,
+      dedupButton: trigger("taskDedup", REASON), dedupReason: REASON,
+    });
+    expect(screen.getAllByText(REASON)).toHaveLength(1);
+    for (const key of ["wbsPlanButton", "taskDedup"] as const) {
+      const btn = screen.getByRole("button", { name: t("en-US", key) });
+      expect(btn).toBeDisabled();
+      expect(btn).toHaveAccessibleDescription(REASON);
+      expect(btn).toHaveAttribute("title", REASON);
+    }
+  });
+
+  test("different reasons are written separately, each describing its own trigger", () => {
+    renderToolbar("en-US", {
+      aiOptimizeButton: trigger("wbsPlanButton", REASON), aiOptimizeReason: REASON,
+      dedupButton: trigger("taskDedup", OTHER), dedupReason: OTHER,
+    });
+    expect(screen.getAllByText(REASON)).toHaveLength(1);
+    expect(screen.getAllByText(OTHER)).toHaveLength(1);
+    expect(screen.getByRole("button", { name: t("en-US", "wbsPlanButton") })).toHaveAccessibleDescription(REASON);
+    expect(screen.getByRole("button", { name: t("en-US", "taskDedup") })).toHaveAccessibleDescription(OTHER);
+  });
+
+  test("a single unavailable trigger keeps its own reason text", () => {
+    renderToolbar("en-US", { dedupButton: trigger("taskDedup", REASON), dedupReason: REASON });
+    expect(screen.getAllByText(REASON)).toHaveLength(1);
+    expect(screen.getByRole("button", { name: t("en-US", "taskDedup") })).toHaveAccessibleDescription(REASON);
+  });
+
+  // The real single case: fewer than two tasks hide dedup, so only Optimize with AI is unavailable. Its reason must
+  // sit right beside it, not in the toolbar's shared slot (after the dedup position, past the Jira sync button).
+  test("a reason only one trigger has sits right beside that trigger, not in the shared slot", () => {
+    renderToolbar("en-US", {
+      jiraEnabled: true, jiraProjectKey: "MARK",
+      aiOptimizeButton: trigger("wbsPlanButton", REASON), aiOptimizeReason: REASON,
+    });
+    const btn = screen.getByRole("button", { name: t("en-US", "wbsPlanButton") });
+    const beside = btn.nextElementSibling;
+    expect(beside).toHaveTextContent(REASON);
+    expect(btn.getAttribute("aria-describedby")).toBe(beside?.id);
+    expect(screen.getAllByText(REASON)).toHaveLength(1);
   });
 });

@@ -100,7 +100,7 @@ describe("ChatEraseControls — delete all my chats", () => {
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "delete my chats" } });
     fireEvent.click(screen.getByRole("button", { name: "Delete my chats" }));
     expect(await screen.findByText(
-      "Your chats were deleted; your chat passphrase could not be removed. Remove it in Settings → AI.",
+      "Your chats were deleted; your chat passphrase could not be removed. Remove it in Settings → AI Assistant.",
     )).toBeInTheDocument();
     expect(screen.queryByText("Your chats could not be deleted. Please try again.")).not.toBeInTheDocument();
   });

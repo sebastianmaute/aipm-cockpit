@@ -31,7 +31,8 @@ import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEff
 import { flushSync } from "react-dom";
 import { SparklesIcon } from "./icons";
 import { type Lang, t, tPlural } from "./i18n";
-import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
+import { type Settings, aiKeyIfEnabled, aiNotReadyHintKey, isAiEnabled } from "./settings-types";
+import { isAiDeploymentOn } from "./ai-deployment";
 import { type Task } from "./types";
 import { type LogActivityAiFn } from "./activity-log-context";
 import { aiOrigin } from "./activity-origin";
@@ -139,6 +140,9 @@ export interface WbsOpenResult {
 export interface WbsPlan {
   /** The toolbar trigger (null in a popout). */
   button: ReactNode;
+  /** Why the trigger is unavailable (its `unavailableReason`), or undefined when it is ready or not shown. A toolbar
+   *  holding another AI trigger passes it on, so one reason both share is written once (`useSharedAiReasons`). */
+  unavailableReason: string | undefined;
   /** The instruction dialog or preview modal (null while idle). */
   modal: ReactNode;
   /** The chat tool's entry point: goes straight to `thinking`. Refuses (and
@@ -497,10 +501,17 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
 
   // ★ The trigger only OPENS the dialog; the billed call fires from inside it,
   //   so it is busy (and a Stop button) in `thinking` alone.
-  // ★ With the AI off or no key it stays visible but disabled, and its reason
-  //   rides `description` → `title`; the accessible NAME stays the visible label.
+  // ★ With the AI off, no key or no current consent it stays visible but disabled,
+  //   and its reason goes in as `unavailableReason`: visible text beside it (or the
+  //   toolbar's one shared copy), its description and its `title`; the accessible
+  //   NAME stays the visible label. A popout, or a deployment that blocks AI (the
+  //   user cannot switch it on there), renders no trigger and no reason.
   // `contents`: the box adds no layout of its own to the toolbar row.
-  const button = isPopout ? null : (
+  const showTrigger = !isPopout && isAiDeploymentOn();
+  // None while a request runs: the trigger is a live Stop then, and the toolbar must not write a needs-AI hint beside it.
+  const unavailableReason =
+    showTrigger && !aiReady && phase !== "thinking" ? t(lang, aiNotReadyHintKey(settings.ai)) : undefined;
+  const button = !showTrigger ? null : (
     <span ref={triggerBoxRef} className="contents">
       <AiTriggerButton
         lang={lang}
@@ -509,8 +520,11 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         onCancel={reset}
         idleLabelKey="wbsPlanButton"
         idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
-        description={t(lang, aiReady ? "wbsPlanButtonTitle" : "wbsPlanNeedsAi")}
-        disabled={!aiReady || (phase !== "idle" && phase !== "thinking")}
+        description={t(lang, "wbsPlanButtonTitle")}
+        unavailableReason={unavailableReason}
+        // AI not ready only disables the IDLE trigger: while thinking it is Stop, and cancelling must always work
+        // (consent withdrawn, key removed or AI switched off in another tab while the request runs).
+        disabled={(!aiReady && phase !== "thinking") || (phase !== "idle" && phase !== "thinking")}
       />
     </span>
   );
@@ -543,7 +557,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
     );
   }
 
-  return { button, modal, open };
+  return { button, modal, open, unavailableReason };
 }
 
 /**

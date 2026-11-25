@@ -622,6 +622,7 @@ describe("§772 final review: Settings run history, Add job, keyed writes", () =
     ["storage-unreachable", "scheduledReportsErrStorage"],
     ["ai-key-wrong-organization", "aiKeyWrongOrganization"],
     ["ai-key-wrong-workspace", "aiKeyWrongWorkspace"],
+    ["ai-model-unavailable", "aiModelUnavailable"],
   ] as const)("a failed run with the token %s reads as its translation, not the raw token", (token, key) => {
     mockJobs = [job({ id: 1, name: "Alpha", history: failedRun(token) })];
     setup(withKey({ scheduledJobs: true }));

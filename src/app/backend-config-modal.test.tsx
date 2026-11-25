@@ -103,7 +103,7 @@ describe("BackendConfigModal", () => {
     // empty-state AI instance replaces the whole body with `AiSection` and the
     // Storage entry would have been wrong over it. The flag's justification —
     // "no Help entry describes the AI settings" — was false: `feature-ai`'s
-    // body opens "Add an Anthropic API key in Settings → AI, …". So the id is
+    // body (`helpSecAiBody`) opens "Switch AI on in Settings → AI Assistant, …". So the id is
     // now a REQUIRED prop and the AI instance repoints instead of suppressing.
     //
     // ★ Asserted through the two entries' real TITLES, so a modal that

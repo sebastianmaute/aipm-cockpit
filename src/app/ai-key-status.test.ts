@@ -179,6 +179,13 @@ describe("aiFailureMessageKey", () => {
     expect(aiFailureMessageKeyForToken("toString")).toBeNull();
     expect(aiFailureMessageKeyForToken(null)).toBeNull();
   });
+
+  it("names a retired or unknown model (Anthropic's 404 not_found_error), never the relay's empty 404", () => {
+    expect(aiFailureMessageKey(new AiHttpError(404, "not_found_error"))).toBe("aiModelUnavailable");
+    expect(aiFailureMessageKey(new AiHttpError(404))).toBeNull();
+    expect(aiFailureMessageKey(new AiDeploymentError("route-changed"))).toBe("aiDeploymentChanged");
+    expect(aiFailureMessageKeyForToken("aiModelUnavailable")).toBe("aiModelUnavailable");
+  });
 });
 
 describe("aiFailureToken — the token a token-keeping hook stores for a refused or unchecked key", () => {
@@ -187,6 +194,7 @@ describe("aiFailureToken — the token a token-keeping hook stores for a refused
     [new AiKeyRefusedError("workspace"), "aiKeyWrongWorkspace"],
     [new AiKeyCheckUnavailableError(), "aiKeyCheckUnavailable"],
     [new AiGatewayError("ai-gateway-rejected"), "aiGatewayRejected"],
+    [new AiHttpError(404, "not_found_error"), "aiModelUnavailable"],
   ] as const)("%o stores %s, which reads back as its own message", (err, key) => {
     expect(aiFailureToken(err)).toBe(key);
     expect(aiFailureMessageKeyForToken(aiFailureToken(err))).toBe(key);

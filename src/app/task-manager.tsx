@@ -1567,7 +1567,7 @@ function TaskManagerInner() {
       dispatcher={dispatcher}
       logActivityAi={logActivityAi}
       captureFieldEdit={undoApi.captureFieldEdit} reassignHours={reassignHours}
-      captureMerge={undoApi.capture} aiOptimizeButton={wbsPlan.button}
+      captureMerge={undoApi.capture} aiOptimizeButton={wbsPlan.button} aiOptimizeReason={wbsPlan.unavailableReason}
       jiraSiteUrl={settings.jira.siteUrl}
       jiraExtraProjects={settings.jira.extraProjects ?? NO_JIRA_EXTRA_PROJECTS}
       onToggleSelect={onToggleSelect}

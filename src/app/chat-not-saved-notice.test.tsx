@@ -44,7 +44,7 @@ describe("ChatNotSavedNotice", () => {
     const onStart = vi.fn(async () => undefined);
     render(<ChatNotSavedNotice lang="en-US" persistence="identity-locked" onStartNewIdentity={onStart} />);
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Your saved chats cannot be opened on this browser any more. You can delete them now (“Delete my old chats”) or start a new chat identity to save chats again. If you set a chat passphrase earlier, you can get them back with your unlock code in Settings → AI.",
+      "Your saved chats cannot be opened on this browser any more. You can delete them now (“Delete my old chats”) or start a new chat identity to save chats again. If you set a chat passphrase earlier, you can get them back with your unlock code in Settings → AI Assistant.",
     );
     fireEvent.click(screen.getByRole("button", { name: "Start a new chat identity" }));
     expect(onStart).toHaveBeenCalledTimes(1);
@@ -93,6 +93,6 @@ describe("ChatNotSavedNotice", () => {
   it("speaks German", () => {
     render(<ChatNotSavedNotice lang="de" persistence="identity-locked" onStartNewIdentity={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Neue Chat-Identität beginnen" })).toBeInTheDocument();
-    expect(screen.getByRole("status").textContent).toBe("Ihre gespeicherten Chats lassen sich in diesem Browser nicht mehr öffnen. Sie können sie jetzt löschen („Meine alten Chats löschen“) oder eine neue Chat-Identität beginnen, um wieder Chats zu speichern. Wenn Sie früher eine Chat-Passphrase festgelegt haben, erhalten Sie sie mit Ihrem Entsperrcode unter Einstellungen → KI zurück.");
+    expect(screen.getByRole("status").textContent).toBe("Ihre gespeicherten Chats lassen sich in diesem Browser nicht mehr öffnen. Sie können sie jetzt löschen („Meine alten Chats löschen“) oder eine neue Chat-Identität beginnen, um wieder Chats zu speichern. Wenn Sie früher eine Chat-Passphrase festgelegt haben, erhalten Sie sie mit Ihrem Entsperrcode unter Einstellungen → KI-Assistent zurück.");
   });
 });

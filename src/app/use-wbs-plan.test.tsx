@@ -2,6 +2,8 @@
 // forced call is mocked, the workspace is the REAL WorkspaceProvider and, where
 // undo matters, the stack is the REAL useUndoStack — so apply, the apply-time
 // re-ground and undo are exercised end to end, not against spies.
+import { setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
@@ -960,11 +962,20 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     const api = renderHarness({ settings: defaultSettings });
     const button = screen.getByRole("button", { name: t("en-US", "wbsPlanButton") });
     expect(button).toBeDisabled();
-    expect(button.getAttribute("title")).toBe(t("en-US", "wbsPlanNeedsAi"));
+    expect(button.getAttribute("title")).toBe(t("en-US", "aiActionNeedsAi"));
     let res: ReturnType<WbsPlan["open"]> | undefined;
     act(() => { res = api().wbs.open({}); });
     expect(res).toEqual({ opened: false, tasksInScope: 0, reason: "aiOff" });
     expect(call.runWbsProposal).not.toHaveBeenCalled();
+  });
+
+  it("names the AI data disclosure when AI is on with a key but the disclosure is not accepted", () => {
+    renderHarness({ settings: { ...AI_ON, ai: { ...AI_ON.ai, consent: undefined } } });
+    const button = screen.getByRole("button", { name: t("en-US", "wbsPlanButton") });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "aiActionNeedsConsent"));
+    // Also visible text beside the trigger: a disabled button takes no focus and `title` never shows on touch.
+    expect(screen.getByText(t("en-US", "aiActionNeedsConsent"))).toBeVisible();
   });
 
   it("cancel during thinking aborts the signal and shows no error toast", async () => {
@@ -1038,5 +1049,45 @@ describe("new-task assignees under people protection", () => {
     const { previewShowsAssignee, created } = await applyOneNewTask(false);
     expect(previewShowsAssignee).toBe(true);
     expect(created.assignee).toBe("Zelda Quartz");
+  });
+});
+
+
+// The organisation switched AI off for this app, or its AI setting is invalid: the user cannot turn AI on, so the
+// trigger is HIDDEN (no button, no reason text).
+describe("useWbsPlan — the trigger while the deployment blocks AI", () => {
+  afterEach(() => { setAiDeploymentState(DIRECT_AI_STATUS); });
+  it.each([["off", { off: true }], ["invalid", { invalid: true }]] as const)("renders no trigger and no reason when it is %s", (_n, over) => {
+    setAiDeploymentState({ ...DIRECT_AI_STATUS, ...over });
+    renderHarness();
+    expect(screen.queryByRole("button", { name: t("en-US", "wbsPlanButton") })).toBeNull();
+    expect(screen.queryByText(t("en-US", "aiActionNeedsAi"))).toBeNull();
+  });
+});
+
+
+// A request is running and AI stops being ready meanwhile (consent withdrawn, key removed or AI switched off in
+// another tab): the trigger is a Stop button then, and cancelling must always work — it stays ENABLED.
+describe("useWbsPlan — Stop while AI stops being ready", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("keeps Stop enabled and cancels the request", async () => {
+    const signals: AbortSignal[] = [];
+    vi.mocked(call.runWbsProposal).mockImplementation((...args: unknown[]) => {
+      for (const a of args) if (a instanceof AbortSignal) signals.push(a);
+      return new Promise(() => {});
+    });
+    const api = renderHarness();
+    await proposeFromButton();
+    await waitFor(() => expect(signals).toHaveLength(1));
+    act(() => { api.reprops({ settings: defaultSettings }); });
+    const stop = screen.getByRole("button", { name: t("en-US", "aiStop") });
+    expect(stop).toBeEnabled();
+    // No "needs AI" hint for the toolbar beside a live Stop: the reason is handed on only once the trigger is idle.
+    expect(api().wbs.unavailableReason).toBeUndefined();
+    fireEvent.click(stop);
+    expect(signals[0].aborted).toBe(true);
+    expect(screen.queryByRole("button", { name: t("en-US", "aiStop") })).toBeNull();
+    expect(screen.getByRole("button", { name: t("en-US", "wbsPlanButton") })).toBeDisabled();
+    expect(api().wbs.unavailableReason).toBe(t("en-US", "aiActionNeedsAi"));
   });
 });

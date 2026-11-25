@@ -28,6 +28,7 @@ import { IconButton } from "./icon-button";
 import { EraserIcon, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { TOUR_ANCHORS } from "./app-tour";
 import { Button } from "./button";
+import { SharedAiReasonTexts, SharedAiReasonsProvider, useSharedAiReasons } from "./ai-trigger-button";
 
 export type TasksViewMode = NonNullable<Settings["tasksViewMode"]>;
 
@@ -61,6 +62,10 @@ export interface TasksToolbarProps {
   dedupButton: React.ReactNode;
   /** The AI work-breakdown optimizer trigger; second in the control row, after Add task (null in a popout). */
   aiOptimizeButton?: React.ReactNode;
+  /** Why each AI trigger above is unavailable (its `unavailableReason`), undefined when it is ready or absent. The
+   *  same reason for both is written ONCE, after the dedup trigger, and describes both (`useSharedAiReasons`). */
+  aiOptimizeReason?: string;
+  dedupReason?: string;
   hideFinished: boolean;
   onToggleHideFinished: () => void;
   hideExternal: boolean;
@@ -94,6 +99,7 @@ export interface TasksToolbarProps {
 
 export function TasksToolbar({
   lang, onAdd, jiraEnabled, handleJiraSync, jiraSyncing, jiraProjectKey, dedupButton, aiOptimizeButton,
+  aiOptimizeReason, dedupReason,
   hideFinished, onToggleHideFinished, hideExternal, onToggleHideExternal, tasksViewMode, setTasksViewMode,
   assignableResources, laneIds, addLane, search, setSearch, priorityFilter, setPriorityFilter, effectiveFilters,
   setAssigneeFilter, setGroupFilter, setLabelFilter, uniqueAssignees, uniqueGroups, uniqueLabels,
@@ -106,174 +112,178 @@ export function TasksToolbar({
   const fold = (s: string) => s.trim().toLocaleLowerCase();
   const optionName = (value: string, fixed: readonly TranslationKey[]) =>
     fixed.some((key) => fold(t(lang, key)) === fold(value)) ? t(lang, "filterQuotedValue", value) : value;
+  const sharedAiReasons = useSharedAiReasons([aiOptimizeReason, dedupReason]);
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
-      <AddButton
-        onClick={onAdd}
-        aria-label={t(lang, "addTaskButton")}
-        title={t(lang, "addTaskButton")}
-      >
-        + {t(lang, "addTaskButton")}
-      </AddButton>
-      {aiOptimizeButton}
-      {jiraEnabled && (
-        <button
-          type="button"
-          onClick={handleJiraSync}
-          disabled={jiraSyncing || !jiraProjectKey}
-          title={
-            jiraProjectKey
-              ? t(lang, "jiraSync")
-              : t(lang, "jiraSyncNoScope")
-          }
-          className={`inline-flex items-center gap-1.5 rounded-md border border-ui-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue dark:text-ui-light-grey hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+    <SharedAiReasonsProvider ids={sharedAiReasons}>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <AddButton
+          onClick={onAdd}
+          aria-label={t(lang, "addTaskButton")}
+          title={t(lang, "addTaskButton")}
         >
-          <ArrowPathIcon aria-hidden="true" className={`h-4 w-4 ${jiraSyncing ? "animate-spin" : ""}`} />
-          {jiraSyncing ? t(lang, "jiraSyncing") : t(lang, "jiraSync")}
-        </button>
-      )}
-      {dedupButton}
-      <ToggleButton lang={lang}
-        pressed={hideFinished}
-        onToggle={onToggleHideFinished}
-        icon={<CheckCircleIcon aria-hidden="true" className="h-3.5 w-3.5" />}
-      >
-        {t(lang, "hideFinishedTasks")}
-      </ToggleButton>
-      <ToggleButton lang={lang}
-        pressed={hideExternal}
-        onToggle={onToggleHideExternal}
-        icon={<EyeSlashIcon aria-hidden="true" className="h-3.5 w-3.5" />}
-      >
-        {t(lang, "hideExternalTasks")}
-      </ToggleButton>
-      <SegmentedControl
-        value={tasksViewMode}
-        options={[
-          { value: "table", label: t(lang, "tasksViewTable") },
-          { value: "board", label: t(lang, "tasksViewBoard") },
-          { value: "swimlane", label: t(lang, "tasksViewSwimlane") },
-        ]}
-        onChange={setTasksViewMode}
-        ariaLabel={t(lang, "tasksViewModeLabel")}
-        dataTourId={TOUR_ANCHORS.tasksViewMode}
-      />
-      {tasksViewMode === "swimlane" && (
-        <TaskSwimlaneToolbar
-          lang={lang}
-          resources={assignableResources}
-          laneResourceIds={laneIds}
-          onAddLane={addLane}
+          + {t(lang, "addTaskButton")}
+        </AddButton>
+        {aiOptimizeButton}
+        {jiraEnabled && (
+          <button
+            type="button"
+            onClick={handleJiraSync}
+            disabled={jiraSyncing || !jiraProjectKey}
+            title={
+              jiraProjectKey
+                ? t(lang, "jiraSync")
+                : t(lang, "jiraSyncNoScope")
+            }
+            className={`inline-flex items-center gap-1.5 rounded-md border border-ui-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue dark:text-ui-light-grey hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+          >
+            <ArrowPathIcon aria-hidden="true" className={`h-4 w-4 ${jiraSyncing ? "animate-spin" : ""}`} />
+            {jiraSyncing ? t(lang, "jiraSyncing") : t(lang, "jiraSync")}
+          </button>
+        )}
+        {dedupButton}
+        <SharedAiReasonTexts ids={sharedAiReasons} />
+        <ToggleButton lang={lang}
+          pressed={hideFinished}
+          onToggle={onToggleHideFinished}
+          icon={<CheckCircleIcon aria-hidden="true" className="h-3.5 w-3.5" />}
+        >
+          {t(lang, "hideFinishedTasks")}
+        </ToggleButton>
+        <ToggleButton lang={lang}
+          pressed={hideExternal}
+          onToggle={onToggleHideExternal}
+          icon={<EyeSlashIcon aria-hidden="true" className="h-3.5 w-3.5" />}
+        >
+          {t(lang, "hideExternalTasks")}
+        </ToggleButton>
+        <SegmentedControl
+          value={tasksViewMode}
+          options={[
+            { value: "table", label: t(lang, "tasksViewTable") },
+            { value: "board", label: t(lang, "tasksViewBoard") },
+            { value: "swimlane", label: t(lang, "tasksViewSwimlane") },
+          ]}
+          onChange={setTasksViewMode}
+          ariaLabel={t(lang, "tasksViewModeLabel")}
+          dataTourId={TOUR_ANCHORS.tasksViewMode}
         />
-      )}
-      <PaneSearchInput
-        value={search}
-        onChange={setSearch}
-        ariaLabel={t(lang, "searchPlaceholder")}
-        clearLabel={`${t(lang, "clear")} – ${t(lang, "searchPlaceholder")}`}
-        title={t(lang, "tasksSearchHint")}
-      />
-      <Select
-        size="xs"
-        value={priorityFilter}
-        onChange={(e) =>
-          setPriorityFilter(e.target.value as Priority | "All")
-        }
-        title={t(lang, "priorityFilterHint")}
-      >
-        <option value="All">{t(lang, "allPriorities")}</option>
-        {PRIORITIES.map((p) => (
-          <option key={p} value={p}>
-            {priorityLabel(lang, p)}
-          </option>
-        ))}
-      </Select>
-      <Select
-        size="xs"
-        value={effectiveFilters.assignee}
-        onChange={(e) => setAssigneeFilter(e.target.value)}
-        title={t(lang, "assigneeFilterHint")}
-      >
-        <option value={FILTER_ALL}>{t(lang, "allAssignees")}</option>
-        {/* uniqueAssignees KEEPS blanks, so label the unassigned option (value stays ""). */}
-        {uniqueAssignees.map((a) => (
-          <option key={a} value={a}>
-            {a === "" ? t(lang, "assigneeNone") : optionName(a, ["allAssignees", "assigneeNone"])}
-          </option>
-        ))}
-      </Select>
-      <Select
-        size="xs"
-        value={effectiveFilters.group}
-        onChange={(e) => setGroupFilter(e.target.value)}
-        title={t(lang, "tasksGroupFilterHint")}
-      >
-        <option value={FILTER_ALL}>{t(lang, "allGroups")}</option>
-        <option value="">{t(lang, "groupNone")}</option>
-        {uniqueGroups.map((g) => (
-          <option key={g} value={g}>
-            {optionName(g, ["allGroups", "groupNone"])}
-          </option>
-        ))}
-      </Select>
-      <Select
-        size="xs"
-        value={effectiveFilters.label}
-        onChange={(e) => setLabelFilter(e.target.value)}
-        title={t(lang, "tasksLabelFilterHint")}
-      >
-        <option value={FILTER_ALL}>{t(lang, "allLabels")}</option>
-        {uniqueLabels.map((l) => (
-          <option key={l} value={l}>
-            {optionName(l, ["allLabels"])}
-          </option>
-        ))}
-      </Select>
-      <Select
-        size="xs"
-        value={healthFilter}
-        onChange={(e) => setHealthFilter(e.target.value as HealthFilter)}
-        aria-label={t(lang, "healthFilterLabel")}
-        title={t(lang, "healthFilterHint")}
-      >
-        <option value="all">{t(lang, "allHealth")}</option>
-        <option value="red">{t(lang, "healthRed")}</option>
-        <option value="amber">{t(lang, "healthAmber")}</option>
-        <option value="green">{t(lang, "healthGreen")}</option>
-      </Select>
-      <ColumnConfigPopover
-        lang={lang}
-        cols={CONFIGURABLE_COLS}
-        hidden={hiddenCols}
-        onToggle={(key) =>
-          setHiddenCols((prev) => {
-            const next = new Set(prev);
-            if (next.has(key)) { next.delete(key); } else { next.add(key); }
-            return next;
-          })
-        }
-      />
-      <SavedViewsControl
-        lang={lang}
-        hiddenCols={hiddenCols}
-        setHiddenCols={setHiddenCols}
-        dataTourId={TOUR_ANCHORS.savedViews}
-      />
-      {calendarControls}
-      <IconButton
-        variant="dangerBordered"
-        size="md"
-        onClick={onClearAll}
-        disabled={clearDisabled}
-        label={t(lang, "clearAll")}
-        title={t(lang, "clearAll")}
-      >
-        <EraserIcon />
-      </IconButton>
-      <PrintButton lang={lang} />
-      <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
-      <ResetSizeButton onClick={resetTableSize} lang={lang} />
-    </div>
+        {tasksViewMode === "swimlane" && (
+          <TaskSwimlaneToolbar
+            lang={lang}
+            resources={assignableResources}
+            laneResourceIds={laneIds}
+            onAddLane={addLane}
+          />
+        )}
+        <PaneSearchInput
+          value={search}
+          onChange={setSearch}
+          ariaLabel={t(lang, "searchPlaceholder")}
+          clearLabel={`${t(lang, "clear")} – ${t(lang, "searchPlaceholder")}`}
+          title={t(lang, "tasksSearchHint")}
+        />
+        <Select
+          size="xs"
+          value={priorityFilter}
+          onChange={(e) =>
+            setPriorityFilter(e.target.value as Priority | "All")
+          }
+          title={t(lang, "priorityFilterHint")}
+        >
+          <option value="All">{t(lang, "allPriorities")}</option>
+          {PRIORITIES.map((p) => (
+            <option key={p} value={p}>
+              {priorityLabel(lang, p)}
+            </option>
+          ))}
+        </Select>
+        <Select
+          size="xs"
+          value={effectiveFilters.assignee}
+          onChange={(e) => setAssigneeFilter(e.target.value)}
+          title={t(lang, "assigneeFilterHint")}
+        >
+          <option value={FILTER_ALL}>{t(lang, "allAssignees")}</option>
+          {/* uniqueAssignees KEEPS blanks, so label the unassigned option (value stays ""). */}
+          {uniqueAssignees.map((a) => (
+            <option key={a} value={a}>
+              {a === "" ? t(lang, "assigneeNone") : optionName(a, ["allAssignees", "assigneeNone"])}
+            </option>
+          ))}
+        </Select>
+        <Select
+          size="xs"
+          value={effectiveFilters.group}
+          onChange={(e) => setGroupFilter(e.target.value)}
+          title={t(lang, "tasksGroupFilterHint")}
+        >
+          <option value={FILTER_ALL}>{t(lang, "allGroups")}</option>
+          <option value="">{t(lang, "groupNone")}</option>
+          {uniqueGroups.map((g) => (
+            <option key={g} value={g}>
+              {optionName(g, ["allGroups", "groupNone"])}
+            </option>
+          ))}
+        </Select>
+        <Select
+          size="xs"
+          value={effectiveFilters.label}
+          onChange={(e) => setLabelFilter(e.target.value)}
+          title={t(lang, "tasksLabelFilterHint")}
+        >
+          <option value={FILTER_ALL}>{t(lang, "allLabels")}</option>
+          {uniqueLabels.map((l) => (
+            <option key={l} value={l}>
+              {optionName(l, ["allLabels"])}
+            </option>
+          ))}
+        </Select>
+        <Select
+          size="xs"
+          value={healthFilter}
+          onChange={(e) => setHealthFilter(e.target.value as HealthFilter)}
+          aria-label={t(lang, "healthFilterLabel")}
+          title={t(lang, "healthFilterHint")}
+        >
+          <option value="all">{t(lang, "allHealth")}</option>
+          <option value="red">{t(lang, "healthRed")}</option>
+          <option value="amber">{t(lang, "healthAmber")}</option>
+          <option value="green">{t(lang, "healthGreen")}</option>
+        </Select>
+        <ColumnConfigPopover
+          lang={lang}
+          cols={CONFIGURABLE_COLS}
+          hidden={hiddenCols}
+          onToggle={(key) =>
+            setHiddenCols((prev) => {
+              const next = new Set(prev);
+              if (next.has(key)) { next.delete(key); } else { next.add(key); }
+              return next;
+            })
+          }
+        />
+        <SavedViewsControl
+          lang={lang}
+          hiddenCols={hiddenCols}
+          setHiddenCols={setHiddenCols}
+          dataTourId={TOUR_ANCHORS.savedViews}
+        />
+        {calendarControls}
+        <IconButton
+          variant="dangerBordered"
+          size="md"
+          onClick={onClearAll}
+          disabled={clearDisabled}
+          label={t(lang, "clearAll")}
+          title={t(lang, "clearAll")}
+        >
+          <EraserIcon />
+        </IconButton>
+        <PrintButton lang={lang} />
+        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+        <ResetSizeButton onClick={resetTableSize} lang={lang} />
+      </div>
+    </SharedAiReasonsProvider>
   );
 }
 

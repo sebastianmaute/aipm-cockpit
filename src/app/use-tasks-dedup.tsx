@@ -16,7 +16,8 @@
 import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import { SparklesIcon } from "./icons";
 import { type Lang, t, tPlural } from "./i18n";
-import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
+import { type Settings, aiKeyIfEnabled, aiNotReadyHintKey, isAiEnabled } from "./settings-types";
+import { isAiDeploymentOn } from "./ai-deployment";
 import { type Task } from "./types";
 import { type LogActivityAiFn } from "./activity-log-context";
 import { aiOrigin } from "./activity-origin";
@@ -72,6 +73,9 @@ export interface TasksDedupDeps {
 export interface TasksDedup {
   /** The toolbar trigger element (null when the feature is unavailable). */
   button: ReactNode;
+  /** Why the trigger is unavailable (its `unavailableReason`), or undefined when it is ready or not shown. A toolbar
+   *  holding another AI trigger passes it on, so one reason both share is written once (`useSharedAiReasons`). */
+  unavailableReason: string | undefined;
   /** The review/confirm modal element (null when no proposal is open). */
   modal: ReactNode;
 }
@@ -91,8 +95,12 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
   const apiKey = aiKeyIfEnabled(settings.ai);
   const guideText = useActionGuideText("dedup");
   const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
-  const enabled =
-    isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() && tasks.length >= MIN_TASKS_FOR_DEDUP;
+  // AI switched on with a key and a current consent (`isAiEnabled`). Without it the trigger still shows (when
+  // `showTrigger`), disabled with the hint `aiNotReadyHintKey` picks; a popout, a list below the minimum, or a
+  // deployment that blocks AI (the user cannot switch it on there) shows none.
+  const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
+  const showTrigger = !isPopout && isAiDeploymentOn() && tasks.length >= MIN_TASKS_FOR_DEDUP;
+  const enabled = aiReady && showTrigger;
 
   // Abort any in-flight proposal if the pane unmounts — a billed response must
   // never keep running against a dead component. Cleanup-only: sets no state, so
@@ -209,7 +217,10 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
   //   It used to be this trigger's aria-label; the NAME is now the visible label
   //   (see the test file for why that swap was not itself a 2.5.3 fix), so
   //   without `description` the longer sentence would be lost disclosure.
-  const button = enabled ? (
+  // None while a request runs: the trigger is a live Stop then, and the toolbar must not write a needs-AI hint beside it.
+  const unavailableReason =
+    showTrigger && !aiReady && phase !== "thinking" ? t(lang, aiNotReadyHintKey(settings.ai)) : undefined;
+  const button = showTrigger ? (
     <AiTriggerButton
       lang={lang}
       busy={phase === "thinking"}
@@ -219,7 +230,10 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
       nameQualifier={triggerQualifier}
       description={t(lang, "taskDedupTitle")}
-      disabled={phase === "applying"}
+      unavailableReason={unavailableReason}
+      // AI not ready only disables the IDLE trigger: while thinking it is Stop, and cancelling must always work
+      // (consent withdrawn, key removed or AI switched off in another tab while the request runs).
+      disabled={(!aiReady && phase !== "thinking") || phase === "applying"}
     />
   ) : null;
 
@@ -236,5 +250,5 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
     />
   ) : null;
 
-  return { button, modal };
+  return { button, modal, unavailableReason };
 }

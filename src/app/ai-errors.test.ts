@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AiConsentRevokedError as RevokedFromConsent } from "./ai-consent";
-import { AiConsentRevokedError, AiHttpError, AiTimeoutError, aiTransportMessageKey, isAiTransportMessageKey, classifyAiError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
+import { AiConsentRevokedError, AiDeploymentError, AiHttpError, AiTimeoutError, aiModelMessageKey, aiTransportMessageKey, isAiTransportMessageKey, classifyAiError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 
 describe("classifyAiError", () => {
   it("classifies HTTP 429 as limit", () => {
@@ -24,7 +24,35 @@ describe("classifyAiError", () => {
   it("classifies 500 and other statuses as generic", () => {
     expect(classifyAiError(500)).toBe("generic");
     expect(classifyAiError(400)).toBe("generic");
-    expect(classifyAiError(404, "not_found_error")).toBe("generic");
+  });
+
+  // Anthropic answers a model that does not exist or was retired with 404 and `error.type`
+  // "not_found_error" (`{"type":"error","error":{"type":"not_found_error","message":"model: …"}}`).
+  it("classifies a 404 not_found_error as model", () => {
+    expect(classifyAiError(404, "not_found_error")).toBe("model");
+  });
+
+  it("does not classify an empty or other 404 as model", () => {
+    expect(classifyAiError(404)).toBe("generic");
+    expect(classifyAiError(404, "invalid_request_error")).toBe("generic");
+    expect(classifyAiError(400, "not_found_error")).toBe("generic");
+  });
+
+  it("leaves 429, 401 and 403 unchanged next to the model class", () => {
+    expect(classifyAiError(429, "not_found_error")).toBe("limit");
+    expect(classifyAiError(401, "not_found_error")).toBe("auth");
+    expect(classifyAiError(403)).toBe("auth");
+  });
+});
+
+describe("aiModelMessageKey", () => {
+  it("names only Anthropic's 404 not_found_error as the unavailable model", () => {
+    expect(aiModelMessageKey(new AiHttpError(404, "not_found_error"))).toBe("aiModelUnavailable");
+    expect(aiModelMessageKey(new AiHttpError(404))).toBeNull();
+    expect(aiModelMessageKey(new AiHttpError(500, "api_error"))).toBeNull();
+    // The relay's empty 404 is a changed route, never a model verdict.
+    expect(aiModelMessageKey(new AiDeploymentError("route-changed"))).toBeNull();
+    expect(aiModelMessageKey(new Error("404"))).toBeNull();
   });
 });
 

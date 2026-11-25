@@ -5041,7 +5041,7 @@ describe("§650 a refused key shows the key message", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it.each([
-    [401, "authentication_error", "Claude rejected your Anthropic API key. Enter a new key in Settings → AI."],
+    [401, "authentication_error", "Claude rejected your Anthropic API key. Enter a new key in Settings → AI Assistant."],
     [403, "permission_error", "Your Anthropic API key isn't allowed to make this request."],
   ] as const)("a %i shows the key message instead of the raw failure", async (status, type, copy) => {
     const body = { error: { type, message: "invalid x-api-key" } };
@@ -5063,6 +5063,30 @@ describe("§650 a refused key shows the key message", () => {
     expect(alert).toHaveTextContent(copy);
     expect(alert).not.toHaveTextContent(/Chat failed/i);
     expect(alert).not.toHaveTextContent(/invalid x-api-key/);
+  });
+});
+
+describe("a retired or unknown model shows the model message", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("Anthropic's 404 not_found_error names the model and Settings, not the raw failure", async () => {
+    const body = { type: "error", error: { type: "not_found_error", message: "model: claude-retired-1" } };
+    spyAiFetch().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: () => Promise.resolve(body),
+      text: () => Promise.resolve(JSON.stringify(body)),
+    } as unknown as Response);
+
+    render(
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(t("en-US", "aiModelUnavailable"));
+    expect(alert).not.toHaveTextContent(/Chat failed/i);
   });
 });
 
