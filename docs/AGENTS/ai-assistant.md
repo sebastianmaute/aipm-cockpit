@@ -1456,10 +1456,13 @@
   hooks); `task-dedup-modal.tsx` is the review modal (per-group deselect). ★★ Confirm folds the duplicates +
   applies the KEEP task's sanitized unified fields via a FUNCTIONAL `setTasks(prev=>…)` updater and records
   ONE undo entry (removed duplicates + edited keeps). Gated `isAiEnabled && !isPopout && tasks.length >= 2`.
-  ★ The user's half of that gate only DISABLES the trigger: with AI off, no key or no current AI data disclosure
-  consent it renders disabled with the hint `aiNotReadyHintKey` picks — `aiActionNeedsConsent` when the switch
-  and a key are there but the consent is missing or stale, otherwise `aiActionNeedsAi` — as Suggest RACI, Plan
-  with AI and Optimize with AI do. ★ A deployment that blocks AI (`isAiDeploymentOn` false: switched off or an
+  ★ The user's half of that gate only DISABLES the IDLE trigger: with AI off, no key or no current AI data
+  disclosure consent it renders disabled with the hint `aiNotReadyHintKey` picks — `aiActionNeedsConsent` when the
+  switch and a key are there but the consent is missing or stale, otherwise `aiActionNeedsAi`. ★★ A RUNNING
+  request's Stop stays ENABLED when AI stops being ready meanwhile (consent withdrawn, key removed, AI switched off
+  in another tab — cancelling must always work), and no hint is shown or handed to the toolbar beside a live Stop
+  (the dedup and work-breakdown hooks return no `unavailableReason` while thinking). All four triggers behave so:
+  Deduplicate & unify, Suggest RACI, Plan with AI and Optimize with AI. ★ A deployment that blocks AI (`isAiDeploymentOn` false: switched off or an
   invalid setting) HIDES all four triggers instead, with no reason text: the user cannot switch AI on there, and
   Settings already names the block (`aiDeploymentBlockedMessageKey`). The hint goes in through
   `AiTriggerButton`'s `unavailableReason`, which keeps a real `disabled` and shows the hint as VISIBLE muted text
