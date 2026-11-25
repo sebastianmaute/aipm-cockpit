@@ -7,10 +7,10 @@ import { AiKeyBanner } from "./notifications";
 import { loadI18n, t } from "./i18n";
 
 const EN_COPY = {
-  rejected: "Claude rejected your Anthropic API key. Enter a new key in Settings → AI.",
+  rejected: "Claude rejected your Anthropic API key. Enter a new key in Settings → AI Assistant.",
   forbidden:
-    "Your Anthropic API key isn't allowed to make this request. Check the key's permissions in the Anthropic Console, or enter a different key in Settings → AI.",
-  unreadable: "Your saved Anthropic API key couldn't be read on this device. Enter it again in Settings → AI.",
+    "Your Anthropic API key isn't allowed to make this request. Check the key's permissions in the Anthropic Console, or enter a different key in Settings → AI Assistant.",
+  unreadable: "Your saved Anthropic API key couldn't be read on this device. Enter it again in Settings → AI Assistant.",
 } as const;
 
 describe("AiKeyBanner", () => {
@@ -48,7 +48,7 @@ describe("AiKeyBanner", () => {
     render(<AiKeyBanner status="unreadable" lang="de" onOpenSettings={() => {}} onDismiss={() => {}} />);
     const region = screen.getByRole("region", { name: "Problem mit dem Anthropic-API-Schlüssel" });
     expect(region).toHaveTextContent(
-      "Ihr gespeicherter Anthropic-API-Schlüssel konnte auf diesem Gerät nicht gelesen werden. Geben Sie ihn unter Einstellungen → KI erneut ein.",
+      "Ihr gespeicherter Anthropic-API-Schlüssel konnte auf diesem Gerät nicht gelesen werden. Geben Sie ihn unter Einstellungen → KI-Assistent erneut ein.",
     );
     expect(screen.getByRole("button", { name: "KI-Einstellungen öffnen" })).toBeInTheDocument();
   });

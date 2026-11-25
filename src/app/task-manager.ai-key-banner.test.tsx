@@ -30,7 +30,7 @@ import TaskManager from "./task-manager";
 
 const KEY = "sk-ant-api03-BannerTestKey0000000000";
 const KEY_2 = "sk-ant-api03-BannerTestKey2222222222";
-const REJECTED = "Claude rejected your Anthropic API key. Enter a new key in Settings → AI.";
+const REJECTED = "Claude rejected your Anthropic API key. Enter a new key in Settings → AI Assistant.";
 
 function seed(layout: "modern" | "classic", aiEnabled = true) {
   window.localStorage.clear();

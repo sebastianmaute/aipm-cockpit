@@ -77,7 +77,7 @@ longer carries its own changelog comment.
 ### Fixed
 
 - **A retired or unknown AI model is named as such.** When Anthropic no longer offers the selected model, the chat
-  and the AI actions now say so and point to Settings → AI to choose another one, instead of a generic failure.
+  and the AI actions now say so and point to Settings → AI Assistant to choose another one, instead of a generic failure.
   Scheduled jobs record and show the same reason, and the background insight recommendations stop at the first
   such failure instead of trying every remaining insight.
 - **Models that need a different tool request are remembered after a reload.** The app learns which models refuse

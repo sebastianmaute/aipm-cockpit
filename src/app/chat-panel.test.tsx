@@ -5041,7 +5041,7 @@ describe("§650 a refused key shows the key message", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it.each([
-    [401, "authentication_error", "Claude rejected your Anthropic API key. Enter a new key in Settings → AI."],
+    [401, "authentication_error", "Claude rejected your Anthropic API key. Enter a new key in Settings → AI Assistant."],
     [403, "permission_error", "Your Anthropic API key isn't allowed to make this request."],
   ] as const)("a %i shows the key message instead of the raw failure", async (status, type, copy) => {
     const body = { error: { type, message: "invalid x-api-key" } };
