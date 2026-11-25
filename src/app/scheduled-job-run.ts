@@ -69,7 +69,9 @@ export interface RunDeps {
  *  An `AiDeploymentError` or an `AiKeyCheckUnavailableError` never reaches it: the run catches them first as transient and waits for its next check. */
 export function toErrorToken(e: unknown): ReportErrorToken {
   if (e instanceof AiHttpError) {
-    if (classifyAiError(e.status, e.errorType) === "limit") return "limit";
+    const cls = classifyAiError(e.status, e.errorType);
+    if (cls === "limit") return "limit";
+    if (cls === "model") return "ai-model-unavailable";
     if (e.status === 401) return "401";
     if (e.status === 403) return "403";
     return "error";

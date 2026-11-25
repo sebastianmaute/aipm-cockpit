@@ -331,6 +331,9 @@ describe("toErrorToken", () => {
     expect(toErrorToken(new AiHttpError(401))).toBe("401");
     expect(toErrorToken(new AiHttpError(403))).toBe("403");
     expect(toErrorToken(new AiHttpError(500))).toBe("error");
+    // A selected model Anthropic does not know has its own token; any other 404 stays "error".
+    expect(toErrorToken(new AiHttpError(404, "not_found_error"))).toBe("ai-model-unavailable");
+    expect(toErrorToken(new AiHttpError(404))).toBe("error");
     expect(toErrorToken(new Error("parse"))).toBe("parse");
     expect(toErrorToken(new StorageNotReadyError("x"))).toBe("storage-unreachable");
     expect(toErrorToken(new TursoStepError(1, "boom"))).toBe("turso");

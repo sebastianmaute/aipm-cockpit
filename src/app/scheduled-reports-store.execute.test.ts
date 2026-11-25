@@ -149,6 +149,16 @@ describe("scheduled_reports store (§772)", () => {
     expect(list[0].data.error).toBe("ai-gateway-error");
   });
 
+  // An older version, whose token set lacks it, reads this token as "error" (the "unknown error" case above).
+  it("listReports keeps the unavailable-model token, so the run names the model", async () => {
+    await claimReport(CONFIG, row("a", "k", "2026-01-01"));
+    db.prepare("UPDATE scheduled_reports SET data = ? WHERE id = 'a'").run(JSON.stringify({
+      jobName: "J", projectName: "P", summary: "", error: "ai-model-unavailable", actions: [],
+    }));
+    const list = await listReports(CONFIG);
+    expect(list[0].data.error).toBe("ai-model-unavailable");
+  });
+
   it("isInterrupted is true for a running row older than 30 minutes only", () => {
     const base: ScheduledReport = { ...row("a", "k", "s"), ranAt: "2026-10-23T00:00:00.000Z", status: "running", ok: false };
     const now = new Date("2026-10-23T12:00:00.000Z");

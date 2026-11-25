@@ -32,7 +32,10 @@ export type ReportErrorToken =
   // recorded: the run treats it as transient and retries on its next check.
   | "ai-key-wrong-organization" | "ai-key-wrong-workspace"
   // Claude did not answer within the AI request time limit (§798).
-  | "ai-timed-out";
+  | "ai-timed-out"
+  // Anthropic does not know the selected model (retired or unknown: a 404 not_found_error). An older version, whose
+  // token set lacks it, reads it as "error" (report decoder) or as the generic failed line (run history).
+  | "ai-model-unavailable";
 
 /** The one token -> message map, shared by the reports view and the Settings run history. */
 export const REPORT_ERROR_KEY: Record<ReportErrorToken, TranslationKey> = {
@@ -53,6 +56,7 @@ export const REPORT_ERROR_KEY: Record<ReportErrorToken, TranslationKey> = {
   "ai-key-wrong-organization": "aiKeyWrongOrganization",
   "ai-key-wrong-workspace": "aiKeyWrongWorkspace",
   "ai-timed-out": "aiRequestTimedOut",
+  "ai-model-unavailable": "aiModelUnavailable",
 };
 
 export type ReportData = {
