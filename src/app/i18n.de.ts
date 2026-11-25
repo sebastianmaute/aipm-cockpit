@@ -1627,6 +1627,7 @@ export const de: Record<TranslationKey, string> = {
   scheduledJobTimeZone: "Zeitzone",
   scheduledJobForeign: "Von einer neueren Version der App erstellt. Diese Version kann ihn weder bearbeiten noch ausführen; löschen können Sie ihn aber.",
   scheduledJobsWriteFailed: "Die Änderung konnte nicht gespeichert werden. Prüfen Sie die Verbindung und versuchen Sie es erneut.",
+  scheduledJobsLoadFailedAfterSwitch: "Die Jobs dieses Portfolios konnten nicht geladen werden. Die angezeigte Liste gehört zum vorherigen Portfolio.",
   scheduledJobZoneUnset: "Noch nicht festgelegt",
   scheduledJobInstruction: "Anweisung",
   scheduledJobInstructionPlaceholder: "Worauf soll dieser Job achten, und was soll er ignorieren?",

@@ -60,6 +60,9 @@ export interface UseScheduledJobsResult {
   /** The backend `jobs` was read from (`backendOf`): undefined before the first read. After a config change `jobs`
    *  still belongs to the previous backend until the new read lands. */
   jobsSource: string | null | undefined;
+  /** The backend whose latest read failed while it was the active one (`backendOf`), until a read of it succeeds;
+   *  undefined when none did. */
+  failedSource: string | null | undefined;
   busy: boolean;
   ready: boolean;
   createJob: (input: CreateScheduledJobInput) => Promise<void>;
@@ -151,6 +154,7 @@ const LOAD_RETRY_MS = 5_000;
 export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving = false }: UseScheduledJobsArgs): UseScheduledJobsResult {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
   const [jobsSource, setJobsSource] = useState<string | null | undefined>(undefined);
+  const [failedSource, setFailedSource] = useState<string | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const [savingJobs, setSavingJobs] = useState<ReadonlySet<string>>(new Set());
@@ -200,8 +204,8 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
   }, []);
 
   const refresh = useCallback(async () => {
+    const config = cfgRef.current;
     try {
-      const config = cfgRef.current;
       const startedAt = generationOf(config);
       const list = await loadScheduledJobs(config);
       if (!mountedRef.current || startedAt !== generationOf(config) || backendOf(cfgRef.current) !== backendOf(config)) return;
@@ -212,9 +216,11 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
       }
       setJobs(list);
       setJobsSource(backendOf(config));
+      setFailedSource(undefined);
       retriesRef.current = 0;
     } catch {
-      // Optional feature: leave jobs as they are, and try again a few times.
+      // Optional feature: leave jobs as they are, and try again a few times. Said only while that backend is active.
+      if (mountedRef.current && backendOf(cfgRef.current) === backendOf(config)) setFailedSource(backendOf(config));
       if (mountedRef.current && retriesRef.current < MAX_LOAD_RETRIES) {
         retriesRef.current += 1;
         if (retryTimerRef.current !== null) clearTimeout(retryTimerRef.current);
@@ -462,7 +468,7 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
     writeJob(jobId, key, (j) => appendRun(j, run)), [writeJob]);
 
   return {
-    jobs, jobsSource, busy, ready, createJob, updateJob, deleteJob, assignProject, clearProject, disableJob, recordRun, refresh, readFresh,
+    jobs, jobsSource, failedSource, busy, ready, createJob, updateJob, deleteJob, assignProject, clearProject, disableJob, recordRun, refresh, readFresh,
     savingJobs,
   };
 }

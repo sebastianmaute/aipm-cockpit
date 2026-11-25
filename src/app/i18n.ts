@@ -1733,6 +1733,7 @@ const enUS = {
   scheduledJobTimeZone: "Time zone",
   scheduledJobForeign: "Created by a newer version of the app. This version cannot edit or run it; you can still delete it.",
   scheduledJobsWriteFailed: "The change could not be saved. Check the connection and try again.",
+  scheduledJobsLoadFailedAfterSwitch: "The jobs of this portfolio could not be loaded. The list shown belongs to the previous portfolio.",
   scheduledJobZoneUnset: "Not set yet",
   scheduledJobInstruction: "Instruction",
   scheduledJobInstructionPlaceholder: "What should this job look for, and what should it ignore?",

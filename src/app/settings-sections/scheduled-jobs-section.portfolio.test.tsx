@@ -9,7 +9,7 @@ import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import type { TursoConfig } from "../turso-config";
-import { __resetEditedHereForTests, ACCEPTANCE_KEY, acceptanceScope, acceptanceState, storedAcceptanceEntry } from "../scheduled-job-acceptance";
+import { __resetEditedHereForTests, ACCEPTANCE_KEY, acceptanceScope, acceptanceState, acceptJob, storedAcceptanceEntry } from "../scheduled-job-acceptance";
 
 const store = vi.hoisted(() => ({
   lists: new Map<string, unknown[]>(),
@@ -17,10 +17,13 @@ const store = vi.hoisted(() => ({
   writes: [] as string[],
   /** How many of the next saves fail (the database unreachable). */
   failNext: 0,
+  /** Every read of this backend fails (the database unreachable), until cleared. */
+  failLoadOf: null as string | null,
 }));
 vi.mock("../scheduled-jobs-store", () => ({
   loadScheduledJobs: async (config: { httpUrl: string } | null) => {
     if (store.loadGate) await store.loadGate;
+    if (store.failLoadOf !== null && config?.httpUrl === store.failLoadOf) throw new Error("offline");
     return structuredClone(store.lists.get(config?.httpUrl ?? "local") ?? []);
   },
   saveScheduledJobs: async (config: { httpUrl: string } | null, next: unknown[]) => {
@@ -75,6 +78,7 @@ beforeEach(() => {
   store.loadGate = null;
   store.writes = [];
   store.failNext = 0;
+  store.failLoadOf = null;
 });
 
 describe("ScheduledJobsSection — assigning a project to a legacy job", () => {
@@ -242,6 +246,96 @@ describe("ScheduledJobsSection — an answer is recorded only for the portfolio 
     await sleep(300);
     expect(entryIn(A)).toBeNull(); // never an answer for A judged on B's job
     expect(entryIn(B)).toBeNull();
+    // A refused Accept says nothing: no "couldn't check" notice on the job's row.
+    expect(screen.queryByText(t("en-US", "scheduledJobAcceptFailed"))).toBeNull();
+  });
+
+  it("during the switch window a row shows its answer as given in the portfolio of the list on screen", async () => {
+    acceptJob(job(), acceptanceScope(A.httpUrl));
+    store.lists.set(A.httpUrl, [job()]);
+    store.lists.set(B.httpUrl, [job()]); // a clone: in B this job waits for an OK
+    const view = render(section(A));
+    await screen.findByText(t("en-US", "scheduledJobAcceptedHere"));
+    holdLoads();
+    view.rerender(section(B));
+    await sleep(20);
+    expect(screen.getByText(t("en-US", "scheduledJobAcceptedHere"))).toBeInTheDocument(); // A's state, not B's
+    expect(screen.queryByText(t("en-US", "scheduledJobNeedsOk"))).toBeNull();
+  });
+
+  it("Stop pressed during the switch window writes nothing anywhere and says nothing", async () => {
+    acceptJob(job(), acceptanceScope(A.httpUrl));
+    store.lists.set(A.httpUrl, [job()]);
+    store.lists.set(B.httpUrl, [job()]);
+    const view = render(section(A));
+    await screen.findByText(t("en-US", "scheduledJobAcceptedHere"));
+    const release = holdLoads();
+    view.rerender(section(B));
+    await sleep(20);
+    fireEvent.click(screen.getByRole("button", { name: "Stop on this device: Daily risks" }));
+    await sleep(20);
+    expect(screen.queryByText(t("en-US", "scheduledJobAnswerSaveFailed"))).toBeNull();
+    release();
+    await sleep(300);
+    expect(acceptanceState(job(), acceptanceScope(A.httpUrl))).toBe("accepted");
+    expect(entryIn(B)).toBeNull();
+  });
+
+  it("Not on this device pressed during the switch window writes nothing anywhere and says nothing", async () => {
+    store.lists.set(A.httpUrl, [job()]);
+    store.lists.set(B.httpUrl, [job()]);
+    const view = render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    const release = holdLoads();
+    view.rerender(section(B));
+    await sleep(20);
+    fireEvent.click(screen.getByRole("button", { name: "Not on this device: Daily risks" }));
+    await sleep(20);
+    expect(screen.queryByText(t("en-US", "scheduledJobAnswerSaveFailed"))).toBeNull();
+    release();
+    await sleep(300);
+    expect(entryIn(A)).toBeNull();
+    expect(entryIn(B)).toBeNull();
+  });
+
+  it("when the new portfolio's list cannot be loaded, the section says the list shown is the previous one's", async () => {
+    store.lists.set(A.httpUrl, [job()]);
+    store.lists.set(B.httpUrl, [job()]);
+    const view = render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    const notice = () => screen.queryByText(t("en-US", "scheduledJobsLoadFailedAfterSwitch"));
+    expect(notice()).toBeNull();
+    store.failLoadOf = B.httpUrl;
+    view.rerender(section(B));
+    await sleep(100);
+    expect(notice()).not.toBeNull();
+    expect(acceptButton()).toHaveAttribute("aria-disabled", "true"); // still A's list: no answers
+    store.failLoadOf = null;
+    await act(async () => { window.dispatchEvent(new Event("focus")); }); // a later read succeeds
+    await sleep(150);
+    expect(notice()).toBeNull();
+    expect(acceptButton()).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("a failed load once recovered is forgotten: a later switch back to that portfolio says nothing while it loads", async () => {
+    store.lists.set(A.httpUrl, [job()]);
+    store.lists.set(B.httpUrl, [job()]);
+    const view = render(section(A));
+    await screen.findByRole("textbox", { name: fieldName });
+    const notice = () => screen.queryByText(t("en-US", "scheduledJobsLoadFailedAfterSwitch"));
+    store.failLoadOf = B.httpUrl;
+    view.rerender(section(B));
+    await sleep(100);
+    expect(notice()).not.toBeNull();
+    store.failLoadOf = null;
+    await act(async () => { window.dispatchEvent(new Event("focus")); }); // B's list now loads
+    await sleep(150);
+    view.rerender(section(A));
+    await sleep(150);
+    holdLoads(); // B's next list is still on its way
+    view.rerender(section(B));
+    await sleep(20);
+    expect(notice()).toBeNull(); // nothing failed this time
   });
 
   it("with no switch, Accept, Stop and Not on this device answer as before", async () => {

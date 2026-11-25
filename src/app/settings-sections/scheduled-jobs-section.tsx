@@ -10,7 +10,7 @@
 // It reads the project lists itself (never through usePortfolioProjects, which
 // follows the OPEN portfolio) so the picker works from any view.
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { isBackgroundOffForced } from "../ai-project-switches";
 import { type Lang, t, tPlural } from "../i18n";
 import { FieldHint } from "../field-hint";
@@ -79,7 +79,7 @@ function useProjectLists(config: TursoConfig | null, available: boolean): Projec
 }
 
 export function ScheduledJobsSection({ lang, settings, onChange, config }: ScheduledJobsSectionProps) {
-  const { jobs, jobsSource, busy, createJob, updateJob, deleteJob, assignProject, refresh, readFresh, savingJobs } =
+  const { jobs, jobsSource, failedSource, busy, createJob, updateJob, deleteJob, assignProject, refresh, readFresh, savingJobs } =
     useScheduledJobs({ config, refreshOnFocus: true, trackSaving: true });
   // §316 — every new job starts with the same default name.
   const jobTokens = useRowTokens(jobs, nameOfJob);
@@ -106,9 +106,13 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   const shownBackend = jobsSource !== undefined ? jobsSource : activeBackend;
   const scope = acceptanceScope(shownBackend);
   const answersLive = shownBackend === activeBackend;
-  // The active portfolio NOW (for an answer whose read resolves after a switch).
+  // The active portfolio NOW (for an answer whose read resolves after a switch). Synced in a layout effect, so it is
+  // current from the commit on: no read resolves between a switch's commit and this update.
   const activeBackendRef = useRef(activeBackend);
-  useEffect(() => { activeBackendRef.current = activeBackend; }, [activeBackend]);
+  useLayoutEffect(() => { activeBackendRef.current = activeBackend; }, [activeBackend]);
+  // The new portfolio's list could not be read: the rows on screen are still the previous portfolio's (and cannot be
+  // answered), so say so until a read of it succeeds.
+  const loadFailedAfterSwitch = failedSource !== undefined && failedSource === activeBackend && shownBackend !== activeBackend;
   const awaitingOk = jobs.filter((j) => {
     if (!isRunnable(j)) return false;
     const state = acceptanceState(j, scope);
@@ -287,6 +291,9 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
               </div>
               {projects.failed && <FieldHint>{t(lang, "tursoPickerError")}</FieldHint>}
               {writeFailed && <p role="alert" className="text-xs text-foreground">{t(lang, "scheduledJobsWriteFailed")}</p>}
+              {loadFailedAfterSwitch && (
+                <p role="alert" className="text-xs text-foreground">{t(lang, "scheduledJobsLoadFailedAfterSwitch")}</p>
+              )}
               {switchRefused && (
                 <p role="alert" className="text-xs text-foreground">{t(lang, "scheduledJobChangeNotSavedPortfolioSwitch")}</p>
               )}
