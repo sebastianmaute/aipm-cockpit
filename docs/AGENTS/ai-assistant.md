@@ -1456,11 +1456,12 @@
   hooks); `task-dedup-modal.tsx` is the review modal (per-group deselect). ★★ Confirm folds the duplicates +
   applies the KEEP task's sanitized unified fields via a FUNCTIONAL `setTasks(prev=>…)` updater and records
   ONE undo entry (removed duplicates + edited keeps). Gated `isAiEnabled && !isPopout && tasks.length >= 2`.
-  ★ The AI half of that gate only DISABLES the trigger: with the deployment's AI off or invalid, AI off, no key
-  or no current AI data disclosure consent it renders disabled with the hint `aiNotReadyHintKey` picks — first
-  the deployment's block from `aiDeploymentBlockedMessageKey` (the user cannot switch AI on there), then
-  `aiActionNeedsConsent` when the switch and a key are there but the consent is missing or stale, otherwise
-  `aiActionNeedsAi` — as Suggest RACI, Plan with AI and Optimize with AI do. The hint goes in through
+  ★ The user's half of that gate only DISABLES the trigger: with AI off, no key or no current AI data disclosure
+  consent it renders disabled with the hint `aiNotReadyHintKey` picks — `aiActionNeedsConsent` when the switch
+  and a key are there but the consent is missing or stale, otherwise `aiActionNeedsAi` — as Suggest RACI, Plan
+  with AI and Optimize with AI do. ★ A deployment that blocks AI (`isAiDeploymentOn` false: switched off or an
+  invalid setting) HIDES all four triggers instead, with no reason text: the user cannot switch AI on there, and
+  Settings already names the block (`aiDeploymentBlockedMessageKey`). The hint goes in through
   `AiTriggerButton`'s `unavailableReason`, which keeps a real `disabled` and shows the hint as VISIBLE muted text
   beside the trigger, also its `aria-describedby` description and `title`: a disabled button takes no keyboard
   focus and `title` never shows on touch, so a title-only hint reached mouse users alone. ★ A toolbar holding
