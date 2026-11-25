@@ -177,4 +177,18 @@ describe("TasksToolbar — one shared reason for AI triggers unavailable for the
     expect(screen.getAllByText(REASON)).toHaveLength(1);
     expect(screen.getByRole("button", { name: t("en-US", "taskDedup") })).toHaveAccessibleDescription(REASON);
   });
+
+  // The real single case: fewer than two tasks hide dedup, so only Optimize with AI is unavailable. Its reason must
+  // sit right beside it, not in the toolbar's shared slot (after the dedup position, past the Jira sync button).
+  test("a reason only one trigger has sits right beside that trigger, not in the shared slot", () => {
+    renderToolbar("en-US", {
+      jiraEnabled: true, jiraProjectKey: "MARK",
+      aiOptimizeButton: trigger("wbsPlanButton", REASON), aiOptimizeReason: REASON,
+    });
+    const btn = screen.getByRole("button", { name: t("en-US", "wbsPlanButton") });
+    const beside = btn.nextElementSibling;
+    expect(beside).toHaveTextContent(REASON);
+    expect(btn.getAttribute("aria-describedby")).toBe(beside?.id);
+    expect(screen.getAllByText(REASON)).toHaveLength(1);
+  });
 });
