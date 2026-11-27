@@ -322,3 +322,91 @@ describe("runChatSend — what a staged result tells Claude", () => {
     expect(h.staged[0].rows).toHaveLength(2);
   });
 });
+
+describe("runChatSend — what the staging gate is given", () => {
+  /** True when the turn's call was staged (put on the card) rather than run. */
+  function wasStaged(h: ReturnType<typeof harness>, name: string): boolean {
+    return h.staged.length === 1 && !h.ran.includes(name);
+  }
+
+  test("§797: a result carrying outside text makes a LATER turn of the same send untrusted, so a lone write stages", async () => {
+    const h = harness([
+      turn("tool_use", [use("r1", "list_tasks")]),
+      turn("tool_use", [use("w1", "update_task", { id: 1, title: "x" })]),
+      turn("end_turn", [text("ok")]),
+    ], {
+      executeTool: async (name) => {
+        h.ran.push(name);
+        return name === "list_tasks" ? [{ id: 1, jiraKey: "PROJ-1" }] : {};
+      },
+    });
+    const out = await runChatSend(h.deps);
+    if (out.threw) throw out.error;
+    expect(h.ran).toEqual(["list_tasks"]);
+    expect(wasStaged(h, "update_task")).toBe(true);
+    expect(out.sendRecord.untrusted).toBe(true);
+  });
+
+  test("§797 control: a result with no outside text leaves the lone write applying at once", async () => {
+    const h = harness([
+      turn("tool_use", [use("r1", "list_tasks")]),
+      turn("tool_use", [use("w1", "update_task", { id: 1, title: "x" })]),
+      turn("end_turn", [text("ok")]),
+    ]);
+    const out = await runChatSend(h.deps);
+    if (out.threw) throw out.error;
+    expect(h.ran).toEqual(["list_tasks", "update_task"]);
+    expect(h.staged).toHaveLength(0);
+  });
+
+  test("AI-02: a write applied in an earlier turn counts toward a later turn's gate, so the second lone write stages", async () => {
+    const h = harness([
+      turn("tool_use", [use("w1", "update_task", { id: 1, title: "one" })]),
+      turn("tool_use", [use("w2", "update_task", { id: 2, title: "two" })]),
+      turn("end_turn", [text("ok")]),
+    ]);
+    const out = await runChatSend(h.deps);
+    if (out.threw) throw out.error;
+    expect(h.ran).toEqual(["update_task"]);
+    expect(h.staged).toHaveLength(1);
+    expect(answers(h.sent[2].at(-1))[0].content).toBe(stagedToolResult(undefined));
+  });
+
+  test("§794: with review-all-writes on, a lone write stages (and the switch is asked at the gate)", async () => {
+    const reviewAllWrites = vi.fn(() => true);
+    const h = harness([turn("tool_use", [use("w1", "update_task", { id: 1, title: "x" })]), turn("end_turn", [text("ok")])], { reviewAllWrites });
+    const out = await runChatSend(h.deps);
+    if (out.threw) throw out.error;
+    expect(reviewAllWrites).toHaveBeenCalledTimes(1);
+    expect(wasStaged(h, "update_task")).toBe(true);
+  });
+
+  test("§810: turning on a function the project hides stages, judged against the live saved functions", async () => {
+    const getSnapshot = vi.fn(() => ({ enabledModules: [] as string[] }));
+    const h = harness([
+      turn("tool_use", [use("s1", "update_settings", { enabledModules: ["resources"] })]),
+      turn("end_turn", [text("ok")]),
+    ], {
+      dispatcher: { getForecastScenarioRow: () => null, getSnapshot, previewSettings: () => ({}) } as unknown as ChatSendDeps["dispatcher"],
+    });
+    const out = await runChatSend(h.deps);
+    if (out.threw) throw out.error;
+    expect(getSnapshot).toHaveBeenCalled();
+    expect(wasStaged(h, "update_settings")).toBe(true);
+  });
+
+  test("§810 control: a functions call that turns nothing hidden back on applies at once", async () => {
+    const h = harness([
+      turn("tool_use", [use("s1", "update_settings", { enabledModules: ["resources"] })]),
+      turn("end_turn", [text("ok")]),
+    ], {
+      dispatcher: {
+        getForecastScenarioRow: () => null, getSnapshot: () => ({ enabledModules: ["resources"] }), previewSettings: () => ({}),
+      } as unknown as ChatSendDeps["dispatcher"],
+    });
+    const out = await runChatSend(h.deps);
+    if (out.threw) throw out.error;
+    expect(h.ran).toEqual(["update_settings"]);
+    expect(h.staged).toHaveLength(0);
+  });
+});
