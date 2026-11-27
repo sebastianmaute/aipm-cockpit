@@ -40,7 +40,10 @@
 - **Wire layer:** `chat-panel.tsx` is the React surface; the non-React WIRE LAYER (Anthropic protocol types
   `TextBlock`/`ContentBlock`/`SystemBlock`/`ApiMessage`/`DisplayItem`, `callClaude`, `buildSystemPrompt`,
   `systemBlocksText`, `stringifyResult`) lives in pure i18n-free `chat-api.ts` — import
-  from there, NOT chat-panel. File-attachment reading/classifying/extracting is a separate pipeline,
+  from there, NOT chat-panel. One send's round-trip loop (requests, tool calls, the staging gate and
+  its card, the max_tokens continuation) is `runChatSend` in plain `chat-send-loop.ts`, and the mapping of a
+  thrown send to what the chat shows is `chatSendErrorOutcome` in `chat-send-errors.ts`; the panel builds the
+  send before the loop and applies the outcome after it. File-attachment reading/classifying/extracting is a separate pipeline,
   `ingestFile`/`ingestBytes` in `attachment-ingest.ts`, shared by chat-panel and the wizard's
   Step0ImportPanel (`readAttachmentData` used to live in `chat-api.ts`; it was retired when that
   pipeline was unified). `buildSystemPrompt` returns `SystemBlock[]`, NOT a string.
@@ -240,7 +243,7 @@
   know (`classifyAiError`'s `"model"` class: a 404 whose `error.type` is `not_found_error`; the relay's empty
   404 is an `AiDeploymentError` and a 404 without that type stays generic), and never turns a transport failure
   into a key verdict. `aiFailureToken` stores the model key too, so the token-keeping surfaces show it. The chat
-  (`chat-panel.tsx`) asks `aiTransportMessageKey`, `aiKeyMessageKeyForError` and `aiModelMessageKey` separately. The
+  (`chatSendErrorOutcome` in `chat-send-errors.ts`) asks `aiTransportMessageKey`, `aiKeyMessageKeyForError` and `aiModelMessageKey` separately. The
   background insight runner (`use-insight-recommend-runner.ts`) ends its tick on the model class as on limit/auth, and
   a scheduled job records it as the `ReportErrorToken` `ai-model-unavailable`, shown as `aiModelUnavailable` in the
   reports view and the run history (an older version reads that token as a generic failure: its report decoder maps
@@ -2479,7 +2482,7 @@ One rule, one matcher, one summary, read by every AI feature that sets or reads 
 - **Prompts.** The availability rule is in `## Overview` of `lib/app-feature-guide.md` and in the descriptions of `create_task`, `update_task`, `create_milestone`, `update_milestone` and `list_absences`. ★ Under people protection `list_absences` is withheld, so `toolsFor` sends the four write tools from `PEOPLE_PROTECTED_DEFS`, without their `LIST_ABSENCES_HINT` sentence (pinned in `chat-tool-defs.people.test.ts`), and the guide's rule says not to call it then. The calendar view's scope reading names it too, so it carries `readingRequiresTool: "list_absences"` and `buildViewScopeBlock` drops it under protection (pinned in `view-ai-scope-block.test.ts`). `buildAwaySummary` feeds the WBS plan (`wbs-plan.ts`, window max(project start, today)..project end, fallback today..today+`AWAY_WINDOW_DAYS`; it marks a new task, never a split piece), `buildProjectDigest` (`project-digest.ts`, Analyze with AI and scheduled analysis), `buildRecommendContext` and the steering report (`buildMeetingReportPrompt`, `MeetingReportCtx.away`). The block is capped by `AWAY_SUMMARY_MAX_LINES` and `AWAY_SUMMARY_MAX_RANGES` and is empty when nobody is away. The three 28-day readers (the digest, the recommend context and the steering report) also pass `maxChars: AWAY_SUMMARY_MAX_CHARS` (3,000; `grep -rn "maxChars: AWAY_SUMMARY_MAX_CHARS" src/app` prints 3 lines). Uncapped, the block can run to ~17,000 characters; in the digest it sits ahead of the open tasks and the digest's cap drops lines from the end, so it could push them out. The WBS plan's AWAY block is NOT under `AWAY_SUMMARY_MAX_CHARS`: it spans the project's dates and is bounded by its own size test (`wbs-plan.parse.test.ts`, "more than 60 people with many ranges each stay within the bound").
 - **Plan with AI.** Each grounded task move carries `clashes` (`GroundedMove.clashes`: `taskClashes` with the receiver as owner, the whole item) and the review window shows them on the move's row (`alloc-plan-moves.tsx`). A warning only: the move stays tickable and is applied through §774 as before.
 - ★★ **One predicate for the card and the tool result.** `callAbsenceClashes` reads the plan `describeProposal` builds for the card, never a rule of its own, so the staging gate, the card and the tool result judge one thing. Ask it BEFORE the write: a trigger is a CHANGE against the stored row, and after the write the row already holds the new date, so the same call judges nothing.
-- ★ `shouldStage` stays a function of the call list: the caller builds `hasClash` (`chat-panel.tsx`), and it is asked only about entity writes.
+- ★ `shouldStage` stays a function of the call list: the caller builds `hasClash` (`chat-send-loop.ts`), and it is asked only about entity writes.
 
 Reproduce the callers: `grep -rl "buildAwaySummary(" src/app --include=*.ts --include=*.tsx | grep -vE "test|absence-clash.ts"` prints 4 files (the WBS plan, the digest, the recommend context and the steering report's action hook); `report-call.ts` and `report-draft.ts` only receive the block and pass it through.
 

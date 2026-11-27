@@ -2,7 +2,7 @@
 //
 // Pure and i18n-free. `shouldStage` (`chat-proposal.ts`) judges one model turn; a single send can run
 // several turns, so the gate also needs what earlier turns of the SAME send did and what the
-// conversation holds. `chat-panel.tsx` opens one record per send and carries it through its tool loop.
+// conversation holds. `chat-panel.tsx` opens one record per send; `runChatSend` (`chat-send-loop.ts`) carries it through the tool loop.
 import type { ApiMessage, ToolResultBlock } from "./chat-api";
 import type { ProposedCall } from "./chat-proposal";
 

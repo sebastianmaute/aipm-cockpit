@@ -133,7 +133,7 @@ type MilestoneFieldGuard = (value: unknown) => boolean;
  *  the same value, so the card reads "unchanged" while the write wipes the date.
  *  Two of the three apply paths used to replay the original tool input without
  *  consulting the preview, so that wipe really landed. Since §534 they strip a
- *  field the preview rejects, but the unstaged chat tool loop (`chat-panel.tsx`)
+ *  field the preview rejects, but the unstaged chat tool loop (`chat-send-loop.ts`)
  *  still runs the model's call as sent, and this guard is what stops the wipe
  *  on that path.
  *

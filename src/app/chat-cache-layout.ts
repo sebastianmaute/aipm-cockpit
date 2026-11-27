@@ -57,8 +57,9 @@
 // OUTGOING copy only. Persisting it breaks this module's whole purpose twice
 // over: stale "Today is …" lines accumulate down the transcript, AND history's
 // tail is rewritten on every send, so the byte-identical prefix the next send
-// depends on no longer exists. `chat-panel.tsx` therefore keeps `messages` (the
-// persisted array) and passes `buildWireMessages(messages, ctx).messages` to the
+// depends on no longer exists. The chat therefore keeps `messages` (the
+// persisted shape, which `runChatSend` in `chat-send-loop.ts` appends each turn to) and its request
+// callback (built in `chat-panel.tsx`) passes `buildWireMessages(messages, ctx).messages` to the
 // API. If that ever gets collapsed into one array, nothing fails visibly — the
 // only symptom is a larger bill.
 //
