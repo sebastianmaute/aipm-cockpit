@@ -410,3 +410,36 @@ describe("runChatSend — what the staging gate is given", () => {
     expect(h.staged).toHaveLength(0);
   });
 });
+
+describe("runChatSend — the staged card and the create's provisional id", () => {
+  // Read-only turns: `harness` copies its queue, so both tests can share them.
+  const TWO_CREATES = [
+    turn("tool_use", [use("c1", "create_task", { taskName: "One" }), use("c2", "create_task", { taskName: "Two" })]),
+    turn("end_turn", [text("ok")]),
+  ];
+
+  test("the card carries the staging request's origin and starts with every row selected", async () => {
+    const origin = { kind: "chat", requestId: "req-staging" } as unknown as ChatSendDeps["proposalOrigin"];
+    const h = harness(TWO_CREATES, { proposalOrigin: origin, sendEpoch: 7, getScopeEpoch: () => 7 });
+    const out = await runChatSend(h.deps);
+    if (out.threw) throw out.error;
+    expect(h.staged).toHaveLength(1);
+    const card = h.staged[0];
+    expect(card.origin).toBe(origin);
+    expect([...card.selected].sort()).toEqual([0, 1]);
+    expect(card.scopeEpoch).toBe(7);
+    expect(card.applying).toBe(false);
+    expect(card.applied).toBeNull();
+  });
+
+  test("a staged create's tool result names the provisional id its row will be minted with", async () => {
+    const h = harness(TWO_CREATES);
+    const out = await runChatSend(h.deps);
+    if (out.threw) throw out.error;
+    const minted = h.staged[0].planRows.map((r) => r.mintedId);
+    expect(minted.every((id) => typeof id === "number")).toBe(true);
+    const fed = answers(h.sent[1].at(-1));
+    expect(fed.map((a) => a.content)).toEqual(minted.map((id) => stagedToolResult(id)));
+    expect(fed[0].content).toContain(`id ${minted[0]}`);
+  });
+});
