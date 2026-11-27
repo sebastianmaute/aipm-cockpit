@@ -471,6 +471,7 @@ export async function runChatSend(deps: ChatSendDeps): Promise<ChatSendOutcome> 
         if (gate !== null) {
           sendRecord = { ...sendRecord, staged: true };
           messages.push({ role: "user", content: await runStagedTurn(deps, proposed, gate) });
+          // Defensive: a staged turn always adds a display item (the card, or a read's tool line) before any next text, so no test can observe this reset today.
           continueBubble = false;
           continue;
         }
@@ -492,8 +493,11 @@ export async function runChatSend(deps: ChatSendDeps): Promise<ChatSendOutcome> 
         // damage lands on the NEXT send: the user's new turn is appended after
         // the empty one, which is then no longer the tail, gets no backfill, and
         // goes out as `content: []` behind two consecutive `user` turns. Any
-        // test of this must span TWO sends; one that reads this send's second
-        // request passes either way.
+        // test of this THROUGH THE PANEL (the wire, after `buildWireMessages`)
+        // must span TWO sends; one that reads this send's second wire request
+        // passes either way. At the `runChatSend` seam a single send is enough:
+        // the injected `request` receives the raw history, before any turn
+        // context is appended, so the empty carrier is visible there.
         // ★★ TWO WAYS TO GET HERE WITH NOTHING, and only the second needs an
         // await, which is why the guard is at the SOURCE rather than left to a
         // downstream repair. (1) A turn with `stop_reason: "tool_use"` and no

@@ -24,12 +24,22 @@ export type ChatSendErrorOutcome =
 /** The outcome for an error a send threw. The branches run in this order: AbortError, limit,
  *  people-protected, consent, transport, key, model, generic.
  *  ★ ONLY "AbortError first" is pinned by a test (an AbortError that is also a limit, a people-protection
- *   refusal or a refused key is a stop). The rest of the order is NOT pinned and cannot be today: on the
- *   current error classes the later branches never overlap — limit, key and model are disjoint classes of
- *   one `classifyAiError`, people protection and the transport errors are not `AiHttpError`s, and the
- *   consent branch and the transport branch give `AiConsentRevokedError` the same key — so swapping any
- *   two of them changes no outcome. A new error class that matches two branches makes the order matter;
- *   pin it then.
+ *   refusal or a refused key is a stop). The order of the CLASSIFIED branches after it is NOT pinned and
+ *   cannot be today, because on the current error classes no error matches two of them with different
+ *   outcomes. What each one matches:
+ *   - limit: an `AiHttpError` that `classifyAiError` calls "limit" (429, or a rate-limit/overloaded type);
+ *   - people-protected: `AiPeopleProtectedContentError`;
+ *   - consent: `AiConsentRevokedError`;
+ *   - transport: `AiDeploymentError`, `AiGatewayError`, `AiKeyCheckUnavailableError`, `AiTimeoutError` and
+ *     `AiConsentRevokedError` (`aiTransportMessageKey`);
+ *   - key: `AiKeyRefusedError`, or an `AiHttpError` that `classifyAiError` calls "auth" (`aiKeyMessageKeyForError`);
+ *   - model: an `AiHttpError` that `classifyAiError` calls "model".
+ *   Every one of these classes extends `Error` directly, so an error is an instance of at most one. The three
+ *   `AiHttpError` branches split by `classifyAiError`'s single answer, so they are disjoint; `AiKeyRefusedError`
+ *   is not an `AiHttpError`. The one overlap is `AiConsentRevokedError`, which consent and transport both map
+ *   to `aiConsentRevokedDuringSend`. So swapping any two classified branches changes no outcome. That does
+ *   NOT extend to the generic fallback: it must stay last, since moving it earlier would catch every error
+ *   after it. A new error class that matches two classified branches makes their order matter; pin it then.
  *  ★ A rejection that is not an object (`null`, `undefined`, a string, a number) is the generic error,
  *   with `String(err)` as its message: reading `.name` off `null` used to throw inside the panel's catch. */
 export function chatSendErrorOutcome(err: unknown): ChatSendErrorOutcome {

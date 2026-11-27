@@ -53,6 +53,7 @@ describe("chatSendErrorOutcome — a rejection that is not an object", () => {
   test.each([
     ["null", null, "null"],
     ["undefined", undefined, "undefined"],
+    // The string and number rows pin the OUTCOME only: they pass without the non-object guard, since those inputs never threw. Only null and undefined depend on the guard.
     ["a string", "plain", "plain"],
     ["a number", 42, "42"],
   ] as const)("%s is the generic error, never a throw", (_label, err, message) => {
