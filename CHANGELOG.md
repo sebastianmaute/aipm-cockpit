@@ -76,6 +76,8 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A chat send that fails without an error message shows the usual error.** A rare failure that carried no error
+  at all used to break the chat's own error handling; the chat now shows its generic error message instead.
 - **A retired or unknown AI model is named as such.** When Anthropic no longer offers the selected model, the chat
   and the AI actions now say so and point to Settings → AI Assistant to choose another one, instead of a generic failure.
   Scheduled jobs record and show the same reason, and the background insight recommendations stop at the first
