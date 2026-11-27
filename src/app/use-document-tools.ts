@@ -459,9 +459,11 @@ export function useDocumentTools(
           // toward `workspaceRecordCount`, and this is the SECOND removal route
           // — `documents-panel.tsx` armed and this one did not. Several
           // `delete_document` calls in one assistant turn run back-to-back —
-          // `chat-send-loop.ts` walks EVERY tool_use block of ONE response in a
-          // single loop with no model round-trip between, and each block is a
-          // local mutation — so they land orders of magnitude inside
+          // they never run in the send (`chat-send-loop.ts` stages them,
+          // `DESTRUCTIVE_TOOLS`, or answers them as pending while a card waits),
+          // and applying the card runs EVERY selected row in a
+          // single loop (`applyProposal`, `chat-proposal-apply.ts`) with no model
+          // round-trip between, each row a local mutation — so they land orders of magnitude inside
           // SAVE_DEBOUNCE_MS and coalesce into one save. That save can then be
           // REFUSED: the UI shows the documents gone while the backend still
           // holds them.

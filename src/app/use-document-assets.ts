@@ -95,11 +95,14 @@ export interface UseDocumentAssetsDeps {
    *  advances the committed baseline. Coalescing needs changes CLOSER TOGETHER
    *  than 500ms. The arming still earns its place: a genuinely fast burst does
    *  coalesce, and the AI `delete_document` route (`use-document-tools.ts`)
-   *  coalesces unambiguously: `chat-send-loop.ts` runs every tool_use block of one
-   *  response in a single loop with no model round-trip between, and each block
+   *  coalesces unambiguously: a chat turn's `delete_document` calls never run in
+   *  the send (`chat-send-loop.ts` stages them, `DESTRUCTIVE_TOOLS`, or answers
+   *  them as pending while a card waits), and applying
+   *  the card runs every selected row in a single loop (`applyProposal`,
+   *  `chat-proposal-apply.ts`) with no model round-trip between, and each row
    *  is a local mutation.
-   *  ★ Say that as the LOOP SHAPE, not "one tick" — each block is `await`ed, so
-   *  consecutive blocks are separated by microtask turns rather than sharing a
+   *  ★ Say that as the LOOP SHAPE, not "one tick" — each row is `await`ed, so
+   *  consecutive rows are separated by microtask turns rather than sharing a
    *  React batch. "Closer together than 500ms" is all the argument needs, and
    *  it holds by orders of magnitude.
    *  Optional: the pane renders in contexts (tests, popouts) that supply no

@@ -471,7 +471,10 @@ export async function runChatSend(deps: ChatSendDeps): Promise<ChatSendOutcome> 
         if (gate !== null) {
           sendRecord = { ...sendRecord, staged: true };
           messages.push({ role: "user", content: await runStagedTurn(deps, proposed, gate) });
-          // Defensive: a staged turn always adds a display item (the card, or a read's tool line) before any next text, so no test can observe this reset today.
+          // Defensive: no test can observe this reset today. A staged turn adds a display item (the card, or a
+          // read's tool line) before any next text, except when the scope moves on its FIRST in-place read: then
+          // it adds none, and the next iteration's `stale()` must end the send before any text. Through the panel
+          // it does (its `stale()` includes the scope test); at the `runChatSend` seam that rests on the caller's `stale`.
           continueBubble = false;
           continue;
         }
