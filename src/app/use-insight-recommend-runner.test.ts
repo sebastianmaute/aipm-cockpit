@@ -173,6 +173,26 @@ describe("useInsightRecommendRunner", () => {
     expect(applyRecommendation).toHaveBeenCalledTimes(1);
   });
 
+  // A usage limit (429, classified "limit") is the same limit for every remaining candidate.
+  test("a usage limit (429) ends the tick", async () => {
+    mockRun.mockRejectedValueOnce(new AiHttpError(429, "rate_limit_error"));
+    mockRun.mockResolvedValue(fakeRec);
+    const { applyRecommendation } = renderRunner({ insights: [makeInsight(1), makeInsight(2), makeInsight(3)] });
+    await act(async () => { await flushMicrotasks(); });
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(applyRecommendation).not.toHaveBeenCalled();
+  });
+
+  // The control: a failure that is not "limit" (a 500) is one-off, and the next candidate still gets a try.
+  test("a 500 does not end the tick", async () => {
+    mockRun.mockRejectedValueOnce(new AiHttpError(500));
+    mockRun.mockResolvedValue(fakeRec);
+    const { applyRecommendation } = renderRunner({ insights: [makeInsight(1), makeInsight(2)] });
+    await act(async () => { await flushMicrotasks(); });
+    expect(mockRun).toHaveBeenCalledTimes(2);
+    expect(applyRecommendation).toHaveBeenCalledTimes(1);
+  });
+
   // AI organisation key: a refused key is refused for every remaining candidate too.
   test.each(["organization", "workspace"] as const)("a key refused by the organisation key check (%s) ends the tick", async (reason) => {
     mockRun.mockRejectedValueOnce(new AiKeyRefusedError(reason));
