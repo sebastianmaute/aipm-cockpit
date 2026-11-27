@@ -121,7 +121,7 @@ export interface ChatDispatcherArgs {
    *  threaded through to `useDocumentTools`, which is the only consumer today.
    *  `documents` counts toward `workspaceRecordCount`, and several
    *  `delete_document` calls in ONE assistant turn execute back-to-back:
-   *  `chat-panel.tsx` walks every tool_use block of one response in a single
+   *  `chat-send-loop.ts` walks every tool_use block of one response in a single
    *  loop with no model round-trip between, and each block is a local mutation.
    *  So they land orders of magnitude inside `SAVE_DEBOUNCE_MS` and coalesce
    *  into one debounced save, which Layer B can then read as a mass deletion

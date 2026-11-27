@@ -1,6 +1,7 @@
 // src/app/chat-proposal-stage.ts — the pure half of the chat staging wiring.
 //
-// React-free and i18n-free. `chat-panel.tsx` is the sole consumer; everything
+// React-free and i18n-free. The chat is the sole consumer (`chat-send-loop.ts` stages, `chat-panel.tsx`
+// renders and applies the card); everything
 // here is a function of the call list plus the live workspace, so the staging
 // decisions are testable without rendering the panel.
 //

@@ -17,10 +17,11 @@ const BASELINE = "docs/baselines/file-sizes.json";
 // (the filter below), so every entry for a file now under LIMIT VANISHES (see
 // the split below). Recover a dropped entry from git history, not from the
 // file.
-// ★ Only a file over LIMIT is checked against its entry at all. Two of the four
-// entries are INERT today: tasks-section and workspace-section are under 1600,
-// so LIMIT alone governs them; they are kept as recorded intent. chat-panel and
-// task-manager are over LIMIT, so their entries are LIVE ceilings. Re-measure
+// ★ Only a file over LIMIT is checked against its entry at all. Three of the four
+// entries are INERT today: chat-panel, tasks-section and workspace-section are
+// under 1600 (chat-panel since its send loop moved to chat-send-loop.ts), so
+// LIMIT alone governs them; they are kept as recorded intent. task-manager is
+// over LIMIT, so its entry is a LIVE ceiling. Re-measure
 // before relying on this split:
 //   node -e "for(const f of ['chat-panel','tasks-section','workspace-section','task-manager'])console.log(f,require('fs').readFileSync('src/app/'+f+'.tsx','utf8').split('\n').length)"
 // i18n dictionaries are inherently large (one entry per string × 2 languages)

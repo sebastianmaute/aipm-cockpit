@@ -1,6 +1,6 @@
 // src/app/chat-absence-clashes.ts — §773: the absence clashes ONE chat tool call would cause.
 //
-// Pure and i18n-free. Three readers ask it the same question: the staging gate (`chat-panel.tsx`, through
+// Pure and i18n-free. Three readers ask it the same question: the staging gate (`chat-send-loop.ts`, through
 // `shouldStage`'s predicate), the review card (which shows the same plan's `clashes`) and the four date tools'
 // results (`runTool`, through the dispatcher's `absenceClashesFor`).
 // ★★ It reads the plan `describeProposal` builds for the card, never a rule of its own: the triggers

@@ -760,7 +760,7 @@ export async function runTool(
   //   removed before any handler sees the call, the rest applies, and the result (or the error) tells the
   //   model what was dropped. Every AI path that replays a call ends here, so this is the guarantee; a path
   //   with a review card strips its calls BEFORE the card as well, so the card shows what lands.
-  // ★ The note rides on `.then`: `chat-panel.tsx`'s §596 comment counts on this file never suspending.
+  // ★ The note rides on `.then`: `chat-send-loop.ts`'s §596 comment counts on this file never suspending.
   const personFields = Object.hasOwn(PERSON_FIELDS_BY_TOOL, name) ? PERSON_FIELDS_BY_TOOL[name]! : [];
   if (personFields.length === 0 || peopleToolsLive(d.isPeopleProtected())) return runToolAsSent(d, name, input, false, origin);
   const { input: kept, removed } = stripPersonFields(name, input, personStripContext(d, name, input));

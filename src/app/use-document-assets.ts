@@ -95,7 +95,7 @@ export interface UseDocumentAssetsDeps {
    *  advances the committed baseline. Coalescing needs changes CLOSER TOGETHER
    *  than 500ms. The arming still earns its place: a genuinely fast burst does
    *  coalesce, and the AI `delete_document` route (`use-document-tools.ts`)
-   *  coalesces unambiguously: `chat-panel.tsx` runs every tool_use block of one
+   *  coalesces unambiguously: `chat-send-loop.ts` runs every tool_use block of one
    *  response in a single loop with no model round-trip between, and each block
    *  is a local mutation.
    *  ★ Say that as the LOOP SHAPE, not "one tick" — each block is `await`ed, so

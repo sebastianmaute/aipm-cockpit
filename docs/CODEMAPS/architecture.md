@@ -70,7 +70,7 @@ every AI request goes through `ai-transport.ts`, the one browser module that tal
 
 | Subsystem | Entry | Note |
 |---|---|---|
-| AI assistant | `chat-panel.tsx` + pure `chat-api.ts` | 63 tools (`TOOL_DEFS` in `chat-tool-defs.ts`, which spreads in `DOCUMENT_TOOL_DEFS`, `FORECAST_TOOL_DEFS` and `PROJECT_TOOL_DEFS`; re-count with `grep -hcE '^    name: "' src/app/chat-tool-defs.ts src/app/chat-tool-defs-*.ts` and sum the four per-file counts; the six forecast tools refuse while the simulation is off); browser-direct to Anthropic; prompt-cache prefix ordering is load-bearing |
+| AI assistant | `chat-panel.tsx` + pure `chat-api.ts`; send loop `chat-send-loop.ts` | 63 tools (`TOOL_DEFS` in `chat-tool-defs.ts`, which spreads in `DOCUMENT_TOOL_DEFS`, `FORECAST_TOOL_DEFS` and `PROJECT_TOOL_DEFS`; re-count with `grep -hcE '^    name: "' src/app/chat-tool-defs.ts src/app/chat-tool-defs-*.ts` and sum the four per-file counts; the six forecast tools refuse while the simulation is off); browser-direct to Anthropic; prompt-cache prefix ordering is load-bearing |
 | Next actions | `next-actions/` | pure ranking engine + providers → Action Center |
 | Insights loop | `insights/` | detect → reconcile → recommend → measure outcome |
 | Undo/redo | `undo/` | `UNDO_CAP` = 25 entries, in-memory, backend-agnostic |

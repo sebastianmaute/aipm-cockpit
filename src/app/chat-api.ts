@@ -474,7 +474,7 @@ export function closeDanglingToolUses(messages: ApiMessage[]): ApiMessage[] {
       // TRAILING user message, so while the empty one is last it goes out as
       // `content: [ctx]` and looks healthy. Once anything follows it, it does not.
       // The consecutive-`user` half is never masked.
-      // ★★ THIS IS THE RESCUE HALF. `chat-panel.tsx` no longer CREATES an empty
+      // ★★ THIS IS THE RESCUE HALF. The send loop (`chat-send-loop.ts`) no longer CREATES an empty
       // carrier; this is what repairs a history that already contains one — the
       // only thing that can help a thread already persisted in that state.
       // ★ Scoped to EMPTY on purpose: a non-empty, non-`tool_result` `next` is the

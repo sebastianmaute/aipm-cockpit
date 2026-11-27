@@ -368,7 +368,7 @@ switched the integration off.
   `useMeetingReportActions` (§763: the AI draft, a version restore and the send's `sentAt` stamp, each
   against the epoch captured before its first await — meeting ids restart at 1 in every project; its
   `MeetingReportActionsDeps.getScopeEpoch` is REQUIRED),
-  and `chat-panel.tsx`'s tool loop (per TOOL, and the loop `break`s — but read the separate bullet
+  and the chat's tool loop (`runChatSend` in `chat-send-loop.ts`, driven by `chat-panel.tsx`; per TOOL, and the loop `break`s — but read the separate bullet
   below before treating it as a fourth row of this rule; its cancel rides a different signal).
   ★★★ The reader is OPTIONAL at each child hook, and that optionality is how `tasks-section.tsx`'s own
   manual task push/pull — the highest-traffic entity, and the one calendar pair mounted from the PANE
@@ -386,9 +386,10 @@ switched the integration off.
   things on TWO DIFFERENT SIGNALS, and that is what makes it a third shape:
   - **The WRITE guard rides the epoch**, exactly like every row above: `submitPrompt` captures
     `getScopeEpoch()` once per send, `stale()` re-reads it at its three call sites, and the block loop
-    calls `dropStaleScopeWrite` PER TOOL — a turn can carry several `tool_use` blocks and each
-    `runTool` awaits, so a swap landing mid-batch would otherwise let every REMAINING tool write into
-    the next project.
+    (`chat-send-loop.ts`) calls `dropStaleScopeWrite` PER TOOL — a turn can carry several `tool_use`
+    blocks, and a dispatcher handler can move the scope between two of them (`runTool` itself does not
+    await), so a swap landing mid-batch would otherwise let every REMAINING tool write into the next
+    project.
   - **The unmount CANCEL rides `isSwapInFlight`**, a separate reader on the same props boundary, and
     it is CONDITIONAL on that flag. Nothing cancelled at all before §596: under the §548 load hold
     `task-manager.tsx` swaps the whole main-window tree for `PanelSkeleton` WITHOUT a prop change, so

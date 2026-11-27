@@ -1,17 +1,17 @@
 "use client";
 
-import { AiPeopleProtectedContentError, holdsUnredactableContent } from "./ai-privacy";
+import { holdsUnredactableContent } from "./ai-privacy";
 import { useOpenProjectAiPrivacy, useOpenProjectPeopleProtected, useOpenProjectReviewAllWrites } from "./ai-privacy-context";
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { PaperClipIcon, XMarkIcon } from "./icons";
-import { type ToolDispatcher, personStripContext, runTool } from "./chat-tools";
+import { type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, t } from "./i18n";
 import { type OperatingGuide } from "./operating-guide";
 import { ChatPromptChips } from "./chat-prompt-chips";
 import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import { type AiConfig, type Settings, clampMaxChatTurns, isAiConsentedForDictation } from "./settings-types";
-import { AiConsentRevokedError, isConsentCurrent } from "./ai-consent";
+import { isConsentCurrent } from "./ai-consent";
 import { aiDeploymentBlockedMessageKey, getAiDeploymentState } from "./ai-deployment";
 import type { ChatConversation, ChatSeed } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
@@ -50,20 +50,15 @@ import {
   callClaude,
   appendUserNote,
   closeDanglingToolUses,
-  CONTINUE_NUDGE,
-  INTERRUPTED_TOOL_RESULT,
-  stringifyResult,
   type TextBlock,
   type ContentBlock,
-  type ToolResultBlock,
   type ApiMessage,
   type DisplayItem,
   toolNamesFor,
   type ToolFlags,
 } from "./chat-api";
 import { buildWireMessages } from "./chat-cache-layout";
-import { AiHttpError, aiModelMessageKey, aiTransportMessageKey, classifyAiError } from "./ai-errors";
-import { aiKeyMessageKeyForError, syncAiKey } from "./ai-key-status";
+import { syncAiKey } from "./ai-key-status";
 import { setSessionAiKey } from "./session-ai-key";
 import { useSessionAiKey } from "./use-session-ai-key";
 import { ToolBlock } from "./chat-tool-block";
@@ -74,44 +69,26 @@ import { useChatOpenThreadRequest, type OpenThreadRequest } from "./use-chat-ope
 import { ChatNotSavedNotice, ChatThreadClosedNotice } from "./chat-not-saved-notice";
 import { fitHistoryToBudget, newRequestId } from "./chat-threads";
 import { ChatThreadSidebar } from "./chat-thread-sidebar";
-import {
-  buildPlanRows,
-  cascadeDeselect,
-  carriesEnabledModules,
-  isEntityWriteCall,
-  liftsFunctionWithdrawal,
-  shouldStage,
-  type PlanRow,
-  type ProposedCall,
-} from "./chat-proposal";
-import { isPureReadTool, markUntrustedByResults, openSendRecord, runsInPlaceWhenStaging } from "./chat-send-record";
-import { describeProposal, type DescribedRow } from "./chat-proposal-describe";
-import { NO_HOLIDAYS, type AbsenceCtx } from "./absence-clash";
-import { callAbsenceClashes, DATE_WRITE_TOOLS } from "./chat-absence-clashes";
+import { cascadeDeselect } from "./chat-proposal";
+import { openSendRecord } from "./chat-send-record";
 import { cardRowTitle, ChatProposalBlock, type ProposalCardRow } from "./chat-proposal-block";
 import {
   applyProposal,
   failureKindOf,
   type FailedAppliedRow,
-  type ProposalFailureKind,
 } from "./chat-proposal-apply";
 import {
   isCascadedRow,
-  mintProvisionalIds,
-  newProposalId,
-  proposalTitles,
   appliedProposalNotice,
-  PROPOSAL_PENDING_RESULT,
-  stagedToolResult,
 } from "./chat-proposal-stage";
-import { peopleToolsLive } from "./chat-tool-defs";
 import { isModuleEnabled } from "./feature-modules";
-import { PERSON_FIELDS_REMOVED_NOTE, stripPersonFields } from "./ai-person-fields";
 import type { UndoBatch } from "./use-undo-batch";
-import { emptyWorkspace, type Workspace } from "./workspace";
+import { type Workspace } from "./workspace";
 import { buildRowTokens } from "./row-tokens";
 import { useRetryWait } from "./use-retry-wait";
-import { chatSendOrigins, type AiOrigin } from "./activity-origin";
+import { chatSendOrigins } from "./activity-origin";
+import { NO_REQUESTS, runChatSend, type ChatSendCounters, type PendingProposal } from "./chat-send-loop";
+import { chatSendErrorOutcome } from "./chat-send-errors";
 
 // A staged upload: the Anthropic content blocks plus display metadata.
 // summary is the non-error disclosure of what the tree under this file
@@ -126,53 +103,6 @@ type StagedAttachment = { id: string; name: string; blocks: AttachmentBlock[]; s
 // Full-width, drag-to-resize pane (same chrome as the primary views).
 const CHAT_PANE_CLASS = VIEW_PANE_RESIZABLE_CLASS;
 
-/** The live plan behind a `{kind:"proposal"}` marker in the transcript.
- *
- *  ★★★ IT IS DELIBERATELY NOT PART OF `ChatConversation`. Both `history` and
- *   `display` are persisted, so anything stored on a display item can be
- *   restored much later and would offer to apply a plan staged against a
- *   workspace that has since moved. This state is component-local, dies with
- *   the panel's state, and is bound to the transcript ONLY by `id` — see the
- *   `DisplayItem` proposal variant for the full reasoning. */
-interface PendingProposal {
-  readonly id: string;
-  readonly rows: readonly DescribedRow[];
-  /** The SAME array `describeProposal` was handed, kept because the dependency
-   *  graph lives here and nowhere else — `DescribedRow` keeps only `mintedId`
-   *  and `pendingOn`, while `cascadeDeselect` walks `dependsOn`/`dependsOnAll`.
-   *  Positionally aligned with `rows`, as `describeProposal` requires. */
-  readonly planRows: readonly PlanRow[];
-  /** One per row, positionally aligned — resolved against the live workspace at
-   *  staging time so an `update_*` row is titled by its target, not its tool. */
-  readonly titles: readonly string[];
-  readonly selected: ReadonlySet<number>;
-  readonly applying: boolean;
-  /** Row indices `applyProposal` reported as not applied → WHY.
-   *  ★★ A Map, not a Set: the apply path distinguishes four outcomes and
-   *  collapsing them here is what made the card call every one a conflict. */
-  readonly failed: ReadonlyMap<number, ProposalFailureKind>;
-  /** How many rows the last Apply actually committed, or `null` before any
-   *  Apply on this card.
-   *
-   *  ★★★ SUCCESS HAD NO REPRESENTATION AT ALL, and that is why a working Apply
-   *   read as a dead button: on a clean run the selection empties and Apply
-   *   disables itself, which is pixel-identical to a no-op. Every other outcome
-   *   the card can reach — four failure kinds — had a string; the one that
-   *   normally happens had none. `null` is deliberately distinct from `0`: no
-   *   Apply yet, versus an Apply that committed nothing. */
-  readonly applied: number | null;
-  /** §600 — the scope epoch of the turn that STAGED this plan: that turn's
-   *  `sendEpoch`, NOT a fresh `getScopeEpoch()` read at staging or at Apply.
-   *  ★★★ THE MODEL WROTE ITS CALLS AGAINST THE SEND-TIME PROJECT. Capturing at
-   *   the Apply click would certify whatever project is in scope by then — the
-   *   swap itself — rather than catch it. The render-time `seenProjectId`
-   *   reconcile cannot stand in for this: the epoch also moves when the project
-   *   ID does not (browser/local-* kinds keyed on kind alone, an accepted storage
-   *   file, a backend change). */
-  readonly scopeEpoch: number;
-  readonly origin: AiOrigin; // §799 — the STAGING request's (`chatSendOrigins`), never a later turn's
-}
-
 /** `runBatched`'s stand-in when no batch was threaded: run the plan, collect
  *  nothing, so each write pushes its own undo entry.
  *
@@ -180,15 +110,6 @@ interface PendingProposal {
  *   (`<T>(fn: () => Promise<T>) => Promise<T>`), and a bare `(fn) => fn()`
  *   written inline infers `Promise<unknown>` and fails to satisfy it. */
 const RUN_UNBATCHED: UndoBatch["runBatched"] = (fn) => fn();
-
-/** The staging path's fallback workspace when no `workspace` prop was threaded.
- *
- *  ★★ NEVER CALLED DURING RENDER — `emptyWorkspace()` reads the clock, which
- *   the react-hooks purity rule bans in a component body. Every call site here
- *   is inside the async send. */
-function stagingWorkspace(ws: Workspace | undefined): Workspace {
-  return ws ?? emptyWorkspace();
-}
 
 /** True when a drag carries files — the only drag the pane-root drop target
  *  claims. Text and link drags must pass through to the composer. */
@@ -727,8 +648,8 @@ function ChatPanelInner({
     const sendThreadId = chatThreads.ensureThreadForSend(newHistory, [...display, userDisplayItem]);
     const origins = chatSendOrigins(tursoMode, sendThreadId, userDisplayItem.requestId); // §799 — a value, never a ref
     // ★ ONE predicate, so the three existing check sites (before the call, after
-    //   it, and after the transcript append) all gain the scope test together —
-    //   a fourth, per-TOOL check lives inside the loop below for the case none of
+    //   it, and after the transcript append, all in `runChatSend`) gain the scope test together —
+    //   a fourth, per-TOOL check lives inside the loop (`chat-send-loop.ts`) for the case none of
     //   these can reach.
     const stale = () =>
       cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId || isScopeStale(getScopeEpoch, sendEpoch);
@@ -753,23 +674,6 @@ function ChatPanelInner({
       resourcesHidden: !isModuleEnabled("resources", snapshot.enabledModules),
       stakeholdersHidden: !isModuleEnabled("stakeholders", snapshot.enabledModules),
     };
-    // Runs one tool, shows it in the transcript and returns its `tool_result`, plus whether it ran without
-    // throwing. Used by the ordinary path and by a staging turn's reads, which run in place (AI-02).
-    const runAndRecord = async (useId: string, name: string, input: unknown): Promise<{ result: ToolResultBlock; ok: boolean }> => {
-      let resultStr: string;
-      let isError = false;
-      try {
-        resultStr = stringifyResult(await runTool(toolDispatcher, name, input, origins.chat));
-      } catch (err) {
-        isError = true;
-        resultStr = err instanceof Error ? err.message : String(err);
-      }
-      setDisplay((prev) => [...prev, { kind: "tool", name, input, result: resultStr, error: isError }]);
-      return {
-        result: { type: "tool_result", tool_use_id: useId, content: resultStr, is_error: isError ? true : undefined },
-        ok: !isError,
-      };
-    };
     // §702: `settings.ai.viewGuidesInTurn` picks where the view's guides go (`buildChatPromptLayout`). With guides
     // off there is no view guide, both layouts send the same bytes, and the send is counted under the default one.
     const viewGuidesInTurn = ai.viewGuidesInTurn === true && ai.groundInGuides;
@@ -787,334 +691,57 @@ function ChatPanelInner({
     // AI-02: what the staging gate knows about this whole send. Opened from `newHistory`, NOT the
     //     trimmed `messages`: an attachment the trim replaced with a placeholder was still shown to
     //     the model in an earlier request, so it still makes this send untrusted.
-    let sendRecord = openSendRecord(newHistory);
+    const sendRecord = openSendRecord(newHistory);
 
-    // §702: what this send put in front of the transcript, for the view-switch
-    // counter. Each stamp is the time a request went out, because that is when
-    // the cache lifetime is refreshed (`VIEW_SWITCH_CACHE_TTL_MS` says why),
-    // and it is kept only once that request ANSWERED: an aborted request may
-    // or may not have reached the cache, so the stamp errs toward cold.
-    // `requests` counts the answered round-trips (the break-even's unit) and
-    // `counterCacheWrite` their cache writes, whatever the send is classified
-    // as; any of them means a prefix reached the cache.
-    let firstRequestAt: number | null = null;
-    let lastRequestAt = 0;
-    let requests = 0;
-    let counterCacheWrite = 0;
-    const sendFingerprint = (): SendFingerprint => ({
+    // §702: the view-switch counter's figures (`ChatSendCounters`, explained in `chat-send-loop.ts`) come
+    // back on the loop's outcome, a failed one included; nothing has answered until the loop runs.
+    let counters: ChatSendCounters = NO_REQUESTS;
+    const sendFingerprint = (c: ChatSendCounters): SendFingerprint => ({
       threadKey: `${sendProjectId ?? ""}|${sendThreadId ?? ""}`,
       layout: viewGuidesInTurn ? "turn" : "system",
       model: ai.model,
       toolNames: [...toolNamesFor(toolFlags)].join(","),
       stableText: system[0]?.text ?? "",
       viewText,
-      startedAt: firstRequestAt ?? lastRequestAt,
-      lastRequestAt,
+      startedAt: c.firstRequestAt ?? c.lastRequestAt,
+      lastRequestAt: c.lastRequestAt,
       priorTurns: newHistory.length - 1,
     });
 
     try {
-      // When the previous turn was a max_tokens continuation, the next turn's
-      // text is appended to the SAME bubble (a split mid code-fence/table would
-      // otherwise render as two broken blocks). `completed` distinguishes a clean
-      // end_turn from exhausting the round-trip cap (so we can flag a partial).
-      let continueBubble = false;
-      let completed = false;
-
-      // Round-trip loop: keep going until the model finishes (end_turn). Two
-      // reasons to continue — a tool call to run, or a length-cap truncation to
-      // resume — both share the turn budget (a runaway guard).
-      // Clamp at the read site too (defence in depth): a directly-typed
-      // out-of-range value that bypassed the input clamp can never drive an
-      // unbounded number of billed API calls.
-      const maxTurns = clampMaxChatTurns(ai.maxChatTurns);
-      for (let turn = 0; turn < maxTurns; turn++) {
-        if (stale()) break;
-        const sentAt = Date.now();
-        const response = await callClaude(
+      // The round-trip loop (`chat-send-loop.ts`). Clamp at the read site too (defence in depth): a
+      // directly-typed out-of-range value that bypassed the input clamp can never drive an unbounded
+      // number of billed API calls.
+      const outcome = await runChatSend({
+        maxTurns: clampMaxChatTurns(ai.maxChatTurns),
+        messages,
+        sendRecord,
+        stale,
+        request: (msgs) => callClaude(
           effectiveApiKey,
           ai.model,
           system,
-          buildWireMessages(messages, turnContext).messages,
+          buildWireMessages(msgs, turnContext).messages,
           toolFlags, aiPrivacy(), controller.signal, undefined, undefined,
           (waitMs) => { if (abortRef.current === controller) retryWait.start(waitMs); },
-        );
-        // §702: the counter takes the request and its cache write together,
-        // BEFORE the stale check — a request counted without its write would
-        // record a switch as free. Token usage is not counted here: the transport's
-        // tap counts every response that arrived, a stale one included.
-        lastRequestAt = sentAt;
-        firstRequestAt ??= sentAt;
-        requests += 1;
-        counterCacheWrite += response.usage.cache_creation_input_tokens;
-        // A cancel or a project switch may have landed while awaiting — bail
-        // before writing this turn onto (possibly) another project's state.
-        if (stale()) break;
-
-        const assistantMsg: ApiMessage = {
-          role: "assistant",
-          content: response.content,
-        };
-        messages.push(assistantMsg);
-
-        const turnText = response.content
-          .filter((b): b is TextBlock => b.type === "text" && b.text.trim() !== "")
-          .map((b) => b.text)
-          .join("");
-        if (turnText) {
-          const stitch = continueBubble;
-          setDisplay((prev) => {
-            if (stitch) {
-              const last = prev[prev.length - 1];
-              if (last && last.kind === "assistant") {
-                return [...prev.slice(0, -1), { ...last, text: last.text + turnText }];
-              }
-            }
-            return [...prev, { kind: "assistant", text: turnText }];
-          });
-        }
-
-        if (stale()) break;
-
-        // Complete tool call: run each tool, feed the results back, loop so the
-        // model can use them.
-        if (response.stop_reason === "tool_use") {
-          // The turn's calls, paired with the ids their results must answer.
-          const proposed: { readonly useId: string; readonly call: ProposedCall; readonly removed: readonly string[] }[] = [];
-          for (const block of response.content) {
-            if (block.type !== "tool_use") continue;
-            // `ToolUseBlock.input` is `unknown` (the API's own shape). The
-            // gate, the plan builder and `runTool` all treat it as a bag of
-            // keys, exactly as the immediate path below does when it hands
-            // `block.input` straight to `runTool`.
-            const sentInput = block.input as Readonly<Record<string, unknown>>;
-            // ★★ AI people protection (R4): a staged call's person fields go BEFORE the gate and the card, so
-            //  the card shows what Apply writes. The immediate path below hands `runTool` the raw input, and
-            //  `runTool` strips it there and says so in the result.
-            const people = peopleToolsLive(toolFlags.peopleProtected) ? null : stripPersonFields(block.name, sentInput, personStripContext(dispatcher, block.name, sentInput));
-            const removed = people?.removed ?? [];
-            proposed.push({ useId: block.id, call: { name: block.name, input: people && removed.length > 0 ? people.input : sentInput }, removed });
-          }
-
-          // ★★★ THE GATE. A turn is STAGED when it holds a destructive call, an
-          // event write that sends invitations, or an `update_project` (always
-          // staged, even alone: `ALWAYS_STAGED_TOOLS`); when its entity writes plus
-          // those this send already applied (`sendRecord.appliedWrites`) come to
-          // more than one; or, in an untrusted send (an attachment in the
-          // history), when it holds any call `stagesWhenUntrusted` names; or when an
-          // entity write would land someone's work on their absence (§773). Staged:
-          // no write runs, the turn's reads (`isPureReadTool`) run in place, the
-          // other calls go on a review card in the transcript, and every `tool_use`
-          // id is still answered. A turn that
-          // does not stage takes the original path below UNCHANGED — that
-          // equivalence is pinned by a test, because "one extra branch" is how
-          // a working path acquires a condition nobody meant to add.
-          // ★★ AI-02 — A CARD IS NEVER REPLACED UNSEEN. Once a turn of this send has staged, a later
-          // turn stages nothing (a second `setPendingProposal` would swap the card before the user saw
-          // it): it takes the path below, where its reads (`isPureReadTool`) run and every other call
-          // is answered with `PROPOSAL_PENDING_RESULT` and runs nothing. The loop then continues, so
-          // the model can still write its reply; the turn cap bounds it as it bounds any send.
-          // ★★ §773 — a lone date write that lands someone's work on their absence stages too, judged by the
-          // same plan the card below shows (`callAbsenceClashes`), so the card always carries the warning.
-          // Built on first use: a turn with no date write, and no staging, never builds it. The holiday set
-          // is task-manager's one `useHolidaySet` result, the same the dispatcher judges with; the prop is
-          // optional only for mounts that thread none (tests), where no day is a holiday on either side.
-          let gate: { ws: Workspace; absence: AbsenceCtx } | undefined;
-          const gateContext = () => {
-            if (gate) return gate;
-            const ws = stagingWorkspace(workspaceRef.current);
-            gate = { ws, absence: { absences: ws.absences, resources: ws.resources, holidaySet: holidaySetRef.current ?? NO_HOLIDAYS } };
-            return gate;
-          };
-          const hasClash = (c: ProposedCall) => {
-            if (!DATE_WRITE_TOOLS.has(c.name)) return false;
-            const { ws, absence } = gateContext();
-            return callAbsenceClashes(c, ws, absence).length > 0;
-          };
-          // §810 — turning any hidden function back on always waits for review, judged against the project's live
-          // saved functions (the snapshot the executor's refusal reads from), read only for a functions call.
-          const liftsWithdrawal = (c: ProposedCall) =>
-            carriesEnabledModules(c) && liftsFunctionWithdrawal(c, dispatcher.getSnapshot().enabledModules);
-          if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord, hasClash, reviewAllWritesNow(), liftsWithdrawal)) {
-            sendRecord = { ...sendRecord, staged: true };
-            const { ws, absence: gateAbsence } = gateContext();
-            // AI-02 — a read changes nothing, so it runs in place and gets its real result; so does `optimize_wbs`,
-            // whose own preview writes nothing until applied (`runsInPlaceWhenStaging`). Only the turn's other
-            // calls go on the card. These run FIRST, so the transcript keeps the turn's order: their lines, then
-            // the card.
-            const staged = proposed.filter((p) => !runsInPlaceWhenStaging(p.call.name));
-            const readAnswers = new Map<string, ToolResultBlock>();
-            let scopeMoved = false;
-            for (const p of proposed) {
-              if (staged.includes(p)) continue;
-              // §596 — re-checked per read, as the ordinary loop below checks per tool. Once the scope has
-              // moved, no read runs in the next project, and no card is staged for it.
-              if (dropStaleScopeWrite(getScopeEpoch, sendEpoch, "chat-panel.stagedRead", { tool: p.call.name })) {
-                scopeMoved = true;
-                break;
-              }
-              readAnswers.set(p.useId, (await runAndRecord(p.useId, p.call.name, p.call.input)).result);
-            }
-            const calls = staged.map((p) => p.call);
-            // ★★★ `mintProvisionalIds` ADVANCES the session mark, so every
-            // provisional id differs from the one apply mints and the remap is
-            // exercised on every create. See its own docstring for what a
-            // peek-based mint would have made dormant.
-            const planRows = scopeMoved ? [] : buildPlanRows(calls, mintProvisionalIds(calls, ws));
-            // §773 — the card's rows, read again below so each staged result names its row's clashes.
-            let described: readonly DescribedRow[] = [];
-            if (!scopeMoved) {
-              // §779 — the dispatcher's live settings judge a functions row's other settings.
-              // §773 — the gate's own absence context, so the card judges exactly what staged it.
-              described = describeProposal(calls, ws, planRows, (patch) => dispatcher.previewSettings(patch), gateAbsence);
-              const proposalId = newProposalId();
-              setPendingProposal({
-                id: proposalId,
-                rows: described,
-                planRows,
-                titles: proposalTitles(described, ws, (r, pending) => cardRowTitle(lang, r, ws, pending)),
-                // Everything starts kept: the card is a chance to REFUSE, and a
-                // plan that arrives all-unchecked reads as "nothing to do here".
-                selected: new Set(described.map((_, i) => i)),
-                applying: false,
-                failed: new Map<number, ProposalFailureKind>(),
-                applied: null,
-                scopeEpoch: sendEpoch, origin: origins.proposal,
-              });
-              setDisplay((prev) => [
-                ...prev,
-                { kind: "proposal", id: proposalId, count: described.length },
-              ]);
-            }
-            // ★★★ EVERY `tool_use` ID IS ANSWERED EXACTLY ONCE, staged or not. An unanswered
-            // id makes the NEXT request a 400 and wedges the chat for good —
-            // `closeDanglingToolUses` exists because of exactly that. The
-            // result also carries the create's provisional id, so a later call
-            // in this same turn can name the row the plan will create, and (§773) the absence clashes
-            // the card shows for that row, so Claude can offer another date while the card waits. After a
-            // scope move every id without an answer gets the interrupted result, as a truncated turn's calls do.
-            // §810 — no clash while the project hides its Resources function (the card still shows it to the user).
-            const answers = proposed.map((p): ToolResultBlock => {
-              const read = readAnswers.get(p.useId);
-              if (read !== undefined) return read;
-              const at = staged.indexOf(p);
-              return scopeMoved || at === -1
-                ? { type: "tool_result", tool_use_id: p.useId, content: INTERRUPTED_TOOL_RESULT, is_error: true }
-                : { type: "tool_result", tool_use_id: p.useId, content: stagedToolResult(planRows[at].mintedId, toolFlags.resourcesHidden ? [] : described[at].plan.clashes.map((n) => n.clash)) + (p.removed.length > 0 ? ` ${PERSON_FIELDS_REMOVED_NOTE(p.removed)}` : "") };
-            });
-            messages.push({ role: "user", content: answers });
-            continueBubble = false;
-            continue;
-          }
-
-          const results: ToolResultBlock[] = [];
-          // AI-02: entity writes this turn APPLIED directly, added to the send's count below. A call
-          // that threw (validation, a stale token) changed nothing and is not counted, so the model's
-          // corrected retry applies as a lone write would; a call the scope guard dropped never ran.
-          let directWrites = 0;
-          for (const block of response.content) {
-            if (block.type !== "tool_use") continue;
-            // AI-02 — a card of this send is waiting: only a read runs; anything else is answered and skipped.
-            if (sendRecord.staged && !isPureReadTool(block.name)) {
-              results.push({ type: "tool_result", tool_use_id: block.id, content: PROPOSAL_PENDING_RESULT });
-              continue;
-            }
-            // ★★★ §596 — RE-CHECKED PER TOOL, NOT PER TURN, and no `stale()` call
-            // site can stand in for this one: all three run BEFORE this loop. A
-            // turn can carry several `tool_use` blocks, so a scope move landing
-            // mid-batch would otherwise let every REMAINING tool write into the
-            // next project. Scope only — cancel and the project/thread refs are
-            // the outer loop's job and cannot move here.
-            // ★★ WHAT CAN MOVE IT BETWEEN TWO TOOLS, stated narrowly because the
-            // first version of this comment said "each `runTool` awaits" and that
-            // is false — `chat-tools.ts` contains no `await` at all
-            // (`grep -c await src/app/chat-tools.ts` → 0), so `runTool` resolves
-            // on the next microtask and nothing that needs a task (a click, a
-            // timer, IO) can interleave. What CAN move it is a dispatcher handler
-            // itself, which is a write surface into the same app — that is the
-            // case pinned by "stops a multi-tool turn at the tool where the scope
-            // changed". The rest is cheap insurance for the day a handler becomes
-            // genuinely async.
-            if (dropStaleScopeWrite(getScopeEpoch, sendEpoch, "chat-panel.toolLoop", { tool: block.name })) break;
-            const { result, ok } = await runAndRecord(block.id, block.name, block.input);
-            if (ok && isEntityWriteCall({ name: block.name, input: block.input as Readonly<Record<string, unknown>> })) {
-              directWrites += 1;
-            }
-            results.push(result);
-          }
-
-          // ★★★ NEVER PUSH AN EMPTY CARRIER. `content: []` is not "a carrier with
-          // nothing in it" to the API — it is an INVALID message, and it kills the
-          // conversation permanently: `closeDanglingToolUses` runs at the top of
-          // every send and (before §596) had no rule that removes an empty
-          // message, so every later send rebuilt the same invalid array, and in
-          // Turso mode the `setHistory` below is persisted by `use-chat-threads`'s
-          // save effect, so it survives reload and tab close. A new thread is the
-          // only recovery.
-          // ★★★ IT DOES NOT BITE ON *THIS* SEND'S CONTINUATION, AND GUESSING THAT
-          // IT DID PRODUCED A GREEN TEST AGAINST THE UNGUARDED CODE. While the
-          // empty message is the history TAIL, `buildWireMessages` appends the
-          // turn-context block INTO a trailing user message, so the wire sees
-          // `content: [ctx]` and the next round trip looks perfectly healthy. The
-          // damage lands on the NEXT send: the user's new turn is appended after
-          // the empty one, which is then no longer the tail, gets no backfill, and
-          // goes out as `content: []` behind two consecutive `user` turns. Any
-          // test of this must span TWO sends; one that reads this send's second
-          // request passes either way.
-          // ★★ TWO WAYS TO GET HERE WITH NOTHING, and only the second needs an
-          // await, which is why the guard is at the SOURCE rather than left to a
-          // downstream repair. (1) A turn with `stop_reason: "tool_use"` and no
-          // `tool_use` block in its content — malformed, but it is external data
-          // and nothing upstream validates it; `shouldStage([])` is false, so it
-          // reaches this loop and matches nothing. That one is reachable TODAY
-          // and is pinned by "a tool_use turn carrying no tool_use block…" in
-          // `chat-panel.test.tsx`. (2) The §596 per-tool guard breaking on the
-          // FIRST tool — unreachable today, since nothing awaits between the
-          // post-`callClaude` `stale()` and the first `runTool`, and deliberately
-          // guarded anyway rather than left as a trap for whoever adds one.
-          // ★ Skipping the push is correct, not a second bug: the assistant turn
-          // then has NO carrier at all, which is exactly the shape
-          // `closeDanglingToolUses` was written to repair, and it runs before the
-          // next request either way.
-          if (results.length > 0) {
-            messages.push({ role: "user", content: results });
-          }
-          // §797: a read that showed the model a Jira-synced row makes every later turn of this send untrusted.
-          sendRecord = markUntrustedByResults(
-            { ...sendRecord, appliedWrites: sendRecord.appliedWrites + directWrites },
-            results,
-          );
-          continueBubble = false; // tool output breaks the text flow — new bubble
-          continue;
-        }
-
-        // Truncated at the length cap: resume transparently instead of dumping a
-        // cut-off message and waiting for the user to prod. Any tool_use blocks
-        // in a truncated turn may be partial — DON'T execute them; answer them
-        // with interrupted results (so the protocol stays valid and the model
-        // re-issues them cleanly), then nudge it to continue where it left off.
-        if (response.stop_reason === "max_tokens") {
-          const parts: ContentBlock[] = [];
-          for (const block of response.content) {
-            if (block.type === "tool_use") {
-              parts.push({
-                type: "tool_result",
-                tool_use_id: block.id,
-                content: INTERRUPTED_TOOL_RESULT,
-                is_error: true,
-              });
-            }
-          }
-          parts.push({ type: "text", text: CONTINUE_NUDGE });
-          messages.push({ role: "user", content: parts });
-          continueBubble = true; // stitch the resumed text onto the same bubble
-          continue;
-        }
-
-        // end_turn / stop_sequence — the model is done.
-        completed = true;
-        break;
-      }
+        ),
+        now: () => Date.now(),
+        executeTool: (name, toolInput) => runTool(toolDispatcher, name, toolInput, origins.chat),
+        updateDisplay: setDisplay,
+        stageProposal: setPendingProposal,
+        rowTitle: (r, ws, pending) => cardRowTitle(lang, r, ws, pending),
+        dispatcher,
+        toolFlags,
+        getScopeEpoch,
+        sendEpoch,
+        getWorkspace: () => workspaceRef.current,
+        getHolidaySet: () => holidaySetRef.current,
+        reviewAllWrites: reviewAllWritesNow,
+        proposalOrigin: origins.proposal,
+      });
+      counters = outcome.counters;
+      if (outcome.threw) throw outcome.error;
+      const { completed } = outcome;
 
       // If the user switched project or thread mid-send, this run belongs to
       // another conversation now showing on screen — don't write its notes or
@@ -1172,72 +799,43 @@ function ChatPanelInner({
       if (!cancelledRef.current) {
         // Token usage is not recorded here: the transport's usage tap counts every response as it
         // arrives, a turn that landed before Stop included.
-        recordChatSend(sendFingerprint(), counterCacheWrite, requests);
-      } else if (requests > 0) {
+        recordChatSend(sendFingerprint(counters), counters.cacheWrite, counters.requests);
+      } else if (counters.requests > 0) {
         // Stopped after a response: not counted as a send (the view-switch counter),
         // but the prefix is cached; the tap still counts its usage.
-        noteUnbilledChatSend(sendFingerprint());
+        noteUnbilledChatSend(sendFingerprint(counters));
       }
 
       // Persist a valid history: a max_tokens truncation or a mid-turn Stop can
       // leave the last assistant message with tool_use blocks and no results.
       // Skip when switched away, so the old project's tail can't clobber the new.
       if (!switchedAway) {
-        setHistory(closeDanglingToolUses([...newHistory, ...messages.slice(newHistory.length)]));
+        setHistory(closeDanglingToolUses([...newHistory, ...outcome.messages.slice(newHistory.length)]));
       }
     } catch (err) {
       // §702: a failure after a response still left its prefix in the cache.
-      if (requests > 0) noteUnbilledChatSend(sendFingerprint());
-      // AbortError is raised by fetch when the controller fires — treat as
-      // a user-initiated stop, not a real error. Check .name directly because
-      // DOMException may not be instanceof Error across jsdom/Node boundaries.
-      const errName = err instanceof Error ? err.name : (err as { name?: string }).name;
+      if (counters.requests > 0) noteUnbilledChatSend(sendFingerprint(counters));
+      // Decided before the guard below, as the error's name always was (`chat-send-errors.ts`).
+      const shown = chatSendErrorOutcome(err);
       // Suppress when the user switched project or thread mid-send (the abort/
       // error belongs to the old conversation, not the one now on screen).
       if (projectIdRef.current === sendProjectId && chatThreads.threadIdRef.current === sendThreadId) {
-        const keyMsg = aiKeyMessageKeyForError(err);
-        const transportMsg = aiTransportMessageKey(err);
-        const modelMsg = aiModelMessageKey(err);
-        if (errName === "AbortError") {
+        if (shown.kind === "stopped") {
           setDisplay((prev) => [
             ...prev,
             { kind: "assistant", text: t(lang, "chatStopped") },
           ]);
-        } else if (
-          err instanceof AiHttpError &&
-          classifyAiError(err.status, err.errorType) === "limit"
-        ) {
-          // Anthropic's own rate/usage limit. ADVISORY — APPEND a notice to the
-          // transcript (do NOT setError-replace or clear prior messages).
+        } else if (shown.kind === "notice") {
+          // ADVISORY — APPEND a notice to the transcript (do NOT setError-replace or clear prior messages).
           setDisplay((prev) => [
             ...prev,
-            { kind: "notice", text: t(lang, "aiUsageLimitReached") },
+            { kind: "notice", text: t(lang, shown.key) },
           ]);
-        } else if (err instanceof AiPeopleProtectedContentError) {
-          // People protection is on and the conversation holds an image or a non-text document (its
-          // text cannot be redacted): the transport refused before sending. Any earlier one blocks too.
-          setError(t(lang, "chatPeopleProtectedContent"));
-        } else if (err instanceof AiConsentRevokedError) {
-          setError(t(lang, "aiConsentRevokedDuringSend"));
-        } else if (transportMsg) {
-          // The deployment's AI setting refused or could not confirm the send, or the organisation's
-          // gateway failed: nothing about the user's key, so it is named as what it is.
-          setError(t(lang, transportMsg));
-        } else if (keyMsg) {
-          // §650 — a refused key (401/403) is named as the KEY problem, with the way out,
-          // instead of "Chat failed: 401 — invalid x-api-key".
-          setError(t(lang, keyMsg));
-        } else if (modelMsg) {
-          // Anthropic does not know the selected model (retired or unknown): name it, with the way out.
-          setError(t(lang, modelMsg));
+        } else if (shown.kind === "error") {
+          setError(t(lang, shown.key));
         } else {
-          // AiHttpError.message is status-only ("400"); its `safeMessage` (the
-          // sanitized RESPONSE error.message, e.g. "prompt is too long: N > M")
-          // is appended so a 400 isn't just a bare status digit. Never logged.
-          const msg = err instanceof Error ? err.message : String(err);
-          const base = t(lang, "chatError", msg);
-          const safeMessage = err instanceof AiHttpError ? err.safeMessage : undefined;
-          setError(safeMessage ? `${base} — ${safeMessage}` : base);
+          const base = t(lang, "chatError", shown.message);
+          setError(shown.safeMessage ? `${base} — ${shown.safeMessage}` : base);
         }
       }
     } finally {
