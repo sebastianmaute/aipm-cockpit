@@ -46,11 +46,23 @@ describe("chatSendErrorOutcome — one per branch", () => {
       kind: "raw", message: "400", safeMessage: "prompt is too long",
     });
     expect(chatSendErrorOutcome(new Error("network down"))).toEqual({ kind: "raw", message: "network down", safeMessage: undefined });
-    expect(chatSendErrorOutcome("plain")).toEqual({ kind: "raw", message: "plain", safeMessage: undefined });
   });
 });
 
-describe("chatSendErrorOutcome — the branch order", () => {
+describe("chatSendErrorOutcome — a rejection that is not an object", () => {
+  test.each([
+    ["null", null, "null"],
+    ["undefined", undefined, "undefined"],
+    ["a string", "plain", "plain"],
+    ["a number", 42, "42"],
+  ] as const)("%s is the generic error, never a throw", (_label, err, message) => {
+    expect(chatSendErrorOutcome(err)).toEqual({ kind: "raw", message, safeMessage: undefined });
+  });
+});
+
+// Only "AbortError first" is an order a test can see; the later branches do not overlap on today's
+// error classes (see `chatSendErrorOutcome`'s docstring), so their order is not pinned here.
+describe("chatSendErrorOutcome — AbortError comes first", () => {
   test("AbortError wins over a usage limit", () => {
     expect(chatSendErrorOutcome(named(new AiHttpError(429), "AbortError"))).toEqual({ kind: "stopped" });
   });
@@ -59,7 +71,10 @@ describe("chatSendErrorOutcome — the branch order", () => {
     expect(chatSendErrorOutcome(named(new AiPeopleProtectedContentError(), "AbortError"))).toEqual({ kind: "stopped" });
     expect(chatSendErrorOutcome(named(new AiHttpError(401), "AbortError"))).toEqual({ kind: "stopped" });
   });
+});
 
+// Classification at the boundaries between classes, decided by `classifyAiError`, not by branch order.
+describe("chatSendErrorOutcome — class boundaries", () => {
   test("a limit error type on a 403 is the limit, not the key", () => {
     expect(chatSendErrorOutcome(new AiHttpError(403, "rate_limit_error"))).toEqual({ kind: "notice", key: "aiUsageLimitReached" });
   });

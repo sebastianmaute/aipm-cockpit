@@ -21,9 +21,21 @@ export type ChatSendErrorOutcome =
     }
   | { readonly kind: "raw"; readonly message: string; readonly safeMessage: string | undefined };
 
-/** The outcome for an error a send threw. ★ The branch ORDER is the contract: AbortError, limit,
- *  people-protected, consent, transport, key, model, generic. */
+/** The outcome for an error a send threw. The branches run in this order: AbortError, limit,
+ *  people-protected, consent, transport, key, model, generic.
+ *  ★ ONLY "AbortError first" is pinned by a test (an AbortError that is also a limit, a people-protection
+ *   refusal or a refused key is a stop). The rest of the order is NOT pinned and cannot be today: on the
+ *   current error classes the later branches never overlap — limit, key and model are disjoint classes of
+ *   one `classifyAiError`, people protection and the transport errors are not `AiHttpError`s, and the
+ *   consent branch and the transport branch give `AiConsentRevokedError` the same key — so swapping any
+ *   two of them changes no outcome. A new error class that matches two branches makes the order matter;
+ *   pin it then.
+ *  ★ A rejection that is not an object (`null`, `undefined`, a string, a number) is the generic error,
+ *   with `String(err)` as its message: reading `.name` off `null` used to throw inside the panel's catch. */
 export function chatSendErrorOutcome(err: unknown): ChatSendErrorOutcome {
+  if (err === null || (typeof err !== "object" && typeof err !== "function")) {
+    return { kind: "raw", message: String(err), safeMessage: undefined };
+  }
   // AbortError is raised by fetch when the controller fires — treat as
   // a user-initiated stop, not a real error. Check .name directly because
   // DOMException may not be instanceof Error across jsdom/Node boundaries.
