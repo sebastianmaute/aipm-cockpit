@@ -173,9 +173,10 @@ describe("useInsightRecommendRunner", () => {
     expect(applyRecommendation).toHaveBeenCalledTimes(1);
   });
 
-  // A usage limit (429, classified "limit") is the same limit for every remaining candidate.
+  // A usage limit is the same limit for every remaining candidate. No error type, so only the 429 status
+  // makes it "limit" (`classifyAiError`).
   test("a usage limit (429) ends the tick", async () => {
-    mockRun.mockRejectedValueOnce(new AiHttpError(429, "rate_limit_error"));
+    mockRun.mockRejectedValueOnce(new AiHttpError(429));
     mockRun.mockResolvedValue(fakeRec);
     const { applyRecommendation } = renderRunner({ insights: [makeInsight(1), makeInsight(2), makeInsight(3)] });
     await act(async () => { await flushMicrotasks(); });

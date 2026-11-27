@@ -3,7 +3,10 @@ vi.mock("./diagnostics", async (orig) => ({ ...(await orig<typeof import("./diag
 import { logDiag } from "./diagnostics";
 import { runChatSend, type ChatSendDeps, type ChatTurnResponse, type PendingProposal } from "./chat-send-loop";
 import { CONTINUE_NUDGE, INTERRUPTED_TOOL_RESULT, type ApiMessage, type ContentBlock, type DisplayItem, type ToolResultBlock } from "./chat-api";
-import { PROPOSAL_PENDING_RESULT } from "./chat-proposal-stage";
+import { PROPOSAL_PENDING_RESULT, stagedToolResult } from "./chat-proposal-stage";
+import { PERSON_FIELDS_REMOVED_NOTE } from "./ai-person-fields";
+import { emptyWorkspace, type Workspace } from "./workspace";
+import type { Absence, Resource, Task } from "./types";
 import { openSendRecord } from "./chat-send-record";
 
 const mockLogDiag = vi.mocked(logDiag);
@@ -238,5 +241,84 @@ describe("runChatSend — continuation, cap, failure, stale", () => {
     expect(out.counters).toMatchObject({ requests: 1, cacheWrite: 4 });
     expect(out.messages).toEqual(HISTORY);
     expect(h.display()).toEqual([]);
+  });
+});
+
+describe("runChatSend — the third stale() site and the bubble reset", () => {
+  test("stale() after the turn's text shows the text but runs none of the turn's tools", async () => {
+    let calls = 0;
+    // Before the call, after it, then (third) after the text: only the third reads stale.
+    const h = harness([turn("tool_use", [text("On it."), use("u1", "list_tasks")])], { stale: () => ++calls >= 3 });
+    const out = await runChatSend(h.deps);
+    if (out.threw) throw out.error;
+    expect(h.display()).toEqual([{ kind: "assistant", text: "On it." }]);
+    expect(h.ran).toEqual([]);
+    expect(out.messages.at(-1)?.role).toBe("assistant");
+    expect(out.completed).toBe(false);
+  });
+
+  test("a tool turn after a max_tokens turn takes the stitch, then the NEXT text starts a new bubble", async () => {
+    // The tool turn carries no tool_use block, so no tool line sits between the bubbles: only the
+    // reset of the stitch flag keeps "C" off the "AB" bubble.
+    const h = harness([
+      turn("max_tokens", [text("A")]),
+      turn("tool_use", [text("B")]),
+      turn("end_turn", [text("C")]),
+    ]);
+    const out = await runChatSend(h.deps);
+    if (out.threw) throw out.error;
+    expect(h.display()).toEqual([
+      { kind: "assistant", text: "AB" },
+      { kind: "assistant", text: "C" },
+    ]);
+  });
+});
+
+describe("runChatSend — what a staged result tells Claude", () => {
+  const MAYA = { id: 1, firstName: "Maya", lastName: "Patel" } as Resource;
+  // 2026-11-02 is a Monday.
+  const MAYA_WEEK = { id: 1, assignee: "Maya Patel", resourceId: 1, type: "vacation", startDate: "2026-11-03", endDate: "2026-11-07" } as Absence;
+  const TASK = { id: 1, taskName: "Ship the release", assignee: "Maya Patel", resourceId: 1, dueDate: "2026-11-12", status: "To Do", priority: "Medium" } as Task;
+  const WORKSPACE = { ...emptyWorkspace(), tasks: [TASK], resources: [MAYA], absences: [MAYA_WEEK] } as Workspace;
+
+  function stagedAnswers(h: ReturnType<typeof harness>, out: Awaited<ReturnType<typeof runChatSend>>): ToolResultBlock[] {
+    if (out.threw) throw out.error;
+    expect(h.staged).toHaveLength(1);
+    return answers(h.sent[1].at(-1));
+  }
+
+  test("a lone date write that lands on an absence is staged, and its result names the clash", async () => {
+    const h = harness([turn("tool_use", [use("t1", "update_task", { id: 1, dueDate: "2026-11-05" })]), turn("end_turn", [text("ok")])], {
+      getWorkspace: () => WORKSPACE,
+    });
+    const [only] = stagedAnswers(h, await runChatSend(h.deps));
+    expect(only.content).not.toBe(stagedToolResult(undefined));
+    expect(only.content).toContain("absenceClashes:");
+    expect(h.ran).toEqual([]);
+  });
+
+  test("the control: with Resources hidden the staged result names no clash (the card still stages)", async () => {
+    const h = harness([turn("tool_use", [use("t1", "update_task", { id: 1, dueDate: "2026-11-05" })]), turn("end_turn", [text("ok")])], {
+      getWorkspace: () => WORKSPACE,
+      toolFlags: { historySearch: true, chatSearch: true, resourcesHidden: true },
+    });
+    const [only] = stagedAnswers(h, await runChatSend(h.deps));
+    expect(only.content).toBe(stagedToolResult(undefined));
+  });
+
+  test("under people protection a staged call's removed person fields are named in its result", async () => {
+    const h = harness([
+      turn("tool_use", [
+        use("c1", "create_task", { taskName: "One", assignee: "Maya Patel" }),
+        use("c2", "create_task", { taskName: "Two" }),
+      ]),
+      turn("end_turn", [text("ok")]),
+    ], { toolFlags: { historySearch: true, chatSearch: true, peopleProtected: true } });
+    const [first, second] = stagedAnswers(h, await runChatSend(h.deps));
+    expect(first.content).toContain(PERSON_FIELDS_REMOVED_NOTE(["assignee"]));
+    // A call that carried no person field gets no note.
+    expect(second.content).not.toContain(PERSON_FIELDS_REMOVED_NOTE(["assignee"]));
+    // Both creates went on the one card.
+    expect(h.staged[0].rows).toHaveLength(2);
   });
 });
