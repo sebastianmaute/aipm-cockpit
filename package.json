@@ -165,7 +165,7 @@
     "@vitest/coverage-v8": "^5.1.0",
     "dom-accessibility-api": "^0.7.1",
     "eslint": "^10.14.0",
-    "eslint-config-next": "16.4.5",
+    "eslint-config-next": "16.4.6",
     "fake-indexeddb": "^6.2.7",
     "fast-check": "^4.10.2",
     "jiti": "^2.7.0",
