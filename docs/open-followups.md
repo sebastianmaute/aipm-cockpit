@@ -1055,7 +1055,7 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§818](#818-scheduled-jobs-acceptance-entries-keep-full-instruction-text-and-are-never-pruned) | Scheduled jobs: acceptance entries keep full instruction text and are never pruned | — | — | open |
 | [§819](#819-scheduled-jobs-three-settings-functions-are-far-too-long) | Scheduled jobs: three settings functions are far too long | — | — | open |
 | [§820](#820-ai-action-buttons-refresh-the-open-points-and-gantt-visual-baselines) | AI action buttons: refresh the Open Points and Gantt visual baselines | — | — | open |
-| [§821](#821-work-breakdown-open-request-refuses-with-ai-off-when-the-installation-blocks-ai) | Work-breakdown open request refuses with "AI off" when the installation blocks AI | — | — | open |
+| [§821](#821-work-breakdown-open-request-refuses-with-ai-off-when-the-installation-blocks-ai--closed-2026-11-28) | Work-breakdown open request refuses with "AI off" when the installation blocks AI | — | — | **CLOSED** 2026-11-28 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46647,11 +46647,9 @@ Size S.
 
 **Source:** review of the AI action button change, 2026-11-25.
 
-## 821. Work-breakdown open request refuses with "AI off" when the installation blocks AI
+## 821. Work-breakdown open request refuses with "AI off" when the installation blocks AI — CLOSED 2026-11-28
 
-**Status:** OPEN 2026-11-25, found in review of the AI action button change. Located by reading: `grep -n "refuse(\"aiOff\")" src/app/use-wbs-plan.tsx`.
-
-**Work item:** #1034
+**Status:** CLOSED 2026-11-28, owner decision 2026-11-28: the path cannot be reached, so no code was changed. Checked by reading the code, not by a test. (1) The planner's open request has one caller, the chat tool `optimize_wbs` (`grep -rn "openWbsPlan(" src/app --include=*.ts | grep -v test`); scheduled jobs and insight recommendations cannot call that tool. (2) The browser learns the deployment block once per page load: `setAiDeploymentState` has one caller, `IntegrationSwitchesSync` in `src/app/integration-switches-sync.tsx`, rendered by the root layout (`grep -rn "setAiDeploymentState(" src/app | grep -v test`). The per-send `GET /api/ai/status` check refuses a send but does not change that state. (3) So on a page that loaded with AI blocked, the chat refuses every send with `aiDeploymentBlockedMessageKey`'s message (`sendBlockedMessage` in `src/app/chat-panel.tsx`) and no `optimize_wbs` call can arrive; when the block starts after the page loaded, the next send is refused by the server, and a tool call from a turn already answered still sees `isAiDeploymentOn()` true, so `isAiEnabled` does not refuse with `aiOff` for the block. A distinct refusal would be code no input reaches. Reopen if the deployment state ever starts to change during a page's life. First recorded: OPEN 2026-11-25, found in review of the AI action button change. Located by reading: `grep -n "refuse(\"aiOff\")" src/app/use-wbs-plan.tsx`.
 
 When the installation has AI switched off or its AI setting is invalid, the four AI action triggers are hidden. The chat's request to open the work-breakdown planner still refuses with the reason `aiOff` (`WbsOpenRefusal` in `src/app/wbs-plan/wbs-open-refusal.ts`), which tells the user to turn AI on, something they cannot do on such an installation. Whether a chat request can reach this path on such an installation at all has not been checked.
 
