@@ -166,7 +166,7 @@ export function isEditedHere(job: ScheduledJob, scope: string): boolean {
  *  no answer and are never matched), and rewrites every value still holding fingerprint text as its hash. Writes
  *  nothing when nothing changed.
  *  ★ A read-modify-write of the whole map, like `record` and `forgetJob`: another tab's answer written between the read
- *  and the write is lost. The window is one synchronous task, and once old text is rewritten a prune writes only when a
+ *  and the write is overwritten by the value read, which can bring back an earlier Accept over a fresh Stop. The window is one synchronous task, and once old text is rewritten a prune writes only when a
  *  job is gone. */
 function pruneStore(
   storageKey: string,
