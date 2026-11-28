@@ -1652,7 +1652,7 @@
     text as its hash in every portfolio and drops unscoped entries; only a NON-EMPTY read also forgets that
     portfolio's answers and marks for jobs the list no longer holds (an empty read passes `liveKeys` null). So old
     text survives only until the first successful read after the update. An older build reads every hashed answer as
-    `changed` (fails closed) and writes text again, which the next read here rewrites. It forgets only entries already stored when the read began (`answerKeysOf`), so
+    `changed`, or a hashed Stop as `declined-changed` (both fail closed), and writes text again, which the next read here rewrites. It forgets only entries already stored when the read began (`answerKeysOf`), so
     another tab's create-and-accept during the read survives; a wrong forget fails closed. A portfolio never opened
     again keeps its (hashed) entries. ★★ A cloned database holds the same job keys, so an answer given in one
     portfolio never counts in another: an entry of another portfolio, or an older entry keyed by the job key alone,

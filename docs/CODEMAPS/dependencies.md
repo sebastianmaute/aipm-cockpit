@@ -2,8 +2,9 @@
 
 # Dependencies
 
-Deliberately small. **Sixteen runtime dependencies**, seven of which are Tiptap packages on one
-version line — so the count of independent vendors is ten. Timezones use native `Intl`,
+Deliberately small. **Seventeen runtime dependencies**, seven of which are Tiptap packages on one
+version line — so the count of independent vendors is eleven (re-count:
+`node -e "console.log(Object.keys(require('./package.json').dependencies).length)"`). Timezones use native `Intl`,
 drag-and-drop is native HTML5, OOXML export is hand-rolled over an in-tree zip writer, and every AI
 call is a raw `fetch`.
 
