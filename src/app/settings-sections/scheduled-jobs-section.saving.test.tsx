@@ -13,7 +13,7 @@ import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import type { TursoConfig } from "../turso-config";
-import { __resetEditedHereForTests, ACCEPTANCE_KEY, acceptanceState, acceptJob, jobFingerprint, storedAcceptanceEntry } from "../scheduled-job-acceptance";
+import { __resetEditedHereForTests, ACCEPTANCE_KEY, acceptanceState, acceptJob, jobFingerprint, storedAcceptanceEntry, storedFingerprint } from "../scheduled-job-acceptance";
 
 /** The portfolio this file's answers are kept for (`acceptanceScope`). */
 const SCOPE = "https://saving.example";
@@ -296,7 +296,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     expect(field()).toHaveValue("d");
     expect(screen.queryByText(t("en-US", "scheduledJobsWriteFailed"))).toBeNull(); // not a failed save ...
     expect(screen.queryByText(t("en-US", "scheduledJobChangeNotSaved"))).toBeNull(); // ... and not "not saved"
-    expect(storedEntry()).toBe(jobFingerprint(job())); // nothing answered
+    expect(storedEntry()).toBe(storedFingerprint(jobFingerprint(job()))); // nothing answered
   });
 
   it("a change from another device seen by a re-read keeps the draft until its save is refused the same way", async () => {
@@ -314,7 +314,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     await sleep(50);
     expect(stored()).toBe("d");
     expect(field()).toHaveValue("d");
-    expect(storedEntry()).toBe(jobFingerprint(job()));
+    expect(storedEntry()).toBe(storedFingerprint(jobFingerprint(job())));
   });
 
   it("this tab's own save landing while the user keeps typing keeps the draft, with no notice, and the next blur saves it", async () => {
@@ -515,7 +515,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     fireEvent.pointerUp(accept);
     fireEvent.click(accept);
     await sleep(80);
-    expect(storedEntry()).toBe(jobFingerprint(job({ instruction: "x" })));
+    expect(storedEntry()).toBe(storedFingerprint(jobFingerprint(job({ instruction: "x" }))));
   });
 
   it("after such a refusal, the next edit is judged against the other device's text and saves", async () => {
@@ -581,7 +581,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     fireEvent.click(accept);
     await sleep(80);
     expect(field()).toHaveValue("b");
-    expect(storedEntry()).toBe(jobFingerprint(job({ instruction: "b" })));
+    expect(storedEntry()).toBe(storedFingerprint(jobFingerprint(job({ instruction: "b" }))));
   });
 
   it("a closing save queued before a refusal is refused too, whatever the stored text did since", async () => {
@@ -707,7 +707,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     fireEvent.pointerUp(accept);
     fireEvent.click(accept);
     await sleep(80);
-    expect(storedEntry()).toBe(jobFingerprint(job({ instruction: "x" })));
+    expect(storedEntry()).toBe(storedFingerprint(jobFingerprint(job({ instruction: "x" }))));
     expect(lostText()).toHaveValue("cd"); // an answer does not take it away
   });
 
@@ -768,7 +768,7 @@ describe("ScheduledJobsSection — a press answers the version shown, and waits 
     fireEvent.pointerUp(accept);
     fireEvent.click(accept);
     await sleep(80);
-    expect(storedEntry()).toBe(jobFingerprint(job()));
+    expect(storedEntry()).toBe(storedFingerprint(jobFingerprint(job())));
   });
 
   it("after a not-saved restore, edits save normally even when the job changed elsewhere in between", async () => {

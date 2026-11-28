@@ -1643,8 +1643,18 @@
   ★★ **A shared job runs on a device only after that device accepted it.**
   - **What is stored:** per device, in localStorage `aipm-cockpit:scheduled-job-acceptance` (`scheduled-job-acceptance.ts`),
     keyed by portfolio AND the job's permanent key (`acceptanceScope`: the backend the list is read from, its
-    database URL, or `local`; entry key `scope|key`): a fingerprint of project + instruction (a time change keeps
-    it), or `"declined:"` + the fingerprint. ★★ A cloned database holds the same job keys, so an answer given in one
+    database URL, or `local`; entry key `scope|key`): the SHA-256 of a fingerprint of project + instruction
+    (`storedFingerprint`, `"sha256:"` + hex; a time change keeps it), or `"declined:"` + that. ★★ Nothing written stores
+    instruction text (§818), and the hash is cryptographic on purpose: whoever can edit a shared job must not be
+    able to write a different instruction with the same stored value. An entry written before §818 holds the
+    fingerprint text, which always starts with `[`, and reads as its hash, so earlier answers still count. ★ After every
+    successful read of a portfolio's list, `pruneAnswers` (called in `useScheduledJobs`' `refresh`) rewrites leftover
+    text as its hash in every portfolio and drops unscoped entries; only a NON-EMPTY read also forgets that
+    portfolio's answers and marks for jobs the list no longer holds (an empty read passes `liveKeys` null). So old
+    text survives only until the first successful read after the update. An older build reads every hashed answer as
+    `changed`, or a hashed Stop as `declined-changed` (both fail closed), and writes text again, which the next read here rewrites. It forgets only entries already stored when the read began (`answerKeysOf`), so
+    another tab's create-and-accept during the read survives; a wrong forget fails closed. A portfolio never opened
+    again keeps its (hashed) entries. ★★ A cloned database holds the same job keys, so an answer given in one
     portfolio never counts in another: an entry of another portfolio, or an older entry keyed by the job key alone,
     reads `none` (it fails closed). The "edited here" marks are keyed the same way. Every reader and writer passes
     the scope: the runner's `isAcceptedHere` (wired in `use-ai-orchestration.ts` with the runner's config, pinned by
@@ -1672,7 +1682,7 @@
     edited stopped job stays stopped until answered. Editing it back to the version this device accepted makes it
     runnable again, because the old entry matches again. While the job is still the version this device saved, its
     row reads `scheduledJobChangedHere` (was accepted) or `scheduledJobChangedHereStopped` (was stopped) instead of
-    the "changed" wording: `markEditedHere` records the saved version's fingerprint when such a save lands, in
+    the "changed" wording: `markEditedHere` records the saved version's `storedFingerprint` when such a save lands, in
     localStorage `EDITED_HERE_KEY` (so it survives a reload and is shared by this device's tabs; a `storage` event
     re-renders the row), `isEditedHere` compares it to the job as it stands (so a later change from another device
     reads as such again), and any answer or a delete clears it. Display only: it never decides a run, and storage

@@ -127,6 +127,7 @@
   },
   "dependencies": {
     "@azure/msal-browser": "^5.28.0",
+    "@noble/hashes": "^2.4.0",
     "@tanstack/react-virtual": "3.14.26",
     "@tiptap/extension-highlight": "^3.32.3",
     "@tiptap/extension-list": "^3.32.3",

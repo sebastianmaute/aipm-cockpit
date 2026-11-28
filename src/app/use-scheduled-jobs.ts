@@ -12,7 +12,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDeviceLabel } from "./device-label";
-import { acceptanceScope, acceptJob, forgetJob, jobFingerprint, markEditedHere } from "./scheduled-job-acceptance";
+import { acceptanceScope, acceptJob, answerKeysOf, forgetJob, jobFingerprint, markEditedHere, pruneAnswers } from "./scheduled-job-acceptance";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
 import {
   appendRun, JobChangedError, JobGoneError, JobNotEditableError, JobSourceChangedError, jobSaveId, normalizeJobFields,
@@ -207,6 +207,8 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
     const config = cfgRef.current;
     try {
       const startedAt = generationOf(config);
+      const scope = acceptanceScope(backendOf(config));
+      const answeredBefore = answerKeysOf(scope);
       const list = await loadScheduledJobs(config);
       if (!mountedRef.current || startedAt !== generationOf(config) || backendOf(cfgRef.current) !== backendOf(config)) return;
       // A job this tab showed from the same backend and now gone was deleted elsewhere: forget any text kept for it.
@@ -214,6 +216,10 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
         const keys = new Set(list.map((j) => j.key));
         for (const gone of jobsRef.current) if (gone.key !== null && !keys.has(gone.key)) forgetLostDraft(jobSaveId(gone));
       }
+      // §818 — and forget this device's answers to jobs the portfolio no longer holds (never on an empty read, which
+      // still rewrites any instruction text an earlier version stored as its hash).
+      const liveKeys = list.length > 0 ? new Set(list.flatMap((j) => (j.key === null ? [] : [j.key]))) : null;
+      pruneAnswers(scope, liveKeys, answeredBefore);
       setJobs(list);
       setJobsSource(backendOf(config));
       setFailedSource(undefined);
