@@ -12,6 +12,9 @@ import {
   isEditedHere,
   markEditedHere,
   storedAcceptanceEntry,
+  storedFingerprint,
+  answerKeysOf,
+  pruneAnswers,
   jobFingerprint,
   useAcceptanceSnapshot,
 } from "./scheduled-job-acceptance";
@@ -150,12 +153,12 @@ describe("scheduled job acceptance", () => {
     expect(acceptanceState(job(), SCOPE)).toBe("accepted");
   });
 
-  it("storedAcceptanceEntry returns the raw stored value, null when absent, null when storage throws", () => {
+  it("storedAcceptanceEntry returns the stored hash, null when absent, null when storage throws", () => {
     expect(storedAcceptanceEntry("k1", SCOPE)).toBeNull();
     acceptJob(job(), SCOPE);
-    expect(storedAcceptanceEntry("k1", SCOPE)).toBe(jobFingerprint(job()));
+    expect(storedAcceptanceEntry("k1", SCOPE)).toBe(storedFingerprint(jobFingerprint(job())));
     declineJob(job(), SCOPE);
-    expect(storedAcceptanceEntry("k1", SCOPE)).toBe("declined:" + jobFingerprint(job()));
+    expect(storedAcceptanceEntry("k1", SCOPE)).toBe("declined:" + storedFingerprint(jobFingerprint(job())));
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("blocked");
     });
@@ -210,7 +213,7 @@ describe("the 'you changed this job' marker", () => {
 
   it("lives in localStorage, so a reload (fresh module state) still reads it", async () => {
     markEditedHere("k1", jobFingerprint(job()), SCOPE);
-    expect(JSON.parse(localStorage.getItem(EDITED_HERE_KEY) ?? "{}")).toEqual({ [`${SCOPE}|k1`]: jobFingerprint(job()) });
+    expect(JSON.parse(localStorage.getItem(EDITED_HERE_KEY) ?? "{}")).toEqual({ [`${SCOPE}|k1`]: storedFingerprint(jobFingerprint(job())) });
     vi.resetModules();
     const fresh = await import("./scheduled-job-acceptance");
     expect(fresh.isEditedHere(job(), SCOPE)).toBe(true);
@@ -246,5 +249,108 @@ describe("the 'you changed this job' marker", () => {
       window.dispatchEvent(new StorageEvent("storage", { key: EDITED_HERE_KEY }));
     });
     expect(result.current).not.toBe(first);
+  });
+});
+
+describe("§818: the stores keep a hash, never the instruction, and forget jobs that are gone", () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => vi.restoreAllMocks());
+
+  const SECRET = "Email the board the Q3 numbers";
+  const both = (): string => (localStorage.getItem(ACCEPTANCE_KEY) ?? "") + (localStorage.getItem(EDITED_HERE_KEY) ?? "");
+  const answers = (): Record<string, string> => JSON.parse(localStorage.getItem(ACCEPTANCE_KEY) ?? "{}");
+  const marks = (): Record<string, string> => JSON.parse(localStorage.getItem(EDITED_HERE_KEY) ?? "{}");
+
+  it("storedFingerprint is the SHA-256 of the fingerprint text, hex, with a prefix", () => {
+    // NIST FIPS 180-2 test vector for "abc".
+    expect(storedFingerprint("abc")).toBe("sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    expect(storedFingerprint("é")).not.toBe(storedFingerprint("e"));
+  });
+
+  it("accepting, declining and marking store no instruction text", () => {
+    const j = job({ instruction: SECRET });
+    acceptJob(j, SCOPE);
+    expect(both()).not.toContain("Q3");
+    declineJob(j, SCOPE);
+    markEditedHere("k1", jobFingerprint(j), SCOPE);
+    expect(both()).not.toContain("Q3");
+    expect(acceptanceState(j, SCOPE)).toBe("declined");
+    expect(isEditedHere(j, SCOPE)).toBe(true);
+  });
+
+  it("an answer and a mark written before §818 (the text itself) still count", () => {
+    const j = job({ instruction: SECRET });
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ [`${SCOPE}|k1`]: jobFingerprint(j) }));
+    localStorage.setItem(EDITED_HERE_KEY, JSON.stringify({ [`${SCOPE}|k1`]: jobFingerprint(j) }));
+    expect(acceptanceState(j, SCOPE)).toBe("accepted");
+    expect(isEditedHere(j, SCOPE)).toBe(true);
+    expect(acceptanceState(job({ instruction: "other" }), SCOPE)).toBe("changed");
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ [`${SCOPE}|k1`]: "declined:" + jobFingerprint(j) }));
+    expect(acceptanceState(j, SCOPE)).toBe("declined");
+  });
+
+  it("pruning forgets this portfolio's answers and marks for jobs the list no longer holds", () => {
+    acceptJob(job({ key: "k1" }), SCOPE);
+    acceptJob(job({ key: "k2" }), SCOPE);
+    markEditedHere("k2", jobFingerprint(job({ key: "k2" })), SCOPE);
+    pruneAnswers(SCOPE, new Set(["k1"]), answerKeysOf(SCOPE));
+    expect(Object.keys(answers())).toEqual([`${SCOPE}|k1`]);
+    expect(marks()).toEqual({});
+    expect(acceptanceState(job({ key: "k1" }), SCOPE)).toBe("accepted");
+    expect(acceptanceState(job({ key: "k2" }), SCOPE)).toBe("none");
+  });
+
+  it("pruning keeps another portfolio's entries, even one whose scope starts with this one's", () => {
+    const OTHER = "https://b.example";
+    const NESTED = `${SCOPE}|x`;
+    acceptJob(job({ key: "k9" }), OTHER);
+    acceptJob(job({ key: "k9" }), NESTED);
+    pruneAnswers(SCOPE, new Set(["k1"]), answerKeysOf(SCOPE));
+    expect(acceptanceState(job({ key: "k9" }), OTHER)).toBe("accepted");
+    expect(acceptanceState(job({ key: "k9" }), NESTED)).toBe("accepted");
+  });
+
+  it("an answer written while the read was under way is kept, though its job is not in the list", () => {
+    const seen = answerKeysOf(SCOPE);
+    acceptJob(job({ key: "new" }), SCOPE); // another tab created and accepted it after the read began
+    pruneAnswers(SCOPE, new Set(["k1"]), seen);
+    expect(acceptanceState(job({ key: "new" }), SCOPE)).toBe("accepted");
+  });
+
+  it("pruning rewrites text left by an earlier version as its hash, in every portfolio, and drops unscoped entries", () => {
+    const j = job({ instruction: SECRET });
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({
+      [`${SCOPE}|k1`]: jobFingerprint(j),
+      ["https://b.example|k1"]: "declined:" + jobFingerprint(j),
+      k1: jobFingerprint(j),
+    }));
+    localStorage.setItem(EDITED_HERE_KEY, JSON.stringify({ ["https://b.example|k1"]: jobFingerprint(j) }));
+    pruneAnswers(SCOPE, new Set(["k1"]), answerKeysOf(SCOPE));
+    expect(both()).not.toContain("Q3");
+    expect(answers()).toEqual({
+      [`${SCOPE}|k1`]: storedFingerprint(jobFingerprint(j)),
+      ["https://b.example|k1"]: "declined:" + storedFingerprint(jobFingerprint(j)),
+    });
+    expect(acceptanceState(j, SCOPE)).toBe("accepted");
+    expect(acceptanceState(j, "https://b.example")).toBe("declined");
+    expect(isEditedHere(j, "https://b.example")).toBe(true);
+  });
+
+  it("pruning with nothing to change writes nothing", () => {
+    const writes = vi.spyOn(Storage.prototype, "setItem");
+    pruneAnswers(SCOPE, new Set(["k1"]), answerKeysOf(SCOPE));
+    acceptJob(job(), SCOPE);
+    writes.mockClear();
+    pruneAnswers(SCOPE, new Set(["k1"]), answerKeysOf(SCOPE));
+    expect(writes).not.toHaveBeenCalled();
+  });
+
+  it("a prune whose write throws leaves the answers as they were", () => {
+    acceptJob(job({ key: "k2" }), SCOPE);
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("full");
+    });
+    expect(() => pruneAnswers(SCOPE, new Set(["k1"]), answerKeysOf(SCOPE))).not.toThrow();
+    expect(acceptanceState(job({ key: "k2" }), SCOPE)).toBe("accepted");
   });
 });

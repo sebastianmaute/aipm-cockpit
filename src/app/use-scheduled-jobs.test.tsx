@@ -700,3 +700,33 @@ describe("useScheduledJobs re-reads when the page is looked at again", () => {
     addWin.mockRestore();
   });
 });
+
+describe("§818: a successful read forgets answers to jobs the portfolio no longer holds", () => {
+  const JOBS_KEY = "aipm-cockpit:scheduled-jobs";
+  const job1 = {
+    id: 1, name: "J", type: "portfolioAnalysis", cadence: dailyCadence, enabled: true,
+    projectId: "p1", timeZone: "UTC", key: "key-1", instruction: "b", lastRunAt: null, history: [],
+  };
+  const answers = (): Record<string, string> => JSON.parse(localStorage.getItem(ACCEPTANCE_KEY) ?? "{}");
+  beforeEach(() => {
+    localStorage.clear();
+    __resetEditedHereForTests();
+  });
+
+  it("drops the answer of a job deleted elsewhere and keeps the one still listed", async () => {
+    localStorage.setItem(JOBS_KEY, JSON.stringify([job1]));
+    acceptJob(job1 as ScheduledJob, SCOPE);
+    acceptJob({ ...job1, key: "key-gone" } as ScheduledJob, SCOPE);
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(Object.keys(answers())).toEqual([`${SCOPE}|key-1`]);
+    expect(isAcceptedHere(result.current.jobs[0], SCOPE)).toBe(true);
+  });
+
+  it("an empty read forgets nothing", async () => {
+    acceptJob({ ...job1, key: "key-gone" } as ScheduledJob, SCOPE);
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(Object.keys(answers())).toEqual([`${SCOPE}|key-gone`]);
+  });
+});

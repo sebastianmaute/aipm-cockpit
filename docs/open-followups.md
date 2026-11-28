@@ -1052,7 +1052,7 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§815](#815-ai-starter-content-applied-when-a-project-is-created-writes-no-activity-entry--closed-2026-11-21) | AI starter content applied when a project is created writes no activity entry | — | — | **CLOSED** 2026-11-21 |
 | [§816](#816-scheduled-jobs-five-narrow-gaps-around-a-portfolio-switch-remain) | Scheduled jobs: five narrow gaps around a portfolio switch remain | — | — | open |
 | [§817](#817-scheduled-jobs-a-key-minted-in-this-window-is-never-forgotten) | Scheduled jobs: a key minted in this window is never forgotten | — | — | open |
-| [§818](#818-scheduled-jobs-acceptance-entries-keep-full-instruction-text-and-are-never-pruned) | Scheduled jobs: acceptance entries keep full instruction text and are never pruned | — | — | open |
+| [§818](#818-scheduled-jobs-acceptance-entries-keep-full-instruction-text-and-are-never-pruned--closed-2026-11-28) | Scheduled jobs: acceptance entries keep full instruction text and are never pruned | — | — | **CLOSED** 2026-11-28 |
 | [§819](#819-scheduled-jobs-three-settings-functions-are-far-too-long) | Scheduled jobs: three settings functions are far too long | — | — | open |
 | [§820](#820-ai-action-buttons-refresh-the-open-points-and-gantt-visual-baselines) | AI action buttons: refresh the Open Points and Gantt visual baselines | — | — | open |
 | [§821](#821-work-breakdown-open-request-refuses-with-ai-off-when-the-installation-blocks-ai--closed-2026-11-28) | Work-breakdown open request refuses with "AI off" when the installation blocks AI | — | — | **CLOSED** 2026-11-28 |
@@ -46605,11 +46605,9 @@ Size S.
 
 **Source:** review of the scheduled-job acceptance branch, 2026-11-25.
 
-## 818. Scheduled jobs: acceptance entries keep full instruction text and are never pruned
+## 818. Scheduled jobs: acceptance entries keep full instruction text and are never pruned — CLOSED 2026-11-28
 
-**Status:** OPEN 2026-11-25, found in review of the scheduled-job acceptance branch. Located by reading: `grep -nE "EDITED_HERE_KEY|ACCEPTANCE_KEY" src/app/scheduled-job-acceptance.ts`.
-
-**Work item:** #1030
+**Status:** CLOSED 2026-11-28, both halves, owner decision 2026-11-28 (a cryptographic hash, through the new runtime dependency `@noble/hashes`, plus pruning). (1) Both stores now keep `storedFingerprint`, `"sha256:"` plus the SHA-256 hex of `jobFingerprint` (`scheduled-job-acceptance.ts`), so the device keeps no instruction text. A weak hash such as `token-hash.ts`'s was rejected: whoever can edit a shared job could write a different instruction with the same stored value, and every device that accepted the old one would run it without asking. A value written earlier holds the fingerprint text, which always starts with `[`, and reads as its hash, so earlier answers still count. (2) After a successful, non-empty read of a portfolio's list, `useScheduledJobs`' `refresh` calls `pruneAnswers`, which forgets that portfolio's answers and marks for jobs no longer listed (only those already stored when the read began, from `answerKeysOf`), rewrites leftover text as its hash in every portfolio, and drops unscoped entries. An empty read forgets nothing. Not done: a portfolio this device never opens again keeps its entries, now hashes without text. Pinned by `npx vitest run src/app/scheduled-job-acceptance.test.ts -t "§818"` (9 tests) and `npx vitest run src/app/use-scheduled-jobs.test.tsx -t "§818"` (2 tests); eight mutants (no hash, no reading of old text, no read-start snapshot, no nested-portfolio guard, a write when nothing changed, unscoped entries kept, a prune on an empty read, no prune call) each turned one of them red. First recorded: OPEN 2026-11-25, found in review of the scheduled-job acceptance branch. Located by reading: `grep -nE "EDITED_HERE_KEY|ACCEPTANCE_KEY" src/app/scheduled-job-acceptance.ts`.
 
 A device's answers to shared scheduled jobs are kept in localStorage under `ACCEPTANCE_KEY`, and the jobs it last edited under `EDITED_HERE_KEY` (`scheduled-job-acceptance.ts`). Each entry's value is `jobFingerprint`, which holds the job's full instruction (up to 5,000 characters). Entries are removed only when the job is deleted on this device; a job deleted on another device, or a portfolio no longer used, leaves its entries behind. Storage grows without bound, and old instruction text stays on the device after its job is gone.
 

@@ -25,6 +25,9 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **A device no longer keeps the text of scheduled jobs it answered.** Your Accept or Stop for a shared scheduled job is
+  now stored as a fingerprint that holds no instruction text, and answers for jobs deleted on another device are
+  forgotten the next time the job list loads. Answers you gave before this update still count (§818).
 - **A shared scheduled job now runs on a device only after you accept it there.** Each job in Settings → Scheduled jobs
   shows whether this device accepted it, with Accept, Stop and "Not on this device". A job you create is accepted on
   the device where you create it; changing a job's project or instruction asks every device again, including the one
