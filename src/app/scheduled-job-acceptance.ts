@@ -117,7 +117,7 @@ function acceptanceEntryValue(job: ScheduledJob, declined: boolean): string {
   return declined ? DECLINED_PREFIX + fingerprint : fingerprint;
 }
 
-/** Per portfolio and job key, the fingerprint of the version THIS DEVICE saved when it changed the job's project or instruction, until
+/** Per portfolio and job key, the `storedFingerprint` of the version THIS DEVICE saved when it changed the job's project or instruction, until
  *  this device answers. In localStorage, so it survives a reload and is shared by this device's tabs. Display-only: it
  *  picks the wording of a "changed" row and never decides whether a job runs, so any storage failure reads as "not
  *  edited here". */
@@ -161,15 +161,19 @@ export function isEditedHere(job: ScheduledJob, scope: string): boolean {
   return normalizeFingerprint(marks[k]) === storedFingerprint(jobFingerprint(job));
 }
 
-/** Rewrites one store's map: drops this portfolio's entries for jobs a successful read no longer holds, drops entries
- *  keyed by the job key alone (written before answers had a portfolio; they read as no answer and are never matched),
- *  and rewrites every value still holding fingerprint text as its hash. Writes nothing when nothing changed. */
+/** Rewrites one store's map: drops this portfolio's entries for jobs a successful read no longer holds (none when
+ *  `liveKeys` is null), drops entries keyed by the job key alone (written before answers had a portfolio; they read as
+ *  no answer and are never matched), and rewrites every value still holding fingerprint text as its hash. Writes
+ *  nothing when nothing changed.
+ *  ★ A read-modify-write of the whole map, like `record` and `forgetJob`: another tab's answer written between the read
+ *  and the write is lost. The window is one synchronous task, and once old text is rewritten a prune writes only when a
+ *  job is gone. */
 function pruneStore(
   storageKey: string,
   readStore: () => string,
   normalize: (v: string) => string,
   scope: string,
-  liveKeys: ReadonlySet<string>,
+  liveKeys: ReadonlySet<string> | null,
   seenBefore: ReadonlySet<string>,
 ): boolean {
   const before = parse(readStore());
@@ -179,7 +183,7 @@ function pruneStore(
   for (const [k, v] of Object.entries(before)) {
     const sep = k.lastIndexOf("|");
     const own = k.startsWith(prefix) && sep === prefix.length - 1;
-    const gone = own && !liveKeys.has(k.slice(prefix.length)) && seenBefore.has(k);
+    const gone = own && liveKeys !== null && !liveKeys.has(k.slice(prefix.length)) && seenBefore.has(k);
     if (sep < 0 || gone) {
       changed = true;
       continue;
@@ -199,7 +203,9 @@ function pruneStore(
 
 /** The entry keys of portfolio `scope` in both stores right now. Taken BEFORE a job list is read and handed to
  *  `pruneAnswers`, so an answer written while the read was under way (another tab creating a job and accepting it)
- *  is never taken for one whose job is gone. */
+ *  is never taken for one whose job is gone. ★ That assumes a read sees every save that landed before it began, which
+ *  holds for this device's local list and for Turso's primary; a lagging read would forget an answer, which fails
+ *  closed. */
 export function answerKeysOf(scope: string): ReadonlySet<string> {
   const prefix = `${scope}|`;
   return new Set([...Object.keys(parse(readRaw())), ...Object.keys(parse(readEditedRaw()))].filter((k) => k.startsWith(prefix)));
@@ -209,10 +215,10 @@ export function answerKeysOf(scope: string): ReadonlySet<string> {
  *  marks for that portfolio's jobs the list no longer holds (deleted on another device), if they were already stored
  *  when the read began (`seenBefore`, from `answerKeysOf`), and rewrites any value still holding instruction text as
  *  its hash. Other portfolios' entries are kept (rewritten the same way).
- *  ★ The caller skips an EMPTY list: a read that returned nothing (a new database, a response of the wrong shape) cannot
- *  tell "every job was deleted" from "nothing was read". A wrongly forgotten answer fails closed: its job waits for an
- *  OK again. */
-export function pruneAnswers(scope: string, liveKeys: ReadonlySet<string>, seenBefore: ReadonlySet<string>): void {
+ *  ★ The caller passes `liveKeys` null for an EMPTY list, which forgets nothing but still rewrites old text: a read
+ *  that returned nothing (a new database, a response of the wrong shape) cannot tell "every job was deleted" from
+ *  "nothing was read". A wrongly forgotten answer fails closed: its job waits for an OK again. */
+export function pruneAnswers(scope: string, liveKeys: ReadonlySet<string> | null, seenBefore: ReadonlySet<string>): void {
   const answers = pruneStore(ACCEPTANCE_KEY, readRaw, normalizeAnswer, scope, liveKeys, seenBefore);
   const marks = pruneStore(EDITED_HERE_KEY, readEditedRaw, normalizeFingerprint, scope, liveKeys, seenBefore);
   if (answers || marks) notify();

@@ -1644,13 +1644,15 @@
   - **What is stored:** per device, in localStorage `aipm-cockpit:scheduled-job-acceptance` (`scheduled-job-acceptance.ts`),
     keyed by portfolio AND the job's permanent key (`acceptanceScope`: the backend the list is read from, its
     database URL, or `local`; entry key `scope|key`): the SHA-256 of a fingerprint of project + instruction
-    (`storedFingerprint`, `"sha256:"` + hex; a time change keeps it), or `"declined:"` + that. ★★ The device keeps no
+    (`storedFingerprint`, `"sha256:"` + hex; a time change keeps it), or `"declined:"` + that. ★★ Nothing written stores
     instruction text (§818), and the hash is cryptographic on purpose: whoever can edit a shared job must not be
     able to write a different instruction with the same stored value. An entry written before §818 holds the
-    fingerprint text, which always starts with `[`, and reads as its hash, so earlier answers still count. ★ After a
-    successful, NON-EMPTY read of a portfolio's list, `pruneAnswers` (called in `useScheduledJobs`' `refresh`)
-    forgets that portfolio's answers and marks for jobs the list no longer holds, rewrites leftover text as its hash
-    and drops unscoped entries. It forgets only entries already stored when the read began (`answerKeysOf`), so
+    fingerprint text, which always starts with `[`, and reads as its hash, so earlier answers still count. ★ After every
+    successful read of a portfolio's list, `pruneAnswers` (called in `useScheduledJobs`' `refresh`) rewrites leftover
+    text as its hash in every portfolio and drops unscoped entries; only a NON-EMPTY read also forgets that
+    portfolio's answers and marks for jobs the list no longer holds (an empty read passes `liveKeys` null). So old
+    text survives only until the first successful read after the update. An older build reads every hashed answer as
+    `changed` (fails closed) and writes text again, which the next read here rewrites. It forgets only entries already stored when the read began (`answerKeysOf`), so
     another tab's create-and-accept during the read survives; a wrong forget fails closed. A portfolio never opened
     again keeps its (hashed) entries. ★★ A cloned database holds the same job keys, so an answer given in one
     portfolio never counts in another: an entry of another portfolio, or an older entry keyed by the job key alone,

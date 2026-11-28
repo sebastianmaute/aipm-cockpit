@@ -216,10 +216,10 @@ export function useScheduledJobs({ config, refreshOnFocus = false, trackSaving =
         const keys = new Set(list.map((j) => j.key));
         for (const gone of jobsRef.current) if (gone.key !== null && !keys.has(gone.key)) forgetLostDraft(jobSaveId(gone));
       }
-      // §818 — and forget this device's answers to jobs the portfolio no longer holds. Never on an empty read.
-      if (list.length > 0) {
-        pruneAnswers(scope, new Set(list.flatMap((j) => (j.key === null ? [] : [j.key]))), answeredBefore);
-      }
+      // §818 — and forget this device's answers to jobs the portfolio no longer holds (never on an empty read, which
+      // still rewrites any instruction text an earlier version stored as its hash).
+      const liveKeys = list.length > 0 ? new Set(list.flatMap((j) => (j.key === null ? [] : [j.key]))) : null;
+      pruneAnswers(scope, liveKeys, answeredBefore);
       setJobs(list);
       setJobsSource(backendOf(config));
       setFailedSource(undefined);

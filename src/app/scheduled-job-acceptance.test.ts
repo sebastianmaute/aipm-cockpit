@@ -336,6 +336,24 @@ describe("§818: the stores keep a hash, never the instruction, and forget jobs 
     expect(isEditedHere(j, "https://b.example")).toBe(true);
   });
 
+  it("a prune with no list to compare forgets nothing but still rewrites old text as its hash", () => {
+    const j = job({ instruction: SECRET });
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ [`${SCOPE}|k2`]: jobFingerprint(j) }));
+    localStorage.setItem(EDITED_HERE_KEY, JSON.stringify({ [`${SCOPE}|k2`]: jobFingerprint(j) }));
+    pruneAnswers(SCOPE, null, answerKeysOf(SCOPE));
+    expect(both()).not.toContain("Q3");
+    expect(acceptanceState(job({ key: "k2", instruction: SECRET }), SCOPE)).toBe("accepted");
+    expect(isEditedHere(job({ key: "k2", instruction: SECRET }), SCOPE)).toBe(true);
+  });
+
+  it("a prune that changes the stores re-renders the snapshot hook", () => {
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ [`${SCOPE}|k2`]: jobFingerprint(job()) }));
+    const { result } = renderHook(() => useAcceptanceSnapshot());
+    const before = result.current;
+    act(() => pruneAnswers(SCOPE, new Set(["k1"]), answerKeysOf(SCOPE)));
+    expect(result.current).not.toBe(before);
+  });
+
   it("pruning with nothing to change writes nothing", () => {
     const writes = vi.spyOn(Storage.prototype, "setItem");
     pruneAnswers(SCOPE, new Set(["k1"]), answerKeysOf(SCOPE));

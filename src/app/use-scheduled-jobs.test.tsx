@@ -723,6 +723,14 @@ describe("§818: a successful read forgets answers to jobs the portfolio no long
     expect(isAcceptedHere(result.current.jobs[0], SCOPE)).toBe(true);
   });
 
+  it("an empty read forgets nothing, and still leaves no instruction text an earlier version stored", async () => {
+    localStorage.setItem(ACCEPTANCE_KEY, JSON.stringify({ [`${SCOPE}|key-old`]: JSON.stringify(["p1", "Q3 secret"]) }));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(localStorage.getItem(ACCEPTANCE_KEY)).not.toContain("Q3");
+    expect(Object.keys(answers())).toEqual([`${SCOPE}|key-old`]);
+  });
+
   it("an empty read forgets nothing", async () => {
     acceptJob({ ...job1, key: "key-gone" } as ScheduledJob, SCOPE);
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
